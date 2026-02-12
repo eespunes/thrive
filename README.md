@@ -1,4 +1,4 @@
-# 📱 Product Backlog: Family Finance App (Detailed)
+# 📱 Product Backlog: Thrive (Detailed)
 
 **Proyecto:** Gestor de Finanzas Familiares (Android + Web)
 **Stack Tecnológico:** React Native (Expo) + Firebase (Firestore/Auth)
