@@ -1,0 +1,50 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android signing secrets
+android/key.properties
+android/upload-keystore.jks
+android/**/*.jks
+android/**/*.keystore
+*.jks
+*.keystore
+
+# iOS build artifacts
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+
+# Env / local secrets
+.env
+.env.*
+*.local
+
+# Python (local scripts)
+__pycache__/
+*.py[cod]
+
+# Local tool state
+.codex/
