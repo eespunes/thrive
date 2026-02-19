@@ -40,6 +40,8 @@ class HealthModule implements FeatureModule {
     return <FeatureRoute>[
       FeatureRoute(
         path: '/health',
+        requiresAuthentication: true,
+        requiresFamilyWorkspace: true,
         builder: (context) => HealthPage(
           controller: controller,
           brandAssetRegistry: brandAssetRegistry,
