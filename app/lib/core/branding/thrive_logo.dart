@@ -53,7 +53,11 @@ class ThriveLogo extends StatelessWidget {
                   'assetPath': assetPath,
                 },
               );
-              return const _LogoFallback(message: 'Logo no disponible');
+              return _LogoFallback(
+                message: 'Logo no disponible',
+                width: width,
+                height: height,
+              );
             }
 
             return SvgPicture.string(
@@ -65,21 +69,31 @@ class ThriveLogo extends StatelessWidget {
           },
         );
       },
-      failure: (failure) => _LogoFallback(message: failure.userMessage),
+      failure: (failure) => _LogoFallback(
+        message: failure.userMessage,
+        width: width,
+        height: height,
+      ),
     );
   }
 }
 
 class _LogoFallback extends StatelessWidget {
-  const _LogoFallback({required this.message});
+  const _LogoFallback({
+    required this.message,
+    required this.width,
+    required this.height,
+  });
 
   final String message;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 168,
-      height: 54,
+      width: width,
+      height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: Colors.white,

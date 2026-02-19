@@ -20,7 +20,7 @@ abstract final class ThriveTheme {
       code: 'theme_loaded',
       message: 'Design tokens loaded on app start',
       metadata: <String, Object?>{
-        'seedColor': ThriveColors.forest.value,
+        'seedColor': ThriveColors.forest.toARGB32(),
         'titleFontFamily': ThriveTypography.titleFontFamily,
         'bodyFontFamily': ThriveTypography.bodyFontFamily,
       },
