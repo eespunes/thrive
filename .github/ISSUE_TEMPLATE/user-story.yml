@@ -1,0 +1,58 @@
+name: User Story
+about: Create a user story aligned with roadmap phases
+labels: ["type:user-story", "status:ready"]
+body:
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - phase:1
+        - phase:2
+        - phase:3
+        - phase:4
+    validations:
+      required: true
+  - type: input
+    id: story_id
+    attributes:
+      label: Story ID
+      description: Example p1-us-06
+      placeholder: p1-us-xx
+    validations:
+      required: true
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User Story
+      description: As a ..., I want ..., so that ...
+      placeholder: As a family member, I want...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: One criterion per line
+      placeholder: |
+        - Given ... When ... Then ...
+        - Given ... When ... Then ...
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority:P0
+        - priority:P1
+        - priority:P2
+        - priority:P3
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Issues, specs, or blockers
+      placeholder: '#10, p0-tech-09, Firebase rules'
