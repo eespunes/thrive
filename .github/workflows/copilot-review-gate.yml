@@ -13,17 +13,18 @@ permissions:
   pull-requests: write
 
 jobs:
-  request-copilot-review:
+  request-copilot-and-assign-owner:
     if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
-      - name: Request Copilot reviewer automatically
+      - name: Request Copilot reviewer and assign owner
         uses: actions/github-script@v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.payload.pull_request.number;
+            const ownerUser = "eespunes";
 
             const reviewerCandidates = [
               "copilot-pull-request-reviewer[bot]",
@@ -47,6 +48,7 @@ jobs:
               } catch (error) {
                 const msg = String(error?.message || "");
                 const lower = msg.toLowerCase();
+
                 if (
                   lower.includes("already requested") ||
                   lower.includes("has already been requested") ||
@@ -56,20 +58,32 @@ jobs:
                   requested = true;
                   break;
                 }
-                if (
-                  msg.includes("Reviews may only be requested from collaborators")
-                ) {
+
+                if (msg.includes("Reviews may only be requested from collaborators")) {
                   core.info(`Skipping ${reviewer}: ${msg}`);
                   continue;
                 }
+
                 core.warning(`Could not request ${reviewer}: ${msg}`);
               }
             }
 
             if (!requested) {
-              core.setFailed(
-                "Failed to request a Copilot reviewer automatically. Check repo Copilot settings and reviewer availability.",
+              core.warning(
+                "Could not auto-request Copilot reviewer. Check repo Copilot settings and reviewer availability.",
               );
+            }
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: pull_number,
+                assignees: [ownerUser],
+              });
+              core.info(`Assigned ${ownerUser} to PR #${pull_number}`);
+            } catch (error) {
+              core.warning(`Could not assign ${ownerUser}: ${error.message}`);
             }
 
   copilot-review-required:
