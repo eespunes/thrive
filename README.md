@@ -1,83 +1,90 @@
 # Thrive
 
-Thrive es una app de finanzas familiares para Android e iOS que reemplaza el flujo actual en Excel con colaboración multiusuario, sincronización en tiempo real y soporte offline.
+<p align="center">
+  <img src="logos/thrive-colored.svg" alt="Thrive Logo" width="180" />
+</p>
 
-## Vision
-Construir un "Family OS": empezar por finanzas compartidas y evolucionar hacia una plataforma integral para la gestion del hogar.
+<p align="center">
+  App de finanzas familiares para Android e iOS, diseñada para reemplazar el flujo actual en Excel.
+</p>
 
-## Problema Que Resuelve
-- Registro financiero familiar disperso en hojas de calculo.
-- Dificultad para saber quien pago que y cuanto falta por ajustar.
-- Seguimiento manual de deudas, ingresos recurrentes y gastos del dia a dia.
+## Resumen
+Thrive centraliza la gestión financiera del hogar en una app móvil colaborativa: movimientos, presupuestos, deudas, gastos fijos, metas y organización familiar por fases.
 
-## Solucion
-- Gestion de movimientos (gastos e ingresos) con captura rapida.
-- Espacios familiares compartidos con roles y wallets.
-- Debt tracker para pasivos y progreso de pago.
-- Settlement de pareja para balance mensual y liquidacion.
-- Base tecnica para experiencia offline-first en mobil.
+## Visión
+Construir un **Family OS**: empezar por finanzas compartidas y evolucionar a una plataforma integral de gestión del hogar.
 
-## Stack Tecnologico
-- Frontend: Flutter (Dart) para Android + iOS
-- Backend: Firebase (Auth + Firestore + Cloud Functions)
-- Estado y datos: Riverpod + repositorios para acceso a datos
-- Estilos/UI: Material 3 con tema personalizado
-- Deployment: CI/CD para Android e iOS (GitHub Actions/Codemagic + Fastlane)
+## Problema
+- Información dispersa en hojas de cálculo.
+- Dificultad para saber quién pagó qué y qué queda pendiente.
+- Seguimiento manual de deudas, recurrencias y cierres de mes.
 
-## Alcance Del MVP (Fase 1)
-- Autenticacion con Google y perfil de usuario.
-- Creacion y union a "hogares" (workspace familiar).
-- CRUD de wallets con cuenta por defecto.
-- Registro rapido de gastos, ingresos y recurrencias.
-- Seguimiento de deudas con estimacion de fin.
-- Dashboard de balance entre pareja (settlement).
-- Feed de movimientos y modo compacto mobil.
-- Fundaciones tecnicas: seguridad Firestore, CI/CD, offline-first.
+## Solución
+- Registro rápido de ingresos y gastos con categorías.
+- Workspace familiar compartido con roles.
+- Seguimiento de deudas, gastos fijos y metas de ahorro.
+- Balance mensual esperado vs real y pendientes de pago.
+- Base técnica para sincronización en tiempo real y soporte offline.
+
+## Stack tecnológico
+- **Frontend:** Flutter (Dart) para Android + iOS
+- **Estado:** Riverpod + patrón repositorio
+- **Backend:** Firebase (Auth, Firestore, Cloud Functions)
+- **UI:** Material 3 con branding Thrive
+- **CI/CD:** GitHub Actions (Android) y pipeline de releases
 
 ## Roadmap
+### Fase 1: MVP Finanzas (Core)
+Objetivo: reemplazar el Excel familiar con un flujo móvil estable y colaborativo.
+- Autenticación y onboarding familiar
+- Dashboard mensual y movimientos
+- Deudas, gastos fijos, reportes y metas
+- Ajustes, miembros y perfiles locales
 
-## 🟢 Fase 1: MVP Finanzas (Core)
-**Objetivo:** Crear una base sólida, rápida y útil que reemplace al Excel actual.
-* **Autenticación:** Login Social (Google) y gestión de perfiles.
-* **Dashboard:** Visión general de saldo, gastos del mes y accesos rápidos.
-* **Movimientos:** Registro de ingresos y gastos con categorías.
-* **Deudas (Debt Tracker):** Seguimiento de préstamos y objetivos a largo plazo.
-* **Balance (Settlement):** Cálculo automático de "quién debe a quién" entre la pareja.
-* **Ajustes:** Configuración de familia y moneda.
+### Fase 2: Engagement y gestión del hogar
+Objetivo: aumentar el uso diario más allá del registro financiero.
+- Lista de compra conectada a presupuesto
+- Comparador de cesta entre supermercados
+- Tareas compartidas del hogar
 
----
+### Fase 3: Organización familiar
+Objetivo: centralizar planificación y calendario familiar.
+- Calendario compartido
+- Sincronización de eventos financieros
+- Importación de calendarios externos
 
-## 🟡 Fase 2: Engagement & Gestión del Hogar
-**Objetivo:** Generar uso diario y resolver la gestión doméstica más allá del dinero.
-* **Listas Inteligentes:**
-    * Lista de la Compra conectada a presupuestos (ver gasto estimado en tiempo real), con supermercados favoritos/cercanos y búsqueda de productos por supermercado.
-    * Comparador de cesta por supermercado (ej: Albert Heijn, Poiesz, Aldi, Jumbo) con indicador de actualización/confianza de precios.
-    * Listas de tareas compartidas.
+### Fase 4: Inteligencia
+Objetivo: convertir datos en acciones y recomendaciones útiles.
+- Chat contextual sobre finanzas
+- OCR de tickets/facturas
+- Briefing diario proactivo
+- Simulaciones de escenarios
 
----
+## Estado actual
+- Definición funcional y técnica en progreso con OpenSpec.
+- Backlog estructurado por fases con épicas e issues en GitHub.
+- Base Flutter iniciada y branding integrado.
 
-## 🟠 Fase 3: Organización
-**Objetivo:** Centralizar la gestión del tiempo familiar.
-* **Calendario Compartido:**
-    * Eventos familiares (Médicos, Cumpleaños, Reuniones escolares).
-    * Sincronización con eventos financieros (ej: vencimiento de facturas).
+## Documentación
+- Specs OpenSpec: `openspec/specs/`
+- Índice de specs: `openspec/specs/README.md`
+- Setup Android release: `.github/ANDROID_RELEASE_SETUP.md`
 
----
+## Estructura del repositorio
+```text
+thrive/
+├── app/                  # App Flutter
+├── openspec/specs/       # Especificaciones funcionales y técnicas
+├── mockups/              # Referencias visuales y diagrama de flujo
+└── .github/              # Workflows y plantillas de GitHub
+```
 
-## 🟣 Fase 4: Inteligencia (Gemini AI Agent)
-**Objetivo:** Convertir los datos en conversaciones y acciones proactivas.
-* **Chat Contextual:** Preguntar a la app sobre tus datos (*"¿Cuánto gastamos en comer fuera el mes pasado?"*).
-* **OCR Inteligente:** Escaneo de tickets y facturas con extracción automática de datos.
-* **Briefing Matutino:** Resumen diario proactivo (*"Hoy tienes dentista a las 10:00 y recuerda que vence el seguro del coche"*).
-* **Simulaciones:** Escenarios "What if" (*"¿Podemos permitirnos un coche nuevo?"*).
+## Cómo ejecutar (local)
+```bash
+cd app
+flutter pub get
+flutter run
+```
 
-## Estado Del Proyecto
-- Estado: definicion funcional y tecnica del MVP.
-- Especificaciones: disponibles en OpenSpec.
-- Ruta: `openspec/specs/`
-
-## Documentacion Relacionada
-- Specs funcionales (OpenSpec): `/Users/erikespunesjubero/thrive/openspec/specs/`
-
-## Notas
-El backlog detallado de user stories y features se modela y valida en OpenSpec para mantener trazabilidad de requisitos por modulo.
+## Licencia
+Privado / uso interno del proyecto.

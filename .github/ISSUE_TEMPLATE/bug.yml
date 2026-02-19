@@ -1,0 +1,46 @@
+name: Bug Report
+about: Report a defect with reproducible steps
+labels: ["bug", "status:ready"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Android/iOS, version, device
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - priority:P0
+        - priority:P1
+        - priority:P2
+        - priority:P3

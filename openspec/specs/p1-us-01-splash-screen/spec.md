@@ -1,6 +1,9 @@
 ## Purpose
 Present a branded splash entry that initializes app session and routes users to the proper next screen.
 
+## Visual Assets
+- `app/assets/logos/thrive-unicolor.svg` (splash primary mark)
+
 ## Requirements
 ### Requirement: Branded splash presentation
 The app SHALL show the Thrive brand splash screen at app startup.

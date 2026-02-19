@@ -1,6 +1,9 @@
 ## Purpose
 Authenticate users quickly with social sign-in and optional email sign-in entry.
 
+## Visual Assets
+- `app/assets/logos/thrive-colored.svg` (login header brand mark)
+
 ## Requirements
 ### Requirement: Google login entrypoint
 The login screen SHALL provide a primary "Continue with Google" action.

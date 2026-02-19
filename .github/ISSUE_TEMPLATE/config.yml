@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Thrive Support Notes
+    url: https://github.com/eespunes/thrive/blob/main/README.md
+    about: Review project context and roadmap before opening an issue.

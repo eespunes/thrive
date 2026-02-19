@@ -1,0 +1,45 @@
+name: Epic
+about: Create an epic grouping related user stories
+labels: ["type:epic", "status:ready"]
+body:
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - phase:0
+        - phase:1
+        - phase:2
+        - phase:3
+        - phase:4
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: Outcome this epic must achieve
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: In-scope and out-of-scope bullets
+    validations:
+      required: true
+  - type: textarea
+    id: child_issues
+    attributes:
+      label: Child Issues
+      description: Checklist of linked issues
+      placeholder: |
+        - [ ] #123
+        - [ ] #124
+    validations:
+      required: true
+  - type: textarea
+    id: done_definition
+    attributes:
+      label: Definition of Done
+      description: Measurable completion criteria
