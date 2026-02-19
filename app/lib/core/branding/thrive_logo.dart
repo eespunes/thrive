@@ -7,7 +7,7 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 
 typedef SvgAssetLoader = Future<String> Function(String assetPath);
 
-class ThriveLogo extends StatelessWidget {
+class ThriveLogo extends StatefulWidget {
   const ThriveLogo({
     required this.registry,
     required this.logger,
@@ -26,20 +26,67 @@ class ThriveLogo extends StatelessWidget {
   final SvgAssetLoader? assetLoader;
 
   @override
+  State<ThriveLogo> createState() => _ThriveLogoState();
+}
+
+class _ThriveLogoState extends State<ThriveLogo> {
+  String? _cachedAssetPath;
+  SvgAssetLoader? _cachedLoader;
+  Future<String>? _cachedFuture;
+
+  Future<String> _loadWithLogging({
+    required String assetPath,
+    required SvgAssetLoader loader,
+  }) async {
+    try {
+      return await loader(assetPath);
+    } catch (error) {
+      widget.logger.error(
+        code: 'brand_asset_render_failed',
+        message: 'Failed to render Thrive logo asset.',
+        metadata: <String, Object?>{
+          'variant': widget.variant.name,
+          'assetPath': assetPath,
+          'error': error.toString(),
+        },
+      );
+      rethrow;
+    }
+  }
+
+  Future<String> _logoFuture({
+    required String assetPath,
+    required SvgAssetLoader loader,
+  }) {
+    final shouldRefresh =
+        _cachedFuture == null ||
+        _cachedAssetPath != assetPath ||
+        !identical(_cachedLoader, loader);
+
+    if (shouldRefresh) {
+      _cachedAssetPath = assetPath;
+      _cachedLoader = loader;
+      _cachedFuture = _loadWithLogging(assetPath: assetPath, loader: loader);
+    }
+
+    return _cachedFuture!;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final pathResult = registry.logoPath(variant);
+    final pathResult = widget.registry.logoPath(widget.variant);
 
     return pathResult.when(
       success: (assetPath) {
-        final load = assetLoader ?? rootBundle.loadString;
+        final load = widget.assetLoader ?? rootBundle.loadString;
 
         return FutureBuilder<String>(
-          future: load(assetPath),
+          future: _logoFuture(assetPath: assetPath, loader: load),
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return SizedBox(
-                width: width,
-                height: height,
+                width: widget.width,
+                height: widget.height,
                 child: const Center(
                   child: CircularProgressIndicator(
                     semanticsLabel: 'Loading logo',
@@ -49,26 +96,17 @@ class ThriveLogo extends StatelessWidget {
             }
 
             if (snapshot.hasError || !snapshot.hasData) {
-              logger.error(
-                code: 'brand_asset_render_failed',
-                message: 'Failed to render Thrive logo asset.',
-                metadata: <String, Object?>{
-                  'variant': variant.name,
-                  'assetPath': assetPath,
-                  'error': snapshot.error?.toString(),
-                },
-              );
               return _LogoFallback(
                 message: 'Logo no disponible',
-                width: width,
-                height: height,
+                width: widget.width,
+                height: widget.height,
               );
             }
 
             return SvgPicture.string(
               snapshot.data!,
-              width: width,
-              height: height,
+              width: widget.width,
+              height: widget.height,
               semanticsLabel: 'Thrive logo',
             );
           },
@@ -76,8 +114,8 @@ class ThriveLogo extends StatelessWidget {
       },
       failure: (failure) => _LogoFallback(
         message: failure.userMessage,
-        width: width,
-        height: height,
+        width: widget.width,
+        height: widget.height,
       ),
     );
   }
