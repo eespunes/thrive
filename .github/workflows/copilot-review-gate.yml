@@ -1,6 +1,8 @@
 name: Copilot Review Gate
 
 on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   pull_request_review:
@@ -8,11 +10,57 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
+  request-copilot-and-assign-owner:
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Copilot reviewer and assign owner
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+            const ownerUser = "eespunes";
+
+            const reviewerCandidates = [
+              "copilot-pull-request-reviewer[bot]",
+              "Copilot",
+              "github-copilot[bot]"
+            ];
+
+            for (const reviewer of reviewerCandidates) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number,
+                  reviewers: [reviewer],
+                });
+                core.info(`Requested reviewer: ${reviewer}`);
+                break;
+              } catch (error) {
+                core.warning(`Could not request ${reviewer}: ${error.message}`);
+              }
+            }
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number: pull_number,
+                assignees: [ownerUser],
+              });
+              core.info(`Assigned ${ownerUser} to PR #${pull_number}`);
+            } catch (error) {
+              core.warning(`Could not assign ${ownerUser}: ${error.message}`);
+            }
+
   copilot-review-required:
-    if: github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Ensure Copilot reviewed this PR
