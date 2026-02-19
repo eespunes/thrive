@@ -30,7 +30,7 @@ jobs:
             "repos/${OWNER}/${NAME}/pulls/${PR_NUMBER}/reviews" \
             --jq '.')
 
-          copilot_reviews=$(echo "$reviews_json" | jq '[.[] | select(.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer")] | length')
+          copilot_reviews=$(echo "$reviews_json" | jq '[.[] | select(.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]")] | length')
 
           if [ "$copilot_reviews" -ge 1 ]; then
             echo "Copilot review found ($copilot_reviews)."
