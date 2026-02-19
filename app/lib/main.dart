@@ -15,14 +15,16 @@ void main() {
   final brandAssetRegistry = BrandAssetRegistry(logger: logger);
   ThriveBranding.registerOfficialAssets(brandAssetRegistry);
   final theme = ThriveTheme.build(logger: logger);
-  const routeGuardState = AppRouteGuardState(
-    isAuthenticated: bool.fromEnvironment(
-      'THRIVE_AUTHENTICATED',
-      defaultValue: false,
-    ),
-    hasActiveFamilyWorkspace: bool.fromEnvironment(
-      'THRIVE_HAS_ACTIVE_FAMILY_WORKSPACE',
-      defaultValue: false,
+  final routeGuardState = ValueNotifier<AppRouteGuardState>(
+    const AppRouteGuardState(
+      isAuthenticated: bool.fromEnvironment(
+        'THRIVE_AUTHENTICATED',
+        defaultValue: false,
+      ),
+      hasActiveFamilyWorkspace: bool.fromEnvironment(
+        'THRIVE_HAS_ACTIVE_FAMILY_WORKSPACE',
+        defaultValue: false,
+      ),
     ),
   );
 
@@ -35,7 +37,7 @@ void main() {
       theme: theme,
       brandAssetRegistry: brandAssetRegistry,
       logger: logger,
-      routeGuardStateReader: () => routeGuardState,
+      routeGuardStateReader: () => routeGuardState.value,
     ),
   );
 }

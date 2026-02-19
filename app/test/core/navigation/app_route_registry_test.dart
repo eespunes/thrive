@@ -91,6 +91,31 @@ void main() {
     expect(guardEvent.metadata['reason'], 'family_workspace_required');
   });
 
+  testWidgets(
+    'redirects to login when accessing family workspace unauthenticated',
+    (tester) async {
+      final logger = InMemoryAppLogger();
+      final app = _buildApp(
+        logger: logger,
+        state: const AppRouteGuardState(
+          isAuthenticated: false,
+          hasActiveFamilyWorkspace: true,
+        ),
+      );
+
+      await tester.pumpWidget(app);
+      await tester.pumpAndSettle();
+
+      final navigatorState = tester.state<NavigatorState>(
+        find.byType(Navigator),
+      );
+      navigatorState.pushNamed('/family/workspace');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Login'), findsOneWidget);
+    },
+  );
+
   testWidgets('normalizes deep-link route names with query params', (
     tester,
   ) async {

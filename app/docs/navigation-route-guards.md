@@ -32,6 +32,12 @@
 - If navigation already provides custom `arguments`, they are preserved and merged.
 - Example: `/health?source=push` resolves to `/health`.
 
+## Guard Redirect Argument Policy
+
+- Guard redirects to `/login` or `/family/workspace` clear route arguments.
+- This prevents leaking original deep-link payloads to authentication/workspace setup views.
+- The original requested route is still captured in observability metadata for diagnostics.
+
 ## Fallback Behavior for Unknown Routes
 
 - Unknown paths render a safe fallback screen with recovery action ("Go Home").
@@ -43,4 +49,5 @@
 - `route_navigation_resolved` logs every successful route resolution.
 - `route_guard_blocked` logs guard denials with reason and resolved fallback path.
 - `route_unknown_fallback` logs unknown path requests.
+- Unknown-route fallback logs `resolvedPath` as `unknown_fallback`.
 - Each log must include `requestedPath`, `resolvedPath`, and deterministic `outcome`.

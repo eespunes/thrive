@@ -89,7 +89,7 @@ class AppRouteRegistry {
         message: 'Unknown route requested; rendering safe fallback',
         metadata: <String, Object?>{
           'requestedPath': requestedPath,
-          'resolvedPath': AppRoutePaths.home,
+          'resolvedPath': 'unknown_fallback',
           'outcome': RouteResolutionOutcome.unknownRouteFallback.name,
         },
       );
@@ -130,10 +130,7 @@ class AppRouteRegistry {
       );
 
       return MaterialPageRoute<void>(
-        settings: RouteSettings(
-          name: redirectPath,
-          arguments: resolvedArguments,
-        ),
+        settings: RouteSettings(name: redirectPath, arguments: null),
         builder: (context) => redirectRoute.builder(context),
       );
     }
