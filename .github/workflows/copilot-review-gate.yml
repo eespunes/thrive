@@ -1,6 +1,7 @@
 name: Copilot Review Gate
 
 on:
+  # Runs with base-repo token to request reviewers safely (no checkout of PR code).
   pull_request_target:
     types: [opened, reopened, ready_for_review, synchronize]
   pull_request:
@@ -10,12 +11,15 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   request-copilot-and-assign-owner:
     if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Request Copilot reviewer and assign owner
         uses: actions/github-script@v7
@@ -89,8 +93,11 @@ jobs:
   copilot-review-required:
     if: github.event_name != 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - name: Ensure Copilot reviewed this PR
+      - name: Monitor Copilot review status for current head
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -100,18 +107,45 @@ jobs:
 
           OWNER="${REPO%%/*}"
           NAME="${REPO##*/}"
+          head_sha=$(gh api "repos/${OWNER}/${NAME}/pulls/${PR_NUMBER}" --jq '.head.sha')
 
           reviews_json=$(gh api \
             "repos/${OWNER}/${NAME}/pulls/${PR_NUMBER}/reviews" \
             --jq '.')
 
-          copilot_reviews=$(echo "$reviews_json" | jq '[.[] | select(.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]")] | length')
+          copilot_reviews_on_head=$(echo "$reviews_json" | jq --arg head "$head_sha" '[.[] | select((.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]") and .commit_id == $head)] | length')
 
-          if [ "$copilot_reviews" -ge 1 ]; then
-            echo "Copilot review found ($copilot_reviews)."
+          if [ "$copilot_reviews_on_head" -lt 1 ]; then
+            echo "Copilot review pending for current head: ${head_sha}"
+            echo "Monitoring active; waiting for Copilot to submit review."
             exit 0
           fi
 
-          echo "Copilot review is required before merge."
-          echo "Request a review from Copilot in the PR reviewers panel."
-          exit 1
+          threads_json=$(gh api graphql -f query='
+            query($owner: String!, $repo: String!, $pr: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $pr) {
+                  reviewThreads(first: 100) {
+                    nodes {
+                      isResolved
+                      comments(first: 20) {
+                        nodes {
+                          author {
+                            login
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -F owner="$OWNER" -F repo="$NAME" -F pr="$PR_NUMBER")
+
+          unresolved_copilot_threads=$(echo "$threads_json" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select([.comments.nodes[].author.login] | any(. == "github-copilot[bot]" or . == "copilot-pull-request-reviewer" or . == "copilot-pull-request-reviewer[bot]"))] | length')
+
+          if [ "$unresolved_copilot_threads" -gt 0 ]; then
+            echo "Copilot has ${unresolved_copilot_threads} unresolved review thread(s)."
+            exit 1
+          fi
+
+          echo "Copilot review is present for head ${head_sha} and has no unresolved threads."

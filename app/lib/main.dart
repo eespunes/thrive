@@ -4,6 +4,7 @@ import 'package:thrive_app/core/architecture/module_registry.dart';
 import 'package:thrive_app/core/branding/brand_asset_registry.dart';
 import 'package:thrive_app/core/branding/thrive_branding.dart';
 import 'package:thrive_app/core/design_system/thrive_theme.dart';
+import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
@@ -14,6 +15,18 @@ void main() {
   final brandAssetRegistry = BrandAssetRegistry(logger: logger);
   ThriveBranding.registerOfficialAssets(brandAssetRegistry);
   final theme = ThriveTheme.build(logger: logger);
+  final routeGuardState = ValueNotifier<AppRouteGuardState>(
+    const AppRouteGuardState(
+      isAuthenticated: bool.fromEnvironment(
+        'THRIVE_AUTHENTICATED',
+        defaultValue: false,
+      ),
+      hasActiveFamilyWorkspace: bool.fromEnvironment(
+        'THRIVE_HAS_ACTIVE_FAMILY_WORKSPACE',
+        defaultValue: false,
+      ),
+    ),
+  );
 
   final registry = ModuleRegistry(logger: logger)
     ..registerModule(HealthModule(brandAssetRegistry: brandAssetRegistry));
@@ -24,6 +37,7 @@ void main() {
       theme: theme,
       brandAssetRegistry: brandAssetRegistry,
       logger: logger,
+      routeGuardStateReader: () => routeGuardState.value,
     ),
   );
 }

@@ -4,6 +4,7 @@ import 'package:thrive_app/core/architecture/module_registry.dart';
 import 'package:thrive_app/core/branding/brand_asset_registry.dart';
 import 'package:thrive_app/core/branding/thrive_branding.dart';
 import 'package:thrive_app/core/design_system/thrive_theme.dart';
+import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
@@ -22,6 +23,10 @@ void main() {
         theme: theme,
         brandAssetRegistry: brandAssetRegistry,
         logger: logger,
+        routeGuardStateReader: () => const AppRouteGuardState(
+          isAuthenticated: true,
+          hasActiveFamilyWorkspace: true,
+        ),
       ),
     );
 

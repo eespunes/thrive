@@ -6,7 +6,7 @@ class ModuleRegistry {
   ModuleRegistry({required AppLogger logger}) : _logger = logger;
 
   final AppLogger _logger;
-  final Map<String, FeatureRouteBuilder> _routes = {};
+  final Map<String, FeatureRoute> _routes = {};
 
   void registerModule(FeatureModule module) {
     module.configure(_logger);
@@ -15,7 +15,7 @@ class ModuleRegistry {
       if (_routes.containsKey(route.path)) {
         throw StateError('Route already registered: ${route.path}');
       }
-      _routes[route.path] = route.builder;
+      _routes[route.path] = route;
     }
 
     _logger.info(
@@ -31,11 +31,15 @@ class ModuleRegistry {
   Map<String, WidgetBuilder> buildRoutes() {
     return Map<String, WidgetBuilder>.unmodifiable(
       _routes.map(
-        (path, builder) => MapEntry<String, WidgetBuilder>(
+        (path, route) => MapEntry<String, WidgetBuilder>(
           path,
-          (context) => builder(context),
+          (context) => route.builder(context),
         ),
       ),
     );
+  }
+
+  List<FeatureRoute> buildFeatureRoutes() {
+    return List<FeatureRoute>.unmodifiable(_routes.values);
   }
 }
