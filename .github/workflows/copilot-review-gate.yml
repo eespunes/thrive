@@ -1,6 +1,8 @@
 name: Copilot Review Gate
 
 on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   pull_request_review:
@@ -8,11 +10,70 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
+  request-copilot-review:
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Copilot reviewer automatically
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const reviewerCandidates = [
+              "copilot-pull-request-reviewer[bot]",
+              "Copilot",
+              "github-copilot[bot]"
+            ];
+
+            let requested = false;
+
+            for (const reviewer of reviewerCandidates) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number,
+                  reviewers: [reviewer],
+                });
+                core.info(`Requested reviewer: ${reviewer}`);
+                requested = true;
+                break;
+              } catch (error) {
+                const msg = String(error?.message || "");
+                const lower = msg.toLowerCase();
+                if (
+                  lower.includes("already requested") ||
+                  lower.includes("has already been requested") ||
+                  lower.includes("review has already been requested")
+                ) {
+                  core.info(`Reviewer already requested (${reviewer}).`);
+                  requested = true;
+                  break;
+                }
+                if (
+                  msg.includes("Reviews may only be requested from collaborators")
+                ) {
+                  core.info(`Skipping ${reviewer}: ${msg}`);
+                  continue;
+                }
+                core.warning(`Could not request ${reviewer}: ${msg}`);
+              }
+            }
+
+            if (!requested) {
+              core.setFailed(
+                "Failed to request a Copilot reviewer automatically. Check repo Copilot settings and reviewer availability.",
+              );
+            }
+
   copilot-review-required:
-    if: github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request_target' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Ensure Copilot reviewed this PR
