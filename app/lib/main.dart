@@ -8,6 +8,8 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   final logger = InMemoryAppLogger();
   final brandAssetRegistry = BrandAssetRegistry(logger: logger);
   ThriveBranding.registerOfficialAssets(brandAssetRegistry);
