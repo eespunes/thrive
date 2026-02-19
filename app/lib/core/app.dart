@@ -8,7 +8,7 @@ import 'package:thrive_app/core/design_system/design_tokens.dart';
 import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 
-class ThriveApp extends StatelessWidget {
+class ThriveApp extends StatefulWidget {
   const ThriveApp({
     required this.registry,
     required this.theme,
@@ -25,26 +25,57 @@ class ThriveApp extends StatelessWidget {
   final AppRouteGuardStateReader routeGuardStateReader;
 
   @override
-  Widget build(BuildContext context) {
-    final routeRegistry = AppRouteRegistry(
-      featureRoutes: registry.buildFeatureRoutes(),
-      logger: logger,
-      routeGuardStateReader: routeGuardStateReader,
-      homeBuilder: (context) =>
-          _HomePage(brandAssetRegistry: brandAssetRegistry, logger: logger),
-      loginBuilder: (context) =>
-          _LoginPage(brandAssetRegistry: brandAssetRegistry, logger: logger),
+  State<ThriveApp> createState() => _ThriveAppState();
+}
+
+class _ThriveAppState extends State<ThriveApp> {
+  late AppRouteRegistry _routeRegistry;
+
+  @override
+  void initState() {
+    super.initState();
+    _routeRegistry = _buildRouteRegistry();
+  }
+
+  @override
+  void didUpdateWidget(covariant ThriveApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final shouldRebuildRegistry =
+        oldWidget.registry != widget.registry ||
+        oldWidget.logger != widget.logger ||
+        oldWidget.brandAssetRegistry != widget.brandAssetRegistry ||
+        oldWidget.routeGuardStateReader != widget.routeGuardStateReader;
+    if (shouldRebuildRegistry) {
+      _routeRegistry = _buildRouteRegistry();
+    }
+  }
+
+  AppRouteRegistry _buildRouteRegistry() {
+    return AppRouteRegistry(
+      featureRoutes: widget.registry.buildFeatureRoutes(),
+      logger: widget.logger,
+      routeGuardStateReader: widget.routeGuardStateReader,
+      homeBuilder: (context) => _HomePage(
+        brandAssetRegistry: widget.brandAssetRegistry,
+        logger: widget.logger,
+      ),
+      loginBuilder: (context) => _LoginPage(
+        brandAssetRegistry: widget.brandAssetRegistry,
+        logger: widget.logger,
+      ),
       familyWorkspaceBuilder: (context) => const _FamilyWorkspacePage(),
       unknownRouteBuilder: (context, requestedPath) =>
           _UnknownRoutePage(requestedPath: requestedPath),
     );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Thrive',
-      theme: theme,
+      theme: widget.theme,
       initialRoute: AppRoutePaths.home,
-      onGenerateRoute: routeRegistry.onGenerateRoute,
-      onUnknownRoute: routeRegistry.onGenerateRoute,
+      onGenerateRoute: _routeRegistry.onGenerateRoute,
     );
   }
 }

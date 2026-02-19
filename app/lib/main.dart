@@ -16,8 +16,14 @@ void main() {
   ThriveBranding.registerOfficialAssets(brandAssetRegistry);
   final theme = ThriveTheme.build(logger: logger);
   const routeGuardState = AppRouteGuardState(
-    isAuthenticated: true,
-    hasActiveFamilyWorkspace: true,
+    isAuthenticated: bool.fromEnvironment(
+      'THRIVE_AUTHENTICATED',
+      defaultValue: false,
+    ),
+    hasActiveFamilyWorkspace: bool.fromEnvironment(
+      'THRIVE_HAS_ACTIVE_FAMILY_WORKSPACE',
+      defaultValue: false,
+    ),
   );
 
   final registry = ModuleRegistry(logger: logger)

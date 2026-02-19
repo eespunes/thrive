@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:thrive_app/core/architecture/feature_module.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 
-class AppRoutePaths {
+abstract final class AppRoutePaths {
   static const String home = '/';
   static const String login = '/login';
   static const String familyWorkspace = '/family/workspace';
+
+  static const String queryParametersKey = 'queryParameters';
+  static const String originalArgumentsKey = 'originalArguments';
 }
 
 class AppRouteGuardState {
@@ -53,6 +56,8 @@ class AppRouteRegistry {
            requiresAuthentication: true,
          ),
        } {
+    // Reserved paths are managed by core and cannot be overwritten by modules:
+    // `/`, `/login`, `/family/workspace`.
     for (final route in featureRoutes) {
       if (_routes.containsKey(route.path)) {
         throw StateError(
@@ -69,7 +74,12 @@ class AppRouteRegistry {
   final Map<String, FeatureRoute> _routes;
 
   Route<dynamic> onGenerateRoute(RouteSettings settings) {
-    final requestedPath = _normalizePath(settings.name);
+    final parsedUri = _parseRouteUri(settings.name);
+    final requestedPath = _normalizePath(settings.name, parsedUri: parsedUri);
+    final resolvedArguments = _resolvedArguments(
+      arguments: settings.arguments,
+      parsedUri: parsedUri,
+    );
     final route = _routes[requestedPath];
     final state = routeGuardStateReader();
 
@@ -87,7 +97,7 @@ class AppRouteRegistry {
       return MaterialPageRoute<void>(
         settings: RouteSettings(
           name: requestedPath,
-          arguments: settings.arguments,
+          arguments: resolvedArguments,
         ),
         builder: (context) => unknownRouteBuilder(context, requestedPath),
       );
@@ -95,7 +105,12 @@ class AppRouteRegistry {
 
     final guardDecision = _evaluateGuards(route: route, state: state);
     if (!guardDecision.allowed) {
-      final redirectPath = guardDecision.redirectPath!;
+      final redirectPath = guardDecision.redirectPath;
+      if (redirectPath == null) {
+        throw StateError(
+          'Guard decision blocked navigation without a redirect route.',
+        );
+      }
       final redirectRoute = _routes[redirectPath];
       if (redirectRoute == null) {
         throw StateError('Missing redirect route: $redirectPath');
@@ -117,7 +132,7 @@ class AppRouteRegistry {
       return MaterialPageRoute<void>(
         settings: RouteSettings(
           name: redirectPath,
-          arguments: settings.arguments,
+          arguments: resolvedArguments,
         ),
         builder: (context) => redirectRoute.builder(context),
       );
@@ -136,7 +151,7 @@ class AppRouteRegistry {
     return MaterialPageRoute<void>(
       settings: RouteSettings(
         name: requestedPath,
-        arguments: settings.arguments,
+        arguments: resolvedArguments,
       ),
       builder: (context) => route.builder(context),
     );
@@ -165,12 +180,18 @@ class AppRouteRegistry {
     return const _GuardDecision.allowed();
   }
 
-  String _normalizePath(String? routeName) {
+  Uri? _parseRouteUri(String? routeName) {
+    if (routeName == null || routeName.trim().isEmpty) {
+      return null;
+    }
+    return Uri.tryParse(routeName.trim());
+  }
+
+  String _normalizePath(String? routeName, {Uri? parsedUri}) {
     if (routeName == null || routeName.trim().isEmpty) {
       return AppRoutePaths.home;
     }
 
-    final parsedUri = Uri.tryParse(routeName.trim());
     final candidatePath = parsedUri?.path ?? routeName.trim();
     if (candidatePath.isEmpty || candidatePath == '.') {
       return AppRoutePaths.home;
@@ -180,6 +201,30 @@ class AppRouteRegistry {
       return candidatePath;
     }
     return '/$candidatePath';
+  }
+
+  Object? _resolvedArguments({required Object? arguments, Uri? parsedUri}) {
+    final queryParameters = parsedUri?.queryParameters;
+    if (queryParameters == null || queryParameters.isEmpty) {
+      return arguments;
+    }
+
+    final preservedQuery = Map<String, String>.unmodifiable(queryParameters);
+    if (arguments is Map<Object?, Object?>) {
+      final merged = <String, Object?>{};
+      arguments.forEach((key, value) {
+        if (key != null) {
+          merged[key.toString()] = value;
+        }
+      });
+      merged[AppRoutePaths.queryParametersKey] = preservedQuery;
+      return Map<String, Object?>.unmodifiable(merged);
+    }
+
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      AppRoutePaths.queryParametersKey: preservedQuery,
+      AppRoutePaths.originalArgumentsKey: arguments,
+    });
   }
 }
 

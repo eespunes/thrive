@@ -17,10 +17,19 @@
 | `/family/workspace` | Requires authenticated user | Render workspace selection/create screen. | Redirect to `/login` if unauthenticated. |
 | `/health` | Requires authenticated user and active family workspace | Render health module. | Redirect to `/login` when unauthenticated; redirect to `/family/workspace` when workspace is missing. |
 
+## Reserved Core Paths
+
+- Core owns these paths and modules must not register them:
+  - `/`
+  - `/login`
+  - `/family/workspace`
+- If a module attempts to register one of these paths, startup fails fast with `StateError`.
+
 ## Deep Link Handling
 
 - Route matching uses normalized URI `path` only.
-- Query params are preserved in route settings arguments but ignored for route lookup.
+- Query params are preserved under `queryParameters` in `RouteSettings.arguments`.
+- If navigation already provides custom `arguments`, they are preserved and merged.
 - Example: `/health?source=push` resolves to `/health`.
 
 ## Fallback Behavior for Unknown Routes

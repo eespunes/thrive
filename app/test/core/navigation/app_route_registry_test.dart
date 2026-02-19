@@ -111,6 +111,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Health'), findsOneWidget);
+    expect(find.text('source: notification'), findsOneWidget);
   });
 
   testWidgets('renders unknown route fallback for unregistered routes', (
@@ -177,8 +178,30 @@ Widget _loginBuilder(BuildContext context) =>
 Widget _familyBuilder(BuildContext context) =>
     const Scaffold(body: Center(child: Text('Family')));
 
-Widget _healthBuilder(BuildContext context) =>
-    const Scaffold(body: Center(child: Text('Health')));
+Widget _healthBuilder(BuildContext context) {
+  final routeSettings = ModalRoute.of(context)?.settings;
+  final arguments = routeSettings?.arguments;
+  var sourceValue = 'none';
+
+  if (arguments is Map<Object?, Object?>) {
+    final queryParameters = arguments[AppRoutePaths.queryParametersKey];
+    if (queryParameters is Map<Object?, Object?>) {
+      final source = queryParameters['source'];
+      if (source is String && source.isNotEmpty) {
+        sourceValue = source;
+      }
+    }
+  }
+
+  return Scaffold(
+    body: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[Text('Health'), Text('source: $sourceValue')],
+      ),
+    ),
+  );
+}
 
 Widget _unknownBuilder(BuildContext context, String requestedPath) =>
     Scaffold(body: Center(child: Text('Unknown: $requestedPath')));
