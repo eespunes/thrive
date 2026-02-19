@@ -26,7 +26,8 @@ Minimum policy:
 - Heading: 28/1.2, weight 700
 - Body: 16/1.4, weight 400
 - Label: 15/1.2, weight 600
-- Default family: `Roboto`
+- Title family (Google Fonts): `Acme`
+- Body family: `Roboto`
 
 ## Operational Criteria
 

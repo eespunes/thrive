@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:thrive_app/core/design_system/design_tokens.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 
@@ -20,16 +21,21 @@ abstract final class ThriveTheme {
       message: 'Design tokens loaded on app start',
       metadata: <String, Object?>{
         'seedColor': ThriveColors.forest.toARGB32(),
-        'fontFamily': ThriveTypography.primaryFontFamily,
+        'titleFontFamily': ThriveTypography.titleFontFamily,
+        'bodyFontFamily': ThriveTypography.bodyFontFamily,
       },
     );
+
+    final heading = GoogleFonts.acme(textStyle: ThriveTypography.headingBase);
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: ThriveColors.cloud,
-      textTheme: const TextTheme(
-        headlineSmall: ThriveTypography.heading,
+      textTheme: TextTheme(
+        headlineLarge: heading.copyWith(fontSize: 32),
+        headlineMedium: heading.copyWith(fontSize: 30),
+        headlineSmall: heading,
         bodyMedium: ThriveTypography.body,
         labelLarge: ThriveTypography.label,
       ),
@@ -52,10 +58,11 @@ abstract final class ThriveTheme {
         shape: RoundedRectangleBorder(borderRadius: ThriveRadius.card),
         margin: EdgeInsets.zero,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: ThriveColors.midnight,
         elevation: 0,
+        titleTextStyle: heading.copyWith(fontSize: 22),
       ),
     );
   }

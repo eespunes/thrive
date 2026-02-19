@@ -12,6 +12,7 @@ Source of truth: `lib/core/design_system/design_tokens.dart`
 - Spacing: `ThriveSpacing`
 - Radius: `ThriveRadius`
 - Typography baseline: `ThriveTypography`
+- Titles use `Acme` (Google Fonts) as the official heading family.
 
 ## Component Primitives
 

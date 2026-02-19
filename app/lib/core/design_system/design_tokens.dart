@@ -23,10 +23,10 @@ abstract final class ThriveRadius {
 }
 
 abstract final class ThriveTypography {
-  static const String primaryFontFamily = 'Roboto';
+  static const String titleFontFamily = 'Acme';
+  static const String bodyFontFamily = 'Roboto';
 
-  static const TextStyle heading = TextStyle(
-    fontFamily: primaryFontFamily,
+  static const TextStyle headingBase = TextStyle(
     fontSize: 28,
     height: 1.2,
     fontWeight: FontWeight.w700,
@@ -34,7 +34,7 @@ abstract final class ThriveTypography {
   );
 
   static const TextStyle body = TextStyle(
-    fontFamily: primaryFontFamily,
+    fontFamily: bodyFontFamily,
     fontSize: 16,
     height: 1.4,
     fontWeight: FontWeight.w400,
@@ -42,7 +42,7 @@ abstract final class ThriveTypography {
   );
 
   static const TextStyle label = TextStyle(
-    fontFamily: primaryFontFamily,
+    fontFamily: bodyFontFamily,
     fontSize: 15,
     height: 1.2,
     fontWeight: FontWeight.w600,
