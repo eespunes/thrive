@@ -45,7 +45,9 @@ class HealthPage extends StatelessWidget {
                     const SizedBox(height: ThriveSpacing.lg),
                     Icon(
                       status.healthy ? Icons.check_circle : Icons.warning,
-                      color: status.healthy ? Colors.green : Colors.orange,
+                      color: status.healthy
+                          ? ThriveColors.success
+                          : ThriveColors.warning,
                       size: 56,
                     ),
                     const SizedBox(height: ThriveSpacing.md),

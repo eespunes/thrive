@@ -7,6 +7,8 @@ abstract final class ThriveColors {
   static const Color cloud = Color(0xFFF3F6F8);
   static const Color ink = Color(0xFF1F2A36);
   static const Color danger = Color(0xFFB3261E);
+  static const Color success = Color(0xFF2E9D49);
+  static const Color warning = Color(0xFFE68A00);
 }
 
 abstract final class ThriveSpacing {
@@ -27,6 +29,7 @@ abstract final class ThriveTypography {
   static const String bodyFontFamily = 'Roboto';
 
   static const TextStyle headingBase = TextStyle(
+    fontFamily: titleFontFamily,
     fontSize: 28,
     height: 1.2,
     fontWeight: FontWeight.w700,

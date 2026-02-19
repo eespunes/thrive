@@ -40,7 +40,11 @@ class ThriveLogo extends StatelessWidget {
               return SizedBox(
                 width: width,
                 height: height,
-                child: const Center(child: CircularProgressIndicator()),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    semanticsLabel: 'Loading logo',
+                  ),
+                ),
               );
             }
 
@@ -51,6 +55,7 @@ class ThriveLogo extends StatelessWidget {
                 metadata: <String, Object?>{
                   'variant': variant.name,
                   'assetPath': assetPath,
+                  'error': snapshot.error?.toString(),
                 },
               );
               return _LogoFallback(
