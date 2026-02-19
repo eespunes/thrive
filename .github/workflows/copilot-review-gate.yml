@@ -32,6 +32,8 @@ jobs:
               "github-copilot[bot]"
             ];
 
+            let requested = false;
+
             for (const reviewer of reviewerCandidates) {
               try {
                 await github.rest.pulls.requestReviewers({
@@ -41,10 +43,35 @@ jobs:
                   reviewers: [reviewer],
                 });
                 core.info(`Requested reviewer: ${reviewer}`);
+                requested = true;
                 break;
               } catch (error) {
-                core.warning(`Could not request ${reviewer}: ${error.message}`);
+                const msg = String(error?.message || "");
+                const lower = msg.toLowerCase();
+
+                if (
+                  lower.includes("already requested") ||
+                  lower.includes("has already been requested") ||
+                  lower.includes("review has already been requested")
+                ) {
+                  core.info(`Reviewer already requested (${reviewer}).`);
+                  requested = true;
+                  break;
+                }
+
+                if (msg.includes("Reviews may only be requested from collaborators")) {
+                  core.info(`Skipping ${reviewer}: ${msg}`);
+                  continue;
+                }
+
+                core.warning(`Could not request ${reviewer}: ${msg}`);
               }
+            }
+
+            if (!requested) {
+              core.warning(
+                "Could not auto-request Copilot reviewer. Check repo Copilot settings and reviewer availability.",
+              );
             }
 
             try {

@@ -1,12 +1,14 @@
 import 'package:thrive_app/core/architecture/feature_module.dart';
+import 'package:thrive_app/core/branding/brand_asset_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/modules/health/application/health_controller.dart';
 import 'package:thrive_app/modules/health/data/health_repository_impl.dart';
 import 'package:thrive_app/modules/health/presentation/health_page.dart';
 
 class HealthModule implements FeatureModule {
-  HealthModule({this.shouldFail = false});
+  HealthModule({required this.brandAssetRegistry, this.shouldFail = false});
 
+  final BrandAssetRegistry brandAssetRegistry;
   final bool shouldFail;
   AppLogger? _logger;
 
@@ -38,7 +40,11 @@ class HealthModule implements FeatureModule {
     return <FeatureRoute>[
       FeatureRoute(
         path: '/health',
-        builder: (context) => HealthPage(controller: controller),
+        builder: (context) => HealthPage(
+          controller: controller,
+          brandAssetRegistry: brandAssetRegistry,
+          logger: logger,
+        ),
       ),
     ];
   }
