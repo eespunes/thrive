@@ -1,0 +1,50 @@
+name: Auto-request Copilot Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  request-copilot-review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Copilot reviewer
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const reviewerCandidates = [
+              "copilot-pull-request-reviewer[bot]",
+              "Copilot",
+              "github-copilot[bot]"
+            ];
+
+            let requested = false;
+
+            for (const reviewer of reviewerCandidates) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number,
+                  reviewers: [reviewer],
+                });
+                core.info(`Requested reviewer: ${reviewer}`);
+                requested = true;
+                break;
+              } catch (error) {
+                core.warning(`Could not request ${reviewer}: ${error.message}`);
+              }
+            }
+
+            if (!requested) {
+              core.setFailed("Failed to request Copilot reviewer automatically.");
+            }
