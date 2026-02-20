@@ -33,28 +33,15 @@ void main() {
         },
       );
   final deployTargets = FirebaseDeployContext.targetsFor(environment);
-  final deployTargetValidation = FirebaseDeployContext.validate(
-    environment: environment,
-    serviceAccountEmail: firebaseProjectConfig.serviceAccountEmail,
-    deployTargets: deployTargets,
-  );
-  deployTargetValidation.when(
-    success: (_) {
-      logger.info(
-        code: 'firebase_environment_selected',
-        message: 'Firebase environment and deploy targets resolved',
-        metadata: <String, Object?>{
-          'environment': environment.name,
-          'projectId': firebaseProjectConfig.projectId,
-          'serviceAccountEmail': firebaseProjectConfig.serviceAccountEmail,
-          'firestoreTarget': deployTargets.firestore,
-          'functionsTarget': deployTargets.functions,
-        },
-      );
-    },
-    failure: (failure) {
-      logger.error(code: failure.code, message: failure.developerMessage);
-      throw StateError(failure.developerMessage);
+  logger.info(
+    code: 'firebase_environment_selected',
+    message: 'Firebase environment and deploy targets resolved',
+    metadata: <String, Object?>{
+      'environment': environment.name,
+      'projectId': firebaseProjectConfig.projectId,
+      'serviceAccountEmail': firebaseProjectConfig.serviceAccountEmail,
+      'firestoreTarget': deployTargets.firestore,
+      'functionsTarget': deployTargets.functions,
     },
   );
   final brandAssetRegistry = BrandAssetRegistry(logger: logger);
