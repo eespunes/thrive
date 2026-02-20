@@ -5,6 +5,8 @@ import 'package:thrive_app/core/architecture/module_registry.dart';
 import 'package:thrive_app/core/branding/brand_asset_registry.dart';
 import 'package:thrive_app/core/branding/thrive_branding.dart';
 import 'package:thrive_app/core/design_system/thrive_theme.dart';
+import 'package:thrive_app/core/firebase/firebase_deploy_context.dart';
+import 'package:thrive_app/core/firebase/firebase_environment.dart';
 import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/state/app_core_providers.dart';
@@ -15,6 +17,49 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   final logger = InMemoryAppLogger();
+  final environment = FirebaseEnvironmentLoader.load().when(
+    success: (value) => value,
+    failure: (failure) {
+      logger.error(code: failure.code, message: failure.developerMessage);
+      throw StateError(failure.developerMessage);
+    },
+  );
+  final firebaseProjectConfig =
+      FirebaseProjectConfigRegistry.configFor(environment).when(
+        success: (value) => value,
+        failure: (failure) {
+          logger.error(code: failure.code, message: failure.developerMessage);
+          throw StateError(failure.developerMessage);
+        },
+      );
+  final deployTargetValidation = FirebaseDeployContext.validate(
+    environment: environment,
+    serviceAccountEmail: firebaseProjectConfig.serviceAccountEmail,
+    deployTargets: FirebaseDeployContext.targetsFor(environment),
+  );
+  deployTargetValidation.when(
+    success: (_) {
+      logger.info(
+        code: 'firebase_environment_selected',
+        message: 'Firebase environment and deploy targets resolved',
+        metadata: <String, Object?>{
+          'environment': environment.name,
+          'projectId': firebaseProjectConfig.projectId,
+          'serviceAccountEmail': firebaseProjectConfig.serviceAccountEmail,
+          'firestoreTarget': FirebaseDeployContext.targetsFor(
+            environment,
+          ).firestore,
+          'functionsTarget': FirebaseDeployContext.targetsFor(
+            environment,
+          ).functions,
+        },
+      );
+    },
+    failure: (failure) {
+      logger.error(code: failure.code, message: failure.developerMessage);
+      throw StateError(failure.developerMessage);
+    },
+  );
   final brandAssetRegistry = BrandAssetRegistry(logger: logger);
   ThriveBranding.registerOfficialAssets(brandAssetRegistry);
   final theme = ThriveTheme.build(logger: logger);
