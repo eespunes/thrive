@@ -17,7 +17,7 @@ abstract final class ThriveErrorMapper {
         code: 'network_timeout',
         developerMessage: 'Request timed out',
         userMessage:
-            'La operacion esta tardando demasiado. Comprueba tu conexion e intentalo de nuevo.',
+            'This action is taking too long. Check your connection and try again.',
         recoverable: true,
       );
     }
@@ -27,7 +27,7 @@ abstract final class ThriveErrorMapper {
         code: 'network_unavailable',
         developerMessage: 'Device has no network connectivity',
         userMessage:
-            'No tienes conexion a internet. Cuando vuelvas a estar online, reintenta la accion.',
+            'You are offline. When you are back online, retry the action.',
         recoverable: true,
       );
     }
@@ -37,7 +37,7 @@ abstract final class ThriveErrorMapper {
         return const FailureDetail(
           code: 'auth_invalid_credentials',
           developerMessage: 'Backend rejected credentials',
-          userMessage: 'El email o la contrasena no son correctos.',
+          userMessage: 'The email or password is incorrect.',
           recoverable: true,
         );
       }
@@ -47,7 +47,7 @@ abstract final class ThriveErrorMapper {
           code: 'backend_unavailable',
           developerMessage: 'Backend service is unavailable',
           userMessage:
-              'Nuestros servicios no estan disponibles en este momento. Prueba de nuevo en unos minutos.',
+              'Our services are currently unavailable. Please try again in a few minutes.',
           recoverable: true,
         );
       }
@@ -56,7 +56,7 @@ abstract final class ThriveErrorMapper {
         code: 'backend_request_failed',
         developerMessage:
             'Request failed with status ${error.statusCode}: ${error.message}',
-        userMessage: 'No pudimos completar la operacion solicitada.',
+        userMessage: 'We could not complete the requested action.',
         recoverable: true,
       );
     }
@@ -65,7 +65,7 @@ abstract final class ThriveErrorMapper {
       code: 'unexpected_error',
       developerMessage: 'Unexpected error in operation $operation: $error',
       userMessage:
-          'Se produjo un error inesperado. Intenta nuevamente dentro de unos minutos.',
+          'An unexpected error occurred. Please try again in a few minutes.',
       recoverable: true,
     );
   }

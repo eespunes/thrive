@@ -12,7 +12,7 @@ String? validateField(String value, List<FieldValidator> validators) {
 
 abstract final class ThriveFieldValidators {
   static FieldValidator required({
-    String message = 'Este campo es obligatorio.',
+    String message = 'This field is required.',
   }) {
     return (value) {
       if (value.trim().isEmpty) {
@@ -22,7 +22,7 @@ abstract final class ThriveFieldValidators {
     };
   }
 
-  static FieldValidator email({String message = 'Introduce un email valido.'}) {
+  static FieldValidator email({String message = 'Enter a valid email.'}) {
     const emailPattern = r'^[^@\s]+@[^@\s]+\.[^@\s]+$';
     final regularExpression = RegExp(emailPattern);
 
@@ -40,9 +40,10 @@ abstract final class ThriveFieldValidators {
 
   static FieldValidator minLength(int minimumLength, {String? message}) {
     return (value) {
-      if (value.length < minimumLength) {
+      final normalizedValue = value.trim();
+      if (normalizedValue.length < minimumLength) {
         return message ??
-            'Este campo debe tener al menos $minimumLength caracteres.';
+            'This field must have at least $minimumLength characters.';
       }
       return null;
     };

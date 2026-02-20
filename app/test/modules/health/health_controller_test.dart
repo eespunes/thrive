@@ -32,7 +32,7 @@ void main() {
     final detail = (result as AppFailure<HealthStatus>).detail;
     expect(
       detail.userMessage,
-      'No pudimos revisar el estado ahora. Intenta nuevamente en unos minutos.',
+      'We could not check the status right now. Please try again in a few minutes.',
     );
     expect(logger.events.last.level.name, 'error');
     expect(logger.events.last.code, 'health_unavailable');

@@ -97,7 +97,7 @@ class _ThriveLogoState extends State<ThriveLogo> {
 
             if (snapshot.hasError || !snapshot.hasData) {
               return _LogoFallback(
-                message: 'Logo no disponible',
+                message: 'Logo unavailable',
                 width: widget.width,
                 height: widget.height,
               );

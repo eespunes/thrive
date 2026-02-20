@@ -32,7 +32,7 @@ void main() {
     final detail = (result as AppFailure<String>).detail;
     expect(
       detail.userMessage,
-      'No pudimos cargar el logo oficial en este momento.',
+      'We could not load the official logo right now.',
     );
     expect(logger.events.last.code, 'brand_assets_not_registered');
   });

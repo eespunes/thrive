@@ -29,8 +29,8 @@ void main() {
       await tester.tap(find.text('Sign in with email'));
       await _pumpFrames(tester);
 
-      expect(find.text('El email es obligatorio.'), findsOneWidget);
-      expect(find.text('La contrasena es obligatoria.'), findsOneWidget);
+      expect(find.text('Email is required.'), findsOneWidget);
+      expect(find.text('Password is required.'), findsOneWidget);
       expect(
         logger.events.map((event) => event.code),
         contains('form_validation_failed'),
@@ -65,7 +65,7 @@ void main() {
 
     expect(
       find.text(
-        'Nuestros servicios no estan disponibles en este momento. Prueba de nuevo en unos minutos.',
+        'Our services are currently unavailable. Please try again in a few minutes.',
       ),
       findsOneWidget,
     );
@@ -98,8 +98,8 @@ Widget _buildTestApp({required InMemoryAppLogger logger}) {
     brandAssetRegistry: brandAssetRegistry,
     logger: logger,
     routeGuardStateReader: () => const AppRouteGuardState(
-      isAuthenticated: true,
-      hasActiveFamilyWorkspace: true,
+      isAuthenticated: false,
+      hasActiveFamilyWorkspace: false,
     ),
   );
 }

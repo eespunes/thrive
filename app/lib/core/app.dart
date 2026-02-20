@@ -278,10 +278,10 @@ class _LoginPageState extends State<_LoginPage> {
                                   fieldValue,
                                   <FieldValidator>[
                                     ThriveFieldValidators.required(
-                                      message: 'El email es obligatorio.',
+                                      message: 'Email is required.',
                                     ),
                                     ThriveFieldValidators.email(
-                                      message: 'Introduce un email valido.',
+                                      message: 'Enter a valid email.',
                                     ),
                                   ],
                                 );
@@ -296,7 +296,7 @@ class _LoginPageState extends State<_LoginPage> {
                                 AutofillHints.password,
                               ],
                               decoration: const InputDecoration(
-                                labelText: 'Contrasena',
+                                labelText: 'Password',
                               ),
                               validator: (value) {
                                 final fieldValue = value ?? '';
@@ -304,12 +304,12 @@ class _LoginPageState extends State<_LoginPage> {
                                   FieldValidator
                                 >[
                                   ThriveFieldValidators.required(
-                                    message: 'La contrasena es obligatoria.',
+                                    message: 'Password is required.',
                                   ),
                                   ThriveFieldValidators.minLength(
                                     8,
                                     message:
-                                        'La contrasena debe tener al menos 8 caracteres.',
+                                        'Password must be at least 8 characters long.',
                                   ),
                                 ]);
                               },
