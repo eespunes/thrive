@@ -30,6 +30,48 @@ void main() {
     expect(result, isA<AppSuccess<void>>());
   });
 
+  test('validates correct service account and deploy targets for stg', () {
+    final result = FirebaseDeployContext.validate(
+      environment: ThriveEnvironment.stg,
+      serviceAccountEmail:
+          'github-actions-stg@thrive-stg.iam.gserviceaccount.com',
+      deployTargets: const FirebaseDeployTargets(
+        firestore: 'firebase-stg-firestore',
+        functions: 'firebase-stg-functions',
+      ),
+    );
+
+    expect(result, isA<AppSuccess<void>>());
+  });
+
+  test('validates correct service account and deploy targets for prod', () {
+    final result = FirebaseDeployContext.validate(
+      environment: ThriveEnvironment.prod,
+      serviceAccountEmail:
+          'github-actions-prod@thrive-prod.iam.gserviceaccount.com',
+      deployTargets: const FirebaseDeployTargets(
+        firestore: 'firebase-prod-firestore',
+        functions: 'firebase-prod-functions',
+      ),
+    );
+
+    expect(result, isA<AppSuccess<void>>());
+  });
+
+  test('accepts mixed-case service account email using normalization', () {
+    final result = FirebaseDeployContext.validate(
+      environment: ThriveEnvironment.dev,
+      serviceAccountEmail:
+          'Github-Actions-Dev@THRIVE-DEV.iam.gserviceaccount.com',
+      deployTargets: const FirebaseDeployTargets(
+        firestore: 'firebase-dev-firestore',
+        functions: 'firebase-dev-functions',
+      ),
+    );
+
+    expect(result, isA<AppSuccess<void>>());
+  });
+
   test('fails when service account does not match selected environment', () {
     final result = FirebaseDeployContext.validate(
       environment: ThriveEnvironment.stg,

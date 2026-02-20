@@ -11,20 +11,37 @@ void main() {
     expect(value, ThriveEnvironment.dev);
   });
 
-  test('parses stg aliases', () {
-    final result = FirebaseEnvironmentLoader.load(rawValue: 'staging');
+  test('parses dev aliases', () {
+    const aliases = <String>['dev', 'development'];
+    for (final alias in aliases) {
+      final result = FirebaseEnvironmentLoader.load(rawValue: alias);
 
-    expect(result, isA<AppSuccess<ThriveEnvironment>>());
-    final value = (result as AppSuccess<ThriveEnvironment>).value;
-    expect(value, ThriveEnvironment.stg);
+      expect(result, isA<AppSuccess<ThriveEnvironment>>());
+      final value = (result as AppSuccess<ThriveEnvironment>).value;
+      expect(value, ThriveEnvironment.dev);
+    }
+  });
+
+  test('parses stg aliases', () {
+    const aliases = <String>['stg', 'stage', 'staging'];
+    for (final alias in aliases) {
+      final result = FirebaseEnvironmentLoader.load(rawValue: alias);
+
+      expect(result, isA<AppSuccess<ThriveEnvironment>>());
+      final value = (result as AppSuccess<ThriveEnvironment>).value;
+      expect(value, ThriveEnvironment.stg);
+    }
   });
 
   test('parses prod aliases', () {
-    final result = FirebaseEnvironmentLoader.load(rawValue: 'production');
+    const aliases = <String>['prod', 'production'];
+    for (final alias in aliases) {
+      final result = FirebaseEnvironmentLoader.load(rawValue: alias);
 
-    expect(result, isA<AppSuccess<ThriveEnvironment>>());
-    final value = (result as AppSuccess<ThriveEnvironment>).value;
-    expect(value, ThriveEnvironment.prod);
+      expect(result, isA<AppSuccess<ThriveEnvironment>>());
+      final value = (result as AppSuccess<ThriveEnvironment>).value;
+      expect(value, ThriveEnvironment.prod);
+    }
   });
 
   test('returns failure when THRIVE_ENV is invalid', () {
@@ -36,17 +53,20 @@ void main() {
   });
 
   test('returns deterministic project config by environment', () {
-    final result = FirebaseProjectConfigRegistry.configFor(
-      ThriveEnvironment.stg,
-    );
+    final cases = <({ThriveEnvironment environment, String projectId})>[
+      (environment: ThriveEnvironment.dev, projectId: 'thrive-dev'),
+      (environment: ThriveEnvironment.stg, projectId: 'thrive-stg'),
+      (environment: ThriveEnvironment.prod, projectId: 'thrive-prod'),
+    ];
 
-    expect(result, isA<AppSuccess<FirebaseProjectConfig>>());
-    final config = (result as AppSuccess<FirebaseProjectConfig>).value;
-    expect(config.environment, ThriveEnvironment.stg);
-    expect(config.projectId, 'thrive-stg');
-    expect(
-      config.serviceAccountEmail,
-      'github-actions-stg@thrive-stg.iam.gserviceaccount.com',
-    );
+    for (final item in cases) {
+      final result = FirebaseProjectConfigRegistry.configFor(item.environment);
+
+      expect(result, isA<AppSuccess<FirebaseProjectConfig>>());
+      final config = (result as AppSuccess<FirebaseProjectConfig>).value;
+      expect(config.environment, item.environment);
+      expect(config.projectId, item.projectId);
+      expect(config.serviceAccountEmail, contains(item.projectId));
+    }
   });
 }

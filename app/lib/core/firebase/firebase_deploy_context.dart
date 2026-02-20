@@ -21,8 +21,16 @@ abstract final class FirebaseDeployContext {
     required String serviceAccountEmail,
     required FirebaseDeployTargets deployTargets,
   }) {
-    final expectedServiceAccount = _serviceAccountByEnvironment[environment]!
-        .toLowerCase();
+    final configResult = FirebaseProjectConfigRegistry.configFor(environment);
+    if (configResult is AppFailure<FirebaseProjectConfig>) {
+      return AppFailure<void>(configResult.detail);
+    }
+
+    final expectedServiceAccount =
+        (configResult as AppSuccess<FirebaseProjectConfig>)
+            .value
+            .serviceAccountEmail
+            .toLowerCase();
     final normalizedServiceAccount = serviceAccountEmail.trim().toLowerCase();
     if (normalizedServiceAccount != expectedServiceAccount) {
       return AppFailure<void>(
@@ -31,7 +39,7 @@ abstract final class FirebaseDeployContext {
           developerMessage:
               'Service account "$serviceAccountEmail" does not match expected "$expectedServiceAccount" for ${environment.name}.',
           userMessage:
-              'Deployment configuration is invalid for this environment.',
+              'The app is not configured correctly. Please contact support.',
           recoverable: false,
         ),
       );
@@ -49,7 +57,7 @@ abstract final class FirebaseDeployContext {
           developerMessage:
               'Deploy targets mismatch for ${environment.name}. Expected firestore=${expectedTargets.firestore}, functions=${expectedTargets.functions}, got firestore=${deployTargets.firestore}, functions=${deployTargets.functions}.',
           userMessage:
-              'Deployment targets are inconsistent. Please verify pipeline configuration.',
+              'The app is not configured correctly. Please contact support.',
           recoverable: false,
         ),
       );
@@ -57,16 +65,6 @@ abstract final class FirebaseDeployContext {
 
     return const AppSuccess<void>(null);
   }
-
-  static const Map<ThriveEnvironment, String> _serviceAccountByEnvironment =
-      <ThriveEnvironment, String>{
-        ThriveEnvironment.dev:
-            'github-actions-dev@thrive-dev.iam.gserviceaccount.com',
-        ThriveEnvironment.stg:
-            'github-actions-stg@thrive-stg.iam.gserviceaccount.com',
-        ThriveEnvironment.prod:
-            'github-actions-prod@thrive-prod.iam.gserviceaccount.com',
-      };
 
   static const Map<ThriveEnvironment, FirebaseDeployTargets>
   _targetsByEnvironment = <ThriveEnvironment, FirebaseDeployTargets>{

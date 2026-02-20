@@ -32,10 +32,11 @@ void main() {
           throw StateError(failure.developerMessage);
         },
       );
+  final deployTargets = FirebaseDeployContext.targetsFor(environment);
   final deployTargetValidation = FirebaseDeployContext.validate(
     environment: environment,
     serviceAccountEmail: firebaseProjectConfig.serviceAccountEmail,
-    deployTargets: FirebaseDeployContext.targetsFor(environment),
+    deployTargets: deployTargets,
   );
   deployTargetValidation.when(
     success: (_) {
@@ -46,12 +47,8 @@ void main() {
           'environment': environment.name,
           'projectId': firebaseProjectConfig.projectId,
           'serviceAccountEmail': firebaseProjectConfig.serviceAccountEmail,
-          'firestoreTarget': FirebaseDeployContext.targetsFor(
-            environment,
-          ).firestore,
-          'functionsTarget': FirebaseDeployContext.targetsFor(
-            environment,
-          ).functions,
+          'firestoreTarget': deployTargets.firestore,
+          'functionsTarget': deployTargets.functions,
         },
       );
     },

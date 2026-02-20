@@ -50,4 +50,73 @@ void main() {
     expect(detail.developerMessage, contains('appId'));
     expect(detail.developerMessage, contains('storageBucket'));
   });
+
+  test('returns failure and mentions projectId when only projectId drifts', () {
+    final expected =
+        (FirebaseProjectConfigRegistry.configFor(ThriveEnvironment.dev)
+                as AppSuccess<FirebaseProjectConfig>)
+            .value;
+
+    final result = FirebaseEnvironmentDriftDetector.detect(
+      expected: expected,
+      runtime: FirebaseRuntimeSnapshot(
+        environment: ThriveEnvironment.dev,
+        projectId: '${expected.projectId}-drift',
+        appId: expected.appId,
+        storageBucket: expected.storageBucket,
+      ),
+    );
+
+    expect(result, isA<AppFailure<void>>());
+    final detail = (result as AppFailure<void>).detail;
+    expect(detail.code, 'firebase_environment_drift');
+    expect(detail.developerMessage, contains('projectId'));
+  });
+
+  test('returns failure and mentions appId when only appId drifts', () {
+    final expected =
+        (FirebaseProjectConfigRegistry.configFor(ThriveEnvironment.dev)
+                as AppSuccess<FirebaseProjectConfig>)
+            .value;
+
+    final result = FirebaseEnvironmentDriftDetector.detect(
+      expected: expected,
+      runtime: FirebaseRuntimeSnapshot(
+        environment: ThriveEnvironment.dev,
+        projectId: expected.projectId,
+        appId: '${expected.appId}-drift',
+        storageBucket: expected.storageBucket,
+      ),
+    );
+
+    expect(result, isA<AppFailure<void>>());
+    final detail = (result as AppFailure<void>).detail;
+    expect(detail.code, 'firebase_environment_drift');
+    expect(detail.developerMessage, contains('appId'));
+  });
+
+  test(
+    'returns failure and mentions storageBucket when only storageBucket drifts',
+    () {
+      final expected =
+          (FirebaseProjectConfigRegistry.configFor(ThriveEnvironment.dev)
+                  as AppSuccess<FirebaseProjectConfig>)
+              .value;
+
+      final result = FirebaseEnvironmentDriftDetector.detect(
+        expected: expected,
+        runtime: FirebaseRuntimeSnapshot(
+          environment: ThriveEnvironment.dev,
+          projectId: expected.projectId,
+          appId: expected.appId,
+          storageBucket: '${expected.storageBucket}-drift',
+        ),
+      );
+
+      expect(result, isA<AppFailure<void>>());
+      final detail = (result as AppFailure<void>).detail;
+      expect(detail.code, 'firebase_environment_drift');
+      expect(detail.developerMessage, contains('storageBucket'));
+    },
+  );
 }
