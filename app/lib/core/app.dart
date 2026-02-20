@@ -329,37 +329,41 @@ class _LoginPageState extends State<_LoginPage> {
                     ],
                     if (_globalFailure != null) ...<Widget>[
                       const SizedBox(height: ThriveSpacing.md),
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: ThriveRadius.card,
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        padding: const EdgeInsets.all(ThriveSpacing.md),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              _globalFailure!.userMessage,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: ThriveSpacing.sm),
-                            TextButton(
-                              key: const Key('email_sign_in_retry_button'),
-                              onPressed: _isSubmitting
-                                  ? null
-                                  : () {
-                                      widget.logger.info(
-                                        code: 'email_sign_in_retry_requested',
-                                        message:
-                                            'User requested retry for failed email sign-in',
-                                      );
-                                      _submitEmailSignIn(isRetry: true);
-                                    },
-                              child: const Text('Retry'),
-                            ),
-                          ],
+                      Semantics(
+                        liveRegion: true,
+                        label: 'Error',
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: ThriveRadius.card,
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          padding: const EdgeInsets.all(ThriveSpacing.md),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                _globalFailure!.userMessage,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: ThriveSpacing.sm),
+                              TextButton(
+                                key: const Key('email_sign_in_retry_button'),
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : () {
+                                        widget.logger.info(
+                                          code: 'email_sign_in_retry_requested',
+                                          message:
+                                              'User requested retry for failed email sign-in',
+                                        );
+                                        _submitEmailSignIn(isRetry: true);
+                                      },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],

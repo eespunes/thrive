@@ -33,6 +33,15 @@ void main() {
     expect(detail.code, 'auth_invalid_credentials');
   });
 
+  test('maps backend 403 to auth_insufficient_permissions', () {
+    final detail = ThriveErrorMapper.map(
+      const BackendException(statusCode: 403, message: 'forbidden'),
+      operation: 'test',
+    );
+
+    expect(detail.code, 'auth_insufficient_permissions');
+  });
+
   test('maps backend 503 to backend_unavailable', () {
     final detail = ThriveErrorMapper.map(
       const BackendException(statusCode: 503, message: 'down'),

@@ -33,11 +33,22 @@ abstract final class ThriveErrorMapper {
     }
 
     if (error is BackendException) {
-      if (error.statusCode == 401 || error.statusCode == 403) {
+      if (error.statusCode == 401) {
         return const FailureDetail(
           code: 'auth_invalid_credentials',
           developerMessage: 'Backend rejected credentials',
           userMessage: 'The email or password is incorrect.',
+          recoverable: true,
+        );
+      }
+
+      if (error.statusCode == 403) {
+        return const FailureDetail(
+          code: 'auth_insufficient_permissions',
+          developerMessage:
+              'Backend reports insufficient permissions for this operation',
+          userMessage:
+              'You do not have permission to perform this action. Contact an administrator if needed.',
           recoverable: true,
         );
       }
