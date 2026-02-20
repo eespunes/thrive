@@ -17,8 +17,7 @@ class BrandAssetRegistry {
         code: 'brand_assets_incomplete',
         developerMessage:
             'Thrive brand assets are incomplete. colored and unicolor are required.',
-        userMessage:
-            'No pudimos completar la configuración visual de la marca por ahora.',
+        userMessage: 'We could not complete the brand visual setup right now.',
         recoverable: true,
       );
 
@@ -44,7 +43,7 @@ class BrandAssetRegistry {
       const failure = FailureDetail(
         code: 'brand_assets_not_registered',
         developerMessage: 'BrandAssetRegistry used before registration.',
-        userMessage: 'No pudimos cargar el logo oficial en este momento.',
+        userMessage: 'We could not load the official logo right now.',
         recoverable: true,
       );
       _logger.warning(code: failure.code, message: failure.developerMessage);
@@ -71,7 +70,7 @@ class BrandAssetRegistry {
       code: 'brand_asset_missing',
       developerMessage:
           'Requested logo variant missing and no fallback available.',
-      userMessage: 'No pudimos mostrar el logo oficial por ahora.',
+      userMessage: 'We could not display the official logo right now.',
       recoverable: true,
     );
 

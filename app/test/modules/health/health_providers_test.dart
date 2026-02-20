@@ -113,7 +113,7 @@ class _FailureRepository implements HealthRepository {
         code: 'health_unavailable',
         developerMessage: 'Health probe could not reach data source',
         userMessage:
-            'No pudimos revisar el estado ahora. Intenta nuevamente en unos minutos.',
+            'We could not check the status right now. Please try again in a few minutes.',
         recoverable: true,
       ),
     );

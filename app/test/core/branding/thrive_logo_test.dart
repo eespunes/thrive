@@ -49,7 +49,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Logo no disponible'), findsOneWidget);
+    expect(find.text('Logo unavailable'), findsOneWidget);
     expect(logger.events.last.code, 'brand_asset_render_failed');
   });
 }

@@ -80,7 +80,7 @@ class HealthPage extends ConsumerWidget {
             child: Padding(
               padding: EdgeInsets.all(ThriveSpacing.lg),
               child: Text(
-                'No pudimos revisar el estado ahora. Intenta nuevamente en unos minutos.',
+                'We could not check the status right now. Please try again in a few minutes.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.red),
               ),
