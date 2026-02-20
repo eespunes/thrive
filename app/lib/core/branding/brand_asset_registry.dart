@@ -17,8 +17,7 @@ class BrandAssetRegistry {
         code: 'brand_assets_incomplete',
         developerMessage:
             'Thrive brand assets are incomplete. colored and unicolor are required.',
-        userMessage:
-            'We could not complete the brand visual setup right now.',
+        userMessage: 'We could not complete the brand visual setup right now.',
         recoverable: true,
       );
 

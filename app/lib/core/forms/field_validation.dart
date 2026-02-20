@@ -11,9 +11,7 @@ String? validateField(String value, List<FieldValidator> validators) {
 }
 
 abstract final class ThriveFieldValidators {
-  static FieldValidator required({
-    String message = 'This field is required.',
-  }) {
+  static FieldValidator required({String message = 'This field is required.'}) {
     return (value) {
       if (value.trim().isEmpty) {
         return message;
