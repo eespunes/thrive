@@ -1,7 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:thrive_app/core/architecture/feature_module.dart';
 import 'package:thrive_app/core/branding/brand_asset_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
-import 'package:thrive_app/modules/health/application/health_controller.dart';
+import 'package:thrive_app/core/state/app_core_providers.dart';
+import 'package:thrive_app/modules/health/application/health_providers.dart';
 import 'package:thrive_app/modules/health/data/health_repository_impl.dart';
 import 'package:thrive_app/modules/health/presentation/health_page.dart';
 
@@ -32,20 +34,22 @@ class HealthModule implements FeatureModule {
       throw StateError('Module must be configured before routes can be read.');
     }
 
-    final controller = HealthController(
-      repository: HealthRepositoryImpl(shouldFail: shouldFail),
-      logger: logger,
-    );
-
     return <FeatureRoute>[
       FeatureRoute(
         path: '/health',
         requiresAuthentication: true,
         requiresFamilyWorkspace: true,
-        builder: (context) => HealthPage(
-          controller: controller,
-          brandAssetRegistry: brandAssetRegistry,
-          logger: logger,
+        builder: (context) => ProviderScope(
+          overrides: <Override>[
+            appLoggerProvider.overrideWithValue(logger),
+            healthRepositoryProvider.overrideWithValue(
+              HealthRepositoryImpl(shouldFail: shouldFail),
+            ),
+          ],
+          child: HealthPage(
+            brandAssetRegistry: brandAssetRegistry,
+            logger: logger,
+          ),
         ),
       ),
     ];
