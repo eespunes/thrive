@@ -1,0 +1,111 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:thrive_app/core/app.dart';
+import 'package:thrive_app/core/architecture/module_registry.dart';
+import 'package:thrive_app/core/branding/brand_asset_registry.dart';
+import 'package:thrive_app/core/branding/thrive_branding.dart';
+import 'package:thrive_app/core/design_system/thrive_theme.dart';
+import 'package:thrive_app/core/navigation/app_route_registry.dart';
+import 'package:thrive_app/core/observability/app_logger.dart';
+import 'package:thrive_app/modules/health/health_module.dart';
+
+void main() {
+  testWidgets(
+    'shows field-level validation errors when email form is invalid',
+    (tester) async {
+      final logger = InMemoryAppLogger();
+      await tester.pumpWidget(_buildTestApp(logger: logger));
+      await _pumpFrames(tester);
+
+      final navigatorState = tester.state<NavigatorState>(
+        find.byType(Navigator),
+      );
+      navigatorState.pushNamed('/login');
+      await _pumpFrames(tester);
+
+      await tester.tap(find.text('or sign in with email'));
+      await _pumpFrames(tester);
+
+      await tester.tap(find.text('Sign in with email'));
+      await _pumpFrames(tester);
+
+      expect(find.text('El email es obligatorio.'), findsOneWidget);
+      expect(find.text('La contrasena es obligatoria.'), findsOneWidget);
+      expect(
+        logger.events.map((event) => event.code),
+        contains('form_validation_failed'),
+      );
+    },
+  );
+
+  testWidgets('shows mapped backend error and retry action', (tester) async {
+    final logger = InMemoryAppLogger();
+    await tester.pumpWidget(_buildTestApp(logger: logger));
+    await _pumpFrames(tester);
+
+    final navigatorState = tester.state<NavigatorState>(find.byType(Navigator));
+    navigatorState.pushNamed('/login');
+    await _pumpFrames(tester);
+
+    await tester.tap(find.text('or sign in with email'));
+    await _pumpFrames(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('email_sign_in_email_field')),
+      'server@thrive.dev',
+    );
+    await tester.enterText(
+      find.byKey(const Key('email_sign_in_password_field')),
+      'thrive123',
+    );
+
+    await tester.tap(find.text('Sign in with email'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await _pumpFrames(tester);
+
+    expect(
+      find.text(
+        'Nuestros servicios no estan disponibles en este momento. Prueba de nuevo en unos minutos.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('email_sign_in_retry_button')), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('email_sign_in_retry_button')),
+    );
+    await tester.tap(find.byKey(const Key('email_sign_in_retry_button')));
+    await tester.pump(const Duration(milliseconds: 350));
+    await _pumpFrames(tester);
+
+    expect(
+      logger.events.map((event) => event.code),
+      contains('email_sign_in_retry_requested'),
+    );
+  });
+}
+
+Widget _buildTestApp({required InMemoryAppLogger logger}) {
+  final brandAssetRegistry = BrandAssetRegistry(logger: logger);
+  ThriveBranding.registerOfficialAssets(brandAssetRegistry);
+  final theme = ThriveTheme.build(logger: logger);
+  final registry = ModuleRegistry(logger: logger)
+    ..registerModule(HealthModule(brandAssetRegistry: brandAssetRegistry));
+
+  return ThriveApp(
+    registry: registry,
+    theme: theme,
+    brandAssetRegistry: brandAssetRegistry,
+    logger: logger,
+    routeGuardStateReader: () => const AppRouteGuardState(
+      isAuthenticated: true,
+      hasActiveFamilyWorkspace: true,
+    ),
+  );
+}
+
+Future<void> _pumpFrames(WidgetTester tester) async {
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 80));
+  }
+}

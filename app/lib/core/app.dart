@@ -5,8 +5,11 @@ import 'package:thrive_app/core/branding/thrive_logo.dart';
 import 'package:thrive_app/core/design_system/components/thrive_primary_button.dart';
 import 'package:thrive_app/core/design_system/components/thrive_surface_card.dart';
 import 'package:thrive_app/core/design_system/design_tokens.dart';
+import 'package:thrive_app/core/forms/email_sign_in_repository.dart';
+import 'package:thrive_app/core/forms/field_validation.dart';
 import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
+import 'package:thrive_app/core/result/app_result.dart';
 
 class ThriveApp extends StatefulWidget {
   const ThriveApp({
@@ -116,43 +119,253 @@ class _HomePage extends StatelessWidget {
   }
 }
 
-class _LoginPage extends StatelessWidget {
+class _LoginPage extends StatefulWidget {
   const _LoginPage({required this.brandAssetRegistry, required this.logger});
 
   final BrandAssetRegistry brandAssetRegistry;
   final AppLogger logger;
 
   @override
+  State<_LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<_LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final EmailSignInRepository _emailSignInRepository =
+      const DemoEmailSignInRepository();
+
+  bool _showEmailForm = false;
+  bool _isSubmitting = false;
+  FailureDetail? _globalFailure;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitEmailSignIn({required bool isRetry}) async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    if (!isRetry) {
+      final isValid = _formKey.currentState?.validate() ?? false;
+      if (!isValid) {
+        widget.logger.warning(
+          code: 'form_validation_failed',
+          message: 'Email sign-in form rejected invalid input',
+          metadata: <String, Object?>{
+            'flow': 'email_sign_in',
+            'emailEmpty': _emailController.text.trim().isEmpty,
+            'passwordLength': _passwordController.text.length,
+          },
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _globalFailure = null;
+    });
+
+    final result = await _emailSignInRepository.signIn(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    result.when(
+      success: (_) {
+        widget.logger.info(
+          code: 'email_sign_in_succeeded',
+          message: 'Email sign-in succeeded',
+        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutePaths.home, (route) => false);
+      },
+      failure: (failure) {
+        widget.logger.warning(
+          code: failure.code,
+          message: failure.developerMessage,
+          metadata: <String, Object?>{
+            'recoverable': failure.recoverable,
+            'flow': 'email_sign_in',
+          },
+        );
+        setState(() {
+          _globalFailure = failure;
+        });
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(ThriveSpacing.lg),
-          child: ThriveSurfaceCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                ThriveLogo(registry: brandAssetRegistry, logger: logger),
-                const SizedBox(height: ThriveSpacing.lg),
-                Text(
-                  'Welcome to Thrive',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: ThriveSpacing.md),
-                ThrivePrimaryButton(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamedAndRemoveUntil(
-                        AppRoutePaths.home,
-                        (route) => false,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(ThriveSpacing.lg),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: ThriveSurfaceCard(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    ThriveLogo(
+                      registry: widget.brandAssetRegistry,
+                      logger: widget.logger,
+                    ),
+                    const SizedBox(height: ThriveSpacing.lg),
+                    Text(
+                      'Welcome to Thrive',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: ThriveSpacing.md),
+                    ThrivePrimaryButton(
+                      onPressed: () =>
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutePaths.home,
+                            (route) => false,
+                          ),
+                      label: 'Continue with Google',
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _showEmailForm = true;
+                          _globalFailure = null;
+                        });
+                      },
+                      child: const Text('or sign in with email'),
+                    ),
+                    if (_showEmailForm) ...<Widget>[
+                      const SizedBox(height: ThriveSpacing.lg),
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: <Widget>[
+                            TextFormField(
+                              key: const Key('email_sign_in_email_field'),
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const <String>[
+                                AutofillHints.email,
+                              ],
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                              ),
+                              validator: (value) {
+                                final fieldValue = value ?? '';
+                                return validateField(
+                                  fieldValue,
+                                  <FieldValidator>[
+                                    ThriveFieldValidators.required(
+                                      message: 'El email es obligatorio.',
+                                    ),
+                                    ThriveFieldValidators.email(
+                                      message: 'Introduce un email valido.',
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: ThriveSpacing.md),
+                            TextFormField(
+                              key: const Key('email_sign_in_password_field'),
+                              controller: _passwordController,
+                              obscureText: true,
+                              autofillHints: const <String>[
+                                AutofillHints.password,
+                              ],
+                              decoration: const InputDecoration(
+                                labelText: 'Contrasena',
+                              ),
+                              validator: (value) {
+                                final fieldValue = value ?? '';
+                                return validateField(fieldValue, <
+                                  FieldValidator
+                                >[
+                                  ThriveFieldValidators.required(
+                                    message: 'La contrasena es obligatoria.',
+                                  ),
+                                  ThriveFieldValidators.minLength(
+                                    8,
+                                    message:
+                                        'La contrasena debe tener al menos 8 caracteres.',
+                                  ),
+                                ]);
+                              },
+                            ),
+                            const SizedBox(height: ThriveSpacing.md),
+                            ThrivePrimaryButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () => _submitEmailSignIn(isRetry: false),
+                              label: _isSubmitting
+                                  ? 'Signing in...'
+                                  : 'Sign in with email',
+                            ),
+                          ],
+                        ),
                       ),
-                  label: 'Continue with Google',
+                    ],
+                    if (_globalFailure != null) ...<Widget>[
+                      const SizedBox(height: ThriveSpacing.md),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: ThriveRadius.card,
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        padding: const EdgeInsets.all(ThriveSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              _globalFailure!.userMessage,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: ThriveSpacing.sm),
+                            TextButton(
+                              key: const Key('email_sign_in_retry_button'),
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      widget.logger.info(
+                                        code: 'email_sign_in_retry_requested',
+                                        message:
+                                            'User requested retry for failed email sign-in',
+                                      );
+                                      _submitEmailSignIn(isRetry: true);
+                                    },
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                TextButton(
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(AppRoutePaths.home),
-                  child: const Text('or sign in with email'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
