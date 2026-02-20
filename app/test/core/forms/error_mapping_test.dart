@@ -50,4 +50,22 @@ void main() {
 
     expect(detail.code, 'backend_unavailable');
   });
+
+  test('maps other backend 4xx errors to backend_request_failed', () {
+    final detail = ThriveErrorMapper.map(
+      const BackendException(statusCode: 404, message: 'not found'),
+      operation: 'test',
+    );
+
+    expect(detail.code, 'backend_request_failed');
+  });
+
+  test('maps unexpected exception to unexpected_error', () {
+    final detail = ThriveErrorMapper.map(
+      Exception('unexpected'),
+      operation: 'test',
+    );
+
+    expect(detail.code, 'unexpected_error');
+  });
 }

@@ -152,20 +152,19 @@ class _LoginPageState extends State<_LoginPage> {
       return;
     }
 
-    if (!isRetry) {
-      final isValid = _formKey.currentState?.validate() ?? false;
-      if (!isValid) {
-        widget.logger.warning(
-          code: 'form_validation_failed',
-          message: 'Email sign-in form rejected invalid input',
-          metadata: <String, Object?>{
-            'flow': 'email_sign_in',
-            'emailEmpty': _emailController.text.trim().isEmpty,
-            'passwordLength': _passwordController.text.length,
-          },
-        );
-        return;
-      }
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      widget.logger.warning(
+        code: 'form_validation_failed',
+        message: 'Email sign-in form rejected invalid input',
+        metadata: <String, Object?>{
+          'flow': 'email_sign_in',
+          'isRetry': isRetry,
+          'emailEmpty': _emailController.text.trim().isEmpty,
+          'passwordLength': _passwordController.text.length,
+        },
+      );
+      return;
     }
 
     setState(() {
@@ -182,8 +181,12 @@ class _LoginPageState extends State<_LoginPage> {
       return;
     }
 
+    var signInSucceeded = false;
+    FailureDetail? signInFailure;
+
     result.when(
       success: (_) {
+        signInSucceeded = true;
         widget.logger.info(
           code: 'email_sign_in_succeeded',
           message: 'Email sign-in succeeded',
@@ -201,17 +204,16 @@ class _LoginPageState extends State<_LoginPage> {
             'flow': 'email_sign_in',
           },
         );
-        setState(() {
-          _globalFailure = failure;
-        });
+        signInFailure = failure;
       },
     );
 
-    if (!mounted) {
+    if (!mounted || signInSucceeded) {
       return;
     }
 
     setState(() {
+      _globalFailure = signInFailure;
       _isSubmitting = false;
     });
   }

@@ -83,6 +83,53 @@ void main() {
       contains('email_sign_in_retry_requested'),
     );
   });
+
+  testWidgets('retry revalidates edited fields before submitting', (
+    tester,
+  ) async {
+    final logger = InMemoryAppLogger();
+    await tester.pumpWidget(_buildTestApp(logger: logger));
+    await _pumpFrames(tester);
+
+    final navigatorState = tester.state<NavigatorState>(find.byType(Navigator));
+    navigatorState.pushNamed('/login');
+    await _pumpFrames(tester);
+
+    await tester.tap(find.text('or sign in with email'));
+    await _pumpFrames(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('email_sign_in_email_field')),
+      'server@thrive.dev',
+    );
+    await tester.enterText(
+      find.byKey(const Key('email_sign_in_password_field')),
+      'thrive123',
+    );
+
+    await tester.tap(find.text('Sign in with email'));
+    await tester.pump(const Duration(milliseconds: 350));
+    await _pumpFrames(tester);
+
+    expect(find.byKey(const Key('email_sign_in_retry_button')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('email_sign_in_email_field')),
+      'invalid-email',
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('email_sign_in_retry_button')),
+    );
+    await tester.tap(find.byKey(const Key('email_sign_in_retry_button')));
+    await _pumpFrames(tester);
+
+    expect(find.text('Enter a valid email.'), findsOneWidget);
+    expect(
+      logger.events.map((event) => event.code),
+      contains('form_validation_failed'),
+    );
+  });
 }
 
 Widget _buildTestApp({required InMemoryAppLogger logger}) {
