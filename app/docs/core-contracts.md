@@ -16,6 +16,11 @@
 | `AuthSessionLifecycle` + `AuthSessionStore` | Mobile Platform + Auth Backend | Define deterministic session creation, refresh, sign-out, and revocation handling. |
 | `FamilyWorkspaceRbac` + `FamilyMembership` | Mobile Platform + Family Domain | Define family membership states, role-based protected actions, and ownership transition rules. |
 | `FirebaseEnvironmentLoader` + `FirebaseProjectConfigRegistry` + `FirebaseDeployContext` | Mobile Platform + Backend Platform + DevOps | Enforce deterministic Firebase environment resolution and deploy targeting. |
+| `CanonicalFinanceModelContract` + `CanonicalFinanceEntity` | Mobile Platform + Finance Domain | Define canonical finance identifiers, references, soft deletion, and schema migration rules. |
+| `FirestoreSecurityAccessMatrix` | Mobile Platform + Backend Platform + Security | Enforce role/resource access authorization with least-privilege defaults. |
+| `CloudFunctionContractExecutor` + `FunctionIdempotencyStore` | Mobile Platform + Backend Platform | Enforce function payload/response contracts, idempotency replay, and retry backoff policy. |
+| `OfflineSyncQueue` | Mobile Platform + Data Platform | Define offline mutation queue, sync cycle states, and deterministic conflict semantics. |
+| `RealtimeSubscriptionController` + `CursorPaginator` + `RealtimePageCache` | Mobile Platform + Data Platform | Define realtime listener lifecycle, cursor pagination, and TTL cache invalidation behavior. |
 
 ## Operational Criteria
 
@@ -31,6 +36,11 @@
 - Session lifecycle must emit `auth_session_created`, `auth_token_refreshed`, `auth_session_signed_out`, and `auth_session_revoked`.
 - Family workspace authorization must emit `family_member_joined`, `family_action_authorized`, `family_action_forbidden`, and `family_ownership_transferred`.
 - Firebase bootstrap must emit `firebase_environment_selected`; invalid env or deploy mismatches must fail fast with deterministic codes.
+- Canonical model validation must emit stable codes for invalid entity shape, schema mismatch, soft-delete protection, reference gaps, and schema migration outcomes.
+- Firestore access matrix must emit `firestore_access_allowed` for allowed paths and deterministic deny codes (`firestore_access_denied`, `firestore_workspace_invalid`) for blocked paths.
+- Cloud functions execution must emit request intake, retry scheduling, idempotent replay, and terminal success/failure with stable failure codes.
+- Offline sync must expose deterministic queue states (`idle`, `queued`, `syncing`, `error`) and emit sync conflict/recovery telemetry.
+- Realtime contracts must emit subscription start/event/stop signals and deterministic pagination/cache failures (`pagination_cursor_invalid`, `realtime_cache_expired`, `realtime_query_key_invalid`).
 
 ## Recovery Criteria
 
@@ -44,3 +54,8 @@
 - Revoked or expired sessions must clear local auth state and force a safe re-authentication path without exposing token internals.
 - Role violations must fail with deterministic, user-safe authorization messages and preserve existing membership records.
 - Firebase environment drift must be diagnosable through stable codes and mismatch details (`firebase_environment_drift`) without exposing secrets to end users.
+- Canonical finance migration must reject unsafe schema downgrade and keep user messaging non-technical while preserving diagnosable internal context.
+- Firestore deny paths must default to least privilege for unknown roles/resources and return user-safe authorization feedback.
+- Idempotent function retries must avoid duplicate writes and provide replay-safe responses for repeated requests.
+- Offline sync must keep queued mutations when offline and support conflict resolution policy without silently dropping local intent.
+- Realtime cache misses/expiry must trigger safe refresh behavior; stale subscription handles must be detached to avoid duplicate listeners.
