@@ -36,8 +36,15 @@
 
 ## Operational Signals
 
+- Info-level success signals:
 - `family_member_joined`
 - `family_action_authorized`
-- `family_action_forbidden`
 - `family_ownership_transferred`
+- Warning/error operational codes:
+- `family_membership_inactive`
+- `family_action_forbidden`
+- `family_actor_missing`
 - `family_owner_required`
+- `family_target_missing`
+- `family_target_not_eligible`
+- `family_self_transfer_invalid`

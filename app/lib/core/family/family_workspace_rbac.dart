@@ -41,7 +41,7 @@ class FamilyMembership {
     FamilyRole? role,
     FamilyMembershipStatus? status,
     DateTime? createdAt,
-    DateTime? joinedAt,
+    Object? joinedAt = _joinedAtUnchanged,
   }) {
     return FamilyMembership(
       workspaceId: workspaceId ?? this.workspaceId,
@@ -50,7 +50,9 @@ class FamilyMembership {
       role: role ?? this.role,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
-      joinedAt: joinedAt ?? this.joinedAt,
+      joinedAt: identical(joinedAt, _joinedAtUnchanged)
+          ? this.joinedAt
+          : joinedAt as DateTime?,
     );
   }
 }
@@ -190,6 +192,15 @@ class FamilyWorkspaceRbac {
       );
     }
 
+    if (actingMemberId == targetMemberId) {
+      return _ownershipFailure(
+        code: 'family_self_transfer_invalid',
+        developerMessage:
+            'Ownership transfer denied because owner cannot transfer to self.',
+        userMessage: 'You are already the family owner.',
+      );
+    }
+
     final target = memberships.where(
       (entry) => entry.memberId == targetMemberId,
     );
@@ -255,6 +266,8 @@ class FamilyWorkspaceRbac {
     );
   }
 }
+
+const Object _joinedAtUnchanged = Object();
 
 const Map<FamilyRole, Set<FamilyProtectedAction>> _roleMatrix =
     <FamilyRole, Set<FamilyProtectedAction>>{

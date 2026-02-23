@@ -4,6 +4,14 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/result/app_result.dart';
 
 void main() {
+  test('copyWith allows clearing joinedAt explicitly', () {
+    final original = _membership(joinedAt: DateTime.utc(2029, 1, 1));
+
+    final updated = original.copyWith(joinedAt: null);
+
+    expect(updated.joinedAt, isNull);
+  });
+
   test('activateMembership transitions invited member to active state', () {
     final logger = InMemoryAppLogger();
     final rbac = FamilyWorkspaceRbac(logger: logger);
@@ -21,6 +29,64 @@ void main() {
       logger.events.map((event) => event.code),
       contains('family_member_joined'),
     );
+  });
+
+  test('activateMembership transitions suspended member to active state', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+
+    final result = rbac.activateMembership(
+      membership: _membership(status: FamilyMembershipStatus.suspended),
+      joinedAt: DateTime.utc(2030, 1, 1),
+    );
+
+    expect(result, isA<AppSuccess<FamilyMembership>>());
+    final membership = (result as AppSuccess<FamilyMembership>).value;
+    expect(membership.status, FamilyMembershipStatus.active);
+    expect(membership.joinedAt, DateTime.utc(2030, 1, 1));
+    expect(
+      logger.events.map((event) => event.code),
+      contains('family_member_joined'),
+    );
+  });
+
+  test(
+    'activateMembership returns family_member_removed for removed member',
+    () {
+      final logger = InMemoryAppLogger();
+      final rbac = FamilyWorkspaceRbac(logger: logger);
+
+      final result = rbac.activateMembership(
+        membership: _membership(status: FamilyMembershipStatus.removed),
+        joinedAt: DateTime.utc(2029, 1, 1),
+      );
+
+      expect(result, isA<AppFailure<FamilyMembership>>());
+      final detail = (result as AppFailure<FamilyMembership>).detail;
+      expect(detail.code, 'family_member_removed');
+    },
+  );
+
+  test('activateMembership is idempotent for active membership', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final original = _membership(joinedAt: DateTime.utc(2028, 6, 1));
+
+    final result = rbac.activateMembership(
+      membership: original,
+      joinedAt: DateTime.utc(2030, 1, 1),
+    );
+
+    expect(result, isA<AppSuccess<FamilyMembership>>());
+    final membership = (result as AppSuccess<FamilyMembership>).value;
+    expect(membership.workspaceId, original.workspaceId);
+    expect(membership.memberId, original.memberId);
+    expect(membership.userId, original.userId);
+    expect(membership.role, original.role);
+    expect(membership.status, FamilyMembershipStatus.active);
+    expect(membership.createdAt, original.createdAt);
+    expect(membership.joinedAt, original.joinedAt);
+    expect(logger.events, isEmpty);
   });
 
   test('authorizeAction denies admin action for member role', () {
@@ -55,6 +121,40 @@ void main() {
       logger.events.map((event) => event.code),
       contains('family_action_authorized'),
     );
+  });
+
+  test('authorizeAction denies action for invited membership', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+
+    final result = rbac.authorizeAction(
+      actor: _membership(
+        role: FamilyRole.admin,
+        status: FamilyMembershipStatus.invited,
+      ),
+      action: FamilyProtectedAction.manageWorkspaceSettings,
+    );
+
+    expect(result, isA<AppFailure<void>>());
+    final detail = (result as AppFailure<void>).detail;
+    expect(detail.code, 'family_membership_inactive');
+  });
+
+  test('authorizeAction denies action for suspended membership', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+
+    final result = rbac.authorizeAction(
+      actor: _membership(
+        role: FamilyRole.admin,
+        status: FamilyMembershipStatus.suspended,
+      ),
+      action: FamilyProtectedAction.manageWorkspaceSettings,
+    );
+
+    expect(result, isA<AppFailure<void>>());
+    final detail = (result as AppFailure<void>).detail;
+    expect(detail.code, 'family_membership_inactive');
   });
 
   test('transferOwnership updates roles and preserves membership records', () {
@@ -107,6 +207,104 @@ void main() {
     final detail = (result as AppFailure<List<FamilyMembership>>).detail;
     expect(detail.code, 'family_owner_required');
   });
+
+  test('transferOwnership rejects transfer to inactive target member', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(memberId: 'owner-1', role: FamilyRole.owner),
+      _membership(
+        memberId: 'inactive-1',
+        role: FamilyRole.admin,
+        status: FamilyMembershipStatus.suspended,
+      ),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'inactive-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_target_not_eligible');
+  });
+
+  test('transferOwnership rejects transfer to localProfile member', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(memberId: 'owner-1', role: FamilyRole.owner),
+      _membership(memberId: 'local-1', role: FamilyRole.localProfile),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'local-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_target_not_eligible');
+  });
+
+  test('transferOwnership rejects when acting member is missing', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(memberId: 'target-1', role: FamilyRole.admin),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'missing-actor',
+      targetMemberId: 'target-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_actor_missing');
+  });
+
+  test('transferOwnership rejects when target member is missing', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(memberId: 'owner-1', role: FamilyRole.owner),
+      _membership(memberId: 'other-1', role: FamilyRole.member),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'missing-target',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_target_missing');
+  });
+
+  test('transferOwnership rejects self-transfer', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(memberId: 'owner-1', role: FamilyRole.owner),
+      _membership(memberId: 'admin-1', role: FamilyRole.admin),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'owner-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_self_transfer_invalid');
+  });
 }
 
 FamilyMembership _membership({
@@ -115,6 +313,7 @@ FamilyMembership _membership({
   String userId = 'user-1',
   FamilyRole role = FamilyRole.member,
   FamilyMembershipStatus status = FamilyMembershipStatus.active,
+  DateTime? joinedAt,
 }) {
   return FamilyMembership(
     workspaceId: workspaceId,
@@ -123,5 +322,6 @@ FamilyMembership _membership({
     role: role,
     status: status,
     createdAt: DateTime.utc(2028, 1, 1),
+    joinedAt: joinedAt,
   );
 }
