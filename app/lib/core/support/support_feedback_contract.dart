@@ -243,19 +243,40 @@ String _redactLogLine(String value) {
   // Authorization-style headers.
   output = output.replaceAllMapped(
     RegExp(
-      r'\b(Authorization|Proxy-Authorization)\s*:\s*([^\s,;]+)',
+      r'\b(Authorization|Proxy-Authorization)\s*:\s*([^\r\n]*)',
       caseSensitive: false,
     ),
     (match) => '${match.group(1)}: [redacted-secret]',
   );
 
-  // Cookie / Set-Cookie values.
+  // Cookie / Set-Cookie values (redact all cookie values in the header).
   output = output.replaceAllMapped(
-    RegExp(
-      r'\b(Cookie|Set-Cookie)\s*:\s*([^=;\s]+)=([^;]+)',
-      caseSensitive: false,
-    ),
-    (match) => '${match.group(1)}: ${match.group(2)}=[redacted-cookie]',
+    RegExp(r'\b(Cookie|Set-Cookie)\s*:\s*([^\r\n]*)', caseSensitive: false),
+    (match) {
+      final headerName = match.group(1);
+      final cookieString = match.group(2) ?? '';
+      final parts = cookieString.split(';');
+      final redactedParts = <String>[];
+
+      for (final part in parts) {
+        final trimmed = part.trim();
+        if (trimmed.isEmpty) {
+          continue;
+        }
+
+        final eqIndex = trimmed.indexOf('=');
+        if (eqIndex == -1) {
+          redactedParts.add(trimmed);
+          continue;
+        }
+
+        final name = trimmed.substring(0, eqIndex).trim();
+        redactedParts.add('$name=[redacted-cookie]');
+      }
+
+      final redactedCookieString = redactedParts.join('; ');
+      return '$headerName: $redactedCookieString';
+    },
   );
 
   // Sensitive query-string parameters.

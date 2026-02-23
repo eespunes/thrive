@@ -243,7 +243,7 @@ class PrivacyLifecycleContract {
     return AppSuccess<AccountDeletionResult>(
       AccountDeletionResult(
         state: AccountDeletionState.completed,
-        scheduledAt: completedAt,
+        scheduledAt: scheduled.scheduledAt,
         purgedRecordCount: purgedRecordCount,
       ),
     );

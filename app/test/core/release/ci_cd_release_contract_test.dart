@@ -56,6 +56,24 @@ void main() {
     expect(decision.reason, 'production_issue_reported');
   });
 
+  test('rollout requires rollback when rollout percentage regresses', () {
+    final contract = CiCdReleaseContract(logger: InMemoryAppLogger());
+
+    final result = contract.evaluateRollout(
+      const RolloutSnapshot(
+        releaseId: 'rel-2',
+        currentPercentage: 20,
+        previousPercentage: 30,
+        issueReported: false,
+      ),
+    );
+
+    expect(result, isA<AppSuccess<RollbackDecision>>());
+    final decision = (result as AppSuccess<RollbackDecision>).value;
+    expect(decision.shouldRollback, isTrue);
+    expect(decision.reason, 'rollout_percentage_regressed');
+  });
+
   test('semantic version validation accepts x.y.z+build format', () {
     final contract = CiCdReleaseContract(logger: InMemoryAppLogger());
 

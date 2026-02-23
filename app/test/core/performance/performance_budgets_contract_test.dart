@@ -87,6 +87,28 @@ void main() {
     expect(decision.reasonCode, 'load_shedding_applied');
   });
 
+  test('load protection accepts request when load is within limits', () {
+    final contract = PerformanceBudgetsContract(logger: InMemoryAppLogger());
+
+    final result = contract.evaluateLoadProtection(
+      config: const LoadProtectionConfig(
+        maxConcurrentRequests: 200,
+        maxQueueDepth: 50,
+        enableShedding: true,
+      ),
+      snapshot: const LoadSnapshot(
+        concurrentRequests: 120,
+        queueDepth: 20,
+        errorRatePercent: 0.8,
+      ),
+    );
+
+    expect(result, isA<AppSuccess<LoadProtectionDecision>>());
+    final decision = (result as AppSuccess<LoadProtectionDecision>).value;
+    expect(decision.accepted, isTrue);
+    expect(decision.reasonCode, 'load_within_limits');
+  });
+
   test(
     'load protection fails deterministically when overloaded and shedding disabled',
     () {
