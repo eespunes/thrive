@@ -13,6 +13,7 @@
 | `AppRouteRegistry` + `AppRouteGuardState` | Mobile Platform + Auth/Family Domain | Resolve routes centrally and enforce auth/workspace guards. |
 | `appLoggerProvider` + `ThriveProviderObserver` | Mobile Core + SRE | Standardize provider wiring and lifecycle observability. |
 | `ThriveFieldValidators` + `ThriveErrorMapper` | Mobile Platform + Backend | Standardize field validation and server/network error mapping. |
+| `AuthSessionLifecycle` + `AuthSessionStore` | Mobile Platform + Auth Backend | Define deterministic session creation, refresh, sign-out, and revocation handling. |
 
 ## Operational Criteria
 
@@ -25,6 +26,7 @@
 - Navigation resolution must emit `route_navigation_resolved`, guard denials must emit `route_guard_blocked`, and unknown routes must emit `route_unknown_fallback`.
 - Riverpod lifecycle observability must emit `provider_added`, `provider_updated`, `provider_disposed`, and `provider_failed`.
 - Form validation failures must emit `form_validation_failed`; recoverable login failures must expose retry with deterministic failure codes.
+- Session lifecycle must emit `auth_session_created`, `auth_token_refreshed`, `auth_session_signed_out`, and `auth_session_revoked`.
 
 ## Recovery Criteria
 
@@ -35,3 +37,4 @@
 - Route guard failures must redirect to user-safe routes (`/login` or `/family/workspace`) without exposing internal errors.
 - Workspace switches must invalidate workspace-scoped providers to avoid stale cross-family state.
 - Form recovery actions must support retry without data loss and must not expose backend internals to the user.
+- Revoked or expired sessions must clear local auth state and force a safe re-authentication path without exposing token internals.
