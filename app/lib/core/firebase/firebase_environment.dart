@@ -59,8 +59,20 @@ abstract final class FirebaseProjectConfigRegistry {
   static AppResult<FirebaseProjectConfig> configFor(
     ThriveEnvironment environment,
   ) {
-    return AppSuccess<FirebaseProjectConfig>(
-      _configsByEnvironment[environment]!,
+    final config = _configsByEnvironment[environment];
+    if (config != null) {
+      return AppSuccess<FirebaseProjectConfig>(config);
+    }
+
+    return AppFailure<FirebaseProjectConfig>(
+      FailureDetail(
+        code: 'firebase_project_config_missing',
+        developerMessage:
+            'No Firebase project configuration found for environment "${environment.name}".',
+        userMessage:
+            'Unable to load app configuration. Please try reinstalling the app.',
+        recoverable: false,
+      ),
     );
   }
 

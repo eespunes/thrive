@@ -11,6 +11,8 @@
 ## Runtime Environment Isolation
 
 - Environment is selected through `THRIVE_ENV` (`dev`, `stg`, `prod`) and defaults to `dev`.
+- `THRIVE_ENV` is read via `String.fromEnvironment('THRIVE_ENV')` and must be provided with Dart defines (for example: `flutter run --dart-define=THRIVE_ENV=stg` or `flutter build apk --dart-define=THRIVE_ENV=prod`).
+- In CI, ensure the Flutter command includes `--dart-define=THRIVE_ENV=...` for the intended environment.
 - Unsupported values fail fast with `firebase_environment_invalid`.
 - Runtime bootstrap logs `firebase_environment_selected` with environment metadata.
 

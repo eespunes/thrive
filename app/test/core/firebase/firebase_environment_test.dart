@@ -69,4 +69,11 @@ void main() {
       expect(config.serviceAccountEmail, contains(item.projectId));
     }
   });
+
+  test('returns config for every declared ThriveEnvironment value', () {
+    for (final environment in ThriveEnvironment.values) {
+      final result = FirebaseProjectConfigRegistry.configFor(environment);
+      expect(result, isA<AppSuccess<FirebaseProjectConfig>>());
+    }
+  });
 }
