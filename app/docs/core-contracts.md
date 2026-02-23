@@ -14,6 +14,7 @@
 | `appLoggerProvider` + `ThriveProviderObserver` | Mobile Core + SRE | Standardize provider wiring and lifecycle observability. |
 | `ThriveFieldValidators` + `ThriveErrorMapper` | Mobile Platform + Backend | Standardize field validation and server/network error mapping. |
 | `AuthSessionLifecycle` + `AuthSessionStore` | Mobile Platform + Auth Backend | Define deterministic session creation, refresh, sign-out, and revocation handling. |
+| `FirebaseEnvironmentLoader` + `FirebaseProjectConfigRegistry` + `FirebaseDeployContext` | Mobile Platform + Backend Platform + DevOps | Enforce deterministic Firebase environment resolution and deploy targeting. |
 
 ## Operational Criteria
 
@@ -27,6 +28,7 @@
 - Riverpod lifecycle observability must emit `provider_added`, `provider_updated`, `provider_disposed`, and `provider_failed`.
 - Form validation failures must emit `form_validation_failed`; recoverable login failures must expose retry with deterministic failure codes.
 - Session lifecycle must emit `auth_session_created`, `auth_token_refreshed`, `auth_session_signed_out`, and `auth_session_revoked`.
+- Firebase bootstrap must emit `firebase_environment_selected`; invalid env or deploy mismatches must fail fast with deterministic codes.
 
 ## Recovery Criteria
 
@@ -38,3 +40,4 @@
 - Workspace switches must invalidate workspace-scoped providers to avoid stale cross-family state.
 - Form recovery actions must support retry without data loss and must not expose backend internals to the user.
 - Revoked or expired sessions must clear local auth state and force a safe re-authentication path without exposing token internals.
+- Firebase environment drift must be diagnosable through stable codes and mismatch details (`firebase_environment_drift`) without exposing secrets to end users.
