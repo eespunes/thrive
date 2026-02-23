@@ -6,6 +6,7 @@ import 'package:thrive_app/core/branding/thrive_branding.dart';
 import 'package:thrive_app/core/design_system/thrive_theme.dart';
 import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
+import 'package:thrive_app/core/version/spec_version.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
 void main() {
@@ -31,5 +32,6 @@ void main() {
     );
 
     expect(find.text('Open Health Module'), findsOneWidget);
+    expect(find.text(thriveVersionLabel), findsOneWidget);
   });
 }
