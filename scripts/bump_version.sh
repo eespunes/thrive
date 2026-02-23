@@ -33,7 +33,7 @@ next_build="$((build + 1))"
 next_semver="${major}.${minor}.${next_patch}"
 next_pubspec_version="${next_semver}+${next_build}"
 
-tmp_pubspec_path="$(mktemp "${PUBSPEC_PATH}.XXXXXX")"
+tmp_pubspec_path="$(mktemp -t pubspec.XXXXXX)"
 cleanup_tmp() {
   rm -f "${tmp_pubspec_path}"
 }

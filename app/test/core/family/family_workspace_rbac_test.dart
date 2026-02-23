@@ -161,6 +161,23 @@ void main() {
     expect(detail.code, 'family_membership_inactive');
   });
 
+  test('authorizeAction denies action for removed membership', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+
+    final result = rbac.authorizeAction(
+      actor: _membership(
+        role: FamilyRole.admin,
+        status: FamilyMembershipStatus.removed,
+      ),
+      action: FamilyProtectedAction.manageWorkspaceSettings,
+    );
+
+    expect(result, isA<AppFailure<void>>());
+    final detail = (result as AppFailure<void>).detail;
+    expect(detail.code, 'family_membership_inactive');
+  });
+
   test('transferOwnership updates roles and preserves membership records', () {
     final logger = InMemoryAppLogger();
     final rbac = FamilyWorkspaceRbac(logger: logger);
@@ -214,6 +231,34 @@ void main() {
       (event) => event.code == 'family_owner_required',
     );
     expect(warning.metadata['actingMemberId'], 'admin-1');
+    expect(warning.metadata['targetMemberId'], 'member-1');
+  });
+
+  test('transferOwnership rejects inactive owner actor', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(
+        memberId: 'owner-1',
+        role: FamilyRole.owner,
+        status: FamilyMembershipStatus.suspended,
+      ),
+      _membership(memberId: 'member-1', role: FamilyRole.member),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'member-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_owner_required');
+    final warning = logger.events.lastWhere(
+      (event) => event.code == 'family_owner_required',
+    );
+    expect(warning.metadata['actingMemberId'], 'owner-1');
     expect(warning.metadata['targetMemberId'], 'member-1');
   });
 
