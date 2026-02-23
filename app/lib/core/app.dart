@@ -101,7 +101,10 @@ class _VersionOverlay extends StatelessWidget {
             child: IgnorePointer(
               child: Container(
                 margin: const EdgeInsets.all(8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.72),
                   borderRadius: BorderRadius.circular(999),
