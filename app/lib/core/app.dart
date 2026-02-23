@@ -10,6 +10,18 @@ import 'package:thrive_app/core/forms/field_validation.dart';
 import 'package:thrive_app/core/navigation/app_route_registry.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/result/app_result.dart';
+import 'package:thrive_app/core/version/spec_version.dart';
+
+const bool _forceVersionOverlay = bool.fromEnvironment(
+  'THRIVE_SHOW_VERSION_OVERLAY',
+  defaultValue: false,
+);
+const String _thriveEnvironment = String.fromEnvironment(
+  'THRIVE_ENV',
+  defaultValue: 'dev',
+);
+const bool _showVersionOverlay =
+    _forceVersionOverlay || _thriveEnvironment != 'prod';
 
 class ThriveApp extends StatefulWidget {
   const ThriveApp({
@@ -79,6 +91,51 @@ class _ThriveAppState extends State<ThriveApp> {
       theme: widget.theme,
       initialRoute: AppRoutePaths.home,
       onGenerateRoute: _routeRegistry.onGenerateRoute,
+      builder: (context, child) => _showVersionOverlay
+          ? _VersionOverlay(child: child)
+          : child ?? const SizedBox.shrink(),
+    );
+  }
+}
+
+class _VersionOverlay extends StatelessWidget {
+  const _VersionOverlay({required this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        child ?? const SizedBox.shrink(),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.bottomRight,
+            child: IgnorePointer(
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  thriveVersionLabel,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

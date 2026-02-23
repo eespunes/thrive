@@ -1,0 +1,67 @@
+name: Auto Bump App Version
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-main
+  cancel-in-progress: false
+
+jobs:
+  bump-version:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Validate app before bumping version
+        working-directory: app
+        run: |
+          flutter analyze --fatal-infos
+          flutter test
+
+      - name: Bump app version
+        run: bash scripts/bump_version.sh
+
+      - name: Commit and push version bump
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet; then
+            echo "No version changes to commit."
+            exit 0
+          fi
+
+          new_version="$(sed -nE 's/^version:[[:space:]]*([0-9]+\.[0-9]+\.[0-9]+\+[0-9]+)$/\1/p' app/pubspec.yaml | head -n1)"
+          if [[ -z "${new_version}" ]]; then
+            echo "Could not read new version from app/pubspec.yaml"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/pubspec.yaml app/lib/core/version/spec_version.dart
+          git commit -m "chore(version): bump to ${new_version} [skip ci]"
+          git push
