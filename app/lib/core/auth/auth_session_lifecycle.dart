@@ -41,7 +41,7 @@ class AuthSessionLifecycle {
   final AppLogger _logger;
   final AuthSessionRevocationGateway _revocationGateway;
   final Clock _clock;
-  Future<AppResult<String>>? _refreshInFlight;
+  _SessionRefreshInFlight? _refreshInFlight;
 
   Future<AppResult<void>> createSession(AuthSession session) async {
     final result = await _store.write(session);
@@ -86,16 +86,21 @@ class AuthSessionLifecycle {
     }
 
     final currentRefresh = _refreshInFlight;
-    if (currentRefresh != null) {
-      return currentRefresh;
+    if (currentRefresh != null &&
+        currentRefresh.sessionId == session.sessionId) {
+      return currentRefresh.future;
     }
 
     final refreshFuture = _refreshAndPersist(session);
-    _refreshInFlight = refreshFuture;
+    final refreshInFlight = _SessionRefreshInFlight(
+      sessionId: session.sessionId,
+      future: refreshFuture,
+    );
+    _refreshInFlight = refreshInFlight;
     try {
       return await refreshFuture;
     } finally {
-      if (identical(_refreshInFlight, refreshFuture)) {
+      if (identical(_refreshInFlight, refreshInFlight)) {
         _refreshInFlight = null;
       }
     }
@@ -132,6 +137,33 @@ class AuthSessionLifecycle {
     }
 
     final refreshedSession = (refreshResult as AppSuccess<AuthSession>).value;
+    final activeSessionResult = await _store.read();
+    if (activeSessionResult is AppFailure<AuthSession?>) {
+      return AppFailure<String>(activeSessionResult.detail);
+    }
+
+    final activeSession =
+        (activeSessionResult as AppSuccess<AuthSession?>).value;
+    if (activeSession == null || activeSession.sessionId != session.sessionId) {
+      _logger.warning(
+        code: 'auth_refresh_discarded_session_changed',
+        message: 'Discarded refresh result because active session changed',
+        metadata: <String, Object?>{
+          'refreshedSessionId': session.sessionId,
+          'activeSessionId': activeSession?.sessionId,
+        },
+      );
+      return AppFailure<String>(
+        FailureDetail(
+          code: 'auth_session_changed_during_refresh',
+          developerMessage:
+              'Active session changed while token refresh was in-flight.',
+          userMessage: 'Your session changed. Please retry the operation.',
+          recoverable: true,
+        ),
+      );
+    }
+
     final writeResult = await _store.write(refreshedSession);
     if (writeResult is AppFailure<void>) {
       return AppFailure<String>(writeResult.detail);
@@ -221,3 +253,13 @@ class AuthSessionLifecycle {
 }
 
 DateTime _utcNow() => DateTime.now().toUtc();
+
+class _SessionRefreshInFlight {
+  const _SessionRefreshInFlight({
+    required this.sessionId,
+    required this.future,
+  });
+
+  final String sessionId;
+  final Future<AppResult<String>> future;
+}

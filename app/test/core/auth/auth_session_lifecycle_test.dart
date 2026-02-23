@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:thrive_app/core/auth/auth_session.dart';
 import 'package:thrive_app/core/auth/auth_session_lifecycle.dart';
@@ -234,6 +236,87 @@ void main() {
   );
 
   test(
+    'validAccessToken does not reuse in-flight refresh for a different session',
+    () async {
+      final logger = InMemoryAppLogger();
+      final store = InMemoryAuthSessionStore();
+      await store.write(
+        _session(
+          sessionId: 'session-old',
+          userId: 'user-old',
+          accessToken: 'old-stale-token',
+          expiresAt: DateTime.utc(2029, 1, 1, 0, 1),
+        ),
+      );
+
+      final refresher = _SessionAwareDelayedRefresher();
+      final lifecycle = AuthSessionLifecycle(
+        store: store,
+        refresher: refresher,
+        logger: logger,
+        clock: () => DateTime.utc(2029, 1, 1, 0, 0),
+      );
+
+      final firstCall = lifecycle.validAccessToken();
+      await refresher.waitUntilCalled('session-old');
+
+      await lifecycle.createSession(
+        _session(
+          sessionId: 'session-new',
+          userId: 'user-new',
+          accessToken: 'new-stale-token',
+          expiresAt: DateTime.utc(2029, 1, 1, 0, 1),
+        ),
+      );
+
+      final secondCall = lifecycle.validAccessToken();
+      await refresher.waitUntilCalled('session-new');
+
+      refresher.complete(
+        sessionId: 'session-new',
+        result: AppSuccess<AuthSession>(
+          _session(
+            sessionId: 'session-new',
+            userId: 'user-new',
+            accessToken: 'new-fresh-token',
+            expiresAt: DateTime.utc(2029, 1, 1, 1, 0),
+          ),
+        ),
+      );
+
+      final secondResult = await secondCall;
+      expect(secondResult, isA<AppSuccess<String>>());
+      expect((secondResult as AppSuccess<String>).value, 'new-fresh-token');
+
+      refresher.complete(
+        sessionId: 'session-old',
+        result: AppSuccess<AuthSession>(
+          _session(
+            sessionId: 'session-old',
+            userId: 'user-old',
+            accessToken: 'old-fresh-token',
+            expiresAt: DateTime.utc(2029, 1, 1, 1, 0),
+          ),
+        ),
+      );
+
+      final firstResult = await firstCall;
+      expect(firstResult, isA<AppFailure<String>>());
+      expect(
+        (firstResult as AppFailure<String>).detail.code,
+        'auth_session_changed_during_refresh',
+      );
+
+      final readBack = await store.read();
+      final persistedSession = (readBack as AppSuccess<AuthSession?>).value;
+      expect(persistedSession?.sessionId, 'session-new');
+      expect(persistedSession?.accessToken, 'new-fresh-token');
+      expect(refresher.callCountBySession('session-old'), 1);
+      expect(refresher.callCountBySession('session-new'), 1);
+    },
+  );
+
+  test(
     'signOut clears local session even when remote revocation fails',
     () async {
       final logger = InMemoryAppLogger();
@@ -434,5 +517,38 @@ class _CountingRevoker implements AuthSessionRevocationGateway {
   Future<AppResult<void>> revoke({required AuthSession session}) async {
     callCount += 1;
     return result;
+  }
+}
+
+class _SessionAwareDelayedRefresher implements AuthTokenRefresher {
+  final Map<String, int> _callCount = <String, int>{};
+  final Map<String, Completer<AppResult<AuthSession>>> _pending =
+      <String, Completer<AppResult<AuthSession>>>{};
+
+  int callCountBySession(String sessionId) => _callCount[sessionId] ?? 0;
+
+  Future<void> waitUntilCalled(String sessionId) async {
+    while (!_pending.containsKey(sessionId)) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+  }
+
+  void complete({
+    required String sessionId,
+    required AppResult<AuthSession> result,
+  }) {
+    final completer = _pending[sessionId];
+    if (completer == null || completer.isCompleted) {
+      throw StateError('No pending refresh for session: $sessionId');
+    }
+    completer.complete(result);
+  }
+
+  @override
+  Future<AppResult<AuthSession>> refresh({required AuthSession session}) {
+    _callCount[session.sessionId] = (_callCount[session.sessionId] ?? 0) + 1;
+    final completer = Completer<AppResult<AuthSession>>();
+    _pending[session.sessionId] = completer;
+    return completer.future;
   }
 }
