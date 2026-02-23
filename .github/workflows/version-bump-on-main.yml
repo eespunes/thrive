@@ -20,6 +20,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Validate app before bumping version
+        working-directory: app
+        run: |
+          flutter analyze --fatal-infos
+          flutter test
+
       - name: Bump app version
         run: bash scripts/bump_version.sh
 

@@ -138,7 +138,8 @@ class FamilyWorkspaceRbac {
       return AppFailure<void>(failure);
     }
 
-    final allowedActions = _roleMatrix[actor.role] ?? <FamilyProtectedAction>{};
+    final allowedActions =
+        _roleMatrix[actor.role] ?? const <FamilyProtectedAction>{};
     if (!allowedActions.contains(action)) {
       final failure = FailureDetail(
         code: 'family_action_forbidden',
@@ -179,10 +180,8 @@ class FamilyWorkspaceRbac {
     required String targetMemberId,
     required List<FamilyMembership> memberships,
   }) {
-    final actor = memberships.where(
-      (entry) => entry.memberId == actingMemberId,
-    );
-    if (actor.isEmpty) {
+    final actingMember = _findByMemberId(memberships, actingMemberId);
+    if (actingMember == null) {
       return _ownershipFailure(
         code: 'family_actor_missing',
         developerMessage:
@@ -194,7 +193,6 @@ class FamilyWorkspaceRbac {
       );
     }
 
-    final actingMember = actor.first;
     if (actingMember.role != FamilyRole.owner || !actingMember.isActive) {
       return _ownershipFailure(
         code: 'family_owner_required',
@@ -219,10 +217,8 @@ class FamilyWorkspaceRbac {
       );
     }
 
-    final target = memberships.where(
-      (entry) => entry.memberId == targetMemberId,
-    );
-    if (target.isEmpty) {
+    final targetMember = _findByMemberId(memberships, targetMemberId);
+    if (targetMember == null) {
       return _ownershipFailure(
         code: 'family_target_missing',
         developerMessage:
@@ -235,7 +231,6 @@ class FamilyWorkspaceRbac {
       );
     }
 
-    final targetMember = target.first;
     if (targetMember.workspaceId != actingMember.workspaceId) {
       return _ownershipFailure(
         code: 'family_workspace_mismatch',
@@ -312,6 +307,18 @@ class FamilyWorkspaceRbac {
         recoverable: true,
       ),
     );
+  }
+
+  FamilyMembership? _findByMemberId(
+    List<FamilyMembership> memberships,
+    String memberId,
+  ) {
+    for (final membership in memberships) {
+      if (membership.memberId == memberId) {
+        return membership;
+      }
+    }
+    return null;
   }
 }
 

@@ -33,6 +33,12 @@ next_build="$((build + 1))"
 next_semver="${major}.${minor}.${next_patch}"
 next_pubspec_version="${next_semver}+${next_build}"
 
+tmp_pubspec_path="$(mktemp "${PUBSPEC_PATH}.XXXXXX")"
+cleanup_tmp() {
+  rm -f "${tmp_pubspec_path}"
+}
+trap cleanup_tmp EXIT
+
 awk -v new_version="${next_pubspec_version}" '
 BEGIN { replaced = 0 }
 {
@@ -48,13 +54,14 @@ END {
     exit 1
   }
 }
-' "${PUBSPEC_PATH}" > "${PUBSPEC_PATH}.tmp"
+' "${PUBSPEC_PATH}" > "${tmp_pubspec_path}"
 
-mv "${PUBSPEC_PATH}.tmp" "${PUBSPEC_PATH}"
+mv "${tmp_pubspec_path}" "${PUBSPEC_PATH}"
+trap - EXIT
 
 cat > "${VERSION_FILE_PATH}" <<EOF
-const String thriveAppVersion = '${next_semver}';
+const String thriveAppVersion = '${next_pubspec_version}';
 const String thriveVersionLabel = 'v\$thriveAppVersion';
 EOF
 
-echo "Bumped app version to ${next_pubspec_version} (label: v${next_semver})"
+echo "Bumped app version to ${next_pubspec_version} (label: v${next_pubspec_version})"

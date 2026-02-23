@@ -12,6 +12,17 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/result/app_result.dart';
 import 'package:thrive_app/core/version/spec_version.dart';
 
+const bool _forceVersionOverlay = bool.fromEnvironment(
+  'THRIVE_SHOW_VERSION_OVERLAY',
+  defaultValue: false,
+);
+const String _thriveEnvironment = String.fromEnvironment(
+  'THRIVE_ENV',
+  defaultValue: 'dev',
+);
+const bool _showVersionOverlay =
+    _forceVersionOverlay || _thriveEnvironment != 'prod';
+
 class ThriveApp extends StatefulWidget {
   const ThriveApp({
     required this.registry,
@@ -80,7 +91,9 @@ class _ThriveAppState extends State<ThriveApp> {
       theme: widget.theme,
       initialRoute: AppRoutePaths.home,
       onGenerateRoute: _routeRegistry.onGenerateRoute,
-      builder: (context, child) => _VersionOverlay(child: child),
+      builder: (context, child) => _showVersionOverlay
+          ? _VersionOverlay(child: child)
+          : child ?? const SizedBox.shrink(),
     );
   }
 }
