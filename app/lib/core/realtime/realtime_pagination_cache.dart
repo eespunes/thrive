@@ -112,8 +112,8 @@ class RealtimePageCache<T> {
     required DateTime cachedAt,
   }) {
     final queryKeyResult = _validateQueryKey(queryKey);
-    if (queryKeyResult case final AppFailure<void> failure) {
-      return failure;
+    if (queryKeyResult is AppFailure<void>) {
+      return queryKeyResult;
     }
 
     _entries[queryKey] = _CacheEntry<T>(
@@ -137,8 +137,8 @@ class RealtimePageCache<T> {
     required DateTime now,
   }) {
     final queryKeyResult = _validateQueryKey(queryKey);
-    if (queryKeyResult case final AppFailure<void> failure) {
-      return AppFailure<CursorPage<T>>(failure.detail);
+    if (queryKeyResult is AppFailure<void>) {
+      return AppFailure<CursorPage<T>>(queryKeyResult.detail);
     }
 
     final entry = _entries[queryKey];
@@ -167,8 +167,8 @@ class RealtimePageCache<T> {
 
   AppResult<void> invalidate(String queryKey) {
     final queryKeyResult = _validateQueryKey(queryKey);
-    if (queryKeyResult case final AppFailure<void> failure) {
-      return failure;
+    if (queryKeyResult is AppFailure<void>) {
+      return queryKeyResult;
     }
 
     _entries.remove(queryKey);
@@ -231,8 +231,8 @@ class RealtimeSubscriptionController<T> {
     required void Function(List<T> items) onData,
   }) async {
     final queryKeyResult = _validateQueryKey(queryKey);
-    if (queryKeyResult case final AppFailure<void> failure) {
-      return failure;
+    if (queryKeyResult is AppFailure<void>) {
+      return queryKeyResult;
     }
 
     if (_subscriptions.containsKey(queryKey)) {
@@ -279,8 +279,8 @@ class RealtimeSubscriptionController<T> {
 
   Future<AppResult<void>> detach(String queryKey) async {
     final queryKeyResult = _validateQueryKey(queryKey);
-    if (queryKeyResult case final AppFailure<void> failure) {
-      return failure;
+    if (queryKeyResult is AppFailure<void>) {
+      return queryKeyResult;
     }
 
     final subscription = _subscriptions.remove(queryKey);
