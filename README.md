@@ -1,7 +1,7 @@
 # Thrive
 
 <p align="center">
-  <img src="logos/thrive-colored.svg" alt="Thrive Logo" width="180" />
+  <img src="app/assets/logos/thrive-colored.svg" alt="Thrive Logo" width="180" />
 </p>
 
 <p align="center">

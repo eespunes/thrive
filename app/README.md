@@ -1,17 +1,43 @@
-# thrive_app
+# Thrive App (Flutter)
 
-A new Flutter project.
+Aplicacion movil de Thrive para Android e iOS.
 
-## Getting Started
+## Requisitos
+- Flutter estable
+- Dart SDK compatible con `app/pubspec.yaml`
+- Java 17 (Android toolchain)
 
-This project is a starting point for a Flutter application.
+## Ejecutar local
+```bash
+cd app
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Calidad local
+```bash
+cd app
+flutter analyze --fatal-infos
+flutter test
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Versionado
+- La version de build se define en `app/pubspec.yaml` (`X.Y.Z+N`).
+- La version visible en la UI se define en `app/lib/core/version/spec_version.dart` (`vX.Y.Z`).
+- El bump automatico se realiza desde `.github/workflows/version-bump-on-main.yml` usando `scripts/bump_version.sh`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Arquitectura base
+- Entrada: `app/lib/main.dart`
+- App shell: `app/lib/core/app.dart`
+- Estado global: Riverpod (`app/lib/core/state/`)
+- Modulos: `app/lib/modules/`
+- Contratos core: `app/lib/core/`
+
+## Branding
+- Logos: `app/assets/logos/`
+
+## CI/CD relacionado
+- PR quality: `.github/workflows/pr-flutter.yml`
+- Copilot gate: `.github/workflows/copilot-review-gate.yml`
+- Auto bump version: `.github/workflows/version-bump-on-main.yml`
+- Release Android: `.github/workflows/release-android.yml`
