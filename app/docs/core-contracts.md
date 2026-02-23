@@ -21,6 +21,11 @@
 | `CloudFunctionContractExecutor` + `FunctionIdempotencyStore` | Mobile Platform + Backend Platform | Enforce function payload/response contracts, idempotency replay, and retry backoff policy. |
 | `OfflineSyncQueue` | Mobile Platform + Data Platform | Define offline mutation queue, sync cycle states, and deterministic conflict semantics. |
 | `RealtimeSubscriptionController` + `CursorPaginator` + `RealtimePageCache` | Mobile Platform + Data Platform | Define realtime listener lifecycle, cursor pagination, and TTL cache invalidation behavior. |
+| `NotificationInfrastructureContract` | Mobile Platform + Backend Platform | Define push token lifecycle, channel preference mapping, and delivery retry diagnostics. |
+| `AuditLogContract` | Mobile Platform + Security + Compliance | Define immutable audit schema, actor/source attribution, and retention-aware history queries. |
+| `ObservabilityMonitoringContract` | Mobile Platform + SRE | Define structured logging contract, crash capture flow, and alert routing thresholds. |
+| `AnalyticsEventTaxonomyContract` | Product Analytics + Mobile Platform | Define analytics naming/schema governance, privacy-safe payload validation, and deprecation rules. |
+| `BackupRestoreExportPolicyContract` | Mobile Platform + Backend Platform + Compliance | Define backup cadence execution, restore drill validation, and export access safeguards. |
 
 ## Operational Criteria
 
@@ -41,6 +46,11 @@
 - Cloud functions execution must emit request intake, retry scheduling, idempotent replay, and terminal success/failure with stable failure codes.
 - Offline sync must expose deterministic queue states (`idle`, `queued`, `syncing`, `error`) and emit sync conflict/recovery telemetry.
 - Realtime contracts must emit subscription start/event/stop signals and deterministic pagination/cache failures (`pagination_cursor_invalid`, `realtime_cache_expired`, `realtime_query_key_invalid`).
+- Notifications contract must emit deterministic token lifecycle (`push_token_registered`, `push_token_refreshed`) and delivery diagnostics (`notification_delivery_attempt_failed`, `notification_delivery_failed`).
+- Audit contract must emit immutable write/query signals and deterministic failures for attribution and query window violations.
+- Observability contract must enforce structured log payload fields, crash capture outcomes, and threshold-based alert routing signals.
+- Analytics taxonomy must enforce event naming/schema validation, PII checks, and definition lifecycle/deprecation signaling.
+- Backup/restore/export contract must emit scheduled backup, restore drill, and export control signals with stable failure codes.
 
 ## Recovery Criteria
 
@@ -59,3 +69,8 @@
 - Idempotent function retries must avoid duplicate writes and provide replay-safe responses for repeated requests.
 - Offline sync must keep queued mutations when offline and support conflict resolution policy without silently dropping local intent.
 - Realtime cache misses/expiry must trigger safe refresh behavior; stale subscription handles must be detached to avoid duplicate listeners.
+- Notification delivery retries should fail safely with user-actionable messaging and avoid leaking token internals.
+- Audit history retrieval must enforce retention limits while preserving immutable event records for compliance review.
+- Observability alerts must include owner metadata to route incidents without manual reassignment.
+- Analytics events must reject potential PII and deprecated schemas to prevent data governance violations.
+- Export requests must enforce authorization and rate limits before generating user-visible data artifacts.
