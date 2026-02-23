@@ -43,6 +43,7 @@
 - `family_action_authorized`
 - `family_ownership_transferred`
 - Warning/error operational codes:
+- `family_member_removed`
 - `family_membership_inactive`
 - `family_action_forbidden`
 - `family_actor_missing`
