@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "app/pubspec.yaml"
+      - "app/lib/core/version/spec_version.dart"
 
 permissions:
   contents: write
@@ -14,11 +17,12 @@ concurrency:
 
 jobs:
   bump-version:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MAIN_PUSH_PAT }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
