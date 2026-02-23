@@ -41,7 +41,8 @@ class FamilyMembership {
     FamilyRole? role,
     FamilyMembershipStatus? status,
     DateTime? createdAt,
-    Object? joinedAt = _joinedAtUnchanged,
+    DateTime? joinedAt,
+    bool clearJoinedAt = false,
   }) {
     return FamilyMembership(
       workspaceId: workspaceId ?? this.workspaceId,
@@ -50,9 +51,7 @@ class FamilyMembership {
       role: role ?? this.role,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
-      joinedAt: identical(joinedAt, _joinedAtUnchanged)
-          ? this.joinedAt
-          : joinedAt as DateTime?,
+      joinedAt: clearJoinedAt ? null : (joinedAt ?? this.joinedAt),
     );
   }
 }
@@ -67,6 +66,17 @@ class FamilyWorkspaceRbac {
     required DateTime joinedAt,
   }) {
     if (membership.status == FamilyMembershipStatus.removed) {
+      _logger.warning(
+        code: 'family_member_removed',
+        message: 'Membership activation denied because member is removed',
+        metadata: <String, Object?>{
+          'workspaceId': membership.workspaceId,
+          'memberId': membership.memberId,
+          'userId': membership.userId,
+          'currentStatus': membership.status.name,
+          'attemptedStatus': FamilyMembershipStatus.active.name,
+        },
+      );
       return AppFailure<FamilyMembership>(
         FailureDetail(
           code: 'family_member_removed',
@@ -179,6 +189,8 @@ class FamilyWorkspaceRbac {
             'Ownership transfer denied because acting member was not found.',
         userMessage:
             'Could not transfer ownership. Please refresh and try again.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
       );
     }
 
@@ -189,6 +201,9 @@ class FamilyWorkspaceRbac {
         developerMessage:
             'Ownership transfer denied because acting member is not an active owner.',
         userMessage: 'Only the current family owner can transfer ownership.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
+        workspaceId: actingMember.workspaceId,
       );
     }
 
@@ -198,6 +213,9 @@ class FamilyWorkspaceRbac {
         developerMessage:
             'Ownership transfer denied because owner cannot transfer to self.',
         userMessage: 'You are already the family owner.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
+        workspaceId: actingMember.workspaceId,
       );
     }
 
@@ -211,10 +229,26 @@ class FamilyWorkspaceRbac {
             'Ownership transfer denied because target member was not found.',
         userMessage:
             'Could not transfer ownership. Please refresh and try again.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
+        workspaceId: actingMember.workspaceId,
       );
     }
 
     final targetMember = target.first;
+    if (targetMember.workspaceId != actingMember.workspaceId) {
+      return _ownershipFailure(
+        code: 'family_workspace_mismatch',
+        developerMessage:
+            'Ownership transfer denied because actor and target belong to different workspaces.',
+        userMessage:
+            'Could not transfer ownership because members are not in the same family workspace.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
+        workspaceId: actingMember.workspaceId,
+      );
+    }
+
     if (!targetMember.isActive ||
         targetMember.role == FamilyRole.localProfile) {
       return _ownershipFailure(
@@ -223,6 +257,9 @@ class FamilyWorkspaceRbac {
             'Ownership transfer denied because target is not an active eligible role.',
         userMessage:
             'Ownership can only be transferred to an active adult member.',
+        actingMemberId: actingMemberId,
+        targetMemberId: targetMemberId,
+        workspaceId: actingMember.workspaceId,
       );
     }
 
@@ -254,8 +291,19 @@ class FamilyWorkspaceRbac {
     required String code,
     required String developerMessage,
     required String userMessage,
+    String? actingMemberId,
+    String? targetMemberId,
+    String? workspaceId,
   }) {
-    _logger.warning(code: code, message: developerMessage);
+    _logger.warning(
+      code: code,
+      message: developerMessage,
+      metadata: <String, Object?>{
+        'workspaceId': workspaceId,
+        'actingMemberId': actingMemberId,
+        'targetMemberId': targetMemberId,
+      },
+    );
     return AppFailure<List<FamilyMembership>>(
       FailureDetail(
         code: code,
@@ -266,8 +314,6 @@ class FamilyWorkspaceRbac {
     );
   }
 }
-
-const Object _joinedAtUnchanged = Object();
 
 const Map<FamilyRole, Set<FamilyProtectedAction>> _roleMatrix =
     <FamilyRole, Set<FamilyProtectedAction>>{

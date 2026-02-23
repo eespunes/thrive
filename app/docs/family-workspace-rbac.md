@@ -47,4 +47,5 @@
 - `family_owner_required`
 - `family_target_missing`
 - `family_target_not_eligible`
+- `family_workspace_mismatch`
 - `family_self_transfer_invalid`

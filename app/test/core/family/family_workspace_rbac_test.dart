@@ -7,7 +7,7 @@ void main() {
   test('copyWith allows clearing joinedAt explicitly', () {
     final original = _membership(joinedAt: DateTime.utc(2029, 1, 1));
 
-    final updated = original.copyWith(joinedAt: null);
+    final updated = original.copyWith(clearJoinedAt: true);
 
     expect(updated.joinedAt, isNull);
   });
@@ -64,6 +64,10 @@ void main() {
       expect(result, isA<AppFailure<FamilyMembership>>());
       final detail = (result as AppFailure<FamilyMembership>).detail;
       expect(detail.code, 'family_member_removed');
+      expect(
+        logger.events.map((event) => event.code),
+        contains('family_member_removed'),
+      );
     },
   );
 
@@ -206,6 +210,11 @@ void main() {
     expect(result, isA<AppFailure<List<FamilyMembership>>>());
     final detail = (result as AppFailure<List<FamilyMembership>>).detail;
     expect(detail.code, 'family_owner_required');
+    final warning = logger.events.lastWhere(
+      (event) => event.code == 'family_owner_required',
+    );
+    expect(warning.metadata['actingMemberId'], 'admin-1');
+    expect(warning.metadata['targetMemberId'], 'member-1');
   });
 
   test('transferOwnership rejects transfer to inactive target member', () {
@@ -304,6 +313,33 @@ void main() {
     expect(result, isA<AppFailure<List<FamilyMembership>>>());
     final detail = (result as AppFailure<List<FamilyMembership>>).detail;
     expect(detail.code, 'family_self_transfer_invalid');
+  });
+
+  test('transferOwnership rejects cross-workspace target member', () {
+    final logger = InMemoryAppLogger();
+    final rbac = FamilyWorkspaceRbac(logger: logger);
+    final memberships = <FamilyMembership>[
+      _membership(
+        workspaceId: 'workspace-owner',
+        memberId: 'owner-1',
+        role: FamilyRole.owner,
+      ),
+      _membership(
+        workspaceId: 'workspace-other',
+        memberId: 'admin-1',
+        role: FamilyRole.admin,
+      ),
+    ];
+
+    final result = rbac.transferOwnership(
+      actingMemberId: 'owner-1',
+      targetMemberId: 'admin-1',
+      memberships: memberships,
+    );
+
+    expect(result, isA<AppFailure<List<FamilyMembership>>>());
+    final detail = (result as AppFailure<List<FamilyMembership>>).detail;
+    expect(detail.code, 'family_workspace_mismatch');
   });
 }
 
