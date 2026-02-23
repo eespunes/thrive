@@ -233,13 +233,53 @@ class SupportFeedbackContract {
 
 String _redactLogLine(String value) {
   var output = value;
+
+  // Email addresses.
   output = output.replaceAllMapped(
     RegExp(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'),
     (_) => '[redacted-email]',
   );
+
+  // Authorization-style headers.
   output = output.replaceAllMapped(
-    RegExp(r'(token|secret|apikey)\s*[=:]\s*[^\s]+', caseSensitive: false),
-    (_) => '[redacted-secret]',
+    RegExp(
+      r'\b(Authorization|Proxy-Authorization)\s*:\s*([^\s,;]+)',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}: [redacted-secret]',
+  );
+
+  // Cookie / Set-Cookie values.
+  output = output.replaceAllMapped(
+    RegExp(
+      r'\b(Cookie|Set-Cookie)\s*:\s*([^=;\s]+)=([^;]+)',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}: ${match.group(2)}=[redacted-cookie]',
+  );
+
+  // Sensitive query-string parameters.
+  output = output.replaceAllMapped(
+    RegExp(
+      r'([?&](?:password|passwd|pwd|token|access_token|id_token|sessionid|session_id|sid)=)[^&\s]+',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}[redacted-secret]',
+  );
+
+  // Generic key/value secret patterns.
+  output = output.replaceAllMapped(
+    RegExp(
+      r'\b(token|secret|apikey|password|passwd|pwd|sessionid|session_id|sid)\s*([=:])\s*([^\s&]+)',
+      caseSensitive: false,
+    ),
+    (match) {
+      final currentValue = match.group(3) ?? '';
+      if (currentValue.startsWith('[redacted-')) {
+        return match.group(0)!;
+      }
+      return '${match.group(1)}${match.group(2)}[redacted-secret]';
+    },
   );
   return output;
 }

@@ -25,6 +25,10 @@ void main() {
         logs: <String>[
           'user mail user@example.com failed login',
           'token=abc123',
+          'Authorization: Bearer abc.def.ghi',
+          'Cookie: sessionid=abc123xyz; path=/',
+          '/api/login?password=hello123&token=qwerty',
+          'password: super-secret-pass',
         ],
       ),
     );
@@ -33,6 +37,18 @@ void main() {
     final attachment = (result as AppSuccess<DiagnosticAttachment>).value;
     expect(attachment.redactedLogs.first, contains('[redacted-email]'));
     expect(attachment.redactedLogs.last, contains('[redacted-secret]'));
+    expect(
+      attachment.redactedLogs[2],
+      contains('Authorization: [redacted-secret]'),
+    );
+    expect(
+      attachment.redactedLogs[3],
+      contains('Cookie: sessionid=[redacted-cookie]'),
+    );
+    expect(
+      attachment.redactedLogs[4],
+      contains('?password=[redacted-secret]&token=[redacted-secret]'),
+    );
   });
 
   test('assigns ownership team based on ticket category', () {
