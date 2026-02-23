@@ -41,6 +41,7 @@ class AuthSessionLifecycle {
   final AppLogger _logger;
   final AuthSessionRevocationGateway _revocationGateway;
   final Clock _clock;
+  Future<AppResult<String>>? _refreshInFlight;
 
   Future<AppResult<void>> createSession(AuthSession session) async {
     final result = await _store.write(session);
@@ -84,6 +85,23 @@ class AuthSessionLifecycle {
       return AppSuccess<String>(session.accessToken);
     }
 
+    final currentRefresh = _refreshInFlight;
+    if (currentRefresh != null) {
+      return currentRefresh;
+    }
+
+    final refreshFuture = _refreshAndPersist(session);
+    _refreshInFlight = refreshFuture;
+    try {
+      return await refreshFuture;
+    } finally {
+      if (identical(_refreshInFlight, refreshFuture)) {
+        _refreshInFlight = null;
+      }
+    }
+  }
+
+  Future<AppResult<String>> _refreshAndPersist(AuthSession session) async {
     final refreshResult = await _refresher.refresh(session: session);
     if (refreshResult is AppFailure<AuthSession>) {
       final detail = refreshResult.detail;

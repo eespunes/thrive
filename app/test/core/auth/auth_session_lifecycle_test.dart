@@ -140,6 +140,100 @@ void main() {
   });
 
   test(
+    'validAccessToken returns auth_session_missing when no session exists',
+    () async {
+      final logger = InMemoryAppLogger();
+      final store = InMemoryAuthSessionStore();
+      final lifecycle = AuthSessionLifecycle(
+        store: store,
+        refresher: _FixedRefresher(
+          result: AppSuccess<AuthSession>(_session(accessToken: 'unused')),
+        ),
+        logger: logger,
+      );
+
+      final result = await lifecycle.validAccessToken();
+
+      expect(result, isA<AppFailure<String>>());
+      final detail = (result as AppFailure<String>).detail;
+      expect(detail.code, 'auth_session_missing');
+    },
+  );
+
+  test('validAccessToken propagates non-revocation refresh failures', () async {
+    final logger = InMemoryAppLogger();
+    final store = InMemoryAuthSessionStore();
+    await store.write(
+      _session(
+        accessToken: 'stale-token',
+        expiresAt: DateTime.utc(2029, 1, 1, 0, 1),
+      ),
+    );
+
+    final lifecycle = AuthSessionLifecycle(
+      store: store,
+      refresher: _FixedRefresher(
+        result: AppFailure<AuthSession>(
+          FailureDetail(
+            code: 'auth_refresh_network_error',
+            developerMessage: 'Refresh endpoint timed out.',
+            userMessage: 'Please try again in a moment.',
+            recoverable: true,
+          ),
+        ),
+      ),
+      logger: logger,
+      clock: () => DateTime.utc(2029, 1, 1, 0, 0),
+    );
+
+    final result = await lifecycle.validAccessToken();
+
+    expect(result, isA<AppFailure<String>>());
+    final detail = (result as AppFailure<String>).detail;
+    expect(detail.code, 'auth_refresh_network_error');
+  });
+
+  test(
+    'validAccessToken performs one refresh when called concurrently',
+    () async {
+      final logger = InMemoryAppLogger();
+      final store = InMemoryAuthSessionStore();
+      await store.write(
+        _session(
+          accessToken: 'stale-token',
+          expiresAt: DateTime.utc(2029, 1, 1, 0, 1),
+        ),
+      );
+
+      final refresher = _CountingRefresher(
+        result: AppSuccess<AuthSession>(
+          _session(
+            accessToken: 'fresh-token',
+            expiresAt: DateTime.utc(2029, 1, 1, 1, 0),
+          ),
+        ),
+      );
+      final lifecycle = AuthSessionLifecycle(
+        store: store,
+        refresher: refresher,
+        logger: logger,
+        clock: () => DateTime.utc(2029, 1, 1, 0, 0),
+      );
+
+      final results = await Future.wait<AppResult<String>>(
+        <Future<AppResult<String>>>[
+          lifecycle.validAccessToken(),
+          lifecycle.validAccessToken(),
+        ],
+      );
+
+      expect(refresher.callCount, 1);
+      expect(results[0], isA<AppSuccess<String>>());
+      expect(results[1], isA<AppSuccess<String>>());
+    },
+  );
+
+  test(
     'signOut clears local session even when remote revocation fails',
     () async {
       final logger = InMemoryAppLogger();
@@ -177,6 +271,52 @@ void main() {
   );
 
   test(
+    'signOut with default revokeRemote=false clears local session',
+    () async {
+      final logger = InMemoryAppLogger();
+      final store = InMemoryAuthSessionStore();
+      await store.write(_session(accessToken: 'token-a'));
+
+      final revoker = _CountingRevoker(result: const AppSuccess<void>(null));
+      final lifecycle = AuthSessionLifecycle(
+        store: store,
+        refresher: _FixedRefresher(
+          result: AppSuccess<AuthSession>(_session(accessToken: 'unused')),
+        ),
+        revocationGateway: revoker,
+        logger: logger,
+      );
+
+      final result = await lifecycle.signOut();
+
+      expect(result, isA<AppSuccess<void>>());
+      expect(revoker.callCount, 0);
+      final readBack = await store.read();
+      expect((readBack as AppSuccess<AuthSession?>).value, isNull);
+    },
+  );
+
+  test('signOut succeeds when no session exists', () async {
+    final logger = InMemoryAppLogger();
+    final store = InMemoryAuthSessionStore();
+    final revoker = _CountingRevoker(result: const AppSuccess<void>(null));
+
+    final lifecycle = AuthSessionLifecycle(
+      store: store,
+      refresher: _FixedRefresher(
+        result: AppSuccess<AuthSession>(_session(accessToken: 'unused')),
+      ),
+      revocationGateway: revoker,
+      logger: logger,
+    );
+
+    final result = await lifecycle.signOut(revokeRemote: true);
+
+    expect(result, isA<AppSuccess<void>>());
+    expect(revoker.callCount, 0);
+  });
+
+  test(
     'handleRemoteRevocation clears matching session and returns failure',
     () async {
       final logger = InMemoryAppLogger();
@@ -204,6 +344,32 @@ void main() {
       expect((readBack as AppSuccess<AuthSession?>).value, isNull);
     },
   );
+
+  test('handleRemoteRevocation ignores non-matching session id', () async {
+    final logger = InMemoryAppLogger();
+    final store = InMemoryAuthSessionStore();
+    await store.write(
+      _session(sessionId: 'session-local', accessToken: 'token-a'),
+    );
+
+    final lifecycle = AuthSessionLifecycle(
+      store: store,
+      refresher: _FixedRefresher(
+        result: AppSuccess<AuthSession>(_session(accessToken: 'unused')),
+      ),
+      logger: logger,
+    );
+
+    final result = await lifecycle.handleRemoteRevocation(
+      sessionId: 'session-remote',
+    );
+
+    expect(result, isA<AppSuccess<void>>());
+    final readBack = await store.read();
+    final session = (readBack as AppSuccess<AuthSession?>).value;
+    expect(session, isNotNull);
+    expect(session?.sessionId, 'session-local');
+  });
 }
 
 AuthSession _session({
@@ -240,6 +406,33 @@ class _FixedRevoker implements AuthSessionRevocationGateway {
 
   @override
   Future<AppResult<void>> revoke({required AuthSession session}) async {
+    return result;
+  }
+}
+
+class _CountingRefresher implements AuthTokenRefresher {
+  _CountingRefresher({required this.result});
+
+  final AppResult<AuthSession> result;
+  int callCount = 0;
+
+  @override
+  Future<AppResult<AuthSession>> refresh({required AuthSession session}) async {
+    callCount += 1;
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    return result;
+  }
+}
+
+class _CountingRevoker implements AuthSessionRevocationGateway {
+  _CountingRevoker({required this.result});
+
+  final AppResult<void> result;
+  int callCount = 0;
+
+  @override
+  Future<AppResult<void>> revoke({required AuthSession session}) async {
+    callCount += 1;
     return result;
   }
 }
