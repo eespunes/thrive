@@ -86,5 +86,24 @@ flutter pub get
 flutter run
 ```
 
+## Ejecutar en emulador Android (guardado)
+Usa el script preparado para arrancar emulador + app en un solo paso:
+
+```bash
+cd /Users/erikespunesjubero/thrive
+./scripts/run-android-emulator.sh
+```
+
+Opcional: indicar otro AVD por nombre.
+
+```bash
+./scripts/run-android-emulator.sh "Medium_Phone_API_36.0"
+```
+
+Notas:
+- Si ya hay un emulador Android activo, el script lo reutiliza.
+- Si no hay ninguno activo, inicia el AVD y espera a que termine de bootear.
+- Luego ejecuta `flutter run` sobre el emulador detectado.
+
 ## Licencia
 Privado / uso interno del proyecto.
