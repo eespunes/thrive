@@ -5,86 +5,86 @@
 </p>
 
 <p align="center">
-  App de finanzas familiares para Android e iOS, diseñada para reemplazar el flujo actual en Excel.
+  Family finance app for Android and iOS, built to replace the current Excel workflow.
 </p>
 
-## Resumen
-Thrive centraliza la gestión financiera del hogar en una app móvil colaborativa: movimientos, presupuestos, deudas, gastos fijos, metas y organización familiar por fases.
+## Summary
+Thrive centralizes household financial management in a collaborative mobile app: transactions, budgets, debt tracking, fixed costs, savings goals, and phased family workflows.
 
-## Visión
-Construir un **Family OS**: empezar por finanzas compartidas y evolucionar a una plataforma integral de gestión del hogar.
+## Vision
+Build a **Family OS**: start with shared finance and evolve into a full household management platform.
 
-## Problema
-- Información dispersa en hojas de cálculo.
-- Dificultad para saber quién pagó qué y qué queda pendiente.
-- Seguimiento manual de deudas, recurrencias y cierres de mes.
+## Problem
+- Financial data is scattered across spreadsheets.
+- It is difficult to know who paid what and what is still pending.
+- Debt, recurring costs, and month-close tracking are still manual.
 
-## Solución
-- Registro rápido de ingresos y gastos con categorías.
-- Workspace familiar compartido con roles.
-- Seguimiento de deudas, gastos fijos y metas de ahorro.
-- Balance mensual esperado vs real y pendientes de pago.
-- Base técnica para sincronización en tiempo real y soporte offline.
+## Solution
+- Fast income/expense capture with categories.
+- Shared family workspace with role-based access.
+- Debt, fixed-cost, and savings-goal tracking.
+- Expected vs actual monthly balance with outstanding payments.
+- Technical foundation for real-time sync and offline support.
 
-## Stack tecnológico
-- **Frontend:** Flutter (Dart) para Android + iOS
-- **Estado:** Riverpod + patrón repositorio
+## Technology Stack
+- **Frontend:** Flutter (Dart) for Android + iOS
+- **State:** Riverpod + repository pattern
 - **Backend:** Firebase (Auth, Firestore, Cloud Functions)
-- **UI:** Material 3 con branding Thrive
-- **CI/CD:** GitHub Actions (Android) y pipeline de releases
+- **UI:** Material 3 with Thrive branding
+- **CI/CD:** GitHub Actions (Android) and release pipelines
 
 ## Roadmap
-### Fase 1: MVP Finanzas (Core)
-Objetivo: reemplazar el Excel familiar con un flujo móvil estable y colaborativo.
-- Autenticación y onboarding familiar
-- Dashboard mensual y movimientos
-- Deudas, gastos fijos, reportes y metas
-- Ajustes, miembros y perfiles locales
+### Phase 1: Finance MVP (Core)
+Goal: replace the family Excel workflow with a stable, collaborative mobile flow.
+- Authentication and family onboarding
+- Monthly dashboard and transactions
+- Debt, fixed costs, reports, and goals
+- Settings, members, and local profiles
 
-### Fase 2: Engagement y gestión del hogar
-Objetivo: aumentar el uso diario más allá del registro financiero.
-- Lista de compra conectada a presupuesto
-- Comparador de cesta entre supermercados
-- Tareas compartidas del hogar
+### Phase 2: Engagement and Home Management
+Goal: increase daily usage beyond financial tracking.
+- Shopping list connected to budget
+- Grocery basket comparison across supermarkets
+- Shared household tasks
 
-### Fase 3: Organización familiar
-Objetivo: centralizar planificación y calendario familiar.
-- Calendario compartido
-- Sincronización de eventos financieros
-- Importación de calendarios externos
+### Phase 3: Family Organization
+Goal: centralize planning and shared calendars.
+- Shared calendar
+- Financial event synchronization
+- External calendar import
 
-### Fase 4: Inteligencia
-Objetivo: convertir datos en acciones y recomendaciones útiles.
-- Chat contextual sobre finanzas
-- OCR de tickets/facturas
-- Briefing diario proactivo
-- Simulaciones de escenarios
+### Phase 4: Intelligence
+Goal: turn data into useful actions and recommendations.
+- Contextual finance assistant
+- Receipt/invoice OCR
+- Proactive daily briefing
+- Scenario simulations
 
-## Estado actual
-- Definición funcional y técnica en progreso con OpenSpec.
-- Backlog estructurado por fases con épicas e issues en GitHub.
-- Base Flutter iniciada y branding integrado.
+## Current Status
+- Functional and technical definition is managed in OpenSpec.
+- Backlog is structured by phases using GitHub epics and issues.
+- Flutter base app and branding are integrated.
 
-## Documentación
-- Specs OpenSpec: `openspec/specs/`
-- Índice de specs: `openspec/specs/README.md`
-- Setup Android release: `.github/ANDROID_RELEASE_SETUP.md`
+## Documentation
+- OpenSpec specs: `openspec/specs/`
+- Specs index: `openspec/specs/README.md`
+- Android release setup: `.github/ANDROID_RELEASE_SETUP.md`
 
-## Estructura del repositorio
+## Repository Structure
 ```text
 thrive/
-├── app/                  # App Flutter
-├── openspec/specs/       # Especificaciones funcionales y técnicas
-├── mockups/              # Referencias visuales y diagrama de flujo
-└── .github/              # Workflows y plantillas de GitHub
+├── app/                  # Flutter app
+├── openspec/specs/       # Functional and technical specs
+├── mockups/              # Visual references and flow diagrams
+└── .github/              # Workflows and GitHub templates
 ```
 
-## Cómo ejecutar (local)
+## Run Locally
 ```bash
 cd app
 flutter pub get
 flutter run
 ```
 
-## Licencia
-Privado / uso interno del proyecto.
+## License
+Private repository / internal project use.
