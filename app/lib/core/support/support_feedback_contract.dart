@@ -233,13 +233,74 @@ class SupportFeedbackContract {
 
 String _redactLogLine(String value) {
   var output = value;
+
+  // Email addresses.
   output = output.replaceAllMapped(
     RegExp(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'),
     (_) => '[redacted-email]',
   );
+
+  // Authorization-style headers.
   output = output.replaceAllMapped(
-    RegExp(r'(token|secret|apikey)\s*[=:]\s*[^\s]+', caseSensitive: false),
-    (_) => '[redacted-secret]',
+    RegExp(
+      r'\b(Authorization|Proxy-Authorization)\s*:\s*([^\r\n]*)',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}: [redacted-secret]',
+  );
+
+  // Cookie / Set-Cookie values (redact all cookie values in the header).
+  output = output.replaceAllMapped(
+    RegExp(r'\b(Cookie|Set-Cookie)\s*:\s*([^\r\n]*)', caseSensitive: false),
+    (match) {
+      final headerName = match.group(1);
+      final cookieString = match.group(2) ?? '';
+      final parts = cookieString.split(';');
+      final redactedParts = <String>[];
+
+      for (final part in parts) {
+        final trimmed = part.trim();
+        if (trimmed.isEmpty) {
+          continue;
+        }
+
+        final eqIndex = trimmed.indexOf('=');
+        if (eqIndex == -1) {
+          redactedParts.add(trimmed);
+          continue;
+        }
+
+        final name = trimmed.substring(0, eqIndex).trim();
+        redactedParts.add('$name=[redacted-cookie]');
+      }
+
+      final redactedCookieString = redactedParts.join('; ');
+      return '$headerName: $redactedCookieString';
+    },
+  );
+
+  // Sensitive query-string parameters.
+  output = output.replaceAllMapped(
+    RegExp(
+      r'([?&](?:password|passwd|pwd|token|access_token|id_token|sessionid|session_id|sid)=)[^&\s]+',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}[redacted-secret]',
+  );
+
+  // Generic key/value secret patterns.
+  output = output.replaceAllMapped(
+    RegExp(
+      r'\b(token|secret|apikey|password|passwd|pwd|sessionid|session_id|sid)\s*([=:])\s*([^\s&]+)',
+      caseSensitive: false,
+    ),
+    (match) {
+      final currentValue = match.group(3) ?? '';
+      if (currentValue.startsWith('[redacted-')) {
+        return match.group(0)!;
+      }
+      return '${match.group(1)}${match.group(2)}[redacted-secret]';
+    },
   );
   return output;
 }

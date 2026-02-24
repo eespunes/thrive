@@ -98,5 +98,6 @@ void main() {
     final value = (completion as AppSuccess<AccountDeletionResult>).value;
     expect(value.state, AccountDeletionState.completed);
     expect(value.purgedRecordCount, 42);
+    expect(value.scheduledAt, DateTime.utc(2030, 1, 2));
   });
 }
