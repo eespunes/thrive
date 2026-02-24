@@ -60,8 +60,8 @@ mv "${tmp_pubspec_path}" "${PUBSPEC_PATH}"
 trap - EXIT
 
 cat > "${VERSION_FILE_PATH}" <<EOF
-const String thriveAppVersion = '${next_pubspec_version}';
+const String thriveAppVersion = '${next_semver}';
 const String thriveVersionLabel = 'v\$thriveAppVersion';
 EOF
 
-echo "Bumped app version to ${next_pubspec_version} (label: v${next_pubspec_version})"
+echo "Bumped app version to ${next_pubspec_version} (label: v${next_semver})"

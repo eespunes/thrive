@@ -117,8 +117,8 @@ jobs:
 
           if [ "$copilot_reviews_on_head" -lt 1 ]; then
             echo "Copilot review pending for current head: ${head_sha}"
-            echo "Monitoring active; waiting for Copilot to submit review."
-            exit 0
+            echo "Blocking merge until Copilot submits a review for this head SHA."
+            exit 1
           fi
 
           threads_json=$(gh api graphql -f query='
