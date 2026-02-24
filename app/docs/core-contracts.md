@@ -26,6 +26,13 @@
 | `ObservabilityMonitoringContract` | Mobile Platform + SRE | Define structured logging contract, crash capture flow, and alert routing thresholds. |
 | `AnalyticsEventTaxonomyContract` | Product Analytics + Mobile Platform | Define analytics naming/schema governance, privacy-safe payload validation, and deprecation rules. |
 | `BackupRestoreExportPolicyContract` | Mobile Platform + Backend Platform + Compliance | Define backup cadence execution, restore drill validation, and export access safeguards. |
+| `PerformanceBudgetsContract` | Mobile Platform + SRE | Define critical-flow latency/payload/throughput budgets and deterministic load-protection decisions. |
+| `AccessibilityLocalizationContract` | Mobile Platform + Design System + Localization | Define accessibility baseline checks and locale/currency/timezone-safe formatting contracts. |
+| `TestingStrategyContract` | Mobile Platform + QA | Define test pyramid ownership, deterministic fixtures, and release blocking criteria gates. |
+| `CiCdReleaseContract` | Mobile Platform + Release Engineering | Define CI/CD workflow validation, signing/promotion checks, and rollout rollback decisions. |
+| `SecretManagementContract` | Security + SRE + Backend Platform | Define least-privilege secret access, rotation windows, and leak response workflow. |
+| `PrivacyLifecycleContract` | Privacy + Compliance + Mobile Platform | Define consent linkage, retention evaluation, and safe account deletion lifecycle handling. |
+| `SupportFeedbackContract` | Customer Support + Mobile Platform | Define in-app support capture, diagnostic redaction, and SLA ownership enforcement. |
 
 ## Operational Criteria
 
@@ -51,6 +58,13 @@
 - Observability contract must enforce structured log payload fields, crash capture outcomes, and threshold-based alert routing signals.
 - Analytics taxonomy must enforce event naming/schema validation, PII checks, and definition lifecycle/deprecation signaling.
 - Backup/restore/export contract must emit scheduled backup, restore drill, and export control signals with stable failure codes.
+- Performance budgets contract must emit deterministic regression and load-shedding signals for critical user flows.
+- Accessibility/localization contract must emit deterministic validation codes for semantics, locale configuration, and timezone calculations.
+- Testing strategy contract must emit stable quality-gate signals for pyramid integrity, fixtures, and release blocking decisions.
+- CI/CD contract must emit deterministic workflow/signing/rollout validation signals and rollback decisions.
+- Secret management contract must emit least-privilege access decisions, rotation state transitions, and leak-response initialization signals.
+- Privacy lifecycle contract must emit consent/retention/deletion workflow signals with deterministic compliance blockers.
+- Support contract must emit ticket capture/assignment/SLA status signals and redact sensitive diagnostic context before attachment.
 
 ## Recovery Criteria
 
@@ -74,3 +88,9 @@
 - Observability alerts must include owner metadata to route incidents without manual reassignment.
 - Analytics events must reject potential PII and deprecated schemas to prevent data governance violations.
 - Export requests must enforce authorization and rate limits before generating user-visible data artifacts.
+- Performance overload paths must return user-safe retry messaging and avoid exposing capacity internals.
+- Localization/timezone validation must fail safely with deterministic remediation messaging for unsupported configurations.
+- Release quality gates must block shipment on critical regressions and preserve deterministic reason codes for CI triage.
+- Secret leak response must prioritize revoke/rotate/audit actions without exposing secret values in logs.
+- Account deletion blockers (legal hold, pending settlement) must be deterministic and user-safe.
+- Support diagnostics must redact email/secret-like content before leaving the user device context.
