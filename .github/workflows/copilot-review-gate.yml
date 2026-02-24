@@ -113,7 +113,7 @@ jobs:
             "repos/${OWNER}/${NAME}/pulls/${PR_NUMBER}/reviews" \
             --jq '.')
 
-          copilot_reviews_on_head=$(echo "$reviews_json" | jq --arg head "$head_sha" '[.[] | select((.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]" or .user.login == "Copilot") and .commit_id == $head)] | length')
+          copilot_reviews_on_head=$(echo "$reviews_json" | jq --arg head "$head_sha" '[.[] | select((.user.login == "github-copilot[bot]" or .user.login == "copilot-pull-request-reviewer" or .user.login == "copilot-pull-request-reviewer[bot]") and .commit_id == $head)] | length')
 
           if [ "$copilot_reviews_on_head" -lt 1 ]; then
             echo "Copilot review pending for current head: ${head_sha}"
@@ -141,7 +141,7 @@ jobs:
               }
             }' -F owner="$OWNER" -F repo="$NAME" -F pr="$PR_NUMBER")
 
-          unresolved_copilot_threads=$(echo "$threads_json" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select([.comments.nodes[].author.login] | any(. == "github-copilot[bot]" or . == "copilot-pull-request-reviewer" or . == "copilot-pull-request-reviewer[bot]" or . == "Copilot"))] | length')
+          unresolved_copilot_threads=$(echo "$threads_json" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select([.comments.nodes[].author.login] | any(. == "github-copilot[bot]" or . == "copilot-pull-request-reviewer" or . == "copilot-pull-request-reviewer[bot]"))] | length')
 
           if [ "$unresolved_copilot_threads" -gt 0 ]; then
             echo "Copilot has ${unresolved_copilot_threads} unresolved review thread(s)."

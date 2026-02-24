@@ -19,10 +19,15 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
+val releaseStoreFilePath = keystoreProperties.getProperty("storeFile")
+val releaseStoreFile =
+    releaseStoreFilePath
+        ?.takeIf { it.isNotBlank() }
+        ?.let { rootProject.file(it) }
 val hasReleaseSigning =
     listOf("storeFile", "storePassword", "keyAlias", "keyPassword").all {
         !keystoreProperties.getProperty(it).isNullOrBlank()
-    }
+    } && releaseStoreFile?.exists() == true
 
 android {
     namespace = "com.example.thrive_app"
@@ -41,7 +46,7 @@ android {
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storeFile = releaseStoreFile
                 storePassword = keystoreProperties.getProperty("storePassword")
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
