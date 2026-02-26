@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "app/pubspec.yaml"
+      - "app/lib/core/version/spec_version.dart"
   workflow_dispatch:
 
 permissions:

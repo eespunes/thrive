@@ -67,5 +67,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/pubspec.yaml app/lib/core/version/spec_version.dart
-          git commit -m "chore(version): bump to ${new_version} [skip ci]"
+          git commit -m "chore(version): bump to ${new_version}"
           git push

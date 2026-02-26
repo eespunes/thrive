@@ -3,7 +3,7 @@
 This repo includes an automated workflow at `.github/workflows/release-android.yml`.
 
 ## What it does
-- Runs automatically on every push to `main` (after merge).
+- Runs automatically after the version-bump commit on `main`.
 - Can also be run manually from GitHub Actions (`workflow_dispatch`).
 - Builds Flutter Android release (`.aab`).
 - Uploads the `.aab` as a GitHub Actions artifact.
@@ -35,6 +35,7 @@ Ensure each release increments Android `versionCode`.
 
 ## Usage
 1. Merge PR to `main`.
-2. Wait for workflow `Build Android AAB (Main)` to complete.
-3. Download artifact `android-release-aab` from the workflow run.
-4. Upload `.aab` manually in Play Console.
+2. Wait for workflow `Auto Bump App Version` to commit the new app version.
+3. Wait for workflow `Build Android AAB (Main)` to complete (triggered by that version commit).
+4. Download artifact `android-release-aab` from the workflow run.
+5. Upload `.aab` manually in Play Console.
