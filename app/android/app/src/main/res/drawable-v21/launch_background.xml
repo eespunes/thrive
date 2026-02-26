@@ -2,8 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@drawable/splash_background_gradient" />
     <item
-        android:drawable="@drawable/splash_mark_white"
+        android:drawable="@drawable/splash_mark_white_padded"
         android:gravity="center"
-        android:height="180dp"
-        android:width="180dp" />
+        android:height="220dp"
+        android:width="220dp" />
 </layer-list>
