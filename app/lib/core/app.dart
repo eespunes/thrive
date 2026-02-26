@@ -220,12 +220,18 @@ class _SplashPageState extends State<_SplashPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              ThriveLogo(
-                registry: widget.brandAssetRegistry,
-                logger: widget.logger,
-                variant: BrandLogoVariant.unicolor,
-                width: 220,
-                height: 96,
+              ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+                child: ThriveLogo(
+                  registry: widget.brandAssetRegistry,
+                  logger: widget.logger,
+                  variant: BrandLogoVariant.unicolor,
+                  width: 180,
+                  height: 180,
+                ),
               ),
               const SizedBox(height: ThriveSpacing.md),
               const Text(
@@ -233,7 +239,7 @@ class _SplashPageState extends State<_SplashPage> {
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: ThriveTypography.titleFontFamily,
-                  fontSize: 42,
+                  fontSize: 46,
                   fontWeight: FontWeight.w700,
                 ),
               ),
