@@ -3,6 +3,7 @@ import 'package:thrive_app/core/architecture/feature_module.dart';
 import 'package:thrive_app/core/observability/app_logger.dart';
 
 abstract final class AppRoutePaths {
+  static const String splash = '/splash';
   static const String home = '/';
   static const String login = '/login';
   static const String familyWorkspace = '/family/workspace';
@@ -37,11 +38,16 @@ class AppRouteRegistry {
     required List<FeatureRoute> featureRoutes,
     required this.logger,
     required this.routeGuardStateReader,
+    required WidgetBuilder splashBuilder,
     required WidgetBuilder homeBuilder,
     required WidgetBuilder loginBuilder,
     required WidgetBuilder familyWorkspaceBuilder,
     required this.unknownRouteBuilder,
   }) : _routes = <String, FeatureRoute>{
+         AppRoutePaths.splash: FeatureRoute(
+           path: AppRoutePaths.splash,
+           builder: splashBuilder,
+         ),
          AppRoutePaths.home: FeatureRoute(
            path: AppRoutePaths.home,
            builder: homeBuilder,
@@ -57,7 +63,7 @@ class AppRouteRegistry {
          ),
        } {
     // Reserved paths are managed by core and cannot be overwritten by modules:
-    // `/`, `/login`, `/family/workspace`.
+    // `/splash`, `/`, `/login`, `/family/workspace`.
     for (final route in featureRoutes) {
       if (_routes.containsKey(route.path)) {
         throw StateError(

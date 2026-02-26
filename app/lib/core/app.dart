@@ -22,6 +22,7 @@ const String _thriveEnvironment = String.fromEnvironment(
 );
 const bool _showVersionOverlay =
     _forceVersionOverlay || _thriveEnvironment != 'prod';
+const Duration _minimumSplashDuration = Duration(milliseconds: 1200);
 
 class ThriveApp extends StatefulWidget {
   const ThriveApp({
@@ -70,6 +71,11 @@ class _ThriveAppState extends State<ThriveApp> {
       featureRoutes: widget.registry.buildFeatureRoutes(),
       logger: widget.logger,
       routeGuardStateReader: widget.routeGuardStateReader,
+      splashBuilder: (context) => _SplashPage(
+        brandAssetRegistry: widget.brandAssetRegistry,
+        logger: widget.logger,
+        routeGuardStateReader: widget.routeGuardStateReader,
+      ),
       homeBuilder: (context) => _HomePage(
         brandAssetRegistry: widget.brandAssetRegistry,
         logger: widget.logger,
@@ -89,12 +95,21 @@ class _ThriveAppState extends State<ThriveApp> {
     return MaterialApp(
       title: 'Thrive',
       theme: widget.theme,
-      initialRoute: AppRoutePaths.home,
+      initialRoute: AppRoutePaths.splash,
       onGenerateRoute: _routeRegistry.onGenerateRoute,
+      onGenerateInitialRoutes: _buildInitialRoutes,
       builder: (context, child) => _showVersionOverlay
           ? _VersionOverlay(child: child)
           : child ?? const SizedBox.shrink(),
     );
+  }
+
+  List<Route<dynamic>> _buildInitialRoutes(String initialRoute) {
+    return <Route<dynamic>>[
+      _routeRegistry.onGenerateRoute(
+        const RouteSettings(name: AppRoutePaths.splash),
+      ),
+    ];
   }
 }
 
@@ -136,6 +151,102 @@ class _VersionOverlay extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SplashPage extends StatefulWidget {
+  const _SplashPage({
+    required this.brandAssetRegistry,
+    required this.logger,
+    required this.routeGuardStateReader,
+  });
+
+  final BrandAssetRegistry brandAssetRegistry;
+  final AppLogger logger;
+  final AppRouteGuardStateReader routeGuardStateReader;
+
+  @override
+  State<_SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<_SplashPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runStartupRouting();
+    });
+  }
+
+  Future<void> _runStartupRouting() async {
+    await Future<void>.delayed(_minimumSplashDuration);
+    if (!mounted) {
+      return;
+    }
+
+    final guardState = widget.routeGuardStateReader();
+    final destination = guardState.isAuthenticated
+        ? AppRoutePaths.home
+        : AppRoutePaths.login;
+
+    widget.logger.info(
+      code: 'splash_routing_resolved',
+      message: 'Splash startup routing completed',
+      metadata: <String, Object?>{
+        'isAuthenticated': guardState.isAuthenticated,
+        'destination': destination,
+      },
+    );
+
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(destination, (route) => false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const Key('thrive_splash_screen'),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[Color(0xFF165EA8), ThriveColors.mint],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+                child: ThriveLogo(
+                  registry: widget.brandAssetRegistry,
+                  logger: widget.logger,
+                  variant: BrandLogoVariant.unicolor,
+                  width: 180,
+                  height: 180,
+                ),
+              ),
+              const SizedBox(height: ThriveSpacing.md),
+              const Text(
+                'Thrive',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: ThriveTypography.titleFontFamily,
+                  fontSize: 46,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
