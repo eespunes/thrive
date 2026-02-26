@@ -11,7 +11,7 @@ plugins {
 val thriveApplicationId =
     providers
         .gradleProperty("THRIVE_ANDROID_APPLICATION_ID")
-        .orElse("com.example.thrive_app")
+        .orElse("com.thrive.app")
         .get()
 
 val keystoreProperties = Properties()
@@ -30,7 +30,7 @@ val hasReleaseSigning =
     } && releaseStoreFile?.exists() == true
 
 android {
-    namespace = "com.example.thrive_app"
+    namespace = "com.thrive.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

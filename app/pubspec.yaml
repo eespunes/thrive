@@ -63,6 +63,8 @@ flutter:
   assets:
     - assets/logos/thrive-colored.svg
     - assets/logos/thrive-unicolor.svg
+    - assets/logos/thrive-banner.png
+    - assets/logos/thrive-colored-512.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

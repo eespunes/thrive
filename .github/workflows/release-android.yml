@@ -1,21 +1,13 @@
-name: Release Android to Google Play
+name: Build Android AAB (Main)
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+    paths:
+      - "app/pubspec.yaml"
+      - "app/lib/core/version/spec_version.dart"
   workflow_dispatch:
-    inputs:
-      track:
-        description: 'Google Play track'
-        required: true
-        default: 'internal'
-        type: choice
-        options:
-          - internal
-          - alpha
-          - beta
-          - production
 
 permissions:
   contents: read
@@ -25,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish-android:
+  build-android-aab:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,27 +27,72 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Gate build to version bump commits
+        id: gate
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run detected. Proceeding with AAB build."
+            exit 0
+          fi
+
+          commit_message="$(git log -1 --pretty=%s)"
+          echo "Last commit message: $commit_message"
+          if [[ "$commit_message" == chore\(version\):\ bump* ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Version bump commit detected. Proceeding with AAB build."
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping AAB build because commit is not a version bump."
+          fi
+
       - name: Setup Java
+        if: steps.gate.outputs.should_build == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Flutter
+        if: steps.gate.outputs.should_build == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
       - name: Install dependencies
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter pub get
 
+      - name: Validate required secrets
+        if: steps.gate.outputs.should_build == 'true'
+        env:
+          REQUIRED_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          REQUIRED_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          REQUIRED_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          REQUIRED_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          REQUIRED_ANDROID_PACKAGE_NAME: ${{ secrets.ANDROID_PACKAGE_NAME }}
+        run: |
+          missing=0
+          for v in $(compgen -v | grep '^REQUIRED_ANDROID_'); do
+            if [ -z "${!v}" ]; then
+              secret_name="${v#REQUIRED_}"
+              echo "::error::Missing required secret: $secret_name"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
       - name: Decode Android keystore
+        if: steps.gate.outputs.should_build == 'true'
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Create key.properties
+        if: steps.gate.outputs.should_build == 'true'
         run: |
           cat > android/key.properties <<KEYS
           storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
@@ -64,23 +101,24 @@ jobs:
           storeFile=upload-keystore.jks
           KEYS
 
+      - name: Analyze
+        if: steps.gate.outputs.should_build == 'true'
+        run: flutter analyze
+
+      - name: Test
+        if: steps.gate.outputs.should_build == 'true'
+        run: flutter test
+
       - name: Build Android App Bundle
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter build appbundle --release
         env:
           ORG_GRADLE_PROJECT_THRIVE_ANDROID_APPLICATION_ID: ${{ secrets.ANDROID_PACKAGE_NAME }}
 
       - name: Upload artifact
+        if: steps.gate.outputs.should_build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-release-aab
           path: app/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
-
-      - name: Publish to Google Play
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: ${{ secrets.ANDROID_PACKAGE_NAME }}
-          releaseFiles: app/build/app/outputs/bundle/release/app-release.aab
-          track: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.track || 'production' }}
-          status: completed
