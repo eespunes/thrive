@@ -1,4 +1,4 @@
-package com.example.thrive_app
+package com.thrive.app
 
 import io.flutter.embedding.android.FlutterActivity
 
