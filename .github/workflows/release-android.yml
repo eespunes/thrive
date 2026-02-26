@@ -27,39 +27,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Gate build to version bump commits
+        id: gate
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Manual run detected. Proceeding with AAB build."
+            exit 0
+          fi
+
+          commit_message="$(git log -1 --pretty=%s)"
+          echo "Last commit message: $commit_message"
+          if [[ "$commit_message" == chore\(version\):\ bump* ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Version bump commit detected. Proceeding with AAB build."
+          else
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping AAB build because commit is not a version bump."
+          fi
+
       - name: Setup Java
+        if: steps.gate.outputs.should_build == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Flutter
+        if: steps.gate.outputs.should_build == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
       - name: Install dependencies
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter pub get
 
       - name: Validate required secrets
+        if: steps.gate.outputs.should_build == 'true'
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_PACKAGE_NAME: ${{ secrets.ANDROID_PACKAGE_NAME }}
+          REQUIRED_ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          REQUIRED_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          REQUIRED_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          REQUIRED_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          REQUIRED_ANDROID_PACKAGE_NAME: ${{ secrets.ANDROID_PACKAGE_NAME }}
         run: |
-          required_vars=(
-            ANDROID_KEYSTORE_BASE64
-            ANDROID_STORE_PASSWORD
-            ANDROID_KEY_PASSWORD
-            ANDROID_KEY_ALIAS
-            ANDROID_PACKAGE_NAME
-          )
           missing=0
-          for v in "${required_vars[@]}"; do
+          for v in $(compgen -v | grep '^REQUIRED_ANDROID_'); do
             if [ -z "${!v}" ]; then
-              echo "::error::Missing required secret: $v"
+              secret_name="${v#REQUIRED_}"
+              echo "::error::Missing required secret: $secret_name"
               missing=1
             fi
           done
@@ -68,12 +85,14 @@ jobs:
           fi
 
       - name: Decode Android keystore
+        if: steps.gate.outputs.should_build == 'true'
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Create key.properties
+        if: steps.gate.outputs.should_build == 'true'
         run: |
           cat > android/key.properties <<KEYS
           storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
@@ -83,17 +102,21 @@ jobs:
           KEYS
 
       - name: Analyze
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter analyze
 
       - name: Test
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter test
 
       - name: Build Android App Bundle
+        if: steps.gate.outputs.should_build == 'true'
         run: flutter build appbundle --release
         env:
           ORG_GRADLE_PROJECT_THRIVE_ANDROID_APPLICATION_ID: ${{ secrets.ANDROID_PACKAGE_NAME }}
 
       - name: Upload artifact
+        if: steps.gate.outputs.should_build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-release-aab
