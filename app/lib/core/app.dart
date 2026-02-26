@@ -97,10 +97,19 @@ class _ThriveAppState extends State<ThriveApp> {
       theme: widget.theme,
       initialRoute: AppRoutePaths.splash,
       onGenerateRoute: _routeRegistry.onGenerateRoute,
+      onGenerateInitialRoutes: _buildInitialRoutes,
       builder: (context, child) => _showVersionOverlay
           ? _VersionOverlay(child: child)
           : child ?? const SizedBox.shrink(),
     );
+  }
+
+  List<Route<dynamic>> _buildInitialRoutes(String initialRoute) {
+    return <Route<dynamic>>[
+      _routeRegistry.onGenerateRoute(
+        const RouteSettings(name: AppRoutePaths.splash),
+      ),
+    ];
   }
 }
 

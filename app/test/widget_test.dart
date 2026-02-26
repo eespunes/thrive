@@ -10,10 +10,11 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/version/spec_version.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
-Future<void> _pumpStartupFlow(WidgetTester tester) async {
-  for (var i = 0; i < 8; i++) {
-    await tester.pump(const Duration(milliseconds: 80));
-  }
+const Duration _startupRoutingWait = Duration(milliseconds: 320);
+
+Future<void> _pumpPastSplashStartupRouting(WidgetTester tester) async {
+  await tester.pump(_startupRoutingWait);
+  await tester.pump(const Duration(milliseconds: 16));
 }
 
 void main() {
@@ -42,7 +43,7 @@ void main() {
     expect(find.text('Thrive'), findsOneWidget);
 
     // Drain splash timer so no pending timers remain after test teardown.
-    await _pumpStartupFlow(tester);
+    await _pumpPastSplashStartupRouting(tester);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -68,12 +69,14 @@ void main() {
         ),
       ),
     );
-    await _pumpStartupFlow(tester);
+    await _pumpPastSplashStartupRouting(tester);
 
     expect(find.text('Continue with Google'), findsOneWidget);
   });
 
-  testWidgets('routes authenticated users to home after splash', (tester) async {
+  testWidgets('routes authenticated users to home after splash', (
+    tester,
+  ) async {
     final logger = InMemoryAppLogger();
     final brandAssetRegistry = BrandAssetRegistry(logger: logger);
     ThriveBranding.registerOfficialAssets(brandAssetRegistry);
@@ -93,7 +96,7 @@ void main() {
         ),
       ),
     );
-    await _pumpStartupFlow(tester);
+    await _pumpPastSplashStartupRouting(tester);
 
     expect(find.text('Open Health Module'), findsOneWidget);
     expect(find.text(thriveVersionLabel), findsOneWidget);

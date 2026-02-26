@@ -38,7 +38,7 @@ class AppRouteRegistry {
     required List<FeatureRoute> featureRoutes,
     required this.logger,
     required this.routeGuardStateReader,
-    WidgetBuilder? splashBuilder,
+    required WidgetBuilder splashBuilder,
     required WidgetBuilder homeBuilder,
     required WidgetBuilder loginBuilder,
     required WidgetBuilder familyWorkspaceBuilder,
@@ -46,7 +46,7 @@ class AppRouteRegistry {
   }) : _routes = <String, FeatureRoute>{
          AppRoutePaths.splash: FeatureRoute(
            path: AppRoutePaths.splash,
-           builder: splashBuilder ?? homeBuilder,
+           builder: splashBuilder,
          ),
          AppRoutePaths.home: FeatureRoute(
            path: AppRoutePaths.home,

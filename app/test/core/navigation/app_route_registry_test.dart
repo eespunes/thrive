@@ -182,6 +182,7 @@ Widget _buildApp({
     ],
     logger: logger,
     routeGuardStateReader: () => state,
+    splashBuilder: _splashBuilder,
     homeBuilder: _homeBuilder,
     loginBuilder: _loginBuilder,
     familyWorkspaceBuilder: _familyBuilder,
@@ -196,6 +197,9 @@ Widget _buildApp({
 
 Widget _homeBuilder(BuildContext context) =>
     const Scaffold(body: Center(child: Text('Home')));
+
+Widget _splashBuilder(BuildContext context) =>
+    const Scaffold(body: Center(child: Text('Splash')));
 
 Widget _loginBuilder(BuildContext context) =>
     const Scaffold(body: Center(child: Text('Login')));
