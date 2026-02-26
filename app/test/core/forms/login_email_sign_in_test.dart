@@ -17,12 +17,6 @@ void main() {
       await tester.pumpWidget(_buildTestApp(logger: logger));
       await _pumpFrames(tester);
 
-      final navigatorState = tester.state<NavigatorState>(
-        find.byType(Navigator),
-      );
-      navigatorState.pushNamed('/login');
-      await _pumpFrames(tester);
-
       await tester.tap(find.text('or sign in with email'));
       await _pumpFrames(tester);
 
@@ -41,10 +35,6 @@ void main() {
   testWidgets('shows mapped backend error and retry action', (tester) async {
     final logger = InMemoryAppLogger();
     await tester.pumpWidget(_buildTestApp(logger: logger));
-    await _pumpFrames(tester);
-
-    final navigatorState = tester.state<NavigatorState>(find.byType(Navigator));
-    navigatorState.pushNamed('/login');
     await _pumpFrames(tester);
 
     await tester.tap(find.text('or sign in with email'));
@@ -89,10 +79,6 @@ void main() {
   ) async {
     final logger = InMemoryAppLogger();
     await tester.pumpWidget(_buildTestApp(logger: logger));
-    await _pumpFrames(tester);
-
-    final navigatorState = tester.state<NavigatorState>(find.byType(Navigator));
-    navigatorState.pushNamed('/login');
     await _pumpFrames(tester);
 
     await tester.tap(find.text('or sign in with email'));
