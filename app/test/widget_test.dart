@@ -10,7 +10,7 @@ import 'package:thrive_app/core/observability/app_logger.dart';
 import 'package:thrive_app/core/version/spec_version.dart';
 import 'package:thrive_app/modules/health/health_module.dart';
 
-const Duration _startupRoutingWait = Duration(milliseconds: 320);
+const Duration _startupRoutingWait = Duration(milliseconds: 1300);
 
 Future<void> _pumpPastSplashStartupRouting(WidgetTester tester) async {
   await tester.pump(_startupRoutingWait);

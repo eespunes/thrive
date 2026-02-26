@@ -22,7 +22,7 @@ const String _thriveEnvironment = String.fromEnvironment(
 );
 const bool _showVersionOverlay =
     _forceVersionOverlay || _thriveEnvironment != 'prod';
-const Duration _minimumSplashDuration = Duration(milliseconds: 250);
+const Duration _minimumSplashDuration = Duration(milliseconds: 1200);
 
 class ThriveApp extends StatefulWidget {
   const ThriveApp({
@@ -211,9 +211,9 @@ class _SplashPageState extends State<_SplashPage> {
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: <Color>[ThriveColors.midnight, ThriveColors.forest],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[Color(0xFF165EA8), ThriveColors.mint],
           ),
         ),
         child: Center(

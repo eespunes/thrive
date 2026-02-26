@@ -15,7 +15,7 @@ void main() {
     (tester) async {
       final logger = InMemoryAppLogger();
       await tester.pumpWidget(_buildTestApp(logger: logger));
-      await _pumpFrames(tester);
+      await _pumpUntilVisible(tester, find.text('or sign in with email'));
 
       await tester.tap(find.text('or sign in with email'));
       await _pumpFrames(tester);
@@ -35,7 +35,7 @@ void main() {
   testWidgets('shows mapped backend error and retry action', (tester) async {
     final logger = InMemoryAppLogger();
     await tester.pumpWidget(_buildTestApp(logger: logger));
-    await _pumpFrames(tester);
+    await _pumpUntilVisible(tester, find.text('or sign in with email'));
 
     await tester.tap(find.text('or sign in with email'));
     await _pumpFrames(tester);
@@ -79,7 +79,7 @@ void main() {
   ) async {
     final logger = InMemoryAppLogger();
     await tester.pumpWidget(_buildTestApp(logger: logger));
-    await _pumpFrames(tester);
+    await _pumpUntilVisible(tester, find.text('or sign in with email'));
 
     await tester.tap(find.text('or sign in with email'));
     await _pumpFrames(tester);
@@ -141,4 +141,15 @@ Future<void> _pumpFrames(WidgetTester tester) async {
   for (var i = 0; i < 6; i++) {
     await tester.pump(const Duration(milliseconds: 80));
   }
+}
+
+Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 25; i++) {
+    await tester.pump(const Duration(milliseconds: 80));
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+
+  fail('Expected finder to become visible within timeout: $finder');
 }
