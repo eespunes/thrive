@@ -22,7 +22,7 @@ class FamilyMoneyApp extends StatelessWidget {
         fontFamily: 'Avenir',
         textTheme: const TextTheme(bodyMedium: TextStyle(color: AppColors.ink)),
       ),
-      home: const BudgetDashboard(),
+      home: const BudgetNavigationShell(),
     );
   }
 }

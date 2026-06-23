@@ -8,6 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 part 'src/app/app.dart';
 part 'src/features/budget/presentation/budget_dashboard.dart';
+part 'src/features/budget/presentation/budget_navigation_shell.dart';
+part 'src/features/budget/presentation/budget_overview_screen.dart';
+part 'src/features/budget/presentation/statistics_screen.dart';
+part 'src/features/budget/presentation/settings_screen.dart';
 part 'src/features/budget/presentation/budget_views.dart';
 part 'src/features/budget/widgets/budget_shell.dart';
 part 'src/features/budget/widgets/budget_cards.dart';

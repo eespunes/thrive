@@ -129,12 +129,14 @@ class MonthBudget {
     required this.income,
     required this.expenses,
     required this.sumup,
+    this.isClosed = false,
   });
 
   final String key;
   final List<IncomeItem> income;
   final Map<String, List<ExpenseItem>> expenses;
   final Map<String, double> sumup;
+  bool isClosed;
 
   factory MonthBudget.fromJson(String key, Map<String, dynamic> json) {
     final sumup = (json['sumup'] as Map<String, dynamic>? ?? {}).map(
@@ -165,6 +167,7 @@ class MonthBudget {
           ],
       },
       sumup: sumup,
+      isClosed: json['isClosed'] == true,
     );
   }
 
@@ -183,6 +186,7 @@ class MonthBudget {
       for (final entry in expenses.entries)
         entry.key: [for (final item in entry.value) item.toJson()],
       'sumup': sumup,
+      'isClosed': isClosed,
     };
   }
 }
@@ -296,7 +300,7 @@ class ExpenseItem {
 }
 
 class CategoryMeta {
-  const CategoryMeta({
+   CategoryMeta({
     required this.key,
     required this.title,
     required this.icon,
@@ -304,6 +308,8 @@ class CategoryMeta {
     required this.tone,
     required this.background,
     this.hasUntil = false,
+    this.isTemporary = false,
+    this.orderIndex = 0,
   });
 
   final String key;
@@ -313,12 +319,25 @@ class CategoryMeta {
   final Color tone;
   final Color background;
   final bool hasUntil;
+  bool isTemporary;
+  int orderIndex;
 
   factory CategoryMeta.fromState(Map<String, dynamic> state) {
     final key = stringValue(state['key'], fallback: 'block');
     final defaultMeta = defaultCategoryMeta.where((meta) => meta.key == key);
     if (defaultMeta.isNotEmpty) {
-      return defaultMeta.first;
+      final meta = defaultMeta.first;
+      return CategoryMeta(
+        key: key,
+        title: meta.title,
+        icon: meta.icon,
+        markerKey: meta.markerKey,
+        tone: meta.tone,
+        background: meta.background,
+        hasUntil: meta.hasUntil,
+        isTemporary: state['isTemporary'] == true,
+        orderIndex: (state['orderIndex'] as num?)?.toInt() ?? 0,
+      );
     }
     return CategoryMeta(
       key: key,
@@ -328,6 +347,8 @@ class CategoryMeta {
       tone: colorFromInt(state['tone'], fallback: AppColors.indigo),
       background: AppColors.panel,
       hasUntil: state['hasUntil'] == true,
+      isTemporary: state['isTemporary'] == true,
+      orderIndex: (state['orderIndex'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -338,6 +359,8 @@ class CategoryMeta {
       'markerKey': markerKey,
       'tone': tone.toARGB32(),
       'hasUntil': hasUntil,
+      'isTemporary': isTemporary,
+      'orderIndex': orderIndex,
     };
   }
 }
@@ -367,12 +390,13 @@ class AccountShare {
 }
 
 class AccountMeta {
-  const AccountMeta({
+  AccountMeta({
     required this.key,
     required this.name,
     required this.shortName,
     required this.initials,
     required this.color,
+    this.orderIndex = 0,
   });
 
   final String key;
@@ -380,6 +404,7 @@ class AccountMeta {
   final String shortName;
   final String initials;
   final Color color;
+  int orderIndex;
 
   factory AccountMeta.fromState(Map<String, dynamic> state) {
     final key = stringValue(state['key'], fallback: defaultAccountKey);
@@ -389,6 +414,7 @@ class AccountMeta {
       shortName: stringValue(state['shortName'], fallback: 'Account'),
       initials: stringValue(state['initials'], fallback: 'AC').toUpperCase(),
       color: colorFromInt(state['color'], fallback: AppColors.indigo),
+      orderIndex: (state['orderIndex'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -399,6 +425,7 @@ class AccountMeta {
       'shortName': shortName,
       'initials': initials,
       'color': color.toARGB32(),
+      'orderIndex': orderIndex,
     };
   }
 }

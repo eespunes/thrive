@@ -170,3 +170,7 @@ UntilState untilState(String label, int currentMonthIndex, int currentYear) {
   if (diff <= 6) return UntilState.soon;
   return UntilState.future;
 }
+
+String formatPercent(double value) {
+  return value.toStringAsFixed(0);
+}
