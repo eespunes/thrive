@@ -224,7 +224,10 @@ class AppToolbar extends StatelessWidget {
                           ),
                         OutlinedButton.icon(
                           onPressed: onCreateAccount,
-                          icon: const Icon(Icons.account_balance_rounded, size: 17),
+                          icon: const Icon(
+                            Icons.account_balance_rounded,
+                            size: 17,
+                          ),
                           label: const Text('Account'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
@@ -502,15 +505,16 @@ class _ToggleButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: active ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: .08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
+          boxShadow:
+              active
+                  ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                  : null,
         ),
         child: Row(
           children: [
