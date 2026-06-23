@@ -224,7 +224,10 @@ class AppToolbar extends StatelessWidget {
                           ),
                         OutlinedButton.icon(
                           onPressed: onCreateAccount,
-                          icon: const Icon(Icons.account_balance_rounded, size: 17),
+                          icon: const Icon(
+                            Icons.account_balance_rounded,
+                            size: 17,
+                          ),
                           label: const Text('Account'),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
