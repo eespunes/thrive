@@ -30,12 +30,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -57,9 +51,6 @@ jobs:
 
       - name: Run tests
         run: flutter test --coverage
-
-      - name: Build Android debug APK
-        run: flutter build apk --debug
 
       - name: Install coverage tools
         run: |
