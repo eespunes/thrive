@@ -20,108 +20,94 @@ class StatisticsScreen extends StatefulWidget {
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   late int _selectedMonthIndex;
-  late int _selectedYear;
 
   @override
   void initState() {
     super.initState();
     _selectedMonthIndex = widget.monthIndex;
-    _selectedYear = widget.year;
   }
 
   @override
   Widget build(BuildContext context) {
     final monthKey = monthKeys[_selectedMonthIndex];
     final computed = widget.months[monthKey] != null
-        ? ComputedMonth(widget.months[monthKey]!, _selectedMonthIndex, _selectedYear)
+        ? ComputedMonth(widget.months[monthKey]!, _selectedMonthIndex, widget.year)
         : null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Statistics'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedMonthIndex = (_selectedMonthIndex - 1 + monthKeys.length) % monthKeys.length;
-                    });
-                  },
-                  child: const Icon(Icons.chevron_left),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      '${monthLabels[_selectedMonthIndex]} $_selectedYear',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _selectedMonthIndex = (_selectedMonthIndex + 1) % monthKeys.length;
-                    });
-                  },
-                  child: const Icon(Icons.chevron_right),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            if (computed != null) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 12),
-                      Text('Real Income: ${formatEuro(computed.realIncome)}'),
-                      Text('Expected Income: ${formatEuro(computed.expectedIncome)}'),
-                      Text('Total Budget: ${formatEuro(computed.totalBudget)}'),
-                      Text('Total Paid: ${formatEuro(computed.totalPaid)}'),
-                      Text('Real Balance: ${formatEuro(computed.balance)}'),
-                    ],
-                  ),
-                ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => setState(() {
+                  _selectedMonthIndex = (_selectedMonthIndex - 1 + monthKeys.length) % monthKeys.length;
+                }),
               ),
-              const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Spending by Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const SizedBox(height: 12),
-                      ...computed.blocks.values.map((block) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(block.meta.title),
-                            Text(
-                              '${formatEuro(block.total)} (${formatPercent(block.progress * 100)}%)',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      )),
-                    ],
-                  ),
-                ),
+              Text(
+                '${monthLabels[_selectedMonthIndex]} ${widget.year}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => setState(() {
+                  _selectedMonthIndex = (_selectedMonthIndex + 1) % monthKeys.length;
+                }),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          if (computed != null) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 12),
+                    Text('Real Income: ${formatEuro(computed.realIncome)}'),
+                    Text('Expected Income: ${formatEuro(computed.expectedIncome)}'),
+                    Text('Total Budget: ${formatEuro(computed.totalBudget)}'),
+                    Text('Total Paid: ${formatEuro(computed.totalPaid)}'),
+                    Text('Real Balance: ${formatEuro(computed.balance)}'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Spending by Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 12),
+                    ...computed.blocks.values.map((block) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text(block.meta.title)),
+                          Text(
+                            '${formatEuro(block.total)} (${formatPercent(block.progress * 100)}%)',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ] else
+            const Center(child: Text('No data for this month')),
+        ],
       ),
     );
   }

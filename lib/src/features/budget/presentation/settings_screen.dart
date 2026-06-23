@@ -34,13 +34,20 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  late int _selectedTabIndex;
+class _SettingsScreenState extends State<SettingsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _selectedTabIndex = 0;
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,37 +56,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text('Settings'),
         centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Accounts'),
+            Tab(text: 'Blocks'),
+            Tab(text: 'Month'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          TabBar(
-            onTap: (index) => setState(() => _selectedTabIndex = index),
-            tabs: const [
-              Tab(text: 'Accounts'),
-              Tab(text: 'Budget Blocks'),
-              Tab(text: 'Month'),
-            ],
+          _AccountsTab(
+            onCreateAccount: widget.onCreateAccount,
+            onDeleteAccount: widget.onDeleteAccount,
+            onReorderAccounts: widget.onReorderAccounts,
           ),
-          Expanded(
-            child: [
-              _AccountsTab(
-                onCreateAccount: widget.onCreateAccount,
-                onDeleteAccount: widget.onDeleteAccount,
-                onReorderAccounts: widget.onReorderAccounts,
-              ),
-              _BudgetBlocksTab(
-                onCreateBlock: widget.onCreateBudgetBlock,
-                onDeleteBlock: widget.onDeleteBudgetBlock,
-                onReorderBlocks: widget.onReorderCategories,
-              ),
-              _MonthTab(
-                monthLabel: widget.monthLabel,
-                year: widget.year,
-                isClosed: widget.isClosed,
-                onCloseMonth: widget.onCloseMonth,
-                onCopyMonth: widget.onCopyMonth,
-              ),
-            ][_selectedTabIndex],
+          _BudgetBlocksTab(
+            onCreateBlock: widget.onCreateBudgetBlock,
+            onDeleteBlock: widget.onDeleteBudgetBlock,
+            onReorderBlocks: widget.onReorderCategories,
+          ),
+          _MonthTab(
+            monthLabel: widget.monthLabel,
+            year: widget.year,
+            isClosed: widget.isClosed,
+            onCloseMonth: widget.onCloseMonth,
+            onCopyMonth: widget.onCopyMonth,
           ),
         ],
       ),
@@ -104,9 +108,10 @@ class _AccountsTab extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
+          child: ElevatedButton.icon(
             onPressed: onCreateAccount,
-            child: const Text('+ Add Account'),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Account'),
           ),
         ),
         Expanded(
@@ -114,7 +119,7 @@ class _AccountsTab extends StatelessWidget {
             onReorder: onReorderAccounts,
             children: [
               for (int i = 0; i < accountMeta.length; i++)
-                AccountListItem(
+                _AccountTile(
                   key: ValueKey(accountMeta[i].key),
                   account: accountMeta[i],
                   index: i,
@@ -128,13 +133,13 @@ class _AccountsTab extends StatelessWidget {
   }
 }
 
-class AccountListItem extends StatelessWidget {
-  const AccountListItem({
+class _AccountTile extends StatelessWidget {
+  const _AccountTile({
     required this.account,
     required this.index,
     required this.onDelete,
-    super.key,
-  });
+    required Key key,
+  }) : super(key: key);
 
   final AccountMeta account;
   final int index;
@@ -156,7 +161,7 @@ class AccountListItem extends StatelessWidget {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Delete Account?'),
-            content: Text('Delete "${account.name}"?'),
+            content: Text('Are you sure you want to delete "${account.name}"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -164,8 +169,8 @@ class AccountListItem extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  onDelete();
                   Navigator.pop(context);
+                  onDelete();
                 },
                 child: const Text('Delete'),
               ),
@@ -178,13 +183,16 @@ class AccountListItem extends StatelessWidget {
         child: ListTile(
           leading: ReorderableDragStartListener(
             index: index,
-            child: Icon(Icons.drag_handle, color: account.color),
+            child: const Icon(Icons.drag_handle),
           ),
           title: Text(account.name),
           subtitle: Text(account.shortName),
           trailing: CircleAvatar(
             backgroundColor: account.color,
-            child: Text(account.initials, style: const TextStyle(color: Colors.white)),
+            child: Text(
+              account.initials,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
           ),
         ),
       ),
@@ -209,9 +217,10 @@ class _BudgetBlocksTab extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
+          child: ElevatedButton.icon(
             onPressed: onCreateBlock,
-            child: const Text('+ Add Budget Block'),
+            icon: const Icon(Icons.add),
+            label: const Text('Add Budget Block'),
           ),
         ),
         Expanded(
@@ -219,7 +228,7 @@ class _BudgetBlocksTab extends StatelessWidget {
             onReorder: onReorderBlocks,
             children: [
               for (int i = 0; i < categoryMeta.length; i++)
-                BudgetBlockListItem(
+                _BlockTile(
                   key: ValueKey(categoryMeta[i].key),
                   category: categoryMeta[i],
                   index: i,
@@ -233,13 +242,13 @@ class _BudgetBlocksTab extends StatelessWidget {
   }
 }
 
-class BudgetBlockListItem extends StatelessWidget {
-  const BudgetBlockListItem({
+class _BlockTile extends StatelessWidget {
+  const _BlockTile({
     required this.category,
     required this.index,
     required this.onDelete,
-    super.key,
-  });
+    required Key key,
+  }) : super(key: key);
 
   final CategoryMeta category;
   final int index;
@@ -261,7 +270,7 @@ class BudgetBlockListItem extends StatelessWidget {
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Delete Budget Block?'),
-            content: Text('Delete "${category.title}"?'),
+            content: Text('Are you sure you want to delete "${category.title}"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -269,8 +278,8 @@ class BudgetBlockListItem extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () {
-                  onDelete();
                   Navigator.pop(context);
+                  onDelete();
                 },
                 child: const Text('Delete'),
               ),
@@ -286,7 +295,7 @@ class BudgetBlockListItem extends StatelessWidget {
             child: Icon(Icons.drag_handle, color: category.tone),
           ),
           title: Text(category.title),
-          subtitle: Text(category.isTemporary ? 'Temporary (this month only)' : 'Recurring'),
+          subtitle: Text(category.isTemporary ? 'Temporary' : 'Recurring'),
           trailing: Icon(category.icon, color: category.tone),
         ),
       ),
@@ -343,7 +352,7 @@ class _MonthTabState extends State<_MonthTab> {
         const SizedBox(height: 16),
         SwitchListTile(
           title: const Text('Close Month'),
-          subtitle: const Text('No changes allowed (data stays visible)'),
+          subtitle: const Text('No changes allowed'),
           value: _isClosed,
           onChanged: (value) {
             setState(() => _isClosed = value);

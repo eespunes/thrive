@@ -44,37 +44,31 @@ class BudgetOverviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.chevron_left),
-              onPressed: () => onSetMonth(-1),
-            ),
-            Text('$monthLabel $year'),
-            IconButton(
-              icon: const Icon(Icons.chevron_right),
-              onPressed: () => onSetMonth(1),
-            ),
-          ],
-        ),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Center(
+            child: Text(
+              '$monthLabel $year',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text('Summary', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
                   Text('Real Balance: ${formatEuro(computed.balance)}'),
                   Text('Expected Balance: ${formatEuro(computed.expectedBalance)}'),
                   Text('Total Budget: ${formatEuro(computed.totalBudget)}'),
                   Text('Total Paid: ${formatEuro(computed.totalPaid)}'),
+                  Text('Still To Pay: ${formatEuro(computed.stillToPay)}'),
                 ],
               ),
             ),
@@ -85,11 +79,14 @@ class BudgetOverviewScreen extends StatelessWidget {
               color: Colors.amber,
               child: Padding(
                 padding: EdgeInsets.all(12),
-                child: Text('This month is closed - read-only'),
+                child: Text(
+                  'This month is closed - read-only',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
             ),
           const SizedBox(height: 16),
-          const Text('Income', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text('Income', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ...month.income.map((item) => ListTile(
             title: Text(item.label),
             subtitle: Text('Expected: ${formatEuro(item.expected)}, Actual: ${formatEuro(item.actual)}'),
@@ -97,51 +94,27 @@ class BudgetOverviewScreen extends StatelessWidget {
               value: item.received,
               onChanged: isClosed ? null : (_) => onToggleIncome(item.id),
             ),
-            onTap: isClosed ? null : () => onEditIncome(item),
           )),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: isClosed ? null : onAddIncome,
-            child: const Text('Add Income'),
-          ),
-          const SizedBox(height: 24),
-          const Text('Expenses', style: TextStyle(fontWeight: FontWeight.bold)),
-          ...computed.blocks.values.map((block) => ExpenseBlockCard(
+          const SizedBox(height: 16),
+          const Text('Expenses', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ...computed.blocks.values.map((block) => _ExpenseBlockTile(
             block: block,
             isClosed: isClosed,
-            onToggle: (id) => onToggleExpense(block.meta.key, id),
-            onEdit: (item) => onEditExpenseItem(block.meta, item),
-            onDelete: (id) => onDeleteExpenseItem(block.meta.key, id),
-            onSetAccount: (id, account) => onSetExpenseAccount(block.meta.key, id, account),
           )),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: isClosed ? null : onLogExpense,
-            child: const Text('Log Expense'),
-          ),
         ],
       ),
     );
   }
 }
 
-class ExpenseBlockCard extends StatelessWidget {
-  const ExpenseBlockCard({
+class _ExpenseBlockTile extends StatelessWidget {
+  const _ExpenseBlockTile({
     required this.block,
     required this.isClosed,
-    required this.onToggle,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onSetAccount,
-    super.key,
   });
 
   final ExpenseBlock block;
   final bool isClosed;
-  final Function(String) onToggle;
-  final Function(ExpenseItem) onEdit;
-  final Function(String) onDelete;
-  final Function(String, String) onSetAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -152,34 +125,41 @@ class ExpenseBlockCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(block.meta.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text('Budget: ${formatEuro(block.total)} | Paid: ${formatEuro(block.paid)}'),
-            ...block.items.map((item) => ListTile(
-              title: Text(item.label),
-              subtitle: Text('${formatEuro(item.amount)} on ${item.marker}'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(block.meta.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('${formatEuro(block.total)} / ${formatEuro(block.paid)}'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: block.progress,
+              minHeight: 4,
+            ),
+            const SizedBox(height: 8),
+            ...block.items.take(3).map((item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Expanded(child: Text(item.label, overflow: TextOverflow.ellipsis)),
                   Checkbox(
                     value: item.paid,
-                    onChanged: isClosed ? null : (_) => onToggle(item.id),
+                    onChanged: isClosed ? null : (_) {},
                   ),
-                  PopupMenuButton(
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(child: Text('Edit')),
-                      const PopupMenuItem(child: Text('Delete')),
-                    ],
-                    onSelected: (value) {
-                      if (value == 0) {
-                        onEdit(item);
-                      } else if (value == 1 && !isClosed) {
-                        onDelete(item.id);
-                      }
-                    },
-                  ),
+                  Text(formatEuro(item.amount), style: const TextStyle(fontSize: 12)),
                 ],
               ),
             )),
+            if (block.items.length > 3)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  '+${block.items.length - 3} more items',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
           ],
         ),
       ),

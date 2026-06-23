@@ -117,6 +117,156 @@ class _BudgetNavigationShellState extends State<BudgetNavigationShell> {
     };
   }
 
+  void _setMonth(int delta) {
+    setState(
+      () => _monthIndex =
+          (_monthIndex + delta + monthKeys.length) % monthKeys.length,
+    );
+    unawaited(_persistState());
+  }
+
+  void _setYear(int delta) {
+    setState(() {
+      _year += delta;
+      _yearMonths.putIfAbsent(_year, () => emptyYearBudget(_year));
+    });
+    unawaited(_persistState());
+  }
+
+  void _toggleIncome(String id) {
+    setState(() {
+      final row = _month.income.firstWhere((item) => item.id == id);
+      row.received = !row.received;
+    });
+    unawaited(_persistState());
+  }
+
+  void _setIncomeAccount(String id, String accountKey) {
+    setState(() {
+      final row = _month.income.firstWhere((item) => item.id == id);
+      row.accountKey = accountKey;
+    });
+    unawaited(_persistState());
+  }
+
+  void _updateIncome(String id, IncomeUpdate update) {
+    setState(() {
+      final row = _month.income.firstWhere((item) => item.id == id);
+      row.expected = update.expected;
+      row.actual = update.actual;
+      row.received = update.received;
+      row.accountKey = update.accountKey;
+    });
+    unawaited(_persistState());
+  }
+
+  void _deleteIncome(String id) {
+    setState(() {
+      _month.income.removeWhere((item) => item.id == id);
+    });
+    unawaited(_persistState());
+  }
+
+  void _toggleExpense(String categoryKey, String id) {
+    setState(() {
+      final row = _month.expenses[categoryKey]!.firstWhere(
+        (item) => item.id == id,
+      );
+      row.paid = !row.paid;
+    });
+    unawaited(_persistState());
+  }
+
+  void _setExpenseAccount(String categoryKey, String id, String accountKey) {
+    setState(() {
+      final row = _month.expenses[categoryKey]!.firstWhere(
+        (item) => item.id == id,
+      );
+      row.accountKey = accountKey;
+    });
+    unawaited(_persistState());
+  }
+
+  void _updateExpenseItem(String categoryKey, String id, ExpenseUpdate update) {
+    setState(() {
+      final row = _month.expenses[categoryKey]!.firstWhere(
+        (item) => item.id == id,
+      );
+      row.amount = update.amount;
+      row.marker = update.marker;
+      row.paid = update.paid;
+      row.accountKey = update.accountKey;
+      row.untilRaw = update.until;
+    });
+    unawaited(_persistState());
+  }
+
+  void _deleteExpenseItem(String categoryKey, String id) {
+    setState(() {
+      _month.expenses[categoryKey]?.removeWhere((item) => item.id == id);
+    });
+    unawaited(_persistState());
+  }
+
+  void _deleteBudgetBlock(String categoryKey) {
+    setState(() {
+      categoryMeta.removeWhere((meta) => meta.key == categoryKey);
+      for (final month in _allMonths) {
+        month.expenses.remove(categoryKey);
+      }
+    });
+    unawaited(_persistState());
+  }
+
+  void _deleteAccount(String accountKey) {
+    if (accountMeta.length <= 1) return;
+    final fallback = accountMeta.firstWhere(
+      (account) => account.key != accountKey,
+    );
+    setState(() {
+      accountMeta.removeWhere((account) => account.key == accountKey);
+      for (final month in _allMonths) {
+        for (final income in month.income) {
+          if (income.accountKey == accountKey) income.accountKey = fallback.key;
+        }
+        for (final items in month.expenses.values) {
+          for (final item in items) {
+            if (item.accountKey == accountKey) item.accountKey = fallback.key;
+          }
+        }
+      }
+    });
+    unawaited(_persistState());
+  }
+
+  void _reorderAccounts(int oldIndex, int newIndex) {
+    setState(() {
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final account = accountMeta.removeAt(oldIndex);
+      accountMeta.insert(newIndex, account);
+      for (int i = 0; i < accountMeta.length; i++) {
+        accountMeta[i].orderIndex = i;
+      }
+    });
+    unawaited(_persistState());
+  }
+
+  void _reorderCategories(int oldIndex, int newIndex) {
+    setState(() {
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final category = categoryMeta.removeAt(oldIndex);
+      categoryMeta.insert(newIndex, category);
+      for (int i = 0; i < categoryMeta.length; i++) {
+        categoryMeta[i].orderIndex = i;
+      }
+    });
+    unawaited(_persistState());
+  }
+
   void _closeMonth(bool close) {
     setState(() {
       _month.isClosed = close;
@@ -133,9 +283,46 @@ class _BudgetNavigationShellState extends State<BudgetNavigationShell> {
     final computed = ComputedMonth(_month, _monthIndex, _year);
 
     final tabs = [
-      Container(color: Colors.blue, child: const Center(child: Text('Overview'))),
-      Container(color: Colors.green, child: const Center(child: Text('Statistics'))),
-      Container(color: Colors.orange, child: const Center(child: Text('Settings'))),
+      BudgetOverviewScreen(
+        computed: computed,
+        year: _year,
+        monthIndex: _monthIndex,
+        month: _month,
+        monthLabel: monthLabels[_monthIndex],
+        isClosed: _month.isClosed,
+        onSetMonth: _setMonth,
+        onSetYear: _setYear,
+        onToggleExpense: _toggleExpense,
+        onSetExpenseAccount: _setExpenseAccount,
+        onEditExpenseItem: (meta, item) => {},
+        onDeleteExpenseItem: _deleteExpenseItem,
+        onToggleIncome: _toggleIncome,
+        onSetIncomeAccount: _setIncomeAccount,
+        onEditIncome: (income) {},
+        onDeleteIncome: _deleteIncome,
+        onAddIncome: () {},
+        onLogExpense: () {},
+      ),
+      StatisticsScreen(
+        year: _year,
+        monthIndex: _monthIndex,
+        months: _months,
+        allMonths: _allMonths,
+      ),
+      SettingsScreen(
+        monthLabel: monthLabels[_monthIndex],
+        year: _year,
+        month: _month,
+        isClosed: _month.isClosed,
+        onCloseMonth: _closeMonth,
+        onCopyMonth: () {},
+        onCreateAccount: () {},
+        onCreateBudgetBlock: () {},
+        onDeleteBudgetBlock: _deleteBudgetBlock,
+        onDeleteAccount: _deleteAccount,
+        onReorderAccounts: _reorderAccounts,
+        onReorderCategories: _reorderCategories,
+      ),
     ];
 
     return Scaffold(
