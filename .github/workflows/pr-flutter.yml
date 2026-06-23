@@ -4,7 +4,13 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "app/**"
+      - "lib/**"
+      - "test/**"
+      - "android/**"
+      - "ios/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
       - ".github/workflows/pr-flutter.yml"
   workflow_dispatch:
 
@@ -18,9 +24,6 @@ concurrency:
 jobs:
   flutter-quality:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
 
     steps:
       - name: Checkout
@@ -40,7 +43,7 @@ jobs:
 
       - name: Validate Flutter project files
         run: |
-          test -f pubspec.yaml || (echo "Missing app/pubspec.yaml" && exit 1)
+          test -f pubspec.yaml || (echo "Missing pubspec.yaml" && exit 1)
 
       - name: Install dependencies
         run: flutter pub get
@@ -62,5 +65,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
-          path: app/coverage/lcov.info
+          path: coverage/lcov.info
           if-no-files-found: ignore

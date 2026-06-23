@@ -186,6 +186,7 @@ class AppToolbar extends StatelessWidget {
               }
 
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Flexible(fit: FlexFit.loose, child: brand),
                   const SizedBox(width: 16),
@@ -206,89 +207,94 @@ class AppToolbar extends StatelessWidget {
                       onNext: onNextYear,
                     ),
                   ),
-                  const Spacer(),
-                  if (previewToggleEnabled) ...[
-                    PreviewToggle(
-                      phoneMode: phoneMode,
-                      onDashboard: onDashboard,
-                      onPhone: onPhone,
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  OutlinedButton.icon(
-                    onPressed: onCreateAccount,
-                    icon: const Icon(Icons.account_balance_rounded, size: 17),
-                    label: const Text('Account'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: onCreateBudgetBlock,
-                    icon: const Icon(Icons.add_chart_rounded, size: 17),
-                    label: const Text('Block'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: onOpenStatistics,
-                    icon: const Icon(Icons.bar_chart_rounded, size: 17),
-                    label: const Text('Stats'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: onOpenSettings,
-                    icon: const Icon(Icons.settings_rounded, size: 17),
-                    label: const Text('Settings'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    onPressed: onLogExpense,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Log expense'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.indigo,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      runAlignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (previewToggleEnabled)
+                          PreviewToggle(
+                            phoneMode: phoneMode,
+                            onDashboard: onDashboard,
+                            onPhone: onPhone,
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: onCreateAccount,
+                          icon: const Icon(Icons.account_balance_rounded, size: 17),
+                          label: const Text('Account'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onCreateBudgetBlock,
+                          icon: const Icon(Icons.add_chart_rounded, size: 17),
+                          label: const Text('Block'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onOpenStatistics,
+                          icon: const Icon(Icons.bar_chart_rounded, size: 17),
+                          label: const Text('Stats'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: onOpenSettings,
+                          icon: const Icon(Icons.settings_rounded, size: 17),
+                          label: const Text('Settings'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: onLogExpense,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Log expense'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.indigo,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
