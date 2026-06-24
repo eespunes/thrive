@@ -113,7 +113,9 @@ class _ThriveHomeState extends State<ThriveHome> {
 
     familyId = (saved['familyId'] ?? 'fam_main').toString();
     if (!workspaces.containsKey(familyId)) {
-      familyId = workspaces.keys.isNotEmpty ? workspaces.keys.first : 'fam_main';
+      familyId = workspaces.keys.isNotEmpty
+          ? workspaces.keys.first
+          : 'fam_main';
     }
     final ws = workspaces[familyId] ?? Workspace.empty();
     workspaces[familyId] = ws;

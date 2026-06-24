@@ -94,7 +94,9 @@ class _AuthScreenState extends State<_AuthScreen> {
               .first
               .replaceAll(RegExp(r'[._]+'), ' ')
               .split(' ')
-              .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+              .map(
+                (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+              )
               .join(' ');
     setState(() {
       _err = null;
@@ -112,8 +114,14 @@ class _AuthScreenState extends State<_AuthScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, String hint,
-      {bool obscure = false, TextInputType? type, Key? key}) {
+  Widget _field(
+    String label,
+    TextEditingController ctrl,
+    String hint, {
+    bool obscure = false,
+    TextInputType? type,
+    Key? key,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -153,8 +161,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                 color: B.muted,
               ),
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
+              ),
               filled: true,
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
@@ -186,7 +196,9 @@ class _AuthScreenState extends State<_AuthScreen> {
               padding: const EdgeInsets.fromLTRB(26, 64, 26, 30),
               decoration: const BoxDecoration(
                 gradient: B.grad,
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,7 +299,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     child: Row(
                       children: [
-                        const Expanded(child: Divider(color: B.line, height: 1)),
+                        const Expanded(
+                          child: Divider(color: B.line, height: 1),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: const Text(
@@ -300,18 +314,33 @@ class _AuthScreenState extends State<_AuthScreen> {
                             ),
                           ),
                         ),
-                        const Expanded(child: Divider(color: B.line, height: 1)),
+                        const Expanded(
+                          child: Divider(color: B.line, height: 1),
+                        ),
                       ],
                     ),
                   ),
                   if (reg)
-                    _field('Full name', _name, 'Eva Janssen',
-                        key: const ValueKey('auth-name')),
-                  _field('Email', _email, 'you@email.com',
-                      type: TextInputType.emailAddress,
-                      key: const ValueKey('auth-email')),
-                  _field('Password', _pw, '••••••••',
-                      obscure: true, key: const ValueKey('auth-pw')),
+                    _field(
+                      'Full name',
+                      _name,
+                      'Eva Janssen',
+                      key: const ValueKey('auth-name'),
+                    ),
+                  _field(
+                    'Email',
+                    _email,
+                    'you@email.com',
+                    type: TextInputType.emailAddress,
+                    key: const ValueKey('auth-email'),
+                  ),
+                  _field(
+                    'Password',
+                    _pw,
+                    '••••••••',
+                    obscure: true,
+                    key: const ValueKey('auth-pw'),
+                  ),
                   if (_err != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),

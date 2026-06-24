@@ -149,11 +149,7 @@ class Family {
 /// Per-family budget workspace: its own accounts, blocks and month data.
 /// Switching family swaps the whole workspace, mirroring the design.
 class Workspace {
-  Workspace({
-    required this.accounts,
-    required this.cats,
-    required this.data,
-  });
+  Workspace({required this.accounts, required this.cats, required this.data});
 
   List<Account> accounts;
   List<Category> cats;

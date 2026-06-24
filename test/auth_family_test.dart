@@ -34,7 +34,10 @@ void main() {
       await tester.enterText(find.byKey(const ValueKey('auth-pw')), '12');
       await tester.tap(find.byKey(const ValueKey('auth-submit')));
       await tester.pumpAndSettle();
-      expect(find.text('Password must be at least 4 characters'), findsOneWidget);
+      expect(
+        find.text('Password must be at least 4 characters'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('register flow requires a name then signs in', (tester) async {
@@ -116,6 +119,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).at(1), 'Lisa Janssen');
       await tester.enterText(find.byType(TextField).at(2), 'lisa@email.com');
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('invite-send')));
       await tester.pumpAndSettle();
       // Invite card closed and the new (invited) member is listed.
@@ -132,6 +136,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Create a family'), findsOneWidget);
       await tester.enterText(find.byType(TextField).first, 'Beach house');
+      await tester.pump();
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
       // Sheet closed; reopening the profile lists the new family.
@@ -139,6 +144,115 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
       expect(find.text('Beach house'), findsWidgets);
+    });
+  });
+
+  group('family actions', () {
+    Future<void> openFamily(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> inviteLisa(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('family-invite')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Lisa Janssen');
+      await tester.enterText(find.byType(TextField).at(2), 'lisa@email.com');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('invite-send')));
+      await tester.pumpAndSettle();
+    }
+
+    Finder keyStartsWith(String prefix, {String? not}) {
+      return find.byWidgetPredicate((w) {
+        final k = w.key;
+        if (k is! ValueKey) return false;
+        final v = '${k.value}';
+        return v.startsWith(prefix) && v != not;
+      });
+    }
+
+    testWidgets('owner renames the family', (tester) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      await tester.enterText(find.byType(TextField).first, 'The Smiths');
+      await tester.pump();
+      expect(find.text('The Smiths'), findsWidgets);
+    });
+
+    testWidgets('owner edits an invited member', (tester) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      await inviteLisa(tester);
+      await tester.tap(find.text('Lisa Janssen').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'lisab@email.com');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.pumpAndSettle();
+      expect(find.text('Member updated'), findsOneWidget);
+    });
+
+    testWidgets('owner toggles role and removes a member', (tester) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      await inviteLisa(tester);
+
+      await tester.tap(find.text('Invited'));
+      await tester.pumpAndSettle();
+      expect(find.text('Role updated'), findsOneWidget);
+
+      await tester.tap(keyStartsWith('member-remove-').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Member removed'), findsOneWidget);
+    });
+
+    testWidgets('switches to and deletes another family', (tester) async {
+      await pumpApp(tester);
+
+      // Create a second family.
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-new-family')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Beach house');
+      await tester.pump();
+      await tester.tap(find.text('Create family'));
+      await tester.pumpAndSettle();
+
+      // Open the original family sheet, then switch via the chip switcher.
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        keyStartsWith('family-chip-', not: 'family-chip-fam_main'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Switched to Beach house'), findsOneWidget);
+
+      // Delete the now-current family.
+      await tester.tap(find.byKey(const ValueKey('family-delete')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Family deleted'), findsOneWidget);
+    });
+
+    testWidgets('cancels a member edit', (tester) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      await inviteLisa(tester);
+      await tester.tap(find.text('Lisa Janssen').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('member-save')), findsNothing);
     });
   });
 }

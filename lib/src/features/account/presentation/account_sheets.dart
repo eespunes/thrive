@@ -117,9 +117,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
   Widget build(BuildContext context) {
     final u = s.user;
     if (u == null) return const SizedBox.shrink();
-    return SingleChildScrollView(
-      child: _edit ? _buildEdit(u) : _buildView(u),
-    );
+    return SingleChildScrollView(child: _edit ? _buildEdit(u) : _buildView(u));
   }
 
   // ----------------------------------------------------------- view mode
@@ -243,14 +241,10 @@ class _ProfileSheetState extends State<_ProfileSheet> {
           ),
         ),
         ...s.families.map(_familyRow),
-        _addRow(
-          'Create new family',
-          () {
-            Navigator.of(context).pop();
-            s.openNewFamilySheet();
-          },
-          key: const ValueKey('profile-new-family'),
-        ),
+        _addRow('Create new family', () {
+          Navigator.of(context).pop();
+          s.openNewFamilySheet();
+        }, key: const ValueKey('profile-new-family')),
         // sign out
         Padding(
           padding: const EdgeInsets.only(top: 14),
@@ -409,7 +403,10 @@ class _ProfileSheetState extends State<_ProfileSheet> {
               key: const ValueKey('profile-upload'),
               onTap: _pickPhoto,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: B.soft,
                   borderRadius: BorderRadius.circular(11),
@@ -439,8 +436,10 @@ class _ProfileSheetState extends State<_ProfileSheet> {
                   _photoTouched = true;
                 }),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(11),
@@ -706,8 +705,10 @@ class _FamilySheetState extends State<_FamilySheet> {
                     });
                   },
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: x.id == cur.id ? B.primary : Colors.white,
                       borderRadius: BorderRadius.circular(11),
@@ -732,15 +733,14 @@ class _FamilySheetState extends State<_FamilySheet> {
                 s.openNewFamilySheet();
               },
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(11),
-                  border: Border.all(
-                    color: B.line,
-                    style: BorderStyle.solid,
-                  ),
+                  border: Border.all(color: B.line, style: BorderStyle.solid),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1002,8 +1002,10 @@ class _FamilySheetState extends State<_FamilySheet> {
                     }
                   : null,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: pill.bg,
                   borderRadius: BorderRadius.circular(999),
