@@ -17,6 +17,8 @@ class _ThriveHomeState extends State<ThriveHome> {
   String screen = 'overview'; // overview | stats | settings
   String statsMode = 'month'; // month | year
 
+  // Active workspace (the currently-selected family's budget). Kept in sync
+  // with `workspaces[familyId]` — mirrors the design holding both.
   List<Account> accounts = defaultAccounts();
   List<Category> cats = defaultCats();
   Map<int, Map<String, MonthData>> data = {};
@@ -24,6 +26,12 @@ class _ThriveHomeState extends State<ThriveHome> {
   String? swipedId;
   String? toast;
   Timer? _toastTimer;
+
+  // Auth + family state (ported from the design's v4 state).
+  AppUser? user;
+  List<Family> families = [];
+  String familyId = 'fam_main';
+  Map<String, Workspace> workspaces = {};
 
   @override
   void initState() {
@@ -40,18 +48,89 @@ class _ThriveHomeState extends State<ThriveHome> {
   // ---------------------------------------------------------------- boot
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
-    final rawSaved = prefs.getString(kStorageKey);
-    if (rawSaved != null) {
+
+    // Signed-in user (stored separately, like the design's `thrive.user`).
+    final rawUser = prefs.getString(kUserKey);
+    if (rawUser != null) {
       try {
-        _restore(json.decode(rawSaved) as Map<String, dynamic>);
+        user = AppUser.fromJson(json.decode(rawUser) as Map<String, dynamic>);
+      } catch (_) {
+        /* ignore corrupt user */
+      }
+    }
+
+    // v4 multi-family state.
+    final rawV4 = prefs.getString(kStorageKeyV4);
+    if (rawV4 != null) {
+      try {
+        _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
         return;
       } catch (_) {
-        /* fall through to seed */
+        /* fall through to migration / seed */
       }
     }
+
+    // Migrate a pre-existing single-family v3 store into a fam_main workspace.
+    final rawV3 = prefs.getString(kStorageKey);
+    if (rawV3 != null) {
+      try {
+        _restore(json.decode(rawV3) as Map<String, dynamic>);
+        _seedFamiliesAndWorkspace();
+        if (!mounted) return;
+        setState(() => ready = true);
+        _persist();
+        return;
+      } catch (_) {
+        /* fall through to fresh seed */
+      }
+    }
+
     await _seedFromAsset();
+  }
+
+  /// Restores the v4 blob: families, per-family workspaces and the active one.
+  void _restoreV4(Map<String, dynamic> saved) {
+    year = (saved['year'] as num?)?.toInt() ?? 2026;
+    monthIdx = ((saved['monthIdx'] as num?)?.toInt() ?? 5).clamp(
+      0,
+      kMonthKeys.length - 1,
+    );
+    final rawScreen = (saved['screen'] ?? 'overview').toString();
+    screen = const {'overview', 'stats', 'settings'}.contains(rawScreen)
+        ? rawScreen
+        : 'overview';
+
+    families = [
+      for (final f in (saved['families'] as List? ?? []))
+        Family.fromJson(Map<String, dynamic>.from(f as Map)),
+    ];
+    workspaces = {};
+    (saved['workspaces'] as Map<String, dynamic>? ?? {}).forEach((id, ws) {
+      workspaces[id] = Workspace.fromJson(Map<String, dynamic>.from(ws as Map));
+    });
+
+    familyId = (saved['familyId'] ?? 'fam_main').toString();
+    if (!workspaces.containsKey(familyId)) {
+      familyId = workspaces.keys.isNotEmpty ? workspaces.keys.first : 'fam_main';
+    }
+    final ws = workspaces[familyId] ?? Workspace.empty();
+    workspaces[familyId] = ws;
+    accounts = ws.accounts;
+    cats = ws.cats;
+    data = ws.data;
+  }
+
+  /// Wraps the just-restored/seeded active workspace into `workspaces` and
+  /// seeds a starter family for the signed-in user (mirrors the design's
+  /// v3→v4 migration / fresh-seed path).
+  void _seedFamiliesAndWorkspace() {
+    familyId = 'fam_main';
+    workspaces = {
+      'fam_main': Workspace(accounts: accounts, cats: cats, data: data),
+    };
+    families = user != null ? [seedFamily('fam_main', user!)] : [];
   }
 
   void _restore(Map<String, dynamic> saved) {
@@ -150,27 +229,46 @@ class _ThriveHomeState extends State<ThriveHome> {
     setState(() {
       cats = seededCats;
       data = {2026: yearMap};
+      _seedFamiliesAndWorkspace();
       ready = true;
     });
     _persist();
   }
 
+  /// Mirrors `syncWorkspaces()` — stores the active budget into the current
+  /// family's workspace slot before serializing.
+  void _syncWorkspaces() {
+    workspaces[familyId] = Workspace(
+      accounts: accounts,
+      cats: cats,
+      data: data,
+    );
+  }
+
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
+    _syncWorkspaces();
     final payload = {
       'year': year,
       'monthIdx': monthIdx,
       'screen': screen,
-      'accounts': accounts.map((a) => a.toJson()).toList(),
-      'cats': cats.map((c) => c.toJson()).toList(),
-      'data': {
-        for (final entry in data.entries)
-          entry.key.toString(): {
-            for (final m in entry.value.entries) m.key: m.value.toJson(),
-          },
+      'familyId': familyId,
+      'families': families.map((f) => f.toJson()).toList(),
+      'workspaces': {
+        for (final e in workspaces.entries) e.key: e.value.toJson(),
       },
     };
-    await prefs.setString(kStorageKey, json.encode(payload));
+    await prefs.setString(kStorageKeyV4, json.encode(payload));
+  }
+
+  /// Persists (or clears) the signed-in user blob.
+  Future<void> _persistUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (user == null) {
+      await prefs.remove(kUserKey);
+    } else {
+      await prefs.setString(kUserKey, json.encode(user!.toJson()));
+    }
   }
 
   // ------------------------------------------------------------- helpers
@@ -477,6 +575,8 @@ class _ThriveHomeState extends State<ThriveHome> {
                 bottom: 36,
                 child: Center(child: _buildToast()),
               ),
+            // Auth gate: covers the app until a user is signed in.
+            if (ready && user == null) Positioned.fill(child: _AuthScreen(state: this)),
           ],
         ),
       ),
@@ -549,22 +649,26 @@ class _ThriveHomeState extends State<ThriveHome> {
         children: [
           Row(
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  gradient: B.grad,
-                  borderRadius: BorderRadius.circular(11),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xff0F8A76).withValues(alpha: .6),
-                      blurRadius: 14,
-                      spreadRadius: -3,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+              GestureDetector(
+                key: const ValueKey('profile-avatar'),
+                onTap: user != null ? openProfileSheet : null,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(11),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff0F8A76).withValues(alpha: .6),
+                        blurRadius: 14,
+                        spreadRadius: -3,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _headerAvatar(),
                 ),
-                child: Center(child: logoMark(size: 18)),
               ),
               const SizedBox(width: 10),
               Expanded(

@@ -1,20 +1,40 @@
+import 'dart:convert';
+
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// A signed-in user blob so the auth gate is bypassed in tests. The mock
+/// SharedPreferences store prefixes keys with `flutter.`.
+final Map<String, Object> _signedInUser = {
+  'flutter.thrive.user': json.encode({
+    'name': 'Eva Janssen',
+    'email': 'eva.janssen@gmail.com',
+    'initials': 'EJ',
+    'provider': 'google',
+  }),
+};
+
 /// Boots the app with a clean prefs store (seeds from the bundled asset) and
 /// pumps until the async boot completes. Uses a tall surface so the whole
 /// overview list builds (no lazy off-screen rows).
+///
+/// By default a user is seeded so the app lands on the budget screens. Pass
+/// `signedIn: false` to exercise the auth gate.
 Future<void> pumpApp(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
+  bool signedIn = true,
 }) async {
   tester.view.physicalSize = const Size(1080, 6400);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  SharedPreferences.setMockInitialValues(prefs);
+  SharedPreferences.setMockInitialValues({
+    if (signedIn) ..._signedInUser,
+    ...prefs,
+  });
   await tester.runAsync(() async {
     await tester.pumpWidget(const ThriveApp());
     // Let the SharedPreferences + rootBundle asset futures resolve.
