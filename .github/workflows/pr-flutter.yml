@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: pr-flutter-${{ github.event.pull_request.number || github.ref }}
@@ -28,12 +29,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -57,8 +52,30 @@ jobs:
       - name: Run tests
         run: flutter test --coverage
 
-      - name: Build Android debug APK
-        run: flutter build apk --debug
+      - name: Install coverage tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y lcov
+
+      - name: Check code coverage
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            # Generate coverage report and extract percentage
+            COVERAGE=$(lcov --summary coverage/lcov.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
+            echo "Code coverage: ${COVERAGE}%"
+            
+            # Check if coverage meets 95% threshold
+            THRESHOLD=95
+            if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+              echo "❌ Code coverage is ${COVERAGE}%, below the required 95%"
+              exit 1
+            else
+              echo "✅ Code coverage is ${COVERAGE}%, meets the required 95%"
+            fi
+          else
+            echo "⚠️  Coverage file not found. Ensure tests are run with --coverage flag."
+            exit 1
+          fi
 
       - name: Upload coverage artifact
         if: always()
@@ -67,3 +84,34 @@ jobs:
           name: coverage-lcov
           path: coverage/lcov.info
           if-no-files-found: ignore
+
+      - name: Comment PR with coverage result
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let coverage = 'N/A';
+            let status = '⚠️';
+            
+            if (fs.existsSync('coverage/lcov.info')) {
+              const { execSync } = require('child_process');
+              try {
+                const output = execSync('lcov --summary coverage/lcov.info 2>/dev/null || echo ""', { encoding: 'utf-8' });
+                const match = output.match(/lines.*?:\s*([\d.]+)%/);
+                if (match) {
+                  coverage = match[1];
+                  status = parseFloat(coverage) >= 95 ? '✅' : '❌';
+                }
+              } catch (e) {
+                console.log('Could not parse coverage');
+              }
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${status} **Code Coverage:** ${coverage}% (Target: 95%)`
+            });
