@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Budget data is stored locally in SharedPreferences and is considered private
+  to the device. Exclude it from both cloud backups and device-to-device
+  transfers so financial information is never copied off-device implicitly.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>

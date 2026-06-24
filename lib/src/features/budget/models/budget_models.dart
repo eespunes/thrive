@@ -1,203 +1,154 @@
 part of 'package:family_money_management_app/main.dart';
 
-class DonutPainter extends CustomPainter {
-  DonutPainter(this.blocks);
+const String kStorageKey = 'thrive.v3';
+const String kDefaultAccountKey = 'shared';
 
-  final List<ExpenseBlock> blocks;
+/// Palettes & icon choices used by the editor sheets.
+const List<Color> kCatPalette = [
+  Color(0xff2563eb),
+  Color(0xff7c3aed),
+  Color(0xffe11d48),
+  Color(0xff059669),
+  Color(0xffd97706),
+  Color(0xffea580c),
+  Color(0xff0d9488),
+  Color(0xff475569),
+  Color(0xff0E9A8D),
+  Color(0xff9333ea),
+];
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final radius = math.min(size.width, size.height) / 2 - 20;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final base = Paint()
-      ..color = AppColors.track
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 18;
-    canvas.drawCircle(center, radius, base);
+const List<Color> kAccPalette = [
+  Color(0xff1E7FB5),
+  Color(0xff54A96A),
+  Color(0xff0E9A8D),
+  Color(0xff7c3aed),
+  Color(0xffe11d48),
+  Color(0xffd97706),
+  Color(0xff0d9488),
+  Color(0xff2563eb),
+];
 
-    final total = blocks.fold<double>(0, (sum, block) => sum + block.total);
-    if (total <= 0) return;
+const List<String> kCatIcons = [
+  'home',
+  'repeat',
+  'card',
+  'trend',
+  'users',
+  'cart',
+  'heart',
+  'receipt',
+  'folder',
+  'wallet',
+  'tag',
+  'shield',
+];
 
-    var start = -math.pi / 2;
-    for (final block in blocks) {
-      final sweep = (block.total / total) * math.pi * 2;
-      final paint = Paint()
-        ..color = block.meta.tone
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 18
-        ..strokeCap = StrokeCap.butt;
-      canvas.drawArc(rect, start, sweep, false, paint);
-      start += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant DonutPainter oldDelegate) =>
-      oldDelegate.blocks != blocks;
-}
-
-class ComputedMonth {
-  ComputedMonth(this.month, this.monthIndex, this.year) {
-    for (final meta in categoryMeta) {
-      final items = month.expenses[meta.key] ?? <ExpenseItem>[];
-      blocks[meta.key] = ExpenseBlock(
-        meta: meta,
-        items: items,
-        monthIndex: monthIndex,
-        year: year,
-      );
-    }
-    final accountMax = math.max(
-      1,
-      accountRaw.map((item) => item.amount).fold<double>(0, math.max),
-    );
-    accounts = accountRaw
-        .map((item) => item.copyWith(progress: item.amount / accountMax))
-        .toList();
-  }
-
-  final MonthBudget month;
-  final int monthIndex;
-  final int year;
-  final Map<String, ExpenseBlock> blocks = {};
-  late final List<AccountShare> accounts;
-
-  String get monthLabel => monthLabels[monthIndex];
-  double get expectedIncome =>
-      month.income.fold(0, (sum, item) => sum + item.expected);
-  double get realIncome => month.income.fold(
-    0,
-    (sum, item) => sum + (item.received ? item.actual : 0),
-  );
-  double get totalBudget =>
-      blocks.values.fold(0, (sum, block) => sum + block.total);
-  double get totalPaid =>
-      blocks.values.fold(0, (sum, block) => sum + block.paid);
-  double get stillToPay => math.max(0, totalBudget - totalPaid);
-  double get expectedBalance => expectedIncome - totalBudget;
-  double get balance => realIncome - totalBudget;
-
-  List<AccountShare> get accountRaw {
-    final totals = {for (final account in accountMeta) account.key: 0.0};
-    for (final block in blocks.values) {
-      for (final item in block.items) {
-        if (!item.paid) {
-          totals[item.accountKey] =
-              (totals[item.accountKey] ?? 0) + item.amount;
-        }
-      }
-    }
-
-    return [
-      for (final account in accountMeta)
-        AccountShare(account: account, amount: totals[account.key] ?? 0),
-    ];
-  }
-}
-
-class ExpenseBlock {
-  ExpenseBlock({
-    required this.meta,
-    required this.items,
-    required this.monthIndex,
-    required this.year,
-  }) {
-    for (final item in items) {
-      item.untilLabel = meta.hasUntil ? untilLabel(item.untilRaw) : null;
-      item.untilState = item.untilLabel == null
-          ? UntilState.future
-          : untilState(item.untilLabel!, monthIndex, year);
-    }
-  }
-
-  final CategoryMeta meta;
-  final List<ExpenseItem> items;
-  final int monthIndex;
-  final int year;
-
-  double get total => items.fold(0, (sum, item) => sum + item.amount);
-  double get paid =>
-      items.fold(0, (sum, item) => sum + (item.paid ? item.amount : 0));
-  double get progress =>
-      total > 0 ? (paid / total).clamp(0, 1) : (paid > 0 ? 1 : 0);
-}
-
-class MonthBudget {
-  MonthBudget({
+class Account {
+  Account({
     required this.key,
-    required this.income,
-    required this.expenses,
-    required this.sumup,
+    required this.name,
+    required this.short,
+    required this.initials,
+    required this.color,
   });
 
-  final String key;
-  final List<IncomeItem> income;
-  final Map<String, List<ExpenseItem>> expenses;
-  final Map<String, double> sumup;
+  String key;
+  String name;
+  String short;
+  String initials;
+  Color color;
 
-  factory MonthBudget.fromJson(String key, Map<String, dynamic> json) {
-    final sumup = (json['sumup'] as Map<String, dynamic>? ?? {}).map(
-      (key, value) => MapEntry(key, asDouble(value)),
-    );
-    return MonthBudget(
-      key: key,
-      income: [
-        for (final indexed in (json['income'] as List? ?? []).indexed)
-          IncomeItem.fromJson(
-            '$key-income-${indexed.$1}',
-            indexed.$2 as Map<String, dynamic>,
-          ),
-      ],
-      expenses: {
-        for (final meta in categoryMeta)
-          meta.key: [
-            for (final indexed in (json[meta.key] as List? ?? []).indexed)
-              ExpenseItem.fromJson(
-                '$key-${meta.key}-${indexed.$1}',
-                indexed.$2 as Map<String, dynamic>,
-                meta,
-                defaultExpenseAccountKey(
-                  indexed.$2 as Map<String, dynamic>,
-                  sumup,
-                ),
-              ),
-          ],
-      },
-      sumup: sumup,
-    );
-  }
+  Account copy() => Account(
+    key: key,
+    name: name,
+    short: short,
+    initials: initials,
+    color: color,
+  );
 
-  factory MonthBudget.empty(String key) {
-    return MonthBudget(
-      key: key,
-      income: [],
-      expenses: {for (final meta in categoryMeta) meta.key: <ExpenseItem>[]},
-      sumup: {},
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'income': [for (final item in income) item.toJson()],
-      for (final entry in expenses.entries)
-        entry.key: [for (final item in entry.value) item.toJson()],
-      'sumup': sumup,
-    };
-  }
-}
-
-Map<String, MonthBudget> monthsFromState(Map<String, dynamic> monthState) {
-  return {
-    for (final key in monthKeys)
-      key: monthState[key] is Map<String, dynamic>
-          ? MonthBudget.fromJson(key, monthState[key] as Map<String, dynamic>)
-          : MonthBudget.empty(key),
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'name': name,
+    'short': short,
+    'initials': initials,
+    'color': color.toARGB32(),
   };
+
+  factory Account.fromJson(Map<String, dynamic> j) => Account(
+    key: (j['key'] ?? kDefaultAccountKey).toString(),
+    name: (j['name'] ?? 'Account').toString(),
+    short: (j['short'] ?? 'Account').toString(),
+    initials: (j['initials'] ?? 'AC').toString(),
+    color: Color((j['color'] as num?)?.toInt() ?? 0xff0E9A8D),
+  );
 }
 
-Map<String, MonthBudget> emptyYearBudget(int year) {
-  return {for (final key in monthKeys) key: MonthBudget.empty(key)};
+class Category {
+  Category({
+    required this.key,
+    required this.title,
+    required this.icon,
+    required this.marker,
+    required this.tone,
+    required this.bg,
+    this.hasUntil = false,
+    this.temporary = false,
+    this.ownerYear,
+    this.ownerMonthIdx,
+  });
+
+  String key;
+  String title;
+  String icon;
+  String marker; // 'day' | 'date'
+  Color tone;
+  Color bg;
+  bool hasUntil;
+  bool temporary;
+  int? ownerYear;
+  int? ownerMonthIdx;
+
+  Category copy() => Category(
+    key: key,
+    title: title,
+    icon: icon,
+    marker: marker,
+    tone: tone,
+    bg: bg,
+    hasUntil: hasUntil,
+    temporary: temporary,
+    ownerYear: ownerYear,
+    ownerMonthIdx: ownerMonthIdx,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'title': title,
+    'icon': icon,
+    'marker': marker,
+    'tone': tone.toARGB32(),
+    'bg': bg.toARGB32(),
+    'hasUntil': hasUntil,
+    if (temporary) 'temporary': true,
+    if (ownerYear != null) 'ownerYear': ownerYear,
+    if (ownerMonthIdx != null) 'ownerMonthIdx': ownerMonthIdx,
+  };
+
+  factory Category.fromJson(Map<String, dynamic> j) {
+    final tone = Color((j['tone'] as num?)?.toInt() ?? 0xff2563eb);
+    return Category(
+      key: (j['key'] ?? 'block').toString(),
+      title: (j['title'] ?? 'Block').toString(),
+      icon: (j['icon'] ?? 'folder').toString(),
+      marker: (j['marker'] ?? 'date').toString(),
+      tone: tone,
+      bg: j['bg'] != null ? Color((j['bg'] as num).toInt()) : tintFor(tone),
+      hasUntil: j['hasUntil'] == true,
+      temporary: j['temporary'] == true,
+      ownerYear: (j['ownerYear'] as num?)?.toInt(),
+      ownerMonthIdx: (j['ownerMonthIdx'] as num?)?.toInt(),
+    );
+  }
 }
 
 class IncomeItem {
@@ -207,36 +158,42 @@ class IncomeItem {
     required this.expected,
     required this.actual,
     required this.received,
-    required this.accountKey,
+    required this.account,
   });
 
-  final String id;
-  final String label;
+  String id;
+  String label;
   double expected;
   double actual;
   bool received;
-  String accountKey;
+  String account;
 
-  factory IncomeItem.fromJson(String id, Map<String, dynamic> json) {
-    return IncomeItem(
-      id: id,
-      label: stringValue(json['label'], fallback: 'Income'),
-      expected: asDouble(json['expected']),
-      actual: asDouble(json['actual']),
-      received: json['received'] == true,
-      accountKey: normalizedAccountKey(json['account']),
-    );
-  }
+  IncomeItem copyWithId(String newId) => IncomeItem(
+    id: newId,
+    label: label,
+    expected: expected,
+    actual: actual,
+    received: received,
+    account: account,
+  );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'label': label,
-      'expected': expected,
-      'actual': actual,
-      'received': received,
-      'account': accountKey,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'expected': expected,
+    'actual': actual,
+    'received': received,
+    'account': account,
+  };
+
+  factory IncomeItem.fromJson(Map<String, dynamic> j) => IncomeItem(
+    id: (j['id'] ?? uid()).toString(),
+    label: (j['label'] ?? '').toString(),
+    expected: parseNum(j['expected']),
+    actual: parseNum(j['actual']),
+    received: j['received'] == true,
+    account: (j['account'] ?? kDefaultAccountKey).toString(),
+  );
 }
 
 class ExpenseItem {
@@ -246,235 +203,205 @@ class ExpenseItem {
     required this.marker,
     required this.amount,
     required this.paid,
-    required this.accountKey,
-    this.untilRaw,
+    required this.account,
+    this.until,
   });
 
-  final String id;
-  final String label;
+  String id;
+  String label;
   String marker;
   double amount;
   bool paid;
-  String accountKey;
-  Object? untilRaw;
-  String? untilLabel;
-  UntilState untilState = UntilState.future;
+  String account;
+  Object? until;
 
-  factory ExpenseItem.fromJson(
-    String id,
-    Map<String, dynamic> json,
-    CategoryMeta meta,
-    String defaultAccount,
-  ) {
-    return ExpenseItem(
-      id: id,
-      label: stringValue(json['label'], fallback: 'Expense'),
-      marker: stringValue(
-        json[meta.markerKey] ?? json['day'] ?? json['date'],
-        fallback: '-',
-      ),
-      amount: asDouble(json['amount']),
-      paid: json['paid'] == true,
-      accountKey: normalizedAccountKey(
-        json['account'],
-        fallback: defaultAccount,
-      ),
-      untilRaw: json['until'],
-    );
-  }
+  ExpenseItem copyWithId(String newId) => ExpenseItem(
+    id: newId,
+    label: label,
+    marker: marker,
+    amount: amount,
+    paid: paid,
+    account: account,
+    until: until,
+  );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'label': label,
-      'date': marker,
-      'amount': amount,
-      'paid': paid,
-      'account': accountKey,
-      if (untilRaw != null) 'until': untilRaw,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'marker': marker,
+    'amount': amount,
+    'paid': paid,
+    'account': account,
+    if (until != null) 'until': until,
+  };
+
+  factory ExpenseItem.fromJson(Map<String, dynamic> j) => ExpenseItem(
+    id: (j['id'] ?? uid()).toString(),
+    label: (j['label'] ?? '').toString(),
+    marker: (j['marker'] ?? '').toString(),
+    amount: parseNum(j['amount']),
+    paid: j['paid'] == true,
+    account: (j['account'] ?? kDefaultAccountKey).toString(),
+    until: j['until'],
+  );
 }
 
-class CategoryMeta {
-  const CategoryMeta({
-    required this.key,
-    required this.title,
-    required this.icon,
-    required this.markerKey,
-    required this.tone,
-    required this.background,
-    this.hasUntil = false,
-  });
+class MonthData {
+  MonthData({
+    List<IncomeItem>? income,
+    Map<String, List<ExpenseItem>>? blocks,
+    Map<String, double>? caps,
+    this.closed = false,
+    this.catsSnapshot,
+    this.accountsSnapshot,
+  }) : income = income ?? [],
+       blocks = blocks ?? {},
+       caps = caps ?? {};
 
-  final String key;
-  final String title;
-  final IconData icon;
-  final String markerKey;
-  final Color tone;
-  final Color background;
-  final bool hasUntil;
+  List<IncomeItem> income;
+  Map<String, List<ExpenseItem>> blocks;
+  Map<String, double> caps;
+  bool closed;
+  List<Category>? catsSnapshot;
+  List<Account>? accountsSnapshot;
 
-  factory CategoryMeta.fromState(Map<String, dynamic> state) {
-    final key = stringValue(state['key'], fallback: 'block');
-    final defaultMeta = defaultCategoryMeta.where((meta) => meta.key == key);
-    if (defaultMeta.isNotEmpty) {
-      return defaultMeta.first;
-    }
-    return CategoryMeta(
-      key: key,
-      title: stringValue(state['title'], fallback: 'Budget block'),
-      icon: Icons.folder_rounded,
-      markerKey: stringValue(state['markerKey'], fallback: 'date'),
-      tone: colorFromInt(state['tone'], fallback: AppColors.indigo),
-      background: AppColors.panel,
-      hasUntil: state['hasUntil'] == true,
+  Map<String, dynamic> toJson() => {
+    'income': income.map((e) => e.toJson()).toList(),
+    'blocks': blocks.map(
+      (k, v) => MapEntry(k, v.map((e) => e.toJson()).toList()),
+    ),
+    'caps': caps,
+    'closed': closed,
+    if (catsSnapshot != null)
+      'catsSnapshot': catsSnapshot!.map((c) => c.toJson()).toList(),
+    if (accountsSnapshot != null)
+      'accountsSnapshot': accountsSnapshot!.map((a) => a.toJson()).toList(),
+  };
+
+  factory MonthData.fromJson(Map<String, dynamic> j) {
+    final blocks = <String, List<ExpenseItem>>{};
+    (j['blocks'] as Map<String, dynamic>? ?? {}).forEach((k, v) {
+      blocks[k] = [
+        for (final it in (v as List? ?? []))
+          ExpenseItem.fromJson(Map<String, dynamic>.from(it as Map)),
+      ];
+    });
+    final caps = <String, double>{};
+    (j['caps'] as Map<String, dynamic>? ?? {}).forEach(
+      (k, v) => caps[k] = parseNum(v),
     );
-  }
-
-  Map<String, dynamic> toState() {
-    return {
-      'key': key,
-      'title': title,
-      'markerKey': markerKey,
-      'tone': tone.toARGB32(),
-      'hasUntil': hasUntil,
-    };
-  }
-}
-
-class AccountShare {
-  const AccountShare({
-    required this.account,
-    required this.amount,
-    this.progress = 0,
-  });
-
-  final AccountMeta account;
-  final double amount;
-  final double progress;
-
-  String get name => account.name;
-  String get initials => account.initials;
-  Color get color => account.color;
-
-  AccountShare copyWith({double? progress}) {
-    return AccountShare(
-      account: account,
-      amount: amount,
-      progress: progress ?? this.progress,
+    return MonthData(
+      income: [
+        for (final it in (j['income'] as List? ?? []))
+          IncomeItem.fromJson(Map<String, dynamic>.from(it as Map)),
+      ],
+      blocks: blocks,
+      caps: caps,
+      closed: j['closed'] == true,
+      catsSnapshot: j['catsSnapshot'] == null
+          ? null
+          : [
+              for (final c in (j['catsSnapshot'] as List))
+                Category.fromJson(Map<String, dynamic>.from(c as Map)),
+            ],
+      accountsSnapshot: j['accountsSnapshot'] == null
+          ? null
+          : [
+              for (final a in (j['accountsSnapshot'] as List))
+                Account.fromJson(Map<String, dynamic>.from(a as Map)),
+            ],
     );
   }
 }
 
-class AccountMeta {
-  const AccountMeta({
-    required this.key,
-    required this.name,
-    required this.shortName,
-    required this.initials,
-    required this.color,
-  });
+List<Account> defaultAccounts() => [
+  Account(
+    key: 'eva',
+    name: "Eva's account",
+    short: 'Eva',
+    initials: 'EV',
+    color: const Color(0xff1E7FB5),
+  ),
+  Account(
+    key: 'erik',
+    name: "Erik's account",
+    short: 'Erik',
+    initials: 'ER',
+    color: const Color(0xff54A96A),
+  ),
+  Account(
+    key: 'shared',
+    name: 'Shared account',
+    short: 'Shared',
+    initials: 'SH',
+    color: const Color(0xff0E9A8D),
+  ),
+];
 
-  final String key;
-  final String name;
-  final String shortName;
-  final String initials;
-  final Color color;
-
-  factory AccountMeta.fromState(Map<String, dynamic> state) {
-    final key = stringValue(state['key'], fallback: defaultAccountKey);
-    return AccountMeta(
-      key: key,
-      name: stringValue(state['name'], fallback: 'Account'),
-      shortName: stringValue(state['shortName'], fallback: 'Account'),
-      initials: stringValue(state['initials'], fallback: 'AC').toUpperCase(),
-      color: colorFromInt(state['color'], fallback: AppColors.indigo),
-    );
-  }
-
-  Map<String, dynamic> toState() {
-    return {
-      'key': key,
-      'name': name,
-      'shortName': shortName,
-      'initials': initials,
-      'color': color.toARGB32(),
-    };
-  }
-}
-
-class QuickExpense {
-  QuickExpense({
-    required this.categoryKey,
-    required this.itemId,
-    required this.label,
-    required this.amount,
-    required this.accountKey,
-    required this.marker,
-    this.until,
-  });
-
-  final String categoryKey;
-  final String itemId;
-  final String label;
-  final double amount;
-  final String accountKey;
-  final String marker;
-  final String? until;
-}
-
-class NewIncome {
-  NewIncome({
-    required this.label,
-    required this.expected,
-    required this.actual,
-    required this.received,
-    required this.accountKey,
-  });
-
-  final String label;
-  final double expected;
-  final double actual;
-  final bool received;
-  final String accountKey;
-}
-
-class IncomeUpdate {
-  const IncomeUpdate({
-    required this.expected,
-    required this.actual,
-    required this.received,
-    required this.accountKey,
-  });
-
-  final double expected;
-  final double actual;
-  final bool received;
-  final String accountKey;
-}
-
-class ExpenseUpdate {
-  const ExpenseUpdate({
-    required this.amount,
-    required this.marker,
-    required this.paid,
-    required this.accountKey,
-    this.until,
-  });
-
-  final double amount;
-  final String marker;
-  final bool paid;
-  final String accountKey;
-  final String? until;
-}
-
-class CopyMonthSelection {
-  const CopyMonthSelection({
-    required this.sourceMonthIndex,
-    required this.targetMonthIndex,
-  });
-
-  final int sourceMonthIndex;
-  final int targetMonthIndex;
-}
+List<Category> defaultCats() => [
+  Category(
+    key: 'home',
+    title: 'Home',
+    icon: 'home',
+    marker: 'day',
+    tone: const Color(0xff2563eb),
+    bg: const Color(0xffeff6ff),
+  ),
+  Category(
+    key: 'subscriptions',
+    title: 'Subscriptions',
+    icon: 'repeat',
+    marker: 'date',
+    tone: const Color(0xff7c3aed),
+    bg: const Color(0xfff5f3ff),
+  ),
+  Category(
+    key: 'debt',
+    title: 'Debt',
+    icon: 'card',
+    marker: 'day',
+    tone: const Color(0xffe11d48),
+    bg: const Color(0xfffff1f2),
+    hasUntil: true,
+  ),
+  Category(
+    key: 'savings',
+    title: 'Savings',
+    icon: 'trend',
+    marker: 'date',
+    tone: const Color(0xff059669),
+    bg: const Color(0xffecfdf5),
+  ),
+  Category(
+    key: 'personal',
+    title: 'Personal & Family',
+    icon: 'users',
+    marker: 'date',
+    tone: const Color(0xffd97706),
+    bg: const Color(0xfffffbeb),
+  ),
+  Category(
+    key: 'food',
+    title: 'Food',
+    icon: 'cart',
+    marker: 'date',
+    tone: const Color(0xffea580c),
+    bg: const Color(0xfffff7ed),
+  ),
+  Category(
+    key: 'health',
+    title: 'Health',
+    icon: 'heart',
+    marker: 'date',
+    tone: const Color(0xff0d9488),
+    bg: const Color(0xfff0fdfa),
+  ),
+  Category(
+    key: 'additional',
+    title: 'Additional Costs',
+    icon: 'receipt',
+    marker: 'date',
+    tone: const Color(0xff475569),
+    bg: const Color(0xfff1f5f9),
+  ),
+];
