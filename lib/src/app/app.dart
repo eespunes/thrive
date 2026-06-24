@@ -1,8 +1,19 @@
 part of 'package:family_money_management_app/main.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initFirebase();
   runApp(const ThriveApp());
+}
+
+Future<void> _initFirebase() async {
+  try {
+    await Firebase.initializeApp();
+  } on FirebaseException catch (e) {
+    debugPrint('Firebase init failed (${e.code}): ${e.message}');
+  } on PlatformException catch (e) {
+    debugPrint('Firebase init failed (${e.code}): ${e.message}');
+  }
 }
 
 class ThriveApp extends StatelessWidget {

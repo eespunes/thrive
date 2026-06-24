@@ -23,24 +23,48 @@ flutter build apk --debug
 flutter build ios --no-codesign
 ```
 
-## Data persistence & privacy
+## Android production release checklist
 
-All budget data (accounts, blocks, monthly items, limits) is stored **locally
-on the device** in `SharedPreferences` under the `thrive.v3` key as plain JSON.
-There is no backend or cloud sync.
+1. Download Firebase Android config for package `cat.eespunes.thrive` and place it at:
+   - `android/app/google-services.json`
+2. Create `android/key.properties` from `android/key.properties.example` and point it to your upload keystore.
+3. Ensure the keystore file exists at the configured path (typically `android/upload-keystore.jks`).
+4. Run:
 
-Security assumptions:
+```sh
+flutter build appbundle --release
+```
 
-- **Local-only, unencrypted.** The data is not encrypted at rest; it relies on
-  the OS app sandbox for isolation. Do not store data that requires
-  encryption-at-rest without first moving to a secure store
-  (e.g. `flutter_secure_storage`).
-- **Excluded from backups.** On Android the app sets `allowBackup="false"` and
-  ships `res/xml/data_extraction_rules.xml`, which excludes `SharedPreferences`
-  from both cloud backups and device-to-device transfers so financial data is
-  never copied off-device implicitly.
-- **Resilient restore.** Corrupted or out-of-range persisted state is validated
-  on boot (month index clamped, screen whitelisted, empty accounts/categories
-  replaced with defaults) and falls back to the bundled seed instead of
-  crashing.
+Release builds are configured to fail fast if Firebase config or signing config is missing.
 
+## Data persistence & multi-device sync
+
+The app stores data locally in `SharedPreferences` and, when Firebase is
+configured, syncs workspace state to Firestore (`user_workspaces/{uid}`) so the
+same account can continue on multiple devices.
+
+### Required Firebase setup
+
+1. Add `android/app/google-services.json` for package `cat.eespunes.thrive`.
+2. Enable **Email/Password** in Firebase Authentication.
+3. Create Firestore in production mode.
+4. Deploy restrictive rules before real usage.
+5. Deploy Firebase configuration:
+
+```sh
+firebase use thrive-b1545
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+Suggested starter rule:
+
+```text
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /user_workspaces/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```

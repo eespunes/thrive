@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "825420918937",
+    "project_id": "thrive-b1545",
+    "storage_bucket": "thrive-b1545.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:825420918937:android:e8ff041a406885632ec808",
+        "android_client_info": {
+          "package_name": "cat.eespunes.thrive"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "825420918937-ali0s36kisbvia7omsjl02fe0kpgu4dr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cat.eespunes.thrive",
+            "certificate_hash": "9023333625b13f4c6ba07b21e6ba5aec85d9f1ff"
+          }
+        },
+        {
+          "client_id": "825420918937-ni6ni1as5oa2sk00bs79ro71ge8ksj7i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWi2njbKiMrbsxeD853BRW7Cnpg90Z7OE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "825420918937-ni6ni1as5oa2sk00bs79ro71ge8ksj7i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
