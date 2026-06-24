@@ -576,7 +576,8 @@ class _ThriveHomeState extends State<ThriveHome> {
                 child: Center(child: _buildToast()),
               ),
             // Auth gate: covers the app until a user is signed in.
-            if (ready && user == null) Positioned.fill(child: _AuthScreen(state: this)),
+            if (ready && user == null)
+              Positioned.fill(child: _AuthScreen(state: this)),
           ],
         ),
       ),
