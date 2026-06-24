@@ -71,7 +71,7 @@ class Account {
     'name': name,
     'short': short,
     'initials': initials,
-    'color': color.value,
+    'color': color.toARGB32(),
   };
 
   factory Account.fromJson(Map<String, dynamic> j) => Account(
@@ -126,8 +126,8 @@ class Category {
     'title': title,
     'icon': icon,
     'marker': marker,
-    'tone': tone.value,
-    'bg': bg.value,
+    'tone': tone.toARGB32(),
+    'bg': bg.toARGB32(),
     'hasUntil': hasUntil,
     if (temporary) 'temporary': true,
     if (ownerYear != null) 'ownerYear': ownerYear,
@@ -142,9 +142,7 @@ class Category {
       icon: (j['icon'] ?? 'folder').toString(),
       marker: (j['marker'] ?? 'date').toString(),
       tone: tone,
-      bg: j['bg'] != null
-          ? Color((j['bg'] as num).toInt())
-          : tintFor(tone),
+      bg: j['bg'] != null ? Color((j['bg'] as num).toInt()) : tintFor(tone),
       hasUntil: j['hasUntil'] == true,
       temporary: j['temporary'] == true,
       ownerYear: (j['ownerYear'] as num?)?.toInt(),

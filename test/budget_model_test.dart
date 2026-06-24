@@ -22,7 +22,7 @@ void main() {
       expect(back.name, a.name);
       expect(back.short, a.short);
       expect(back.initials, a.initials);
-      expect(back.color.value, a.color.value);
+      expect(back.color.toARGB32(), a.color.toARGB32());
     });
 
     test('Category preserves temporary ownership through JSON', () {

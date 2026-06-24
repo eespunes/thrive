@@ -74,11 +74,14 @@ class _SwipeRowState extends State<_SwipeRow>
                     children: [
                       ic('trash', size: 16, sw: 2.2, color: Colors.white),
                       const SizedBox(height: 3),
-                      const Text('Delete',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white)),
+                      const Text(
+                        'Delete',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -171,11 +174,8 @@ class _BarsPainter extends CustomPainter {
       axis,
     );
 
-    final textStyleBase = (Color color) => TextStyle(
-          fontSize: 8 * sx,
-          fontWeight: FontWeight.w700,
-          color: color,
-        );
+    TextStyle textStyleBase(Color color) =>
+        TextStyle(fontSize: 8 * sx, fontWeight: FontWeight.w700, color: color);
 
     for (int i = 0; i < months.length; i++) {
       final m = months[i];
@@ -186,31 +186,51 @@ class _BarsPainter extends CustomPainter {
 
       final incomePaint = Paint()
         ..color = B.green.withValues(alpha: active ? 1 : .85);
-      _roundRect(canvas, (x - bw - 1) * sx, (vbH - 22 - ih) * sy, bw * sx,
-          ih * sy, 2 * sx, incomePaint);
+      _roundRect(
+        canvas,
+        (x - bw - 1) * sx,
+        (vbH - 22 - ih) * sy,
+        bw * sx,
+        ih * sy,
+        2 * sx,
+        incomePaint,
+      );
 
       final expPaint = Paint()
         ..color = const Color(0xffe2526a).withValues(alpha: active ? 1 : .8);
-      _roundRect(canvas, (x + 1) * sx, (vbH - 22 - eh) * sy, bw * sx, eh * sy,
-          2 * sx, expPaint);
+      _roundRect(
+        canvas,
+        (x + 1) * sx,
+        (vbH - 22 - eh) * sy,
+        bw * sx,
+        eh * sy,
+        2 * sx,
+        expPaint,
+      );
 
       final tp = TextPainter(
         text: TextSpan(
-            text: kMonthsShort[i][0],
-            style: textStyleBase(active ? B.ink : B.muted)),
+          text: kMonthsShort[i][0],
+          style: textStyleBase(active ? B.ink : B.muted),
+        ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-          canvas, Offset(x * sx - tp.width / 2, (vbH - 12) * sy));
+      tp.paint(canvas, Offset(x * sx - tp.width / 2, (vbH - 12) * sy));
     }
   }
 
-  void _roundRect(Canvas canvas, double x, double y, double w, double h,
-      double r, Paint paint) {
+  void _roundRect(
+    Canvas canvas,
+    double x,
+    double y,
+    double w,
+    double h,
+    double r,
+    Paint paint,
+  ) {
     if (h <= 0) return;
     canvas.drawRRect(
-      RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, w, h), Radius.circular(r)),
+      RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), Radius.circular(r)),
       paint,
     );
   }
@@ -250,8 +270,12 @@ class _SavingsPainter extends CustomPainter {
     final dash = Paint()
       ..color = B.line
       ..strokeWidth = 1;
-    _dashedLine(canvas, Offset(pad * sx, zeroY * sy),
-        Offset((vbW - pad) * sx, zeroY * sy), dash);
+    _dashedLine(
+      canvas,
+      Offset(pad * sx, zeroY * sy),
+      Offset((vbW - pad) * sx, zeroY * sy),
+      dash,
+    );
 
     // area
     final area = Path()..moveTo(pts.first.dx, pts.first.dy);
@@ -299,14 +323,14 @@ class _SavingsPainter extends CustomPainter {
         text: TextSpan(
           text: kMonthsShort[i][0],
           style: TextStyle(
-              fontSize: 8 * sx,
-              fontWeight: FontWeight.w700,
-              color: B.muted),
+            fontSize: 8 * sx,
+            fontWeight: FontWeight.w700,
+            color: B.muted,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas,
-          Offset(pts[i].dx - tp.width / 2, (vbH - 10) * sy));
+      tp.paint(canvas, Offset(pts[i].dx - tp.width / 2, (vbH - 10) * sy));
     }
   }
 

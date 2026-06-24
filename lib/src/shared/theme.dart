@@ -88,11 +88,7 @@ const List<String> kMonthsShort = [
 
 /// Card shadow used across the app surfaces.
 List<BoxShadow> cardShadow() => const [
-  BoxShadow(
-    color: Color(0x0A101828),
-    blurRadius: 2,
-    offset: Offset(0, 1),
-  ),
+  BoxShadow(color: Color(0x0A101828), blurRadius: 2, offset: Offset(0, 1)),
   BoxShadow(
     color: Color(0x47101828),
     blurRadius: 26,

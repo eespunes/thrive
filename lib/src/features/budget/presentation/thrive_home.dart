@@ -46,7 +46,9 @@ class _ThriveHomeState extends State<ThriveHome> {
         _restore(json.decode(rawSaved) as Map<String, dynamic>);
         setState(() => ready = true);
         return;
-      } catch (_) {/* fall through to seed */}
+      } catch (_) {
+        /* fall through to seed */
+      }
     }
     await _seedFromAsset();
   }
@@ -83,7 +85,9 @@ class _ThriveHomeState extends State<ThriveHome> {
     try {
       final text = await rootBundle.loadString('assets/data/budget.json');
       raw = json.decode(text) as Map<String, dynamic>;
-    } catch (_) {/* empty seed */}
+    } catch (_) {
+      /* empty seed */
+    }
     final seededCats = defaultCats();
     final yearMap = <String, MonthData>{};
     for (final mk in kMonthKeys) {
@@ -126,7 +130,11 @@ class _ThriveHomeState extends State<ThriveHome> {
       yearMap[mk] = month;
     }
     // Sample limits so the feature is visible.
-    yearMap['Juli']?.caps.addAll({'food': 850, 'personal': 700, 'additional': 1600});
+    yearMap['Juli']?.caps.addAll({
+      'food': 850,
+      'personal': 700,
+      'additional': 1600,
+    });
     yearMap['Juni']?.caps.addAll({'food': 800});
 
     setState(() {
@@ -205,8 +213,9 @@ class _ThriveHomeState extends State<ThriveHome> {
       return m.catsSnapshot!;
     }
     return cats
-        .where((c) =>
-            !c.temporary || (c.ownerYear == yr && c.ownerMonthIdx == mIdx))
+        .where(
+          (c) => !c.temporary || (c.ownerYear == yr && c.ownerMonthIdx == mIdx),
+        )
         .toList();
   }
 
@@ -229,7 +238,10 @@ class _ThriveHomeState extends State<ThriveHome> {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
       m.closed = true;
-      m.catsSnapshot = catsForMonth(monthIdx, year).map((c) => c.copy()).toList();
+      m.catsSnapshot = catsForMonth(
+        monthIdx,
+        year,
+      ).map((c) => c.copy()).toList();
       m.accountsSnapshot = accounts.map((a) => a.copy()).toList();
     }, () => flash('Month closed'));
   }
@@ -343,8 +355,10 @@ class _ThriveHomeState extends State<ThriveHome> {
   _Compute compute(int mIdx) {
     final m = data[year]?[kMonthKeys[mIdx]] ?? MonthData();
     final expIncome = m.income.fold<double>(0, (a, b) => a + b.expected);
-    final realIncome =
-        m.income.fold<double>(0, (a, b) => a + (b.received ? b.actual : 0));
+    final realIncome = m.income.fold<double>(
+      0,
+      (a, b) => a + (b.received ? b.actual : 0),
+    );
     final actIncome = m.income.fold<double>(0, (a, b) => a + b.actual);
 
     double totalBudget = 0, totalPaid = 0;
@@ -367,28 +381,34 @@ class _ThriveHomeState extends State<ThriveHome> {
           acctTotals[it.account] = (acctTotals[it.account] ?? 0) + amt;
         }
         final ul = c.hasUntil ? untilLabel(it.until) : null;
-        rows.add(_RowCompute(
-          item: it,
-          untilLabel: ul,
-          untilState: ul != null ? untilState(ul, mIdx, year) : UntilState.future,
-        ));
+        rows.add(
+          _RowCompute(
+            item: it,
+            untilLabel: ul,
+            untilState: ul != null
+                ? untilState(ul, mIdx, year)
+                : UntilState.future,
+          ),
+        );
       }
       totalBudget += bud;
       totalPaid += paid;
       final cap = m.caps[c.key];
-      blocks.add(_BlockCompute(
-        key: c.key,
-        title: c.title,
-        icon: c.icon,
-        tone: c.tone,
-        bg: c.bg,
-        hasUntil: c.hasUntil,
-        items: rows,
-        total: bud,
-        paid: paid,
-        cap: cap,
-        count: items.length,
-      ));
+      blocks.add(
+        _BlockCompute(
+          key: c.key,
+          title: c.title,
+          icon: c.icon,
+          tone: c.tone,
+          bg: c.bg,
+          hasUntil: c.hasUntil,
+          items: rows,
+          total: bud,
+          paid: paid,
+          cap: cap,
+          count: items.length,
+        ),
+      );
     }
     final stillToPay = math.max(0, totalBudget - totalPaid).toDouble();
     return _Compute(
@@ -597,10 +617,12 @@ class _ThriveHomeState extends State<ThriveHome> {
                 : null,
           ),
           child: Center(
-            child: ic(icon,
-                size: 17,
-                sw: 2.1,
-                color: active ? B.primary : const Color(0xff8995a6)),
+            child: ic(
+              icon,
+              size: 17,
+              sw: 2.1,
+              color: active ? B.primary : const Color(0xff8995a6),
+            ),
           ),
         ),
       );
@@ -627,18 +649,18 @@ class _ThriveHomeState extends State<ThriveHome> {
 
   Widget _buildSubHeader() {
     Widget arrow(int d, String name) => GestureDetector(
-          onTap: () => setMonth(d),
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: B.line),
-            ),
-            child: Center(child: ic(name, size: 17, sw: 2.4, color: B.soft2)),
-          ),
-        );
+      onTap: () => setMonth(d),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: B.line),
+        ),
+        child: Center(child: ic(name, size: 17, sw: 2.4, color: B.soft2)),
+      ),
+    );
 
     final monthChip = GestureDetector(
       onTap: openMonthPicker,
@@ -693,8 +715,12 @@ class _ThriveHomeState extends State<ThriveHome> {
             border: Border.all(color: closed ? B.ink : B.line),
           ),
           child: Center(
-            child: ic(closed ? 'lock' : 'unlock',
-                size: 16, sw: 2.2, color: closed ? Colors.white : B.soft2),
+            child: ic(
+              closed ? 'lock' : 'unlock',
+              size: 16,
+              sw: 2.2,
+              color: closed ? Colors.white : B.soft2,
+            ),
           ),
         ),
       );
@@ -856,7 +882,9 @@ class _ConfirmDialog extends StatelessWidget {
                 color: B.redSoft,
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Center(child: ic('trash', size: 23, sw: 2.2, color: B.red)),
+              child: Center(
+                child: ic('trash', size: 23, sw: 2.2, color: B.red),
+              ),
             ),
             const SizedBox(height: 15),
             Text(

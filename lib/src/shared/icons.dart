@@ -67,7 +67,10 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M8 11h6'],
   ],
   'folder': [
-    ['path', 'M4 5a2 2 0 0 1 2-2h3l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z'],
+    [
+      'path',
+      'M4 5a2 2 0 0 1 2-2h3l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z',
+    ],
   ],
   'check': [
     ['path', 'm20 6-11 11-5-5'],
@@ -210,7 +213,7 @@ Widget ic(String name, {double size = 18, double sw = 2, Color? color}) {
   final spec = _kIcons[name] ?? const [];
   final stroke = (color ?? B.ink);
   final hex =
-      '#${stroke.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+      '#${stroke.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
   final buffer = StringBuffer()
     ..write(
       '<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" '
@@ -234,16 +237,13 @@ Widget ic(String name, {double size = 18, double sw = 2, Color? color}) {
     }
   }
   buffer.write('</svg>');
-  return SvgPicture.string(
-    buffer.toString(),
-    width: size,
-    height: size,
-  );
+  return SvgPicture.string(buffer.toString(), width: size, height: size);
 }
 
 /// The Thrive logo mark (the small leaf-burst inside the gradient tile).
 Widget logoMark({double size = 18, Color color = Colors.white}) {
-  final hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+  final hex =
+      '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
   const paths = [
     'M12 2v6',
     'M12 22v-4',

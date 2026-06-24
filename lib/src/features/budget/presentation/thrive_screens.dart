@@ -9,7 +9,7 @@ extension _ThriveScreens on _ThriveHomeState {
     final locked = c.closed;
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTap: () => setState(() => swipedId = null),
+      onTap: () => update(() => swipedId = null),
       child: ListView(
         padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
         children: [
@@ -44,8 +44,9 @@ extension _ThriveScreens on _ThriveHomeState {
               color: Colors.white.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(9),
             ),
-            child:
-                Center(child: ic('lock', size: 16, sw: 2.2, color: Colors.white)),
+            child: Center(
+              child: ic('lock', size: 16, sw: 2.2, color: Colors.white),
+            ),
           ),
           const SizedBox(width: 10),
           const Expanded(
@@ -109,44 +110,51 @@ extension _ThriveScreens on _ThriveHomeState {
     final hColor = good ? B.green : (mid ? B.amber : B.red);
     final hBg = good ? B.greenSoft : (mid ? B.amberSoft : B.redSoft);
     final hLabel = good ? 'On track' : (mid ? 'Watch spending' : 'Over budget');
-    final paidPct =
-        c.totalBudget > 0 ? (c.totalPaid / c.totalBudget * 100).round() : 100;
+    final paidPct = c.totalBudget > 0
+        ? (c.totalPaid / c.totalBudget * 100).round()
+        : 100;
 
     Widget tile(String label, String val, Color color) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              color: B.faint,
-              borderRadius: BorderRadius.circular(13),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: B.faint,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .4,
+                color: B.muted,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .4,
-                      color: B.muted,
-                    )),
-                const SizedBox(height: 4),
-                Text(val,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    )),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              val,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
 
     final maxAcct = math.max(
       1.0,
       c.accounts.fold<double>(
-          0, (p, a) => math.max(p, c.acctTotals[a.key] ?? 0)),
+        0,
+        (p, a) => math.max(p, c.acctTotals[a.key] ?? 0),
+      ),
     );
     final accts = c.accounts.map((a) {
       final amt = c.acctTotals[a.key] ?? 0;
@@ -162,12 +170,14 @@ extension _ThriveScreens on _ThriveHomeState {
                 borderRadius: BorderRadius.circular(9),
               ),
               alignment: Alignment.center,
-              child: Text(a.initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                  )),
+              child: Text(
+                a.initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
             const SizedBox(width: 9),
             Expanded(
@@ -178,21 +188,25 @@ extension _ThriveScreens on _ThriveHomeState {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(a.name,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: B.text,
-                            )),
+                        child: Text(
+                          a.name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: B.text,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 9),
-                      Text(eur(amt),
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                            color: amt > 0 ? B.ink : B.muted,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          )),
+                      Text(
+                        eur(amt),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: amt > 0 ? B.ink : B.muted,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -229,17 +243,21 @@ extension _ThriveScreens on _ThriveHomeState {
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Center(
-                        child: ic('gauge', size: 16, sw: 2.2, color: B.primary)),
+                      child: ic('gauge', size: 16, sw: 2.2, color: B.primary),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  const Text('Sum Up',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w800)),
+                  const Text(
+                    'Sum Up',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: hBg,
                   borderRadius: BorderRadius.circular(999),
@@ -249,11 +267,14 @@ extension _ThriveScreens on _ThriveHomeState {
                   children: [
                     ic('shield', size: 12, sw: 2.4, color: hColor),
                     const SizedBox(width: 5),
-                    Text(hLabel,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: hColor)),
+                    Text(
+                      hLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: hColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -279,29 +300,35 @@ extension _ThriveScreens on _ThriveHomeState {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('PROJECTED BALANCE',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .5,
-                      color: Colors.white.withValues(alpha: .9),
-                    )),
+                Text(
+                  'PROJECTED BALANCE',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Colors.white.withValues(alpha: .9),
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text(eur(c.balance),
-                    style: const TextStyle(
-                      fontSize: 29,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.6,
-                      color: Colors.white,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    )),
+                Text(
+                  eur(c.balance),
+                  style: const TextStyle(
+                    fontSize: 29,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.6,
+                    color: Colors.white,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
                 const SizedBox(height: 1),
-                Text('Expected ${eur(c.expectedBalance)}',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: .92),
-                    )),
+                Text(
+                  'Expected ${eur(c.expectedBalance)}',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: .92),
+                  ),
+                ),
               ],
             ),
           ),
@@ -310,8 +337,11 @@ extension _ThriveScreens on _ThriveHomeState {
             children: [
               tile('Income', '+${eur(c.realIncome, cents: false)}', B.green),
               const SizedBox(width: 8),
-              tile('Expenses', '\u2212${eur(c.totalBudget, cents: false)}',
-                  B.red),
+              tile(
+                'Expenses',
+                '\u2212${eur(c.totalBudget, cents: false)}',
+                B.red,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -321,31 +351,39 @@ extension _ThriveScreens on _ThriveHomeState {
               color: c.stillToPay > 0 ? B.amberSoft : B.greenSoft,
               borderRadius: BorderRadius.circular(13),
               border: Border.all(
-                  color: c.stillToPay > 0 ? B.amberLine : B.greenLine),
+                color: c.stillToPay > 0 ? B.amberLine : B.greenLine,
+              ),
             ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(c.stillToPay > 0 ? 'Still to pay' : 'All settled',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: c.stillToPay > 0 ? B.amberText : B.greenText,
-                        )),
-                    Text(eur(c.stillToPay),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: c.stillToPay > 0 ? B.amberText : B.greenText,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        )),
+                    Text(
+                      c.stillToPay > 0 ? 'Still to pay' : 'All settled',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: c.stillToPay > 0 ? B.amberText : B.greenText,
+                      ),
+                    ),
+                    Text(
+                      eur(c.stillToPay),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: c.stillToPay > 0 ? B.amberText : B.greenText,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _bar(paidPct / 100, c.stillToPay > 0 ? B.amber : B.green,
-                    height: 6),
+                _bar(
+                  paidPct / 100,
+                  c.stillToPay > 0 ? B.amber : B.green,
+                  height: 6,
+                ),
                 const SizedBox(height: 5),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -362,13 +400,15 @@ extension _ThriveScreens on _ThriveHomeState {
             ),
           ),
           const SizedBox(height: 13),
-          const Text('STILL TO PAY FROM',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .4,
-                color: B.muted,
-              )),
+          const Text(
+            'STILL TO PAY FROM',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .4,
+              color: B.muted,
+            ),
+          ),
           ...accts,
         ],
       ),
@@ -402,8 +442,8 @@ extension _ThriveScreens on _ThriveHomeState {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: Center(
-                        child:
-                            ic('wallet3', size: 18, sw: 2, color: B.primary)),
+                      child: ic('wallet3', size: 18, sw: 2, color: B.primary),
+                    ),
                   ),
                   const SizedBox(width: 11),
                   Expanded(
@@ -411,11 +451,14 @@ extension _ThriveScreens on _ThriveHomeState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Income',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: B.ink)),
+                        const Text(
+                          'Income',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
                         Text(
                           '${c.income.length} source${c.income.length == 1 ? '' : 's'}'
                               .toUpperCase(),
@@ -433,19 +476,23 @@ extension _ThriveScreens on _ThriveHomeState {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(eur(c.realIncome, cents: false),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: B.ink,
-                            fontFeatures: [FontFeature.tabularFigures()],
-                          )),
-                      Text('of ${eur(c.expIncome, cents: false)}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: B.muted,
-                          )),
+                      Text(
+                        eur(c.realIncome, cents: false),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: B.ink,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      Text(
+                        'of ${eur(c.expIncome, cents: false)}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: B.muted,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(width: 6),
@@ -461,8 +508,11 @@ extension _ThriveScreens on _ThriveHomeState {
           if (!isCollapsed)
             for (final it in c.income) _incomeRow(it, locked),
           if (!isCollapsed && !locked)
-            _addButton('Add income', B.primary,
-                () => openIncomeSheet(mode: 'add')),
+            _addButton(
+              'Add income',
+              B.primary,
+              () => openIncomeSheet(mode: 'add'),
+            ),
         ],
       ),
     );
@@ -484,21 +534,29 @@ extension _ThriveScreens on _ThriveHomeState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(it.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: B.text)),
+                  Text(
+                    it.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: B.text,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _accountPill(acc,
-                          onTap: locked
-                              ? null
-                              : () => openAccountPicker('income', it.id,
-                                  it.account)),
+                      _accountPill(
+                        acc,
+                        onTap: locked
+                            ? null
+                            : () => openAccountPicker(
+                                'income',
+                                it.id,
+                                it.account,
+                              ),
+                      ),
                       if (delta != 0) ...[
                         const SizedBox(width: 6),
                         Text(
@@ -517,16 +575,21 @@ extension _ThriveScreens on _ThriveHomeState {
               ),
             ),
             const SizedBox(width: 10),
-            Text(eur(it.actual),
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                )),
+            Text(
+              eur(it.actual),
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
             const SizedBox(width: 10),
-            _statusPill(it.received, it.received ? 'In' : 'Pending',
-                onTap: locked ? null : () => toggleReceived(it.id)),
+            _statusPill(
+              it.received,
+              it.received ? 'In' : 'Pending',
+              onTap: locked ? null : () => toggleReceived(it.id),
+            ),
           ],
         ),
       ),
@@ -542,11 +605,12 @@ extension _ThriveScreens on _ThriveHomeState {
     return _SwipeRow(
       key: ValueKey('inc-${it.id}'),
       open: swipedId == it.id,
-      onOpenChanged: (open) =>
-          setState(() => swipedId = open ? it.id : null),
-      onDelete: () => askDelete(it.label,
-          'This income source will be removed from this month.',
-          () => deleteIncome(it.id)),
+      onOpenChanged: (open) => update(() => swipedId = open ? it.id : null),
+      onDelete: () => askDelete(
+        it.label,
+        'This income source will be removed from this month.',
+        () => deleteIncome(it.id),
+      ),
       topBorder: true,
       child: inner,
     );
@@ -598,7 +662,8 @@ extension _ThriveScreens on _ThriveHomeState {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: Center(
-                        child: ic(b.icon, size: 18, sw: 2, color: b.tone)),
+                      child: ic(b.icon, size: 18, sw: 2, color: b.tone),
+                    ),
                   ),
                   const SizedBox(width: 11),
                   Expanded(
@@ -606,12 +671,15 @@ extension _ThriveScreens on _ThriveHomeState {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(b.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: B.ink)),
+                        Text(
+                          b.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
                         Text(
                           '${b.count} item${b.count == 1 ? '' : 's'}'
                               .toUpperCase(),
@@ -629,13 +697,15 @@ extension _ThriveScreens on _ThriveHomeState {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(eur(b.total, cents: false),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: overCap ? B.red : B.ink,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          )),
+                      Text(
+                        eur(b.total, cents: false),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: overCap ? B.red : B.ink,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
                       Text(
                         b.cap != null
                             ? 'limit ${eur(b.cap, cents: false)}'
@@ -666,13 +736,15 @@ extension _ThriveScreens on _ThriveHomeState {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(b.cap != null ? 'BUDGET USED' : 'PAID',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: .3,
-                            color: B.muted,
-                          )),
+                      Text(
+                        b.cap != null ? 'BUDGET USED' : 'PAID',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .3,
+                          color: B.muted,
+                        ),
+                      ),
                       _limitChip(b, overCap, locked),
                     ],
                   ),
@@ -684,8 +756,11 @@ extension _ThriveScreens on _ThriveHomeState {
           if (!isCollapsed)
             for (final r in b.items) _expenseRow(b, r, locked),
           if (!isCollapsed && !locked)
-            _addButton('Add to ${b.title}', b.tone,
-                () => openExpenseSheet(mode: 'add', cat: b.key)),
+            _addButton(
+              'Add to ${b.title}',
+              b.tone,
+              () => openExpenseSheet(mode: 'add', cat: b.key),
+            ),
         ],
       ),
     );
@@ -708,16 +783,18 @@ extension _ThriveScreens on _ThriveHomeState {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ic(hasCap ? 'edit' : 'plus',
-                size: 12,
-                sw: 2.4,
-                color: hasCap ? (overCap ? B.red : B.soft2) : B.primary),
+            ic(
+              hasCap ? 'edit' : 'plus',
+              size: 12,
+              sw: 2.4,
+              color: hasCap ? (overCap ? B.red : B.soft2) : B.primary,
+            ),
             const SizedBox(width: 5),
             Text(
               hasCap
                   ? (overCap
-                      ? 'Over by ${eur(b.total - b.cap!, cents: false)}'
-                      : '${eur(b.total, cents: false)} / ${eur(b.cap, cents: false)}')
+                        ? 'Over by ${eur(b.total - b.cap!, cents: false)}'
+                        : '${eur(b.total, cents: false)} / ${eur(b.cap, cents: false)}')
                   : 'Set limit',
               style: TextStyle(
                 fontSize: 10.5,
@@ -740,7 +817,7 @@ extension _ThriveScreens on _ThriveHomeState {
       UntilState.ended: [
         const Color(0xfff1f5f9),
         const Color(0xff94a3b8),
-        const Color(0xffe2e8f0)
+        const Color(0xffe2e8f0),
       ],
     };
     final inner = GestureDetector(
@@ -758,53 +835,70 @@ extension _ThriveScreens on _ThriveHomeState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(it.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: B.text)),
+                  Text(
+                    it.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: B.text,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      _accountPill(acc,
-                          onTap: locked
-                              ? null
-                              : () => openAccountPicker(
-                                  'expense', it.id, it.account, b.key)),
+                      _accountPill(
+                        acc,
+                        onTap: locked
+                            ? null
+                            : () => openAccountPicker(
+                                'expense',
+                                it.id,
+                                it.account,
+                                b.key,
+                              ),
+                      ),
                       if (markerShow(it.marker).isNotEmpty)
-                        Text(markerShow(it.marker),
-                            style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color: B.muted)),
+                        Text(
+                          markerShow(it.marker),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: B.muted,
+                          ),
+                        ),
                       if (b.hasUntil && r.untilLabel != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: uStyle[r.untilState]![0],
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                                color: uStyle[r.untilState]![2]),
+                            border: Border.all(color: uStyle[r.untilState]![2]),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ic('clock',
-                                  size: 10,
-                                  sw: 2.4,
-                                  color: uStyle[r.untilState]![1]),
+                              ic(
+                                'clock',
+                                size: 10,
+                                sw: 2.4,
+                                color: uStyle[r.untilState]![1],
+                              ),
                               const SizedBox(width: 3),
-                              Text(r.untilLabel!,
-                                  style: TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: uStyle[r.untilState]![1],
-                                  )),
+                              Text(
+                                r.untilLabel!,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: uStyle[r.untilState]![1],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -814,13 +908,15 @@ extension _ThriveScreens on _ThriveHomeState {
               ),
             ),
             const SizedBox(width: 10),
-            Text(eur(it.amount),
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                )),
+            Text(
+              eur(it.amount),
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
             const SizedBox(width: 10),
             _statusPill(
               it.paid,
@@ -844,11 +940,12 @@ extension _ThriveScreens on _ThriveHomeState {
     return _SwipeRow(
       key: ValueKey('exp-${b.key}-${it.id}'),
       open: swipedId == it.id,
-      onOpenChanged: (open) =>
-          setState(() => swipedId = open ? it.id : null),
-      onDelete: () => askDelete(it.label,
-          'This item will be removed from ${b.title} this month.',
-          () => deleteExpense(b.key, it.id)),
+      onOpenChanged: (open) => update(() => swipedId = open ? it.id : null),
+      onDelete: () => askDelete(
+        it.label,
+        'This item will be removed from ${b.title} this month.',
+        () => deleteExpense(b.key, it.id),
+      ),
       topBorder: true,
       child: inner,
     );
@@ -870,11 +967,14 @@ extension _ThriveScreens on _ThriveHomeState {
           children: [
             ic('plus', size: 15, sw: 2.5, color: color),
             const SizedBox(width: 7),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: color)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -896,18 +996,24 @@ extension _ThriveScreens on _ThriveHomeState {
             height: 16,
             decoration: BoxDecoration(color: acc.color, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Text(acc.initials,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800)),
+            child: Text(
+              acc.initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
           const SizedBox(width: 4),
-          Text(acc.short,
-              style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: B.soft2)),
+          Text(
+            acc.short,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: B.soft2,
+            ),
+          ),
         ],
       ),
     );
@@ -921,8 +1027,7 @@ extension _ThriveScreens on _ThriveHomeState {
       decoration: BoxDecoration(
         color: on ? B.greenSoft : Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-            color: on ? B.greenLine : const Color(0xffe5e7eb)),
+        border: Border.all(color: on ? B.greenLine : const Color(0xffe5e7eb)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -931,12 +1036,14 @@ extension _ThriveScreens on _ThriveHomeState {
             ic('check', size: 12, sw: 2.8, color: B.greenText),
             const SizedBox(width: 4),
           ],
-          Text(label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                color: on ? B.greenText : B.muted,
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: on ? B.greenText : B.muted,
+            ),
+          ),
         ],
       ),
     );
@@ -944,8 +1051,12 @@ extension _ThriveScreens on _ThriveHomeState {
     return GestureDetector(onTap: onTap, child: pill);
   }
 
-  Widget _bar(double frac, Color color,
-      {double height = 6, Color track = B.track}) {
+  Widget _bar(
+    double frac,
+    Color color, {
+    double height = 6,
+    Color track = B.track,
+  }) {
     final f = frac.isNaN ? 0.0 : frac.clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
@@ -983,42 +1094,46 @@ extension _ThriveScreens on _ThriveHomeState {
         : 0;
 
     Widget kpi(String label, String val, Color color, String icon) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: B.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: B.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    ic(icon, size: 13, sw: 2.4, color: color),
-                    const SizedBox(width: 5),
-                    Text(label.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: .3,
-                          color: B.muted,
-                        )),
-                  ],
+                ic(icon, size: 13, sw: 2.4, color: color),
+                const SizedBox(width: 5),
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                    color: B.muted,
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Text(val,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: B.ink,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    )),
               ],
             ),
-          ),
-        );
+            const SizedBox(height: 6),
+            Text(
+              val,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 
     final ranked = cats.take(7).map((b) {
       return Padding(
@@ -1035,28 +1150,36 @@ extension _ThriveScreens on _ThriveHomeState {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: Text(b.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: B.text)),
-            ),
-            Text(eur(b.total, cents: false),
+              child: Text(
+                b.title,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                )),
+                  fontWeight: FontWeight.w700,
+                  color: B.text,
+                ),
+              ),
+            ),
+            Text(
+              eur(b.total, cents: false),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
             SizedBox(
               width: 38,
-              child: Text('${(b.total / totalExp * 100).round()}%',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: B.muted)),
+              child: Text(
+                '${(b.total / totalExp * 100).round()}%',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: B.muted,
+                ),
+              ),
             ),
           ],
         ),
@@ -1078,11 +1201,19 @@ extension _ThriveScreens on _ThriveHomeState {
         const SizedBox(height: 12),
         Row(
           children: [
-            kpi('Net', eur(c.expectedBalance, cents: false),
-                c.expectedBalance >= 0 ? B.green : B.red, 'gauge'),
+            kpi(
+              'Net',
+              eur(c.expectedBalance, cents: false),
+              c.expectedBalance >= 0 ? B.green : B.red,
+              'gauge',
+            ),
             const SizedBox(width: 9),
-            kpi('Savings rate', '$savingsRate%',
-                savingsRate >= 0 ? B.primary : B.red, 'trend'),
+            kpi(
+              'Savings rate',
+              '$savingsRate%',
+              savingsRate >= 0 ? B.primary : B.red,
+              'trend',
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -1097,15 +1228,19 @@ extension _ThriveScreens on _ThriveHomeState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Spending by category',
-                  style:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+              const Text(
+                'Spending by category',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 2),
-              Text('Share of ${eur(totalExp, cents: false)} budgeted',
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted)),
+              Text(
+                'Share of ${eur(totalExp, cents: false)} budgeted',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
               const SizedBox(height: 14),
               if (cats.isNotEmpty)
                 Row(
@@ -1120,19 +1255,23 @@ extension _ThriveScreens on _ThriveHomeState {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('TOTAL',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: .5,
-                                    color: B.muted,
-                                  )),
-                              Text(eur(totalExp, cents: false),
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: B.ink,
-                                  )),
+                              const Text(
+                                'TOTAL',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: .5,
+                                  color: B.muted,
+                                ),
+                              ),
+                              Text(
+                                eur(totalExp, cents: false),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: B.ink,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1145,12 +1284,15 @@ extension _ThriveScreens on _ThriveHomeState {
               else
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text('No expenses recorded this month yet.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          color: B.muted,
-                          fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'No expenses recorded this month yet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: B.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -1171,9 +1313,13 @@ extension _ThriveScreens on _ThriveHomeState {
                   children: [
                     ic('sliders', size: 16, sw: 2.2, color: B.primary),
                     const SizedBox(width: 7),
-                    const Text('Budget limits',
-                        style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w800)),
+                    const Text(
+                      'Budget limits',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1197,25 +1343,31 @@ extension _ThriveScreens on _ThriveHomeState {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(b.title,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: B.text)),
             Text(
-                '${eur(b.total, cents: false)} / ${eur(b.cap, cents: false)}',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: over ? B.red : B.soft2,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )),
+              b.title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: B.text,
+              ),
+            ),
+            Text(
+              '${eur(b.total, cents: false)} / ${eur(b.cap, cents: false)}',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: over ? B.red : B.soft2,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 5),
-        _bar(pct / 100,
-            over ? B.red : (b.total / b.cap! >= .85 ? B.amber : b.tone),
-            height: 7),
+        _bar(
+          pct / 100,
+          over ? B.red : (b.total / b.cap! >= .85 ? B.amber : b.tone),
+          height: 7,
+        ),
       ],
     );
   }
@@ -1225,61 +1377,71 @@ extension _ThriveScreens on _ThriveHomeState {
     final yIncome = months.fold<double>(0, (a, b) => a + b.expIncome);
     final yExp = months.fold<double>(0, (a, b) => a + b.totalBudget);
     final rates = months
-        .map((m) =>
-            m.expIncome > 0 ? (m.expIncome - m.totalBudget) / m.expIncome : 0.0)
+        .map(
+          (m) => m.expIncome > 0
+              ? (m.expIncome - m.totalBudget) / m.expIncome
+              : 0.0,
+        )
         .toList();
     final avgRate = (rates.fold<double>(0, (a, b) => a + b) / 12 * 100).round();
 
     Widget sumTile(String label, String val, Color color) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              color: B.faint,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .3,
-                      color: B.muted,
-                    )),
-                const SizedBox(height: 4),
-                Text(val,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    )),
-              ],
-            ),
-          ),
-        );
-
-    Widget legendDot(Color color, String label) => Row(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: B.faint,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(3),
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
               ),
             ),
-            const SizedBox(width: 5),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: B.soft2)),
+            const SizedBox(height: 4),
+            Text(
+              val,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
           ],
-        );
+        ),
+      ),
+    );
+
+    Widget legendDot(Color color, String label) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: B.soft2,
+          ),
+        ),
+      ],
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
@@ -1303,21 +1465,23 @@ extension _ThriveScreens on _ThriveHomeState {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Income vs Expenses',
-                  style:
-                      TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+              const Text(
+                'Income vs Expenses',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 2),
-              Text('Planned, per month \u00b7 $year',
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted)),
+              Text(
+                'Planned, per month \u00b7 $year',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
               const SizedBox(height: 10),
               AspectRatio(
                 aspectRatio: 320 / 150,
-                child: CustomPaint(
-                  painter: _BarsPainter(months, monthIdx),
-                ),
+                child: CustomPaint(painter: _BarsPainter(months, monthIdx)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1348,29 +1512,33 @@ extension _ThriveScreens on _ThriveHomeState {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  const Text('Savings rate',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w800)),
-                  Text('avg $avgRate%',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: avgRate >= 0 ? B.primary : B.red,
-                      )),
+                  const Text(
+                    'Savings rate',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    'avg $avgRate%',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: avgRate >= 0 ? B.primary : B.red,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 2),
-              const Text('Share of income left over',
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted)),
+              const Text(
+                'Share of income left over',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
               const SizedBox(height: 10),
               AspectRatio(
                 aspectRatio: 320 / 120,
-                child: CustomPaint(
-                  painter: _SavingsPainter(rates, monthIdx),
-                ),
+                child: CustomPaint(painter: _SavingsPainter(rates, monthIdx)),
               ),
             ],
           ),
@@ -1381,8 +1549,7 @@ extension _ThriveScreens on _ThriveHomeState {
 
   // ============================================================ SETTINGS
   Widget _buildSettings() {
-    Widget card(String title, String iconName, Widget child,
-        [Widget? action]) {
+    Widget card(String title, String iconName, Widget child, [Widget? action]) {
       return Container(
         margin: const EdgeInsets.only(bottom: 13),
         decoration: BoxDecoration(
@@ -1406,16 +1573,20 @@ extension _ThriveScreens on _ThriveHomeState {
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: Center(
-                        child:
-                            ic(iconName, size: 16, sw: 2.2, color: B.primary)),
+                      child: ic(iconName, size: 16, sw: 2.2, color: B.primary),
+                    ),
                   ),
                   const SizedBox(width: 9),
                   Expanded(
-                    child: Text(title,
-                        style: const TextStyle(
-                            fontSize: 14.5, fontWeight: FontWeight.w800)),
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-                  if (action != null) action,
+                  ?action,
                 ],
               ),
             ),
@@ -1429,155 +1600,196 @@ extension _ThriveScreens on _ThriveHomeState {
     final accRows = <Widget>[];
     for (int idx = 0; idx < accounts.length; idx++) {
       final a = accounts[idx];
-      accRows.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: B.faint)),
-        ),
-        child: Row(
-          children: [
-            _reorder(idx, accounts.length, (d) => moveAccount(a.key, d)),
-            const SizedBox(width: 9),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: a.color,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              alignment: Alignment.center,
-              child: Text(a.initials,
+      accRows.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: B.faint)),
+          ),
+          child: Row(
+            children: [
+              _reorder(idx, accounts.length, (d) => moveAccount(a.key, d)),
+              const SizedBox(width: 9),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: a.color,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  a.initials,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800)),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(a.name,
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      a.name,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: B.ink)),
-                  Text('Short \u00b7 ${a.short}',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: B.ink,
+                      ),
+                    ),
+                    Text(
+                      'Short \u00b7 ${a.short}',
                       style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: B.muted)),
-                ],
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: B.muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _miniBtn('edit', B.soft2,
-                () => openAccountSheet(mode: 'edit', key: a.key)),
-            if (accounts.length > 1) ...[
-              const SizedBox(width: 6),
-              _miniBtn('trash', B.red, () => deleteAccount(a.key)),
+              _miniBtn(
+                'edit',
+                B.soft2,
+                () => openAccountSheet(mode: 'edit', key: a.key),
+              ),
+              if (accounts.length > 1) ...[
+                const SizedBox(width: 6),
+                _miniBtn('trash', B.red, () => deleteAccount(a.key)),
+              ],
             ],
-          ],
+          ),
         ),
-      ));
+      );
     }
     accRows.add(
-        _addButton('Add account', B.primary, () => openAccountSheet(mode: 'add')));
+      _addButton('Add account', B.primary, () => openAccountSheet(mode: 'add')),
+    );
 
     // blocks
     final blockRows = <Widget>[];
     for (int idx = 0; idx < cats.length; idx++) {
       final c = cats[idx];
-      blockRows.add(Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: B.faint)),
-        ),
-        child: Row(
-          children: [
-            _reorder(idx, cats.length, (d) => moveBlock(c.key, d)),
-            const SizedBox(width: 9),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: c.bg,
-                borderRadius: BorderRadius.circular(10),
+      blockRows.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: B.faint)),
+          ),
+          child: Row(
+            children: [
+              _reorder(idx, cats.length, (d) => moveBlock(c.key, d)),
+              const SizedBox(width: 9),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: c.bg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: ic(c.icon, size: 16, sw: 2, color: c.tone),
+                ),
               ),
-              child: Center(child: ic(c.icon, size: 16, sw: 2, color: c.tone)),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(c.title,
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      c.title,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: B.ink)),
-                  const SizedBox(height: 3),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (c.temporary)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: B.amberSoft,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            '${kMonthsShort[c.ownerMonthIdx ?? 0]} ${c.ownerYear ?? ''} only',
-                            style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: B.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (c.temporary)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: B.amberSoft,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              '${kMonthsShort[c.ownerMonthIdx ?? 0]} ${c.ownerYear ?? ''} only',
+                              style: const TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
-                                color: B.amberText),
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: B.faint,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Text('Every month',
+                                color: B.amberText,
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: B.faint,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: const Text(
+                              'Every month',
                               style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: B.soft2)),
-                        ),
-                      if (c.hasUntil) ...[
-                        const SizedBox(width: 6),
-                        const Text('\u00b7 end dates',
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: B.soft2,
+                              ),
+                            ),
+                          ),
+                        if (c.hasUntil) ...[
+                          const SizedBox(width: 6),
+                          const Text(
+                            '\u00b7 end dates',
                             style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: B.muted)),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: B.muted,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            _miniBtn('edit', B.soft2,
-                () => openBlockSheet(mode: 'edit', key: c.key)),
-            if (cats.length > 1) ...[
-              const SizedBox(width: 6),
-              _miniBtn('trash', B.red, () => deleteBlock(c.key)),
+              _miniBtn(
+                'edit',
+                B.soft2,
+                () => openBlockSheet(mode: 'edit', key: c.key),
+              ),
+              if (cats.length > 1) ...[
+                const SizedBox(width: 6),
+                _miniBtn('trash', B.red, () => deleteBlock(c.key)),
+              ],
             ],
-          ],
+          ),
         ),
-      ));
+      );
     }
-    blockRows.add(_addButton(
-        'Add budget block', B.primary, () => openBlockSheet(mode: 'add')));
+    blockRows.add(
+      _addButton(
+        'Add budget block',
+        B.primary,
+        () => openBlockSheet(mode: 'add'),
+      ),
+    );
 
     final copyCard = Container(
       margin: const EdgeInsets.only(bottom: 13),
@@ -1600,23 +1812,26 @@ extension _ThriveScreens on _ThriveHomeState {
                   color: B.soft,
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child:
-                    Center(child: ic('copy', size: 16, sw: 2.2, color: B.primary)),
+                child: Center(
+                  child: ic('copy', size: 16, sw: 2.2, color: B.primary),
+                ),
               ),
               const SizedBox(width: 9),
-              const Text('Copy a month',
-                  style:
-                      TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+              const Text(
+                'Copy a month',
+                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
+              ),
             ],
           ),
           const SizedBox(height: 6),
           const Text(
             'Duplicate every block, item & limit from one month into another \u2014 across years too. A block in one month doesn\u2019t have to exist in the next, so copy carries a layout forward when you want it.',
             style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: B.soft2,
-                height: 1.5),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: B.soft2,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 12),
           GestureDetector(
@@ -1633,11 +1848,14 @@ extension _ThriveScreens on _ThriveHomeState {
                 children: [
                   ic('copy', size: 16, sw: 2.4, color: Colors.white),
                   const SizedBox(width: 8),
-                  const Text('Copy month\u2026',
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white)),
+                  const Text(
+                    'Copy month\u2026',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1656,10 +1874,15 @@ extension _ThriveScreens on _ThriveHomeState {
           borderRadius: BorderRadius.circular(13),
           border: Border.all(color: B.line),
         ),
-        child: const Text('Reset to spreadsheet data',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w800, color: B.red)),
+        child: const Text(
+          'Reset to spreadsheet data',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: B.red,
+          ),
+        ),
       ),
     );
 
@@ -1671,10 +1894,15 @@ extension _ThriveScreens on _ThriveHomeState {
         copyCard,
         reset,
         const SizedBox(height: 14),
-        Text('Thrive \u00b7 Family budget \u00b7 $year',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 10.5, fontWeight: FontWeight.w600, color: B.muted)),
+        Text(
+          'Thrive \u00b7 Family budget \u00b7 $year',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: B.muted,
+          ),
+        ),
       ],
     );
   }
@@ -1696,18 +1924,20 @@ extension _ThriveScreens on _ThriveHomeState {
 
   Widget _reorder(int idx, int len, void Function(int dir) onMove) {
     Widget btn(int dir, bool disabled) => GestureDetector(
-          onTap: disabled ? null : () => onMove(dir),
-          child: SizedBox(
-            width: 20,
-            height: 15,
-            child: Center(
-              child: ic(dir < 0 ? 'cup' : 'cdown',
-                  size: 14,
-                  sw: 2.6,
-                  color: disabled ? const Color(0xffd2d8e1) : B.soft2),
-            ),
+      onTap: disabled ? null : () => onMove(dir),
+      child: SizedBox(
+        width: 20,
+        height: 15,
+        child: Center(
+          child: ic(
+            dir < 0 ? 'cup' : 'cdown',
+            size: 14,
+            sw: 2.6,
+            color: disabled ? const Color(0xffd2d8e1) : B.soft2,
           ),
-        );
+        ),
+      ),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [btn(-1, idx == 0), btn(1, idx == len - 1)],

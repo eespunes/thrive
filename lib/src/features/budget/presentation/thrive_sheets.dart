@@ -12,16 +12,14 @@ extension _ThriveSheets on _ThriveHomeState {
       flash('Month is closed');
       return;
     }
-    setState(() => swipedId = null);
+    update(() => swipedId = null);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x73101828),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _SheetShell(child: builder(ctx)),
       ),
     );
@@ -36,8 +34,12 @@ extension _ThriveSheets on _ThriveHomeState {
     _showSheet((ctx) => _CloseConfirmSheet(state: this));
   }
 
-  void openAccountPicker(String kind, String id, String current,
-      [String? catKey]) {
+  void openAccountPicker(
+    String kind,
+    String id,
+    String current, [
+    String? catKey,
+  ]) {
     _showSheet(
       monthScoped: true,
       (ctx) => _AccountPickerSheet(
@@ -50,7 +52,11 @@ extension _ThriveSheets on _ThriveHomeState {
     );
   }
 
-  void openExpenseSheet({required String mode, required String cat, String? id}) {
+  void openExpenseSheet({
+    required String mode,
+    required String cat,
+    String? id,
+  }) {
     _showSheet(
       monthScoped: true,
       (ctx) => _ExpenseSheet(state: this, mode: mode, cat: cat, id: id),
@@ -111,8 +117,10 @@ extension _ThriveSheets on _ThriveHomeState {
     String? until,
   }) {
     mutate(() {
-      final arr = data[year]![kMonthKeys[monthIdx]]!.blocks
-          .putIfAbsent(cat, () => <ExpenseItem>[]);
+      final arr = data[year]![kMonthKeys[monthIdx]]!.blocks.putIfAbsent(
+        cat,
+        () => <ExpenseItem>[],
+      );
       if (mode == 'edit' && id != null) {
         for (final it in arr) {
           if (it.id == id) {
@@ -126,15 +134,17 @@ extension _ThriveSheets on _ThriveHomeState {
           }
         }
       } else {
-        arr.add(ExpenseItem(
-          id: uid(),
-          label: label,
-          marker: marker,
-          amount: amount,
-          paid: paid,
-          account: account,
-          until: (until == null || until.isEmpty) ? null : until,
-        ));
+        arr.add(
+          ExpenseItem(
+            id: uid(),
+            label: label,
+            marker: marker,
+            amount: amount,
+            paid: paid,
+            account: account,
+            until: (until == null || until.isEmpty) ? null : until,
+          ),
+        );
       }
     }, () => flash(mode == 'edit' ? 'Saved' : 'Added ${eur(amount)}'));
   }
@@ -170,14 +180,16 @@ extension _ThriveSheets on _ThriveHomeState {
           }
         }
       } else {
-        arr.add(IncomeItem(
-          id: uid(),
-          label: label,
-          expected: expected,
-          actual: actual,
-          received: received,
-          account: account,
-        ));
+        arr.add(
+          IncomeItem(
+            id: uid(),
+            label: label,
+            expected: expected,
+            actual: actual,
+            received: received,
+            account: account,
+          ),
+        );
       }
     }, () => flash(mode == 'edit' ? 'Saved' : 'Income added'));
   }
@@ -209,10 +221,9 @@ extension _ThriveSheets on _ThriveHomeState {
     required String short,
     required Color color,
   }) {
-    final initials =
-        (short.isNotEmpty ? short : name).trim().toUpperCase();
+    final initials = (short.isNotEmpty ? short : name).trim().toUpperCase();
     final init = initials.length > 2 ? initials.substring(0, 2) : initials;
-    setState(() {
+    update(() {
       if (mode == 'edit' && key != null) {
         for (final a in accounts) {
           if (a.key == key) {
@@ -233,13 +244,15 @@ extension _ThriveSheets on _ThriveHomeState {
         if (accounts.any((a) => a.key == newKey)) {
           newKey = '${newKey}_${uid().substring(1, 4)}';
         }
-        accounts.add(Account(
-          key: newKey,
-          name: name.trim(),
-          short: (short.isNotEmpty ? short : name).trim(),
-          initials: init,
-          color: color,
-        ));
+        accounts.add(
+          Account(
+            key: newKey,
+            name: name.trim(),
+            short: (short.isNotEmpty ? short : name).trim(),
+            initials: init,
+            color: color,
+          ),
+        );
       }
     });
     _persist();
@@ -249,28 +262,31 @@ extension _ThriveSheets on _ThriveHomeState {
   void deleteAccount(String key) {
     if (accounts.length <= 1) return;
     final acc = accByKey(key);
-    askDelete(acc.name,
-        'Items paid from this account will move to your last account.', () {
-      final remaining = accounts.where((a) => a.key != key).toList();
-      final fallback = remaining.last.key;
-      mutate(() {
-        accounts = remaining;
-        for (final yr in data.keys) {
-          for (final mk in kMonthKeys) {
-            final m = data[yr]![mk];
-            if (m == null || m.closed) continue;
-            for (final it in m.income) {
-              if (it.account == key) it.account = fallback;
-            }
-            for (final arr in m.blocks.values) {
-              for (final it in arr) {
+    askDelete(
+      acc.name,
+      'Items paid from this account will move to your last account.',
+      () {
+        final remaining = accounts.where((a) => a.key != key).toList();
+        final fallback = remaining.last.key;
+        mutate(() {
+          accounts = remaining;
+          for (final yr in data.keys) {
+            for (final mk in kMonthKeys) {
+              final m = data[yr]![mk];
+              if (m == null || m.closed) continue;
+              for (final it in m.income) {
                 if (it.account == key) it.account = fallback;
+              }
+              for (final arr in m.blocks.values) {
+                for (final it in arr) {
+                  if (it.account == key) it.account = fallback;
+                }
               }
             }
           }
-        }
-      }, () => flash('Account removed'));
-    });
+        }, () => flash('Account removed'));
+      },
+    );
   }
 
   void saveBlock(
@@ -285,7 +301,7 @@ extension _ThriveSheets on _ThriveHomeState {
   }) {
     final cap = capRaw.isNotEmpty ? parseNum(capRaw) : null;
     if (mode == 'edit' && key != null) {
-      setState(() {
+      update(() {
         for (final c in cats) {
           if (c.key == key) {
             c
@@ -328,19 +344,21 @@ extension _ThriveSheets on _ThriveHomeState {
     if (cats.any((c) => c.key == newKey)) {
       newKey = '${newKey}_${uid().substring(1, 4)}';
     }
-    setState(() {
-      cats.add(Category(
-        key: newKey,
-        title: title.trim(),
-        icon: icon,
-        marker: 'date',
-        tone: tone,
-        bg: tintFor(tone),
-        hasUntil: hasUntil,
-        temporary: temporary,
-        ownerYear: temporary ? year : null,
-        ownerMonthIdx: temporary ? monthIdx : null,
-      ));
+    update(() {
+      cats.add(
+        Category(
+          key: newKey,
+          title: title.trim(),
+          icon: icon,
+          marker: 'date',
+          tone: tone,
+          bg: tintFor(tone),
+          hasUntil: hasUntil,
+          temporary: temporary,
+          ownerYear: temporary ? year : null,
+          ownerMonthIdx: temporary ? monthIdx : null,
+        ),
+      );
     });
     _persist();
     mutate(() {
@@ -366,22 +384,24 @@ extension _ThriveSheets on _ThriveHomeState {
   void deleteBlock(String key) {
     if (cats.length <= 1) return;
     final cat = catByKey(key);
-    askDelete(cat?.title ?? 'this block',
-        'It stays in any closed months. Open months lose this block and its items.',
-        () {
-      setState(() => cats.removeWhere((c) => c.key == key));
-      _persist();
-      mutate(() {
-        for (final yr in data.keys) {
-          for (final mk in kMonthKeys) {
-            final m = data[yr]![mk];
-            if (m == null || m.closed) continue;
-            m.blocks.remove(key);
-            m.caps.remove(key);
+    askDelete(
+      cat?.title ?? 'this block',
+      'It stays in any closed months. Open months lose this block and its items.',
+      () {
+        update(() => cats.removeWhere((c) => c.key == key));
+        _persist();
+        mutate(() {
+          for (final yr in data.keys) {
+            for (final mk in kMonthKeys) {
+              final m = data[yr]![mk];
+              if (m == null || m.closed) continue;
+              m.blocks.remove(key);
+              m.caps.remove(key);
+            }
           }
-        }
-      }, () => flash('Block removed'));
-    });
+        }, () => flash('Block removed'));
+      },
+    );
   }
 
   void doCopy(int fromYear, int from, int toYear, int to) {
@@ -394,55 +414,61 @@ extension _ThriveSheets on _ThriveHomeState {
     ensureYear(toYear);
     final srcCats = catsForMonth(from, fromYear);
     final newCats = cats.map((c) => c.copy()).toList();
-    mutate(() {
-      final src = data[fromYear]?[kMonthKeys[from]];
-      if (src == null) return;
-      final dst = MonthData(
-        income: src.income.map((it) => it.copyWithId(uid())).toList(),
-      );
-      for (final c in srcCats) {
-        final items =
-            (src.blocks[c.key] ?? const <ExpenseItem>[])
-                .map((it) => it.copyWithId(uid()))
-                .toList();
-        var tgtKey = c.key;
-        if (c.temporary) {
-          tgtKey =
-              '${c.key.replaceAll(RegExp(r'_[a-z0-9]+$'), '')}_${uid().substring(1, 5)}';
-          newCats.add(c.copy()
-            ..key = tgtKey
-            ..temporary = true
-            ..ownerYear = toYear
-            ..ownerMonthIdx = to);
+    mutate(
+      () {
+        final src = data[fromYear]?[kMonthKeys[from]];
+        if (src == null) return;
+        final dst = MonthData(
+          income: src.income.map((it) => it.copyWithId(uid())).toList(),
+        );
+        for (final c in srcCats) {
+          final items = (src.blocks[c.key] ?? const <ExpenseItem>[])
+              .map((it) => it.copyWithId(uid()))
+              .toList();
+          var tgtKey = c.key;
+          if (c.temporary) {
+            tgtKey =
+                '${c.key.replaceAll(RegExp(r'_[a-z0-9]+$'), '')}_${uid().substring(1, 5)}';
+            newCats.add(
+              c.copy()
+                ..key = tgtKey
+                ..temporary = true
+                ..ownerYear = toYear
+                ..ownerMonthIdx = to,
+            );
+          }
+          dst.blocks[tgtKey] = items;
+          if (src.caps[c.key] != null) dst.caps[tgtKey] = src.caps[c.key]!;
         }
-        dst.blocks[tgtKey] = items;
-        if (src.caps[c.key] != null) dst.caps[tgtKey] = src.caps[c.key]!;
-      }
-      for (final c in newCats.where((c) => !c.temporary)) {
-        dst.blocks.putIfAbsent(c.key, () => <ExpenseItem>[]);
-      }
-      data[toYear]![kMonthKeys[to]] = dst;
-      cats = newCats;
-    },
-        () => flash(
-            '${kMonthsShort[from]} $fromYear copied to ${kMonthsShort[to]} $toYear'));
+        for (final c in newCats.where((c) => !c.temporary)) {
+          dst.blocks.putIfAbsent(c.key, () => <ExpenseItem>[]);
+        }
+        data[toYear]![kMonthKeys[to]] = dst;
+        cats = newCats;
+      },
+      () => flash(
+        '${kMonthsShort[from]} $fromYear copied to ${kMonthsShort[to]} $toYear',
+      ),
+    );
   }
 
   void resetAll() {
-    askDelete('all data',
-        'This restores the bundled spreadsheet data and discards your changes.',
-        () async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(kStorageKey);
-      setState(() {
-        ready = false;
-        accounts = defaultAccounts();
-        cats = defaultCats();
-        data = {};
-        collapsed = {};
-      });
-      await _seedFromAsset();
-    });
+    askDelete(
+      'all data',
+      'This restores the bundled spreadsheet data and discards your changes.',
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(kStorageKey);
+        update(() {
+          ready = false;
+          accounts = defaultAccounts();
+          cats = defaultCats();
+          data = {};
+          collapsed = {};
+        });
+        await _seedFromAsset();
+      },
+    );
   }
 }
 
@@ -490,17 +516,23 @@ Widget _sheetHead(BuildContext ctx, String title, [String? sub]) {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.3)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                ),
+              ),
               if (sub != null)
-                Text(sub,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: B.muted)),
+                Text(
+                  sub,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
+                ),
             ],
           ),
         ),
@@ -531,12 +563,15 @@ Widget _sheetField(String label, Widget child) {
         if (label.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
-            child: Text(label.toUpperCase(),
-                style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.muted)),
+            child: Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
+              ),
+            ),
           ),
         child,
       ],
@@ -557,14 +592,19 @@ Widget _sheetInput(
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,
     style: const TextStyle(
-        fontSize: 14, fontWeight: FontWeight.w600, color: B.ink),
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: B.ink,
+    ),
     decoration: InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w600, color: B.muted),
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: B.muted,
+      ),
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       filled: true,
       fillColor: Colors.white,
       enabledBorder: OutlineInputBorder(
@@ -590,16 +630,26 @@ Widget _primaryBtn(String label, VoidCallback? onTap, {bool enabled = true}) {
         color: enabled ? B.primary : const Color(0xffcbd3dc),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Text(label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+        ),
+      ),
     ),
   );
 }
 
-Widget _toggleRow(String label, bool value, VoidCallback onTap,
-    {String? subtitle, Color activeColor = B.green}) {
+Widget _toggleRow(
+  String label,
+  bool value,
+  VoidCallback onTap, {
+  String? subtitle,
+  Color activeColor = B.green,
+}) {
   return GestureDetector(
     onTap: onTap,
     child: Container(
@@ -611,9 +661,10 @@ Widget _toggleRow(String label, bool value, VoidCallback onTap,
             : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-            color: value
-                ? (activeColor == B.green ? B.greenLine : B.primary)
-                : B.line),
+          color: value
+              ? (activeColor == B.green ? B.greenLine : B.primary)
+              : B.line,
+        ),
       ),
       child: Row(
         children: [
@@ -622,19 +673,25 @@ Widget _toggleRow(String label, bool value, VoidCallback onTap,
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: value
-                            ? (activeColor == B.green ? B.greenText : B.deep)
-                            : B.text)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: value
+                        ? (activeColor == B.green ? B.greenText : B.deep)
+                        : B.text,
+                  ),
+                ),
                 if (subtitle != null)
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: B.muted)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: B.muted,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -696,18 +753,18 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
   Widget build(BuildContext context) {
     final s = widget.state;
     Widget yStepBtn(String icon, VoidCallback onTap) => GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: B.line),
-            ),
-            child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
-          ),
-        );
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: B.line),
+        ),
+        child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+      ),
+    );
 
     return SingleChildScrollView(
       child: Column(
@@ -718,12 +775,15 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
             children: [
               yStepBtn('cleft', () => setState(() => _year--)),
               Expanded(
-                child: Text('$_year',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink)),
+                child: Text(
+                  '$_year',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: B.ink,
+                  ),
+                ),
               ),
               yStepBtn('cright', () => setState(() => _year++)),
             ],
@@ -750,7 +810,12 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
     );
   }
 
-  Widget _monthCell(_ThriveHomeState s, int i, int yr, ValueChanged<int> onPick) {
+  Widget _monthCell(
+    _ThriveHomeState s,
+    int i,
+    int yr,
+    ValueChanged<int> onPick,
+  ) {
     final selected = i == s.monthIdx && yr == s.year;
     final closed = s.isClosed(i, yr);
     return GestureDetector(
@@ -764,11 +829,14 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
         child: Stack(
           children: [
             Center(
-              child: Text(kMonthsShort[i],
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: selected ? B.deep : B.text)),
+              child: Text(
+                kMonthsShort[i],
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? B.deep : B.text,
+                ),
+              ),
             ),
             if (closed)
               Positioned(
@@ -792,53 +860,65 @@ class _CloseConfirmSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = state.compute(state.monthIdx);
     Widget stat(String label, String val, Color color) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            decoration: BoxDecoration(
-              color: B.faint,
-              borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: B.faint,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: B.muted,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(label.toUpperCase(),
-                    style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: B.muted)),
-                const SizedBox(height: 4),
-                Text(val,
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
-              ],
+            const SizedBox(height: 4),
+            Text(
+              val,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _sheetHead(context, 'Close this month?',
-            '${kMonthsEn[state.monthIdx]} ${state.year}'),
+        _sheetHead(
+          context,
+          'Close this month?',
+          '${kMonthsEn[state.monthIdx]} ${state.year}',
+        ),
         const Text(
           'Closing locks every item, toggle and limit for this month — nothing can be added, edited or deleted until you reopen it. A snapshot of the current blocks is kept, so deleting or editing a block later won\u2019t affect this closed month.',
           style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: B.soft2,
-              height: 1.55),
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: B.soft2,
+            height: 1.55,
+          ),
         ),
         const SizedBox(height: 14),
         Row(
           children: [
-            stat('Balance', eur(c.balance),
-                c.balance >= 0 ? B.green : B.red),
+            stat('Balance', eur(c.balance), c.balance >= 0 ? B.green : B.red),
             const SizedBox(width: 9),
-            stat('Still to pay', eur(c.stillToPay),
-                c.stillToPay > 0 ? B.amberText : B.greenText),
+            stat(
+              'Still to pay',
+              eur(c.stillToPay),
+              c.stillToPay > 0 ? B.amberText : B.greenText,
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -859,11 +939,14 @@ class _CloseConfirmSheet extends StatelessWidget {
               children: [
                 ic('lock', size: 16, sw: 2.4, color: Colors.white),
                 const SizedBox(width: 8),
-                const Text('Close month',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
+                const Text(
+                  'Close month',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
               ],
             ),
           ),
@@ -894,8 +977,11 @@ class _AccountPickerSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _sheetHead(context, 'Choose account',
-              kind == 'income' ? 'Received into' : 'Paid from'),
+          _sheetHead(
+            context,
+            'Choose account',
+            kind == 'income' ? 'Received into' : 'Paid from',
+          ),
           for (final a in state.accounts)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -905,13 +991,16 @@ class _AccountPickerSheet extends StatelessWidget {
                   Navigator.of(context).pop();
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: a.key == current ? B.soft : Colors.white,
                     borderRadius: BorderRadius.circular(13),
                     border: Border.all(
-                        color: a.key == current ? B.primary : B.line),
+                      color: a.key == current ? B.primary : B.line,
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -923,19 +1012,25 @@ class _AccountPickerSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
-                        child: Text(a.initials,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800)),
+                        child: Text(
+                          a.initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 11),
                       Expanded(
-                        child: Text(a.name,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: B.ink)),
+                        child: Text(
+                          a.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: B.ink,
+                          ),
+                        ),
                       ),
                       if (a.key == current)
                         ic('check', size: 18, sw: 2.6, color: B.primary),
@@ -988,10 +1083,11 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
           .firstOrNull;
     }
     _label = TextEditingController(text: it?.label ?? '');
-    _amount = TextEditingController(
-        text: it != null ? _numStr(it.amount) : '');
+    _amount = TextEditingController(text: it != null ? _numStr(it.amount) : '');
     _marker = TextEditingController(text: it?.marker ?? '');
-    _until = TextEditingController(text: it != null ? (untilLabel(it.until) ?? '') : '');
+    _until = TextEditingController(
+      text: it != null ? (untilLabel(it.until) ?? '') : '',
+    );
     _account = it?.account ?? 'shared';
     _paid = it?.paid ?? false;
   }
@@ -1016,36 +1112,57 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _sheetHead(
-              context,
-              '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
-              _editing ? null : 'New item'),
-          _sheetField('Name',
-              _sheetInput(_label, hint: 'e.g. Groceries Lidl', onChanged: (_) => setState(() {}))),
+            context,
+            '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
+            _editing ? null : 'New item',
+          ),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _label,
+              hint: 'e.g. Groceries Lidl',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _sheetField('Amount (\u20ac)',
-                    _sheetInput(_amount, hint: '0,00', number: true, onChanged: (_) => setState(() {}))),
+                child: _sheetField(
+                  'Amount (\u20ac)',
+                  _sheetInput(
+                    _amount,
+                    hint: '0,00',
+                    number: true,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(
-                child: _sheetField(cat.marker == 'day' ? 'Pay day' : 'Date',
-                    _sheetInput(_marker,
-                        hint: cat.marker == 'day' ? '1st' : '\u2014')),
+                child: _sheetField(
+                  cat.marker == 'day' ? 'Pay day' : 'Date',
+                  _sheetInput(
+                    _marker,
+                    hint: cat.marker == 'day' ? '1st' : '\u2014',
+                  ),
+                ),
               ),
             ],
           ),
           if (cat.hasUntil)
-            _sheetField('Until (MM-YY)',
-                _sheetInput(_until, hint: '12-28')),
-          _sheetField(widget.cat == 'savings' ? 'Save from' : 'Pay from',
-              _accChips()),
+            _sheetField('Until (MM-YY)', _sheetInput(_until, hint: '12-28')),
+          _sheetField(
+            widget.cat == 'savings' ? 'Save from' : 'Pay from',
+            _accChips(),
+          ),
           _sheetField(
             'Status',
             _toggleRow(
-                widget.cat == 'savings' ? 'Saved this month' : 'Paid',
-                _paid, () => setState(() => _paid = !_paid)),
+              widget.cat == 'savings' ? 'Saved this month' : 'Paid',
+              _paid,
+              () => setState(() => _paid = !_paid),
+            ),
           ),
           _primaryBtn(_editing ? 'Save changes' : 'Add item', () {
             s.saveExpense(
@@ -1069,11 +1186,14 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                 children: [
                   ic('cleft', size: 13, sw: 2.4, color: B.muted),
                   const SizedBox(width: 6),
-                  const Text('Swipe the row left to delete',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: B.muted)),
+                  const Text(
+                    'Swipe the row left to delete',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: B.muted,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1115,18 +1235,24 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                 borderRadius: BorderRadius.circular(7),
               ),
               alignment: Alignment.center,
-              child: Text(a.initials,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800)),
+              child: Text(
+                a.initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
             const SizedBox(height: 5),
-            Text(a.short,
-                style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: B.text)),
+            Text(
+              a.short,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: B.text,
+              ),
+            ),
           ],
         ),
       ),
@@ -1164,10 +1290,10 @@ class _IncomeSheetState extends State<_IncomeSheet> {
           .firstOrNull;
     }
     _label = TextEditingController(text: it?.label ?? '');
-    _expected =
-        TextEditingController(text: it != null ? _numStr(it.expected) : '');
-    _actual =
-        TextEditingController(text: it != null ? _numStr(it.actual) : '');
+    _expected = TextEditingController(
+      text: it != null ? _numStr(it.expected) : '',
+    );
+    _actual = TextEditingController(text: it != null ? _numStr(it.actual) : '');
     _account = it?.account ?? 'shared';
     _received = it?.received ?? false;
   }
@@ -1188,29 +1314,45 @@ class _IncomeSheetState extends State<_IncomeSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _sheetHead(context, _editing ? 'Edit income' : 'Add income',
-              _editing ? null : 'New source'),
-          _sheetField('Name',
-              _sheetInput(_label, hint: 'e.g. Salary', onChanged: (_) => setState(() {}))),
+          _sheetHead(
+            context,
+            _editing ? 'Edit income' : 'Add income',
+            _editing ? null : 'New source',
+          ),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _label,
+              hint: 'e.g. Salary',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _sheetField('Expected (\u20ac)',
-                    _sheetInput(_expected, hint: '0,00', number: true)),
+                child: _sheetField(
+                  'Expected (\u20ac)',
+                  _sheetInput(_expected, hint: '0,00', number: true),
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(
-                child: _sheetField('Actual (\u20ac)',
-                    _sheetInput(_actual, hint: '0,00', number: true)),
+                child: _sheetField(
+                  'Actual (\u20ac)',
+                  _sheetInput(_actual, hint: '0,00', number: true),
+                ),
               ),
             ],
           ),
           _sheetField('Received into', _accChips()),
           _sheetField(
             'Status',
-            _toggleRow('Received', _received,
-                () => setState(() => _received = !_received)),
+            _toggleRow(
+              'Received',
+              _received,
+              () => setState(() => _received = !_received),
+            ),
           ),
           _primaryBtn(_editing ? 'Save changes' : 'Add income', () {
             s.saveIncome(
@@ -1232,11 +1374,14 @@ class _IncomeSheetState extends State<_IncomeSheet> {
                 children: [
                   ic('cleft', size: 13, sw: 2.4, color: B.muted),
                   const SizedBox(width: 6),
-                  const Text('Swipe the row left to delete',
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: B.muted)),
+                  const Text(
+                    'Swipe the row left to delete',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: B.muted,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1278,18 +1423,24 @@ class _IncomeSheetState extends State<_IncomeSheet> {
                 borderRadius: BorderRadius.circular(7),
               ),
               alignment: Alignment.center,
-              child: Text(a.initials,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800)),
+              child: Text(
+                a.initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
             const SizedBox(height: 5),
-            Text(a.short,
-                style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: B.text)),
+            Text(
+              a.short,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: B.text,
+              ),
+            ),
           ],
         ),
       ),
@@ -1309,8 +1460,9 @@ class _CapSheet extends StatefulWidget {
 }
 
 class _CapSheetState extends State<_CapSheet> {
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.value != null ? _numStr(widget.value!) : '');
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value != null ? _numStr(widget.value!) : '',
+  );
 
   @override
   void dispose() {
@@ -1325,19 +1477,30 @@ class _CapSheetState extends State<_CapSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _sheetHead(context, 'Monthly limit',
-            '${cat.title} \u00b7 ${kMonthsEn[s.monthIdx]}'),
+        _sheetHead(
+          context,
+          'Monthly limit',
+          '${cat.title} \u00b7 ${kMonthsEn[s.monthIdx]}',
+        ),
         const Text(
           'Set a spending cap for this block this month. Leave empty to remove the limit. The Overview bar turns amber near the cap and red when exceeded.',
           style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: B.soft2,
-              height: 1.5),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: B.soft2,
+            height: 1.5,
+          ),
         ),
         const SizedBox(height: 14),
-        _sheetField('Limit (\u20ac)',
-            _sheetInput(_ctrl, hint: '0,00', number: true, onChanged: (_) => setState(() {}))),
+        _sheetField(
+          'Limit (\u20ac)',
+          _sheetInput(
+            _ctrl,
+            hint: '0,00',
+            number: true,
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
         _primaryBtn(_ctrl.text.isEmpty ? 'Remove limit' : 'Save limit', () {
           s.saveCap(widget.cat, _ctrl.text.trim());
           Navigator.of(context).pop();
@@ -1350,11 +1513,14 @@ class _CapSheetState extends State<_CapSheet> {
             },
             child: const Padding(
               padding: EdgeInsets.only(top: 13, bottom: 2),
-              child: Text('Remove limit',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: B.red)),
+              child: Text(
+                'Remove limit',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: B.red,
+                ),
+              ),
             ),
           ),
       ],
@@ -1406,8 +1572,14 @@ class _AccountSheetState extends State<_AccountSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _sheetHead(context, _editing ? 'Edit account' : 'Add account'),
-          _sheetField('Name',
-              _sheetInput(_name, hint: "e.g. Eva's account", onChanged: (_) => setState(() {}))),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _name,
+              hint: "e.g. Eva's account",
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
           _sheetField('Short label', _sheetInput(_short, hint: 'Eva')),
           _sheetField('Color', _swatches()),
           _primaryBtn(_editing ? 'Save account' : 'Add account', () {
@@ -1447,7 +1619,9 @@ class _AccountSheetState extends State<_AccountSheet> {
                     : null,
               ),
               child: _color == col
-                  ? Center(child: ic('check', size: 16, sw: 3, color: Colors.white))
+                  ? Center(
+                      child: ic('check', size: 16, sw: 3, color: Colors.white),
+                    )
                   : null,
             ),
           ),
@@ -1511,8 +1685,14 @@ class _BlockSheetState extends State<_BlockSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _sheetHead(context, _editing ? 'Edit block' : 'New budget block'),
-          _sheetField('Name',
-              _sheetInput(_title, hint: 'e.g. Kids', onChanged: (_) => setState(() {}))),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _title,
+              hint: 'e.g. Kids',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
           _sheetField('Icon', _iconPicker()),
           _sheetField('Color', _swatches()),
           _sheetField('Applies to', _scopeSeg()),
@@ -1529,20 +1709,26 @@ class _BlockSheetState extends State<_BlockSheet> {
               child: Text(
                 'Only appears in ${kMonthsEn[s.monthIdx]} ${s.year}. Use \u201CCopy a month\u201D in Settings to carry it forward.',
                 style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: B.amberText,
-                    height: 1.45),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: B.amberText,
+                  height: 1.45,
+                ),
               ),
             ),
-          _sheetField('Monthly limit for ${kMonthsEn[s.monthIdx]} (optional)',
-              _sheetInput(_cap, hint: 'No limit', number: true)),
+          _sheetField(
+            'Monthly limit for ${kMonthsEn[s.monthIdx]} (optional)',
+            _sheetInput(_cap, hint: 'No limit', number: true),
+          ),
           _sheetField(
             '',
-            _toggleRow('Track end date (Until MM-YY)', _hasUntil,
-                () => setState(() => _hasUntil = !_hasUntil),
-                subtitle: 'For loans & debts with a payoff date',
-                activeColor: B.primary),
+            _toggleRow(
+              'Track end date (Until MM-YY)',
+              _hasUntil,
+              () => setState(() => _hasUntil = !_hasUntil),
+              subtitle: 'For loans & debts with a payoff date',
+              activeColor: B.primary,
+            ),
           ),
           _primaryBtn(_editing ? 'Save block' : 'Create block', () {
             s.saveBlock(
@@ -1579,10 +1765,13 @@ class _BlockSheetState extends State<_BlockSheet> {
                 border: Border.all(color: _icon == n ? B.primary : B.line),
               ),
               child: Center(
-                  child: ic(n,
-                      size: 18,
-                      sw: 2,
-                      color: _icon == n ? B.deep : B.soft2)),
+                child: ic(
+                  n,
+                  size: 18,
+                  sw: 2,
+                  color: _icon == n ? B.deep : B.soft2,
+                ),
+              ),
             ),
           ),
       ],
@@ -1611,7 +1800,9 @@ class _BlockSheetState extends State<_BlockSheet> {
                     : null,
               ),
               child: _tone == col
-                  ? Center(child: ic('check', size: 15, sw: 3, color: Colors.white))
+                  ? Center(
+                      child: ic('check', size: 15, sw: 3, color: Colors.white),
+                    )
                   : null,
             ),
           ),
@@ -1634,16 +1825,16 @@ class _BlockSheetState extends State<_BlockSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ic(icon,
-                      size: 15,
-                      sw: 2.2,
-                      color: active ? B.deep : B.soft2),
+                  ic(icon, size: 15, sw: 2.2, color: active ? B.deep : B.soft2),
                   const SizedBox(width: 7),
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: active ? B.deep : B.soft2)),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: active ? B.deep : B.soft2,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1651,11 +1842,19 @@ class _BlockSheetState extends State<_BlockSheet> {
         );
     return Row(
       children: [
-        btn(!_temporary, 'repeat', 'Every month',
-            () => setState(() => _temporary = false)),
+        btn(
+          !_temporary,
+          'repeat',
+          'Every month',
+          () => setState(() => _temporary = false),
+        ),
         const SizedBox(width: 8),
-        btn(_temporary, 'pin', 'This month only',
-            () => setState(() => _temporary = true)),
+        btn(
+          _temporary,
+          'pin',
+          'This month only',
+          () => setState(() => _temporary = true),
+        ),
       ],
     );
   }
@@ -1718,8 +1917,7 @@ class _CopySheetState extends State<_CopySheet> {
             decoration: BoxDecoration(
               color: targetClosed ? B.redSoft : B.amberSoft,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                  color: targetClosed ? B.redLine : B.amberLine),
+              border: Border.all(color: targetClosed ? B.redLine : B.amberLine),
             ),
             child: Text(
               targetClosed
@@ -1748,34 +1946,43 @@ class _CopySheetState extends State<_CopySheet> {
 
   Widget _yearStep(int val, ValueChanged<int> onCh) {
     Widget btn(String icon, VoidCallback onTap) => GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: B.line),
-            ),
-            child: Center(child: ic(icon, size: 15, sw: 2.4, color: B.soft2)),
-          ),
-        );
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: B.line),
+        ),
+        child: Center(child: ic(icon, size: 15, sw: 2.4, color: B.soft2)),
+      ),
+    );
     return Row(
       children: [
         btn('cleft', () => onCh(val - 1)),
         Expanded(
-          child: Text('$val',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w800, color: B.ink)),
+          child: Text(
+            '$val',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: B.ink,
+            ),
+          ),
         ),
         btn('cright', () => onCh(val + 1)),
       ],
     );
   }
 
-  Widget _grid(_ThriveHomeState s, int selYear, int selected,
-      ValueChanged<int> onPick) {
+  Widget _grid(
+    _ThriveHomeState s,
+    int selYear,
+    int selected,
+    ValueChanged<int> onPick,
+  ) {
     return GridView.count(
       crossAxisCount: 4,
       shrinkWrap: true,
@@ -1796,11 +2003,14 @@ class _CopySheetState extends State<_CopySheet> {
               child: Stack(
                 children: [
                   Center(
-                    child: Text(kMonthsShort[i],
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: i == selected ? B.deep : B.text)),
+                    child: Text(
+                      kMonthsShort[i],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: i == selected ? B.deep : B.text,
+                      ),
+                    ),
                   ),
                   if (s.isClosed(i, selYear))
                     Positioned(
