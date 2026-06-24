@@ -175,25 +175,31 @@ extension _ThriveScreens on _ThriveHomeState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(a.name,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: B.text,
-                      )),
-                  const SizedBox(height: 4),
-                  _bar(amt / maxAcct, a.color, height: 5),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(a.name,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: B.text,
+                            )),
+                      ),
+                      const SizedBox(width: 9),
+                      Text(eur(amt),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: amt > 0 ? B.ink : B.muted,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          )),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  _bar(amt / maxAcct, a.color, height: 6),
                 ],
               ),
             ),
-            const SizedBox(width: 9),
-            Text(eur(amt),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: amt > 0 ? B.ink : B.muted,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                )),
           ],
         ),
       );
@@ -255,6 +261,7 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
           const SizedBox(height: 13),
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             decoration: BoxDecoration(
               gradient: B.grad,
@@ -338,7 +345,7 @@ extension _ThriveScreens on _ThriveHomeState {
                 ),
                 const SizedBox(height: 8),
                 _bar(paidPct / 100, c.stillToPay > 0 ? B.amber : B.green,
-                    height: 6, track: const Color(0x0f000000)),
+                    height: 6),
                 const SizedBox(height: 5),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -943,8 +950,10 @@ extension _ThriveScreens on _ThriveHomeState {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: Container(
+        width: double.infinity,
         height: height,
         color: track,
+        alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           alignment: Alignment.centerLeft,
           widthFactor: f,
