@@ -1,11 +1,12 @@
 part of 'package:family_money_management_app/main.dart';
 
 void main() {
-  runApp(const FamilyMoneyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ThriveApp());
 }
 
-class FamilyMoneyApp extends StatelessWidget {
-  const FamilyMoneyApp({super.key});
+class ThriveApp extends StatelessWidget {
+  const ThriveApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,15 +15,15 @@ class FamilyMoneyApp extends StatelessWidget {
       title: 'Thrive',
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.page,
+        scaffoldBackgroundColor: B.page,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.indigo,
+          seedColor: B.primary,
           brightness: Brightness.light,
         ),
-        fontFamily: 'Avenir',
-        textTheme: const TextTheme(bodyMedium: TextStyle(color: AppColors.ink)),
+        fontFamily: 'PlusJakartaSans',
+        textTheme: const TextTheme(bodyMedium: TextStyle(color: B.ink)),
       ),
-      home: const BudgetNavigationShell(),
+      home: const ThriveHome(),
     );
   }
 }
