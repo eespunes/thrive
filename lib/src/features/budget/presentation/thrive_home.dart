@@ -26,6 +26,9 @@ class _ThriveHomeState extends State<ThriveHome> {
   String? swipedId;
   String? toast;
   Timer? _toastTimer;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
+  int _lastSyncedAtMillis = 0;
+  bool _applyingCloudSnapshot = false;
 
   // Auth + family state (ported from the design's v4 state).
   AppUser? user;
@@ -41,6 +44,7 @@ class _ThriveHomeState extends State<ThriveHome> {
 
   @override
   void dispose() {
+    _cloudSub?.cancel();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -64,6 +68,8 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (rawV4 != null) {
       try {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
+        _syncUserFromFirebaseAuth();
+        await _bindCloudSync();
         if (!mounted) return;
         setState(() => ready = true);
         return;
@@ -78,6 +84,8 @@ class _ThriveHomeState extends State<ThriveHome> {
       try {
         _restore(json.decode(rawV3) as Map<String, dynamic>);
         _seedFamiliesAndWorkspace();
+        _syncUserFromFirebaseAuth();
+        await _bindCloudSync();
         if (!mounted) return;
         setState(() => ready = true);
         _persist();
@@ -88,6 +96,55 @@ class _ThriveHomeState extends State<ThriveHome> {
     }
 
     await _seedFromAsset();
+    _syncUserFromFirebaseAuth();
+    await _bindCloudSync();
+  }
+
+  void _syncUserFromFirebaseAuth() {
+    if (Firebase.apps.isEmpty) return;
+    final fb = FirebaseAuth.instance.currentUser;
+    if (fb == null) return;
+    final resolvedName = (fb.displayName ?? '').trim().isNotEmpty
+        ? fb.displayName!.trim()
+        : fb.email?.split('@').first ?? 'User';
+    user = AppUser(
+      name: resolvedName,
+      email: fb.email ?? '',
+      initials: initialsOf(resolvedName),
+      provider: fb.providerData.isNotEmpty
+          ? fb.providerData.first.providerId
+          : 'email',
+      photo: fb.photoURL,
+    );
+  }
+
+  String? _firebaseUid() {
+    if (Firebase.apps.isEmpty) return null;
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
+  DocumentReference<Map<String, dynamic>> _stateDocRef(String uid) {
+    return FirebaseFirestore.instance.collection('user_workspaces').doc(uid);
+  }
+
+  Future<void> _bindCloudSync() async {
+    await _cloudSub?.cancel();
+    final uid = _firebaseUid();
+    if (uid == null) return;
+    _cloudSub = _stateDocRef(uid).snapshots().listen((snapshot) {
+      final root = snapshot.data();
+      if (root == null) return;
+      final rawState = root['state'];
+      if (rawState is! Map) return;
+      final remoteState = Map<String, dynamic>.from(rawState);
+      final remoteUpdatedAt = (root['updatedAtMillis'] as num?)?.toInt() ?? 0;
+      if (remoteUpdatedAt <= _lastSyncedAtMillis) return;
+      _applyingCloudSnapshot = true;
+      _restoreV4(remoteState);
+      _lastSyncedAtMillis = remoteUpdatedAt;
+      if (mounted) setState(() {});
+      _applyingCloudSnapshot = false;
+    });
   }
 
   /// Restores the v4 blob: families, per-family workspaces and the active one.
@@ -250,7 +307,13 @@ class _ThriveHomeState extends State<ThriveHome> {
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     _syncWorkspaces();
-    final payload = {
+    final payload = _buildStatePayload();
+    await prefs.setString(kStorageKeyV4, json.encode(payload));
+    await _pushCloudState(payload);
+  }
+
+  Map<String, dynamic> _buildStatePayload() {
+    return {
       'year': year,
       'monthIdx': monthIdx,
       'screen': screen,
@@ -260,7 +323,20 @@ class _ThriveHomeState extends State<ThriveHome> {
         for (final e in workspaces.entries) e.key: e.value.toJson(),
       },
     };
-    await prefs.setString(kStorageKeyV4, json.encode(payload));
+  }
+
+  Future<void> _pushCloudState(Map<String, dynamic> payload) async {
+    if (_applyingCloudSnapshot) return;
+    final uid = _firebaseUid();
+    if (uid == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _lastSyncedAtMillis = now;
+    await _stateDocRef(uid).set({
+      'state': payload,
+      'profile': user?.toJson(),
+      'updatedAtMillis': now,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   /// Persists (or clears) the signed-in user blob.
@@ -271,6 +347,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     } else {
       await prefs.setString(kUserKey, json.encode(user!.toJson()));
     }
+    await _persist();
   }
 
   // ------------------------------------------------------------- helpers

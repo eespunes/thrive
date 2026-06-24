@@ -107,8 +107,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- auth
-  /// Signs a user in (dummy — no backend). Seeds a starter family on first
-  /// sign-in, otherwise syncs the identity into existing families.
+  /// Signs a user in. Seeds a starter family on first sign-in, otherwise syncs
+  /// the identity into existing families.
   void signInUser(AppUser u) {
     update(() {
       user = u;
@@ -128,13 +128,176 @@ extension _ThriveAccountActions on _ThriveHomeState {
       }
     });
     _persistUser();
-    _persist();
     flash('Welcome, ${u.name.split(' ').first}');
   }
 
   void signOut() {
     update(() => user = null);
+    _cloudSub?.cancel();
+    _cloudSub = null;
+    if (Firebase.apps.isNotEmpty) {
+      unawaited(GoogleSignIn().signOut());
+      unawaited(FirebaseAuth.instance.signOut());
+    }
     _persistUser();
+  }
+
+  Future<String?> signInWithEmail({
+    required String email,
+    required String password,
+    required bool register,
+    String? name,
+  }) async {
+    if (Firebase.apps.isEmpty) {
+      final resolved = register
+          ? (name ?? '').trim()
+          : email
+                .split('@')
+                .first
+                .replaceAll(RegExp(r'[._]+'), ' ')
+                .split(' ')
+                .map(
+                  (w) =>
+                      w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+                )
+                .join(' ');
+      signInUser(
+        AppUser(
+          name: resolved,
+          email: email,
+          initials: initialsOf(resolved),
+          provider: 'email',
+        ),
+      );
+      return null;
+    }
+
+    try {
+      UserCredential credential;
+      if (register) {
+        credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+        final displayName = (name ?? '').trim();
+        if (displayName.isNotEmpty) {
+          await credential.user?.updateDisplayName(displayName);
+        }
+      } else {
+        credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+      final current = credential.user;
+      if (current == null) return 'Authentication failed';
+      final resolvedName = (current.displayName ?? '').trim().isNotEmpty
+          ? current.displayName!.trim()
+          : email
+                .split('@')
+                .first
+                .replaceAll(RegExp(r'[._]+'), ' ')
+                .split(' ')
+                .map(
+                  (w) =>
+                      w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+                )
+                .join(' ');
+      signInUser(
+        AppUser(
+          name: resolvedName,
+          email: current.email ?? email,
+          initials: initialsOf(resolvedName),
+          provider: 'email',
+          photo: current.photoURL,
+        ),
+      );
+      await _bindCloudSync();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'email-already-in-use':
+          return 'Email is already in use';
+        case 'invalid-email':
+          return 'Enter a valid email';
+        case 'weak-password':
+          return 'Password is too weak';
+        case 'user-not-found':
+        case 'wrong-password':
+        case 'invalid-credential':
+          return 'Wrong email or password';
+        default:
+          return e.message ?? 'Could not sign in right now';
+      }
+    }
+  }
+
+  Future<String?> signInWithGoogle() async {
+    if (Firebase.apps.isEmpty) {
+      signInUser(
+        AppUser(
+          name: 'Eva Janssen',
+          email: 'eva.janssen@gmail.com',
+          initials: 'EJ',
+          provider: 'google',
+        ),
+      );
+      return null;
+    }
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        return 'Google sign-in cancelled';
+      }
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        return 'Google sign-in failed (missing id token)';
+      }
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: idToken,
+      );
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final current = userCredential.user;
+      if (current == null) return 'Google sign-in failed';
+
+      final fallbackName = (current.email ?? 'User')
+          .split('@')
+          .first
+          .replaceAll(RegExp(r'[._]+'), ' ')
+          .split(' ')
+          .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
+      final resolvedName = (current.displayName ?? '').trim().isNotEmpty
+          ? current.displayName!.trim()
+          : fallbackName;
+
+      signInUser(
+        AppUser(
+          name: resolvedName,
+          email: current.email ?? '',
+          initials: initialsOf(resolvedName),
+          provider: 'google',
+          photo: current.photoURL,
+        ),
+      );
+      await _bindCloudSync();
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          return 'This email is already linked to another sign-in method';
+        case 'invalid-credential':
+          return 'Google credential is invalid';
+        default:
+          return e.message ?? 'Could not sign in with Google right now';
+      }
+    } catch (_) {
+      return 'Could not sign in with Google right now';
+    }
   }
 
   // ----------------------------------------------------------- profile
@@ -150,7 +313,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
       _syncMe(u);
     });
     _persistUser();
-    _persist();
     flash('Profile updated');
   }
 
