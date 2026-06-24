@@ -1,9 +1,35 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
 void main() {
+  testWidgets('boots safely from corrupted persisted JSON', (tester) async {
+    // shared_preferences mock prefixes keys with `flutter.`.
+    await pumpApp(tester, prefs: {'flutter.thrive.v3': 'not valid json {['});
+    // Falls through to the bundled seed instead of crashing.
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
+  testWidgets('clamps out-of-range and unknown persisted values', (
+    tester,
+  ) async {
+    final payload = json.encode({
+      'year': 2026,
+      'monthIdx': 99, // out of range -> clamps to 11
+      'screen': 'hacker', // unknown -> falls back to overview
+      'accounts': <dynamic>[], // empty -> defaults
+      'cats': <dynamic>[], // empty -> defaults
+      'data': <String, dynamic>{},
+    });
+    await pumpApp(tester, prefs: {'flutter.thrive.v3': payload});
+    // App renders the (whitelisted) overview screen without RangeError/null
+    // assertion crashes, and default accounts/categories are restored.
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
   testWidgets('reboot restores persisted state', (tester) async {
     await pumpApp(tester);
     // Make a change that persists, then reboot to hit the _restore path.

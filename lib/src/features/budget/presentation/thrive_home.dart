@@ -56,20 +56,28 @@ class _ThriveHomeState extends State<ThriveHome> {
 
   void _restore(Map<String, dynamic> saved) {
     year = (saved['year'] as num?)?.toInt() ?? 2026;
-    monthIdx = (saved['monthIdx'] as num?)?.toInt() ?? 5;
-    screen = (saved['screen'] ?? 'overview').toString();
+    final rawMonth = (saved['monthIdx'] as num?)?.toInt() ?? 5;
+    monthIdx = rawMonth.clamp(0, kMonthKeys.length - 1);
+    final rawScreen = (saved['screen'] ?? 'overview').toString();
+    screen = const {'overview', 'stats', 'settings'}.contains(rawScreen)
+        ? rawScreen
+        : 'overview';
     if (saved['accounts'] is List) {
       accounts = [
         for (final a in (saved['accounts'] as List))
           Account.fromJson(Map<String, dynamic>.from(a as Map)),
       ];
     }
+    // Never allow an empty account list — downstream lookups assume at least
+    // one account exists.
+    if (accounts.isEmpty) accounts = defaultAccounts();
     if (saved['cats'] is List) {
       cats = [
         for (final c in (saved['cats'] as List))
           Category.fromJson(Map<String, dynamic>.from(c as Map)),
       ];
     }
+    if (cats.isEmpty) cats = defaultCats();
     data = {};
     (saved['data'] as Map<String, dynamic>? ?? {}).forEach((yr, months) {
       final yKey = int.tryParse(yr) ?? year;
@@ -198,8 +206,10 @@ class _ThriveHomeState extends State<ThriveHome> {
     }
   }
 
-  Account accByKey(String k) =>
-      accounts.firstWhere((a) => a.key == k, orElse: () => accounts.last);
+  Account accByKey(String k) => accounts.firstWhere(
+    (a) => a.key == k,
+    orElse: () => accounts.isNotEmpty ? accounts.last : defaultAccounts().first,
+  );
 
   Category? catByKey(String k) {
     for (final c in cats) {

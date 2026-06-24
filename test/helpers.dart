@@ -6,12 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Boots the app with a clean prefs store (seeds from the bundled asset) and
 /// pumps until the async boot completes. Uses a tall surface so the whole
 /// overview list builds (no lazy off-screen rows).
-Future<void> pumpApp(WidgetTester tester) async {
+Future<void> pumpApp(
+  WidgetTester tester, {
+  Map<String, Object> prefs = const {},
+}) async {
   tester.view.physicalSize = const Size(1080, 6400);
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues(prefs);
   await tester.runAsync(() async {
     await tester.pumpWidget(const ThriveApp());
     // Let the SharedPreferences + rootBundle asset futures resolve.
