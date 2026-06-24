@@ -142,9 +142,7 @@ class Category {
       icon: (j['icon'] ?? 'folder').toString(),
       marker: (j['marker'] ?? 'date').toString(),
       tone: tone,
-      bg: j['bg'] != null
-          ? Color((j['bg'] as num).toInt())
-          : tintFor(tone),
+      bg: j['bg'] != null ? Color((j['bg'] as num).toInt()) : tintFor(tone),
       hasUntil: j['hasUntil'] == true,
       temporary: j['temporary'] == true,
       ownerYear: (j['ownerYear'] as num?)?.toInt(),
