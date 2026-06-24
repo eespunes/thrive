@@ -1608,7 +1608,12 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
           child: Row(
             children: [
-              _reorder(idx, accounts.length, (d) => moveAccount(a.key, d)),
+              _reorder(
+                idx,
+                accounts.length,
+                (d) => moveAccount(a.key, d),
+                keyPrefix: 'acc-move-${a.key}',
+              ),
               const SizedBox(width: 9),
               Container(
                 width: 32,
@@ -1657,10 +1662,16 @@ extension _ThriveScreens on _ThriveHomeState {
                 'edit',
                 B.soft2,
                 () => openAccountSheet(mode: 'edit', key: a.key),
+                key: ValueKey('acc-edit-${a.key}'),
               ),
               if (accounts.length > 1) ...[
                 const SizedBox(width: 6),
-                _miniBtn('trash', B.red, () => deleteAccount(a.key)),
+                _miniBtn(
+                  'trash',
+                  B.red,
+                  () => deleteAccount(a.key),
+                  key: ValueKey('acc-del-${a.key}'),
+                ),
               ],
             ],
           ),
@@ -1683,7 +1694,12 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
           child: Row(
             children: [
-              _reorder(idx, cats.length, (d) => moveBlock(c.key, d)),
+              _reorder(
+                idx,
+                cats.length,
+                (d) => moveBlock(c.key, d),
+                keyPrefix: 'blk-move-${c.key}',
+              ),
               const SizedBox(width: 9),
               Container(
                 width: 32,
@@ -1773,10 +1789,16 @@ extension _ThriveScreens on _ThriveHomeState {
                 'edit',
                 B.soft2,
                 () => openBlockSheet(mode: 'edit', key: c.key),
+                key: ValueKey('blk-edit-${c.key}'),
               ),
               if (cats.length > 1) ...[
                 const SizedBox(width: 6),
-                _miniBtn('trash', B.red, () => deleteBlock(c.key)),
+                _miniBtn(
+                  'trash',
+                  B.red,
+                  () => deleteBlock(c.key),
+                  key: ValueKey('blk-del-${c.key}'),
+                ),
               ],
             ],
           ),
@@ -1907,8 +1929,9 @@ extension _ThriveScreens on _ThriveHomeState {
     );
   }
 
-  Widget _miniBtn(String icon, Color color, VoidCallback onTap) {
+  Widget _miniBtn(String icon, Color color, VoidCallback onTap, {Key? key}) {
     return GestureDetector(
+      key: key,
       onTap: onTap,
       child: Container(
         width: 28,
@@ -1922,8 +1945,16 @@ extension _ThriveScreens on _ThriveHomeState {
     );
   }
 
-  Widget _reorder(int idx, int len, void Function(int dir) onMove) {
+  Widget _reorder(
+    int idx,
+    int len,
+    void Function(int dir) onMove, {
+    String? keyPrefix,
+  }) {
     Widget btn(int dir, bool disabled) => GestureDetector(
+      key: keyPrefix == null
+          ? null
+          : ValueKey('$keyPrefix-${dir < 0 ? 'up' : 'down'}'),
       onTap: disabled ? null : () => onMove(dir),
       child: SizedBox(
         width: 20,

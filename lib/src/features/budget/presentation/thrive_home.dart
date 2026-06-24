@@ -44,6 +44,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (rawSaved != null) {
       try {
         _restore(json.decode(rawSaved) as Map<String, dynamic>);
+        if (!mounted) return;
         setState(() => ready = true);
         return;
       } catch (_) {
@@ -137,6 +138,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     });
     yearMap['Juni']?.caps.addAll({'food': 800});
 
+    if (!mounted) return;
     setState(() {
       cats = seededCats;
       data = {2026: yearMap};
@@ -598,6 +600,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     Widget tab(String k, String icon) {
       final active = screen == k;
       return GestureDetector(
+        key: ValueKey('tab-$k'),
         onTap: () => go(k),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
@@ -649,6 +652,7 @@ class _ThriveHomeState extends State<ThriveHome> {
 
   Widget _buildSubHeader() {
     Widget arrow(int d, String name) => GestureDetector(
+      key: ValueKey('month-${d < 0 ? 'prev' : 'next'}'),
       onTap: () => setMonth(d),
       child: Container(
         width: 34,
@@ -663,6 +667,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     );
 
     final monthChip = GestureDetector(
+      key: const ValueKey('month-chip'),
       onTap: openMonthPicker,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -705,6 +710,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (screen == 'overview') {
       final closed = isClosed();
       final lockBtn = GestureDetector(
+        key: const ValueKey('lock-btn'),
         onTap: () => closed ? reopenMonth() : openCloseConfirm(),
         child: Container(
           width: 34,
@@ -734,6 +740,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     Widget seg(String label, String val) {
       final active = statsMode == val;
       return GestureDetector(
+        key: ValueKey('stats-$val'),
         onTap: () => setState(() => statsMode = val),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
