@@ -1,4 +1,4 @@
-package com.example.family_money_management_app
+package cat.eespunes.thrive
 
 import io.flutter.embedding.android.FlutterActivity
 

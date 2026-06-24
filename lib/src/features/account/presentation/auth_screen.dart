@@ -37,8 +37,7 @@ Widget _heroGlyph({double size = 26}) {
   return SvgPicture.string(buffer.toString(), width: size, height: size);
 }
 
-/// Full-screen login / registration gate. All auth is dummy — no account is
-/// created; a successful submit just seeds a local user.
+/// Full-screen login / registration gate.
 class _AuthScreen extends StatefulWidget {
   const _AuthScreen({required this.state});
   final _ThriveHomeState state;
@@ -66,17 +65,16 @@ class _AuthScreenState extends State<_AuthScreen> {
   void _setErr(String? msg) => setState(() => _err = msg);
 
   Future<void> _googleAuth() async {
-    setState(() => _busy = true);
-    await Future<void>.delayed(const Duration(milliseconds: 700));
+    setState(() {
+      _busy = true;
+      _err = null;
+    });
+    final err = await widget.state.signInWithGoogle();
     if (!mounted) return;
-    widget.state.signInUser(
-      AppUser(
-        name: 'Eva Janssen',
-        email: 'eva.janssen@gmail.com',
-        initials: 'EJ',
-        provider: 'google',
-      ),
-    );
+    setState(() {
+      _busy = false;
+      _err = err;
+    });
   }
 
   Future<void> _emailAuth() async {
@@ -87,31 +85,21 @@ class _AuthScreenState extends State<_AuthScreen> {
     if (_pw.text.length < 4) {
       return _setErr('Password must be at least 4 characters');
     }
-    final resolved = _register
-        ? name
-        : email
-              .split('@')
-              .first
-              .replaceAll(RegExp(r'[._]+'), ' ')
-              .split(' ')
-              .map(
-                (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
-              )
-              .join(' ');
     setState(() {
       _err = null;
       _busy = true;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-    widget.state.signInUser(
-      AppUser(
-        name: resolved,
-        email: email,
-        initials: initialsOf(resolved),
-        provider: 'email',
-      ),
+    final err = await widget.state.signInWithEmail(
+      email: email,
+      password: _pw.text,
+      register: _register,
+      name: name,
     );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _err = err;
+    });
   }
 
   Widget _field(
@@ -270,7 +258,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Google (dummy)
+                  // Google button (requires additional provider setup).
                   GestureDetector(
                     key: const ValueKey('auth-google'),
                     onTap: _busy ? null : _googleAuth,
@@ -420,7 +408,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                   const SizedBox(height: 24),
                   const Center(
                     child: Text(
-                      'Demo prototype · no real account is created',
+                      'Email auth syncs across devices when Firebase is configured',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10.5,
