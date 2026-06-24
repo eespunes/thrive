@@ -11,6 +11,8 @@ Future<void> _initFirebase() async {
     await Firebase.initializeApp();
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
+  } on PlatformException catch (e) {
+    debugPrint('Firebase init failed (${e.code}): ${e.message}');
   }
 }
 

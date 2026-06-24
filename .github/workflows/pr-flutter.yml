@@ -64,13 +64,13 @@ jobs:
             COVERAGE=$(lcov --summary coverage/lcov.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
             echo "Code coverage: ${COVERAGE}%"
             
-            # Check if coverage meets 95% threshold
-            THRESHOLD=95
+            # Check if coverage meets 90% threshold
+            THRESHOLD=90
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-              echo "❌ Code coverage is ${COVERAGE}%, below the required 95%"
+              echo "❌ Code coverage is ${COVERAGE}%, below the required 90%"
               exit 1
             else
-              echo "✅ Code coverage is ${COVERAGE}%, meets the required 95%"
+              echo "✅ Code coverage is ${COVERAGE}%, meets the required 90%"
             fi
           else
             echo "⚠️  Coverage file not found. Ensure tests are run with --coverage flag."

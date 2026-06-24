@@ -10,6 +10,65 @@ class ThriveHome extends StatefulWidget {
   State<ThriveHome> createState() => _ThriveHomeState();
 }
 
+@visibleForTesting
+final ThriveDebugController thriveDebug = ThriveDebugController();
+
+@visibleForTesting
+class ThriveDebugController {
+  _ThriveHomeState? _state;
+
+  void _attach(_ThriveHomeState state) => _state = state;
+
+  void _detach(_ThriveHomeState state) {
+    if (_state == state) _state = null;
+  }
+
+  _ThriveHomeState get _s {
+    final state = _state;
+    if (state == null) {
+      throw StateError('ThriveDebugController is not attached to a state');
+    }
+    return state;
+  }
+
+  Future<String?> signInWithGoogle() => _s.signInWithGoogle();
+
+  Future<String?> signInWithEmail({
+    required String email,
+    required String password,
+    required bool register,
+    String? name,
+  }) {
+    return _s.signInWithEmail(
+      email: email,
+      password: password,
+      register: register,
+      name: name,
+    );
+  }
+
+  void signInUser(AppUser user) => _s.signInUser(user);
+  void signOut() => _s.signOut();
+  void saveProfile(String name, String? photo, Color? color) =>
+      _s.saveProfile(name, photo, color);
+  bool amOwner() => _s.amOwner();
+  ({Color bg, Color fg, String label}) memberPill(String role, String status) =>
+      _s.memberPill(role, status);
+  void renameFamily(String name) => _s.renameFamily(name);
+  void inviteMember(String name, String email) => _s.inviteMember(name, email);
+  void removeMember(String id) => _s.removeMember(id);
+  void toggleMemberRole(String id) => _s.toggleMemberRole(id);
+  void editMember(String id, String name, String email) =>
+      _s.editMember(id, name, email);
+  void switchFamily(String id) => _s.switchFamily(id);
+  void createFamily(String name) => _s.createFamily(name);
+  void deleteFamily(String id) => _s.deleteFamily(id);
+  Family? curFamily() => _s.curFamily();
+  AppUser? get user => _s.user;
+  List<Family> get families => _s.families;
+  String get familyId => _s.familyId;
+}
+
 class _ThriveHomeState extends State<ThriveHome> {
   bool ready = false;
   int year = 2026;
@@ -39,11 +98,13 @@ class _ThriveHomeState extends State<ThriveHome> {
   @override
   void initState() {
     super.initState();
+    thriveDebug._attach(this);
     _boot();
   }
 
   @override
   void dispose() {
+    thriveDebug._detach(this);
     _cloudSub?.cancel();
     _toastTimer?.cancel();
     super.dispose();
