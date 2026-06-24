@@ -245,15 +245,25 @@ extension _ThriveAccountActions on _ThriveHomeState {
       return null;
     }
     try {
+      debugPrint('[auth] Google sign-in started');
       final googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
+        debugPrint('[auth] Google sign-in cancelled by user');
         return 'Google sign-in cancelled';
       }
+      debugPrint('[auth] Google account selected: ${googleUser.email}');
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null || idToken.isEmpty) {
+        debugPrint(
+          '[auth] Missing Google idToken. Check Firebase Android SHA-1/SHA-256 '
+          'and regenerate google-services.json.',
+        );
         return 'Google sign-in failed (missing id token)';
       }
+      debugPrint(
+        '[auth] Google idToken acquired, exchanging for Firebase credential',
+      );
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: idToken,
@@ -262,7 +272,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
         credential,
       );
       final current = userCredential.user;
-      if (current == null) return 'Google sign-in failed';
+      if (current == null) {
+        debugPrint('[auth] Firebase sign-in returned null user');
+        return 'Google sign-in failed';
+      }
+      debugPrint('[auth] Firebase sign-in success: uid=${current.uid}');
 
       final fallbackName = (current.email ?? 'User')
           .split('@')
@@ -287,15 +301,26 @@ extension _ThriveAccountActions on _ThriveHomeState {
       await _bindCloudSync();
       return null;
     } on FirebaseAuthException catch (e) {
+      debugPrint(
+        '[auth] FirebaseAuthException code=${e.code} message=${e.message}',
+      );
       switch (e.code) {
         case 'account-exists-with-different-credential':
           return 'This email is already linked to another sign-in method';
         case 'invalid-credential':
           return 'Google credential is invalid';
+        case 'operation-not-allowed':
+          return 'Google sign-in is disabled in Firebase Auth';
         default:
           return e.message ?? 'Could not sign in with Google right now';
       }
+    } on PlatformException catch (e) {
+      debugPrint(
+        '[auth] PlatformException code=${e.code} message=${e.message}',
+      );
+      return e.message ?? 'Google sign-in failed on device';
     } catch (_) {
+      debugPrint('[auth] Unknown error during Google sign-in');
       return 'Could not sign in with Google right now';
     }
   }
