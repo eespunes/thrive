@@ -1,0 +1,437 @@
+part of 'package:family_money_management_app/main.dart';
+
+final RegExp _kEmailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+/// The Google "G" mark, rendered from the design's multi-color SVG.
+Widget _googleLogo({double size = 19}) {
+  const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">'
+      '<path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>'
+      '<path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>'
+      '<path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>'
+      '<path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>'
+      '</svg>';
+  return SvgPicture.string(svg, width: size, height: size);
+}
+
+/// The Thrive leaf/sprout glyph used in the auth hero.
+Widget _heroGlyph({double size = 26}) {
+  const paths = [
+    'M12 2v6',
+    'M12 22v-4',
+    'M4.5 9.5 8 12',
+    'M19.5 9.5 16 12',
+    'M6 18l3-3',
+    'M18 18l-3-3',
+  ];
+  final buffer = StringBuffer()
+    ..write(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" '
+      'viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" '
+      'stroke-linecap="round" stroke-linejoin="round">',
+    );
+  for (final d in paths) {
+    buffer.write('<path d="$d"/>');
+  }
+  buffer.write('<circle cx="12" cy="13" r="3"/></svg>');
+  return SvgPicture.string(buffer.toString(), width: size, height: size);
+}
+
+/// Full-screen login / registration gate. All auth is dummy — no account is
+/// created; a successful submit just seeds a local user.
+class _AuthScreen extends StatefulWidget {
+  const _AuthScreen({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<_AuthScreen> {
+  bool _register = false;
+  bool _busy = false;
+  String? _err;
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _pw = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _pw.dispose();
+    super.dispose();
+  }
+
+  void _setErr(String? msg) => setState(() => _err = msg);
+
+  Future<void> _googleAuth() async {
+    setState(() => _busy = true);
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+    widget.state.signInUser(
+      AppUser(
+        name: 'Eva Janssen',
+        email: 'eva.janssen@gmail.com',
+        initials: 'EJ',
+        provider: 'google',
+      ),
+    );
+  }
+
+  Future<void> _emailAuth() async {
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    if (_register && name.isEmpty) return _setErr('Enter your name');
+    if (!_kEmailRe.hasMatch(email)) return _setErr('Enter a valid email');
+    if (_pw.text.length < 4) {
+      return _setErr('Password must be at least 4 characters');
+    }
+    final resolved = _register
+        ? name
+        : email
+              .split('@')
+              .first
+              .replaceAll(RegExp(r'[._]+'), ' ')
+              .split(' ')
+              .map(
+                (w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}',
+              )
+              .join(' ');
+    setState(() {
+      _err = null;
+      _busy = true;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    widget.state.signInUser(
+      AppUser(
+        name: resolved,
+        email: email,
+        initials: initialsOf(resolved),
+        provider: 'email',
+      ),
+    );
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController ctrl,
+    String hint, {
+    bool obscure = false,
+    TextInputType? type,
+    Key? key,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.soft2,
+              ),
+            ),
+          ),
+          TextField(
+            key: key,
+            controller: ctrl,
+            obscureText: obscure,
+            keyboardType: type,
+            onChanged: (_) {
+              if (_err != null) _setErr(null);
+            },
+            onSubmitted: (_) => _emailAuth(),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: B.ink,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: B.muted,
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(13),
+                borderSide: const BorderSide(color: B.line),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(13),
+                borderSide: const BorderSide(color: B.primary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reg = _register;
+    return Material(
+      color: B.page,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // brand hero
+            Container(
+              padding: const EdgeInsets.fromLTRB(26, 64, 26, 30),
+              decoration: const BoxDecoration(
+                gradient: B.grad,
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: .18),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Center(child: _heroGlyph(size: 26)),
+                  ),
+                  const Text(
+                    'Thrive',
+                    style: TextStyle(
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: Text(
+                      'The shared money workspace for your family. Track income, '
+                      'expenses & savings together.',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                        color: Colors.white.withValues(alpha: .92),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // form
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    reg ? 'Create your account' : 'Welcome back',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.3,
+                      color: B.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    reg
+                        ? 'Set up your family workspace in seconds.'
+                        : 'Sign in to your family workspace.',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: B.soft2,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Google (dummy)
+                  GestureDetector(
+                    key: const ValueKey('auth-google'),
+                    onTap: _busy ? null : _googleAuth,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: B.line),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _googleLogo(size: 19),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: B.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // OR divider
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Divider(color: B.line, height: 1),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: const Text(
+                            'OR',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: .5,
+                              color: B.muted,
+                            ),
+                          ),
+                        ),
+                        const Expanded(
+                          child: Divider(color: B.line, height: 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (reg)
+                    _field(
+                      'Full name',
+                      _name,
+                      'Eva Janssen',
+                      key: const ValueKey('auth-name'),
+                    ),
+                  _field(
+                    'Email',
+                    _email,
+                    'you@email.com',
+                    type: TextInputType.emailAddress,
+                    key: const ValueKey('auth-email'),
+                  ),
+                  _field(
+                    'Password',
+                    _pw,
+                    '••••••••',
+                    obscure: true,
+                    key: const ValueKey('auth-pw'),
+                  ),
+                  if (_err != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          ic('x', size: 14, sw: 2.4, color: B.red),
+                          const SizedBox(width: 6),
+                          Text(
+                            _err!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: B.red,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  GestureDetector(
+                    key: const ValueKey('auth-submit'),
+                    onTap: _busy ? null : _emailAuth,
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      decoration: BoxDecoration(
+                        color: B.primary.withValues(alpha: _busy ? .7 : 1),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        _busy
+                            ? 'Please wait…'
+                            : (reg ? 'Create account' : 'Sign in'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: GestureDetector(
+                      key: const ValueKey('auth-toggle'),
+                      onTap: () => setState(() {
+                        _register = !_register;
+                        _err = null;
+                      }),
+                      child: Text.rich(
+                        TextSpan(
+                          text: reg
+                              ? 'Already have an account? '
+                              : 'New to Thrive? ',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: B.soft2,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: reg ? 'Sign in' : 'Create one',
+                              style: const TextStyle(
+                                color: B.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Center(
+                    child: Text(
+                      'Demo prototype · no real account is created',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                        color: B.muted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
