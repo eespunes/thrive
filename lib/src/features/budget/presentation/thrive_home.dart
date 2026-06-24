@@ -52,8 +52,56 @@ class _ThriveHomeState extends State<ThriveHome> {
   // ---------------------------------------------------------------- boot
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
+    _syncUserFromFirebaseAuth();
 
-    // Signed-in user (stored separately, like the design's `thrive.user`).
+    if (_cloudBacked) {
+      await _bindCloudSync();
+      final uid = _firebaseUid()!;
+      final remoteSnap = await _stateDocRef(uid).get();
+      final remoteRoot = remoteSnap.data();
+      final remoteState = remoteRoot?['state'];
+      if (remoteState is Map) {
+        _restoreV4(Map<String, dynamic>.from(remoteState));
+        _lastSyncedAtMillis =
+            (remoteRoot?['updatedAtMillis'] as num?)?.toInt() ?? 0;
+        if (!mounted) return;
+        setState(() => ready = true);
+        return;
+      }
+
+      // Migrate any older local state into cloud on first Firebase run.
+      final rawV4 = prefs.getString(kStorageKeyV4);
+      if (rawV4 != null) {
+        try {
+          _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
+          if (!mounted) return;
+          setState(() => ready = true);
+          await _persist();
+          return;
+        } catch (_) {
+          /* fall through to v3 / seed */
+        }
+      }
+
+      final rawV3 = prefs.getString(kStorageKey);
+      if (rawV3 != null) {
+        try {
+          _restore(json.decode(rawV3) as Map<String, dynamic>);
+          _seedFamiliesAndWorkspace();
+          if (!mounted) return;
+          setState(() => ready = true);
+          await _persist();
+          return;
+        } catch (_) {
+          /* fall through to seed */
+        }
+      }
+
+      await _seedFromAsset();
+      return;
+    }
+
+    // Signed-in user in local/demo mode only.
     final rawUser = prefs.getString(kUserKey);
     if (rawUser != null) {
       try {
@@ -68,8 +116,6 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (rawV4 != null) {
       try {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
-        _syncUserFromFirebaseAuth();
-        await _bindCloudSync();
         if (!mounted) return;
         setState(() => ready = true);
         return;
@@ -84,8 +130,6 @@ class _ThriveHomeState extends State<ThriveHome> {
       try {
         _restore(json.decode(rawV3) as Map<String, dynamic>);
         _seedFamiliesAndWorkspace();
-        _syncUserFromFirebaseAuth();
-        await _bindCloudSync();
         if (!mounted) return;
         setState(() => ready = true);
         _persist();
@@ -96,8 +140,6 @@ class _ThriveHomeState extends State<ThriveHome> {
     }
 
     await _seedFromAsset();
-    _syncUserFromFirebaseAuth();
-    await _bindCloudSync();
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -122,6 +164,8 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (Firebase.apps.isEmpty) return null;
     return FirebaseAuth.instance.currentUser?.uid;
   }
+
+  bool get _cloudBacked => _firebaseUid() != null;
 
   DocumentReference<Map<String, dynamic>> _stateDocRef(String uid) {
     return FirebaseFirestore.instance.collection('user_workspaces').doc(uid);
@@ -308,8 +352,13 @@ class _ThriveHomeState extends State<ThriveHome> {
     final prefs = await SharedPreferences.getInstance();
     _syncWorkspaces();
     final payload = _buildStatePayload();
+    if (_cloudBacked) {
+      await prefs.remove(kStorageKeyV4);
+      await prefs.remove(kStorageKey);
+      await _pushCloudState(payload);
+      return;
+    }
     await prefs.setString(kStorageKeyV4, json.encode(payload));
-    await _pushCloudState(payload);
   }
 
   Map<String, dynamic> _buildStatePayload() {
@@ -342,7 +391,7 @@ class _ThriveHomeState extends State<ThriveHome> {
   /// Persists (or clears) the signed-in user blob.
   Future<void> _persistUser() async {
     final prefs = await SharedPreferences.getInstance();
-    if (user == null) {
+    if (_cloudBacked || user == null) {
       await prefs.remove(kUserKey);
     } else {
       await prefs.setString(kUserKey, json.encode(user!.toJson()));
