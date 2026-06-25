@@ -2,6 +2,9 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Auth, profile and family mutations + avatar helpers, ported from the
 /// design's `signInUser` / `saveProfile` / family methods.
+/// Tracks whether the google_sign_in v7 singleton has been initialized.
+bool _googleSignInInitialized = false;
+
 extension _ThriveAccountActions on _ThriveHomeState {
   // ----------------------------------------------------------- identity
   /// The current family, or null when signed out / none exist.
@@ -159,7 +162,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _familySub?.cancel();
     _familySub = null;
     if (firebaseAppsAvailable) {
-      unawaited(GoogleSignIn().signOut());
+      unawaited(GoogleSignIn.instance.signOut());
       unawaited(FirebaseAuth.instance.signOut());
     }
     _persistUser();
@@ -269,13 +272,18 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }
     try {
       debugPrint('[auth] Google sign-in started');
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        debugPrint('[auth] Google sign-in cancelled by user');
-        return 'Google sign-in cancelled';
+      final googleSignIn = GoogleSignIn.instance;
+      if (!_googleSignInInitialized) {
+        await googleSignIn.initialize();
+        _googleSignInInitialized = true;
       }
+      if (!googleSignIn.supportsAuthenticate()) {
+        debugPrint('[auth] Platform does not support interactive authenticate');
+        return 'Google sign-in is not supported on this device';
+      }
+      final googleUser = await googleSignIn.authenticate();
       debugPrint('[auth] Google account selected: ${googleUser.email}');
-      final googleAuth = await googleUser.authentication;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null || idToken.isEmpty) {
         debugPrint(
@@ -287,10 +295,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       debugPrint(
         '[auth] Google idToken acquired, exchanging for Firebase credential',
       );
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: idToken,
-      );
+      final credential = GoogleAuthProvider.credential(idToken: idToken);
       final userCredential = await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
@@ -323,10 +328,15 @@ extension _ThriveAccountActions on _ThriveHomeState {
       );
       await _loadCloudAfterSignIn();
       return null;
-    } on FirebaseAuthException catch (e) {
+    } on GoogleSignInException catch (e) {
       debugPrint(
-        '[auth] FirebaseAuthException code=${e.code} message=${e.message}',
+        '[auth] GoogleSignInException code=${e.code} description=${e.description}',
       );
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        return 'Google sign-in cancelled';
+      }
+      return e.description ?? 'Google sign-in failed on device';
+    } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'account-exists-with-different-credential':
           return 'This email is already linked to another sign-in method';
