@@ -395,7 +395,13 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (_cloudBacked) {
       await prefs.remove(kStorageKeyV4);
       await prefs.remove(kStorageKey);
-      await _pushCloudState();
+      // Never push an EMPTY family set to the cloud. An empty in-memory
+      // `families` only occurs transiently — during sign-in (before cloudBoot
+      // has loaded them) and during sign-out (after they're cleared) — and
+      // writing `familyIds: []` then would wipe the account's membership and
+      // strand it on the onboarding gate next login (issue #128). Deliberate
+      // "leave/delete my last family" flows update the user doc on their own.
+      if (families.isNotEmpty) await _pushCloudState();
       return;
     }
     await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
