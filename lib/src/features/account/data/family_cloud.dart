@@ -22,6 +22,12 @@ const String kRegistryKey = 'thrive.registry';
 /// Cloud Functions region. MUST match `REGION` in `functions/index.js`.
 const String kFunctionsRegion = 'europe-west1';
 
+/// Upper bound for any single cloud round-trip (Firestore write/read or a
+/// callable). Awaiting a Firestore write resolves only once the backend acks
+/// it, so with offline persistence a dropped connection would otherwise hang
+/// the UI forever. Bounding every await turns that into a recoverable error.
+const Duration kCloudOpTimeout = Duration(seconds: 12);
+
 /// Salted SHA-256 of a family join password, used only by the offline/demo
 /// local registry. Cloud joins are verified server-side by a Cloud Function;
 /// the client never sees or compares a cloud family's password hash.
@@ -284,20 +290,28 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         members: [me],
       );
       final ws = Workspace.empty();
-      await _familyDocRef(fid).set(_familyToDoc(fam, ws));
+      // Commit the family doc server-side before registering credentials (the
+      // Cloud Function reads it). Bounded: awaiting a Firestore write only
+      // resolves once the backend acks it, so an offline/flaky connection must
+      // surface an error instead of stranding the user on "Creating…".
+      await _familyDocRef(
+        fid,
+      ).set(_familyToDoc(fam, ws)).timeout(kCloudOpTimeout);
       // Credentials (and their salted hash) are written ONLY by the backend.
       // The owner registers them through a Cloud Function so the password
       // never lands in a client-readable document.
       try {
-        await _functions.httpsCallable('createFamilyCredentials').call({
-          'familyId': fid,
-          'username': slug,
-          'password': password,
-        });
+        await _functions
+            .httpsCallable('createFamilyCredentials')
+            .call({'familyId': fid, 'username': slug, 'password': password})
+            .timeout(kCloudOpTimeout);
       } on FirebaseFunctionsException catch (e) {
         // Roll back the family doc so we don't leave an unjoinable orphan.
-        await _familyDocRef(fid).delete();
+        await _familyDocRef(fid).delete().catchError((_) {});
         return _functionsMessage(e, 'Could not create family right now');
+      } on TimeoutException {
+        await _familyDocRef(fid).delete().catchError((_) {});
+        return 'Could not create family right now';
       }
       _syncWorkspaces();
       workspaces[fid] = ws;
@@ -309,10 +323,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         swipedId = null;
         collapsed = {};
       });
-      await _writeUserDoc(meUid);
+      // The family + credentials now exist server-side, so creation has
+      // succeeded. Recording membership in the user doc is durable via offline
+      // persistence and must NOT block the UI — awaiting it could hang on a
+      // dropped connection and strand the user on the spinner.
+      unawaited(_writeUserDoc(meUid).catchError((_) {}));
       await bindCloudSync(meUid);
       flash('Created ${fam.name}');
       return null;
+    } on TimeoutException {
+      return 'Could not create family right now';
     } catch (e) {
       debugPrint('[cloud] createFamily failed: $e');
       return 'Could not create family right now';
@@ -332,20 +352,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // to the family's membership, so we are now allowed to read it.
       final String fid;
       try {
-        final res = await _functions.httpsCallable('joinFamily').call({
-          'username': slug,
-          'password': password,
-        });
+        final res = await _functions
+            .httpsCallable('joinFamily')
+            .call({'username': slug, 'password': password})
+            .timeout(kCloudOpTimeout);
         final data = Map<String, dynamic>.from(res.data as Map);
         fid = (data['familyId'] ?? '').toString();
       } on FirebaseFunctionsException catch (e) {
         return _functionsMessage(e, 'Could not join family right now');
+      } on TimeoutException {
+        return 'Could not join family right now';
       }
       if (fid.isEmpty) return 'Could not join family right now';
       if (families.any((f) => f.id == fid)) {
         return 'You\u2019re already in this family';
       }
-      final snap = await _familyDocRef(fid).get();
+      final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
       final fam = _familyFromDoc(fid, data);
@@ -361,10 +383,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         collapsed = {};
       });
       _localizeMeIn(fam, meUid);
-      await _writeUserDoc(meUid);
+      // Best-effort: durable via offline persistence, must not block the UI.
+      unawaited(_writeUserDoc(meUid).catchError((_) {}));
       await bindCloudSync(meUid);
       flash('Joined ${fam.name}');
       return null;
+    } on TimeoutException {
+      return 'Could not join family right now';
     } catch (e) {
       debugPrint('[cloud] joinFamily failed: $e');
       return 'Could not join family right now';
