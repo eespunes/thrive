@@ -31,6 +31,8 @@ Future<void> pumpApp(
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+  dismissAppError();
+  addTearDown(dismissAppError);
   SharedPreferences.setMockInitialValues({
     if (signedIn) ..._signedInUser,
     ...prefs,

@@ -30,6 +30,23 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
   });
 
+  testWidgets('boots from v4 persisted JSON', (tester) async {
+    final payload = json.encode({
+      'year': 2027,
+      'monthIdx': 99,
+      'screen': 'hacker',
+      'familyId': 'missing',
+      'families': <dynamic>[],
+      'workspaces': <String, dynamic>{},
+    });
+    await pumpApp(
+      tester,
+      signedIn: false,
+      prefs: {'flutter.thrive.v4': payload},
+    );
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
   testWidgets('reboot restores persisted state', (tester) async {
     await pumpApp(tester);
     // Make a change that persists, then reboot to hit the _restore path.

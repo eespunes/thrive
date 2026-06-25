@@ -9,7 +9,7 @@ extension _ThriveSheets on _ThriveHomeState {
     bool monthScoped = false,
   }) async {
     if (monthScoped && isClosed()) {
-      flash('Month is closed');
+      showError('Month is closed');
       return;
     }
     update(() => swipedId = null);
@@ -407,7 +407,7 @@ extension _ThriveSheets on _ThriveHomeState {
   void doCopy(int fromYear, int from, int toYear, int to) {
     if (fromYear == toYear && from == to) return;
     if (isClosed(to, toYear)) {
-      flash('Destination is closed');
+      showError('Destination is closed');
       return;
     }
     ensureYear(fromYear);
@@ -583,11 +583,13 @@ Widget _sheetInput(
   TextEditingController ctrl, {
   String hint = '',
   bool number = false,
+  bool obscure = false,
   ValueChanged<String>? onChanged,
 }) {
   return TextField(
     controller: ctrl,
     onChanged: onChanged,
+    obscureText: obscure,
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,

@@ -2,6 +2,9 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Auth, profile and family mutations + avatar helpers, ported from the
 /// design's `signInUser` / `saveProfile` / family methods.
+/// Tracks whether the google_sign_in v7 singleton has been initialized.
+bool _googleSignInInitialized = false;
+
 extension _ThriveAccountActions on _ThriveHomeState {
   // ----------------------------------------------------------- identity
   /// The current family, or null when signed out / none exist.
@@ -112,7 +115,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
   void signInUser(AppUser u) {
     update(() {
       user = u;
-      if (families.isEmpty) {
+      // In local/demo mode seed a starter family so the app is immediately
+      // usable. In cloud mode we instead load the user's shared families (or
+      // land on onboarding) — see the sign-in flows below.
+      if (!_cloudBacked && families.isEmpty) {
         families = [seedFamily('fam_main', u)];
         familyId = 'fam_main';
         workspaces.putIfAbsent(
@@ -131,12 +137,32 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Welcome, ${u.name.split(' ').first}');
   }
 
+  // requires a live Firestore backend.
+  // coverage:ignore-start
+  /// After a successful Firebase sign-in, loads the shared families this user
+  /// belongs to. Leaves `families` empty (→ onboarding) for brand-new users.
+  Future<void> _loadCloudAfterSignIn() async {
+    final uid = _firebaseUid();
+    if (uid == null) return;
+    await cloudBoot(uid);
+    await bindCloudSync(uid);
+    if (mounted) update(() {});
+  }
+  // coverage:ignore-end
+
   void signOut() {
-    update(() => user = null);
+    update(() {
+      user = null;
+      families = [];
+      workspaces = {};
+      familyId = 'fam_main';
+    });
     _cloudSub?.cancel();
     _cloudSub = null;
-    if (Firebase.apps.isNotEmpty) {
-      unawaited(GoogleSignIn().signOut());
+    _familySub?.cancel();
+    _familySub = null;
+    if (firebaseAppsAvailable) {
+      unawaited(GoogleSignIn.instance.signOut());
       unawaited(FirebaseAuth.instance.signOut());
     }
     _persistUser();
@@ -148,7 +174,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     required bool register,
     String? name,
   }) async {
-    if (Firebase.apps.isEmpty) {
+    if (!firebaseAppsAvailable) {
       final resolved = register
           ? (name ?? '').trim()
           : email
@@ -212,7 +238,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
           photo: current.photoURL,
         ),
       );
-      await _bindCloudSync();
+      await _loadCloudAfterSignIn();
       return null;
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
@@ -233,7 +259,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
   }
 
   Future<String?> signInWithGoogle() async {
-    if (Firebase.apps.isEmpty) {
+    if (!firebaseAppsAvailable) {
       signInUser(
         AppUser(
           name: 'Eva Janssen',
@@ -246,13 +272,18 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }
     try {
       debugPrint('[auth] Google sign-in started');
-      final googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        debugPrint('[auth] Google sign-in cancelled by user');
-        return 'Google sign-in cancelled';
+      final googleSignIn = GoogleSignIn.instance;
+      if (!_googleSignInInitialized) {
+        await googleSignIn.initialize();
+        _googleSignInInitialized = true;
       }
+      if (!googleSignIn.supportsAuthenticate()) {
+        debugPrint('[auth] Platform does not support interactive authenticate');
+        return 'Google sign-in is not supported on this device';
+      }
+      final googleUser = await googleSignIn.authenticate();
       debugPrint('[auth] Google account selected: ${googleUser.email}');
-      final googleAuth = await googleUser.authentication;
+      final googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
       if (idToken == null || idToken.isEmpty) {
         debugPrint(
@@ -264,10 +295,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       debugPrint(
         '[auth] Google idToken acquired, exchanging for Firebase credential',
       );
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: idToken,
-      );
+      final credential = GoogleAuthProvider.credential(idToken: idToken);
       final userCredential = await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
@@ -298,12 +326,17 @@ extension _ThriveAccountActions on _ThriveHomeState {
           photo: current.photoURL,
         ),
       );
-      await _bindCloudSync();
+      await _loadCloudAfterSignIn();
       return null;
-    } on FirebaseAuthException catch (e) {
+    } on GoogleSignInException catch (e) {
       debugPrint(
-        '[auth] FirebaseAuthException code=${e.code} message=${e.message}',
+        '[auth] GoogleSignInException code=${e.code} description=${e.description}',
       );
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        return 'Google sign-in cancelled';
+      }
+      return e.description ?? 'Google sign-in failed on device';
+    } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'account-exists-with-different-credential':
           return 'This email is already linked to another sign-in method';
@@ -433,10 +466,72 @@ extension _ThriveAccountActions on _ThriveHomeState {
       collapsed = {};
     });
     _persist();
+    final uid = _firebaseUid();
+    if (uid != null) _bindActiveFamily(uid);
     flash('Switched to ${curFamily()?.name ?? 'family'}');
   }
 
-  void createFamily(String name) {
+  /// Creates a family. With a `username`/`password` it provisions a *shared*
+  /// family (cloud) or a registry-backed one (local/demo) that relatives can
+  /// join. Without credentials it falls back to a quick private workspace.
+  Future<String?> createFamily(
+    String name, {
+    String? username,
+    String? password,
+    String? picture,
+  }) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return 'Enter a family name';
+    if (username != null && password != null) {
+      final slug = familySlug(username);
+      if (!validFamilyUsername(slug)) {
+        return 'Username: 3–24 letters, numbers, - or _';
+      }
+      if (password.length < 4) {
+        return 'Password must be at least 4 characters';
+      }
+      final uid = _firebaseUid();
+      // coverage:ignore-start
+      if (uid != null) {
+        return cloudCreateFamily(
+          meUid: uid,
+          name: trimmedName,
+          username: slug,
+          password: password,
+          picture: picture,
+        );
+      }
+      // coverage:ignore-end
+      return localCreateFamily(
+        name: trimmedName,
+        username: slug,
+        password: password,
+        picture: picture,
+      );
+    }
+    _createFamilyInMemory(trimmedName);
+    return null;
+  }
+
+  /// Joins an existing shared family by its username + password.
+  Future<String?> joinFamily({
+    required String username,
+    required String password,
+  }) async {
+    final uid = _firebaseUid();
+    // coverage:ignore-start
+    if (uid != null) {
+      return cloudJoinFamily(
+        meUid: uid,
+        username: username,
+        password: password,
+      );
+    }
+    // coverage:ignore-end
+    return localJoinFamily(username: username, password: password);
+  }
+
+  void _createFamilyInMemory(String name) {
     _syncWorkspaces();
     final id = 'fam_${uid()}';
     final ws = Workspace.empty();
@@ -445,6 +540,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final fam = Family(
       id: id,
       name: name,
+      username: familySlug(name),
+      ownerUid: _firebaseUid(),
+      memberUids: _firebaseUid() != null ? [_firebaseUid()!] : <String>[],
       members: [
         FamilyMember(
           id: 'me',
@@ -452,6 +550,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
           email: u?.email ?? '',
           initials: u?.initials ?? '?',
           color: kMemberColors[0],
+          uid: _firebaseUid(),
           photo: u?.photo,
           role: 'owner',
           status: 'active',
@@ -474,6 +573,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
 
   void deleteFamily(String id) {
     if (families.length <= 1) return;
+    final uid = _firebaseUid();
+    if (uid != null) unawaited(cloudDeleteFamily(uid, id));
     final remaining = families.where((f) => f.id != id).toList();
     workspaces.remove(id);
     update(() {

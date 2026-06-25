@@ -15,6 +15,10 @@ extension _ThriveAccountSheets on _ThriveHomeState {
   void openNewFamilySheet() {
     _showSheet((ctx) => _NewFamilySheet(state: this));
   }
+
+  void openJoinFamilySheet() {
+    _showSheet((ctx) => _JoinFamilySheet(state: this));
+  }
 }
 
 /// Small "add" action row used inside cards (mirrors `addRow()`).
@@ -91,6 +95,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
     });
   }
 
+  // coverage:ignore-start
   Future<void> _pickPhoto() async {
     try {
       final XFile? file = await _picker.pickImage(
@@ -109,9 +114,10 @@ class _ProfileSheetState extends State<_ProfileSheet> {
         _colorTouched = true;
       });
     } catch (_) {
-      s.flash('Could not load image');
+      s.showError('Could not load image');
     }
   }
+  // coverage:ignore-end
 
   @override
   Widget build(BuildContext context) {
@@ -241,10 +247,75 @@ class _ProfileSheetState extends State<_ProfileSheet> {
           ),
         ),
         ...s.families.map(_familyRow),
-        _addRow('Create new family', () {
-          Navigator.of(context).pop();
-          s.openNewFamilySheet();
-        }, key: const ValueKey('profile-new-family')),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                key: const ValueKey('profile-new-family'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  s.openNewFamilySheet();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: B.soft,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: B.greenLine),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ic('plus', size: 15, sw: 2.5, color: B.deep),
+                      const SizedBox(width: 7),
+                      const Text(
+                        'Create',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: B.deep,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: GestureDetector(
+                key: const ValueKey('profile-join-family'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  s.openJoinFamilySheet();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: B.line),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ic('users', size: 15, sw: 2.2, color: B.text),
+                      const SizedBox(width: 7),
+                      const Text(
+                        'Join',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: B.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         // sign out
         Padding(
           padding: const EdgeInsets.only(top: 14),
@@ -304,22 +375,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: cur ? B.primary : B.faint,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Center(
-                  child: ic(
-                    'users',
-                    size: 16,
-                    sw: 2.2,
-                    color: cur ? Colors.white : B.soft2,
-                  ),
-                ),
-              ),
+              famAvatar(picture: f.picture, size: 34, radius: 11),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(
@@ -607,6 +663,7 @@ class _FamilySheetState extends State<_FamilySheet> {
               ),
             ),
           _membersCard(f, owner),
+          if (f.username.trim().isNotEmpty) _joinCredCard(f),
           if (_invite) _inviteCard(),
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 2, 0, 10),
@@ -679,6 +736,88 @@ class _FamilySheetState extends State<_FamilySheet> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _joinCredCard(Family f) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 13),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: B.soft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: B.greenLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ic('users', size: 14, sw: 2.2, color: B.deep),
+              const SizedBox(width: 7),
+              const Text(
+                'Invite relatives',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: B.deep,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Share this username and the family password so they can join from '
+            'their own account.',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+              color: B.soft2,
+            ),
+          ),
+          const SizedBox(height: 11),
+          GestureDetector(
+            key: const ValueKey('family-copy-username'),
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: f.username));
+              s.flash('Username copied');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: B.line),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'Username',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: B.muted,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      f.username,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.ink,
+                      ),
+                    ),
+                  ),
+                  ic('copy', size: 15, sw: 2.2, color: B.deep),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1165,11 +1304,63 @@ class _NewFamilySheet extends StatefulWidget {
 
 class _NewFamilySheetState extends State<_NewFamilySheet> {
   final _name = TextEditingController();
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  String? _picture;
+  bool _busy = false;
+  final _picker = ImagePicker();
+
+  _ThriveHomeState get s => widget.state;
 
   @override
   void dispose() {
     _name.dispose();
+    _username.dispose();
+    _password.dispose();
     super.dispose();
+  }
+
+  // coverage:ignore-start
+  Future<void> _pickPhoto() async {
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 82,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() => _picture = base64Encode(bytes));
+    } catch (_) {
+      s.showError('Could not load image');
+    }
+  }
+  // coverage:ignore-end
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    final hasCreds = _username.text.trim().isNotEmpty;
+    if (hasCreds && _password.text.length < 4) {
+      s.showError('Password must be at least 4 characters');
+      return;
+    }
+    s.dismissError();
+    setState(() => _busy = true);
+    final err = await s.createFamily(
+      _name.text,
+      username: hasCreds ? _username.text : null,
+      password: hasCreds ? _password.text : null,
+      picture: _picture,
+    );
+    if (!mounted) return;
+    if (err == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _busy = false);
+    s.showError(err);
   }
 
   @override
@@ -1183,10 +1374,145 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
           _sheetHead(
             context,
             'Create a family',
-            'A fresh, separate budget workspace',
+            'A fresh, separate workspace relatives can join',
           ),
+          Center(
+            child: Column(
+              children: [
+                famAvatar(picture: _picture, size: 66, radius: 20),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  key: const ValueKey('new-family-photo'),
+                  onTap: _pickPhoto,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: B.soft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ic('edit', size: 14, sw: 2.2, color: B.deep),
+                        const SizedBox(width: 6),
+                        Text(
+                          _picture != null ? 'Change' : 'Add photo',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: B.deep,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 15),
+          _sheetField(
+            'Family name',
+            _sheetInput(
+              _name,
+              hint: 'e.g. The Janssens',
+              onChanged: (_) => setState(s.dismissError),
+            ),
+          ),
+          _sheetField(
+            'Family username (optional)',
+            _sheetInput(
+              _username,
+              hint: 'e.g. beach-house',
+              onChanged: (_) => setState(s.dismissError),
+            ),
+          ),
+          _sheetField(
+            'Family password (optional)',
+            _sheetInput(
+              _password,
+              hint: 'At least 4 characters',
+              obscure: true,
+              onChanged: (_) => setState(s.dismissError),
+            ),
+          ),
+          _primaryBtn(
+            _busy ? 'Creating…' : 'Create family',
+            _submit,
+            enabled: valid,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 13),
+            child: Text(
+              'Add a username & password so relatives can join this family.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: B.muted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ======================================================== join family sheet
+class _JoinFamilySheet extends StatefulWidget {
+  const _JoinFamilySheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_JoinFamilySheet> createState() => _JoinFamilySheetState();
+}
+
+class _JoinFamilySheetState extends State<_JoinFamilySheet> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _busy = false;
+
+  _ThriveHomeState get s => widget.state;
+
+  @override
+  void dispose() {
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    s.dismissError();
+    setState(() => _busy = true);
+    final err = await s.joinFamily(
+      username: _username.text,
+      password: _password.text,
+    );
+    if (!mounted) return;
+    if (err == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _busy = false);
+    s.showError(err);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final valid = _username.text.trim().isNotEmpty;
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sheetHead(context, 'Join a family', 'Enter shared credentials'),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.all(14),
             margin: const EdgeInsets.only(bottom: 15),
             decoration: BoxDecoration(
               color: B.soft,
@@ -1208,8 +1534,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
                 const SizedBox(width: 11),
                 const Expanded(
                   child: Text(
-                    'Each family keeps its own accounts, budget blocks and '
-                    'months. You’ll be the owner.',
+                    'Ask the owner for the family username & password.',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -1222,17 +1547,39 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
             ),
           ),
           _sheetField(
-            'Family name',
+            'Family username',
             _sheetInput(
-              _name,
-              hint: 'e.g. Beach house, Parents…',
-              onChanged: (_) => setState(() {}),
+              _username,
+              hint: 'e.g. vanderberg',
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
-          _primaryBtn('Create family', () {
-            widget.state.createFamily(_name.text.trim());
-            Navigator.of(context).pop();
-          }, enabled: valid),
+          _sheetField(
+            'Family password',
+            _sheetInput(
+              _password,
+              hint: 'Family password',
+              obscure: true,
+              onChanged: (_) => setState(s.dismissError),
+            ),
+          ),
+          _primaryBtn(
+            _busy ? 'Joining…' : 'Join family',
+            _submit,
+            enabled: valid,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 13),
+            child: Text(
+              'Demo: vanderberg / demo',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: B.muted,
+              ),
+            ),
+          ),
         ],
       ),
     );
