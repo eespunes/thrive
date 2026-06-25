@@ -1886,8 +1886,14 @@ extension _ThriveScreens on _ThriveHomeState {
       ),
     );
 
-    final reset = GestureDetector(
-      onTap: resetAll,
+    final deleteAccountBtn = GestureDetector(
+      key: const ValueKey('settings-delete-account'),
+      onTap: () => askDelete(
+        'your account',
+        'This permanently deletes your account. Any family where you are the '
+            'only member is deleted too; families with others stay.',
+        () => unawaited(deleteUserAccount()),
+      ),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1897,7 +1903,7 @@ extension _ThriveScreens on _ThriveHomeState {
           border: Border.all(color: B.line),
         ),
         child: const Text(
-          'Reset to spreadsheet data',
+          'Delete account',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12.5,
@@ -1914,7 +1920,7 @@ extension _ThriveScreens on _ThriveHomeState {
         card('Accounts', 'users', Column(children: accRows)),
         card('Budget blocks', 'grid', Column(children: blockRows)),
         copyCard,
-        reset,
+        deleteAccountBtn,
         const SizedBox(height: 14),
         Text(
           'Thrive \u00b7 Family budget \u00b7 $year',

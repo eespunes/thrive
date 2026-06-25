@@ -526,6 +526,84 @@ extension _ThriveAccountActions on _ThriveHomeState {
     return null;
   }
 
+  /// True when [slug] is a valid handle that no family has claimed yet. Checks
+  /// the families already loaded, then the cloud handle registry (signed-in) or
+  /// the local registry (offline/demo). On an unknown/errored lookup it returns
+  /// false so a taken handle is never offered as available.
+  Future<bool> familyUsernameAvailable(String slug) async {
+    if (!validFamilyUsername(slug)) return false;
+    if (families.any((f) => f.username == slug)) return false;
+    final uid = _firebaseUid();
+    // coverage:ignore-start
+    if (uid != null) {
+      try {
+        final snap = await _familyHandleRef(
+          slug,
+        ).get().timeout(kCloudOpTimeout);
+        return !snap.exists;
+      } catch (_) {
+        return false;
+      }
+    }
+    // coverage:ignore-end
+    final reg = await loadRegistry();
+    return !reg.containsKey(slug);
+  }
+
+  /// Suggests an available family handle derived from [name], appending a
+  /// numeric suffix until a free one is found. Returns '' when [name] is too
+  /// short to derive a valid handle or nothing is available.
+  Future<String> suggestFamilyUsername(String name) async {
+    final base = familySlug(name);
+    if (!validFamilyUsername(base)) return '';
+    if (await familyUsernameAvailable(base)) return base;
+    for (var i = 2; i <= 99; i++) {
+      final candidate = familySlug('$base-$i');
+      if (!validFamilyUsername(candidate)) continue;
+      if (await familyUsernameAvailable(candidate)) return candidate;
+    }
+    return '';
+  }
+
+  /// Permanently deletes the signed-in account (issue #116). Any family this
+  /// user is the sole member of is deleted with the account; families with
+  /// other members simply lose this user. The user is then signed out.
+  Future<void> deleteUserAccount() async {
+    final uid = _firebaseUid();
+    // coverage:ignore-start
+    if (uid != null) {
+      await _deleteAccountCloud(uid);
+    } else {
+      // coverage:ignore-end
+      await _deleteAccountLocal();
+    }
+    signOut();
+    flash('Account deleted');
+  }
+
+  /// Offline/demo equivalent of account deletion: drops registry entries for any
+  /// family this user is the sole member of and strips this user from the rest.
+  Future<void> _deleteAccountLocal() async {
+    final reg = await loadRegistry();
+    for (final f in families) {
+      final others = f.members.where((m) => m.id != 'me').toList();
+      if (others.isEmpty) {
+        reg.remove(f.username);
+      } else {
+        final entry = reg[f.username];
+        if (entry is Map) {
+          final map = Map<String, dynamic>.from(entry);
+          map['members'] = [
+            for (final m in (map['members'] as List? ?? []))
+              if (Map<String, dynamic>.from(m as Map)['id'] != 'me') m,
+          ];
+          reg[f.username] = map;
+        }
+      }
+    }
+    await saveRegistry(reg);
+  }
+
   /// Joins an existing shared family by its username + password.
   Future<String?> joinFamily({
     required String username,

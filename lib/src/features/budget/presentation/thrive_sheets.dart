@@ -451,25 +451,6 @@ extension _ThriveSheets on _ThriveHomeState {
       ),
     );
   }
-
-  void resetAll() {
-    askDelete(
-      'all data',
-      'This restores the bundled spreadsheet data and discards your changes.',
-      () async {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(kStorageKey);
-        update(() {
-          ready = false;
-          accounts = defaultAccounts();
-          cats = defaultCats();
-          data = {};
-          collapsed = {};
-        });
-        await _seedFromAsset();
-      },
-    );
-  }
 }
 
 // ============================================================ sheet shell

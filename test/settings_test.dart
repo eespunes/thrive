@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'helpers.dart';
 
 void main() {
-  testWidgets('settings renders accounts, blocks, copy & reset', (
+  testWidgets('settings renders accounts, blocks, copy & delete account', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -14,7 +14,7 @@ void main() {
     expect(find.text('Copy a month'), findsWidgets);
     expect(find.text('Add account'), findsOneWidget);
     expect(find.text('Add budget block'), findsOneWidget);
-    expect(find.text('Reset to spreadsheet data'), findsOneWidget);
+    expect(find.text('Delete account'), findsOneWidget);
   });
 
   testWidgets('add a new account', (tester) async {
@@ -79,15 +79,38 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('reset to spreadsheet data shows confirm', (tester) async {
+  testWidgets('delete account confirms then signs out', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.text('Reset to spreadsheet data'));
+    await tester.tap(find.text('Delete account'));
     await tester.pumpAndSettle();
-    // confirm dialog has a Delete action; cancel/confirm
-    if (find.text('Delete').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Delete').last);
-      await tester.pumpAndSettle();
-    }
+    // Confirm dialog has a Delete action.
+    expect(find.text('Delete').evaluate().isNotEmpty, isTrue);
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    // Deleting the account signs the user out, landing on the auth gate.
+    expect(find.text('Continue with Google'), findsOneWidget);
+  });
+
+  testWidgets('delete account leaves a shared family for its other members', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    // Join the demo family, which already has other members.
+    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('profile-join-family')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
+    await tester.enterText(find.byType(TextField).at(1), 'demo');
+    await tester.tap(find.text('Join family'));
+    await tester.pumpAndSettle();
+
+    await goToTab(tester, 'settings');
+    await tester.tap(find.text('Delete account'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Continue with Google'), findsOneWidget);
   });
 }
