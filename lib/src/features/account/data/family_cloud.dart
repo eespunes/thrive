@@ -20,6 +20,11 @@ const String kFamilyHandlesCollection = 'family_handles';
 /// `localStorage['thrive.registry']`, so demo create/join works offline.
 const String kRegistryKey = 'thrive.registry';
 
+/// Document id of the shared cloud demo family seeded by [ensureCloudDemoFamily].
+/// Whoever first boots becomes its nominal owner, so boot must not auto-adopt it
+/// for that owner just because they appear in its `memberUids` (see #128/#123).
+const String kDemoFamilyId = 'fam_demo_vanderberg';
+
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
 /// it, so with offline persistence a dropped connection would otherwise hang
 /// the UI forever. Bounding every await turns that into a recoverable error.
@@ -189,20 +194,75 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // requires a live Firestore backend.
   // ----------------------------------------------------------- boot
   /// Loads the signed-in user's families from Firestore. Returns true when the
-  /// user already had cloud state (or it was migrated), false when brand new.
+  /// user already belongs to a family (or legacy state was migrated), false when
+  /// brand new.
+  ///
+  /// Membership is read from the families' own `memberUids` — the same field the
+  /// security rules treat as the source of truth — rather than the per-user
+  /// `familyIds` mirror, which is written best-effort and could lag a create or
+  /// join and strand an existing member on the onboarding gate (issue #128).
   Future<bool> cloudBoot(String meUid) async {
+    Map<String, dynamic>? userData;
     try {
-      final userSnap = await _userDocRef(meUid).get();
-      final userData = userSnap.data();
+      userData = (await _userDocRef(meUid).get()).data();
+    } catch (e) {
+      debugPrint('[cloud] boot user-doc read failed: $e');
+    }
+    try {
+      final snap = await _familiesCol()
+          .where('memberUids', arrayContains: meUid)
+          .get()
+          .timeout(kCloudOpTimeout);
+      final docs = <MapEntry<String, Map<String, dynamic>>>[
+        for (final d in snap.docs)
+          if (_includeBootFamily(d.id, d.data(), meUid, userData))
+            MapEntry(d.id, d.data()),
+      ];
+      if (docs.isNotEmpty) {
+        _applyFamilyDocs(meUid, docs, userData);
+        if (families.isNotEmpty) {
+          // Repair the user-doc mirror so its `familyIds` reflects reality.
+          unawaited(_writeUserDoc(meUid).catchError((_) {}));
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('[cloud] boot membership query failed: $e');
+    }
+    // Fallbacks: the user-doc id list (e.g. if the query is unavailable), then
+    // legacy single-blob migration for first-run upgrades.
+    try {
       if (userData != null && (userData['familyIds'] is List)) {
         await _loadFamiliesFromCloud(meUid, userData);
-        return families.isNotEmpty;
+        if (families.isNotEmpty) return true;
       }
       return await _migrateLegacyState(meUid);
     } catch (e) {
-      debugPrint('[cloud] boot failed: $e');
+      debugPrint('[cloud] boot fallback failed: $e');
       return false;
     }
+  }
+
+  CollectionReference<Map<String, dynamic>> _familiesCol() =>
+      FirebaseFirestore.instance.collection(kFamiliesCollection);
+
+  /// Whether a family surfaced by the membership query should be auto-adopted on
+  /// boot. Everything qualifies except the shared demo family for the user who
+  /// merely seeded it (its nominal owner): they never chose to join it, so it
+  /// only loads once it is explicitly recorded in their `familyIds`. A real
+  /// member who joined the demo is not its owner, so they keep it.
+  bool _includeBootFamily(
+    String fid,
+    Map<String, dynamic> data,
+    String meUid,
+    Map<String, dynamic>? userData,
+  ) {
+    if (fid != kDemoFamilyId) return true;
+    final ids = userData?['familyIds'];
+    if (ids is List && ids.map((e) => e.toString()).contains(kDemoFamilyId)) {
+      return true;
+    }
+    return (data['ownerUid'] ?? '') != meUid;
   }
 
   Future<void> _loadFamiliesFromCloud(
@@ -210,32 +270,47 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     Map<String, dynamic> userData,
   ) async {
     final ids = [for (final i in (userData['familyIds'] as List)) i.toString()];
+    final docs = <MapEntry<String, Map<String, dynamic>>>[];
+    for (final fid in ids) {
+      final data = (await _familyDocRef(fid).get()).data();
+      if (data != null) docs.add(MapEntry(fid, data));
+    }
+    _applyFamilyDocs(meUid, docs, userData);
+  }
+
+  /// Adopts a set of loaded family documents into local state, choosing the
+  /// active family from [userData] (falling back to the first) and restoring the
+  /// saved view state. Shared by every cloud boot path.
+  void _applyFamilyDocs(
+    String meUid,
+    List<MapEntry<String, Map<String, dynamic>>> docs,
+    Map<String, dynamic>? userData,
+  ) {
+    if (docs.isEmpty) return;
     final loadedFamilies = <Family>[];
     final loadedWorkspaces = <String, Workspace>{};
-    for (final fid in ids) {
-      final snap = await _familyDocRef(fid).get();
-      final data = snap.data();
-      if (data == null) continue;
-      loadedFamilies.add(_familyFromDoc(fid, data));
-      loadedWorkspaces[fid] = _workspaceFromDoc(data);
+    for (final entry in docs) {
+      loadedFamilies.add(_familyFromDoc(entry.key, entry.value));
+      loadedWorkspaces[entry.key] = _workspaceFromDoc(entry.value);
     }
-    if (loadedFamilies.isEmpty) return;
 
-    var active = (userData['activeFamilyId'] ?? '').toString();
+    var active = (userData?['activeFamilyId'] ?? '').toString();
     if (!loadedWorkspaces.containsKey(active)) active = loadedFamilies.first.id;
 
     families = loadedFamilies;
     workspaces = loadedWorkspaces;
     familyId = active;
     _adoptActiveWorkspace();
-    year = (userData['year'] as num?)?.toInt() ?? year;
-    monthIdx = ((userData['monthIdx'] as num?)?.toInt() ?? monthIdx).clamp(
-      0,
-      kMonthKeys.length - 1,
-    );
-    final rawScreen = (userData['screen'] ?? screen).toString();
-    if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
-      screen = rawScreen;
+    if (userData != null) {
+      year = (userData['year'] as num?)?.toInt() ?? year;
+      monthIdx = ((userData['monthIdx'] as num?)?.toInt() ?? monthIdx).clamp(
+        0,
+        kMonthKeys.length - 1,
+      );
+      final rawScreen = (userData['screen'] ?? screen).toString();
+      if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
+        screen = rawScreen;
+      }
     }
     _localizeMe(meUid);
   }
@@ -272,7 +347,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         slug,
       ).get().timeout(kCloudOpTimeout);
       if (handle.exists) return;
-      const fid = 'fam_demo_vanderberg';
+      const fid = kDemoFamilyId;
       final ws = await buildDemoWorkspace();
       final fam = Family(
         id: fid,
