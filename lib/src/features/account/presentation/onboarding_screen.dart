@@ -48,7 +48,6 @@ class _OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<_OnboardingScreen> {
   bool _create = true;
   bool _busy = false;
-  String? _err;
   String? _picture;
   final _name = TextEditingController();
   final _username = TextEditingController();
@@ -83,17 +82,15 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
       if (!mounted) return;
       setState(() => _picture = base64Encode(bytes));
     } catch (_) {
-      s.flash('Could not load image');
+      s.showError('Could not load image');
     }
   }
   // coverage:ignore-end
 
   Future<void> _submit() async {
     if (_busy) return;
-    setState(() {
-      _busy = true;
-      _err = null;
-    });
+    s.dismissError();
+    setState(() => _busy = true);
     final err = _create
         ? await s.createFamily(
             _name.text,
@@ -103,10 +100,8 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           )
         : await s.joinFamily(username: _joinUser.text, password: _joinPw.text);
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _err = err;
-    });
+    setState(() => _busy = false);
+    s.showError(err);
   }
 
   @override
@@ -279,16 +274,12 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
       child: Row(
         children: [
           tab('Create a family', _create, () {
-            setState(() {
-              _create = true;
-              _err = null;
-            });
+            setState(() => _create = true);
+            s.dismissError();
           }, const ValueKey('onboard-tab-create')),
           tab('Join a family', !_create, () {
-            setState(() {
-              _create = false;
-              _err = null;
-            });
+            setState(() => _create = false);
+            s.dismissError();
           }, const ValueKey('onboard-tab-join')),
         ],
       ),
@@ -370,7 +361,6 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           'At least 4 characters',
           obscure: true,
         ),
-        if (_err != null) _errorRow(_err!),
         _primaryBtn(_busy ? 'Creating…' : 'Create family', _submit),
         const Padding(
           padding: EdgeInsets.only(top: 13),
@@ -431,7 +421,6 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
         ),
         _field('Family username', _joinUser, 'e.g. vanderberg'),
         _field('Family password', _joinPw, 'Family password', obscure: true),
-        if (_err != null) _errorRow(_err!),
         _primaryBtn(_busy ? 'Joining…' : 'Join family', _submit),
         const Padding(
           padding: EdgeInsets.only(top: 13),
@@ -488,7 +477,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           TextField(
             controller: c,
             obscureText: obscure,
-            onChanged: (_) => setState(() => _err = null),
+            onChanged: (_) => s.dismissError(),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -510,28 +499,6 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
                 borderSide: const BorderSide(color: B.primary),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _errorRow(String err) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          ic('x', size: 14, sw: 2.4, color: B.red),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              err,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: B.red,
               ),
             ),
           ),

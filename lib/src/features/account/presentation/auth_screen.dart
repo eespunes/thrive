@@ -49,7 +49,6 @@ class _AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<_AuthScreen> {
   bool _register = false;
   bool _busy = false;
-  String? _err;
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _pw = TextEditingController();
@@ -62,33 +61,29 @@ class _AuthScreenState extends State<_AuthScreen> {
     super.dispose();
   }
 
-  void _setErr(String? msg) => setState(() => _err = msg);
-
   Future<void> _googleAuth() async {
-    setState(() {
-      _busy = true;
-      _err = null;
-    });
+    setState(() => _busy = true);
+    widget.state.dismissError();
     final err = await widget.state.signInWithGoogle();
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _err = err;
-    });
+    setState(() => _busy = false);
+    widget.state.showError(err);
   }
 
   Future<void> _emailAuth() async {
     final name = _name.text.trim();
     final email = _email.text.trim();
-    if (_register && name.isEmpty) return _setErr('Enter your name');
-    if (!_kEmailRe.hasMatch(email)) return _setErr('Enter a valid email');
-    if (_pw.text.length < 4) {
-      return _setErr('Password must be at least 4 characters');
+    if (_register && name.isEmpty) {
+      return widget.state.showError('Enter your name');
     }
-    setState(() {
-      _err = null;
-      _busy = true;
-    });
+    if (!_kEmailRe.hasMatch(email)) {
+      return widget.state.showError('Enter a valid email');
+    }
+    if (_pw.text.length < 4) {
+      return widget.state.showError('Password must be at least 4 characters');
+    }
+    widget.state.dismissError();
+    setState(() => _busy = true);
     final err = await widget.state.signInWithEmail(
       email: email,
       password: _pw.text,
@@ -96,10 +91,8 @@ class _AuthScreenState extends State<_AuthScreen> {
       name: name,
     );
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      _err = err;
-    });
+    setState(() => _busy = false);
+    widget.state.showError(err);
   }
 
   Widget _field(
@@ -133,7 +126,7 @@ class _AuthScreenState extends State<_AuthScreen> {
             obscureText: obscure,
             keyboardType: type,
             onChanged: (_) {
-              if (_err != null) _setErr(null);
+              widget.state.dismissError();
             },
             onSubmitted: (_) => _emailAuth(),
             style: const TextStyle(
@@ -329,24 +322,6 @@ class _AuthScreenState extends State<_AuthScreen> {
                     obscure: true,
                     key: const ValueKey('auth-pw'),
                   ),
-                  if (_err != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          ic('x', size: 14, sw: 2.4, color: B.red),
-                          const SizedBox(width: 6),
-                          Text(
-                            _err!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: B.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   GestureDetector(
                     key: const ValueKey('auth-submit'),
                     onTap: _busy ? null : _emailAuth,
@@ -374,10 +349,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                   Center(
                     child: GestureDetector(
                       key: const ValueKey('auth-toggle'),
-                      onTap: () => setState(() {
-                        _register = !_register;
-                        _err = null;
-                      }),
+                      onTap: () {
+                        setState(() => _register = !_register);
+                        widget.state.dismissError();
+                      },
                       child: Text.rich(
                         TextSpan(
                           text: reg

@@ -9,7 +9,7 @@ extension _ThriveSheets on _ThriveHomeState {
     bool monthScoped = false,
   }) async {
     if (monthScoped && isClosed()) {
-      flash('Month is closed');
+      showError('Month is closed');
       return;
     }
     update(() => swipedId = null);
@@ -407,7 +407,7 @@ extension _ThriveSheets on _ThriveHomeState {
   void doCopy(int fromYear, int from, int toYear, int to) {
     if (fromYear == toYear && from == to) return;
     if (isClosed(to, toYear)) {
-      flash('Destination is closed');
+      showError('Destination is closed');
       return;
     }
     ensureYear(fromYear);
