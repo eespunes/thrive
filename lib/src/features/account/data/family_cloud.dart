@@ -20,6 +20,11 @@ const String kFamilyHandlesCollection = 'family_handles';
 /// `localStorage['thrive.registry']`, so demo create/join works offline.
 const String kRegistryKey = 'thrive.registry';
 
+/// Document id of the shared cloud demo family seeded by [ensureCloudDemoFamily].
+/// Whoever first boots becomes its nominal owner, so boot must not auto-adopt it
+/// for that owner just because they appear in its `memberUids` (see #128/#123).
+const String kDemoFamilyId = 'fam_demo_vanderberg';
+
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
 /// it, so with offline persistence a dropped connection would otherwise hang
 /// the UI forever. Bounding every await turns that into a recoverable error.
@@ -148,7 +153,34 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
+    fam.members = _dedupeMembers(fam.members);
     return fam;
+  }
+
+  /// Collapses members that share the same Firebase `uid` down to a single
+  /// entry (preferring the owner row) so a person who ended up appended more
+  /// than once no longer shows up repeatedly (issue #125). Invited members have
+  /// no uid yet and are always preserved as-is. Loading through this also
+  /// repairs already-corrupted family docs: the de-duped list is what the owner
+  /// later persists back, cleaning the shared document.
+  List<FamilyMember> _dedupeMembers(List<FamilyMember> members) {
+    final indexByUid = <String, int>{};
+    final out = <FamilyMember>[];
+    for (final m in members) {
+      final uid = m.uid ?? '';
+      if (uid.isEmpty) {
+        out.add(m);
+        continue;
+      }
+      final at = indexByUid[uid];
+      if (at == null) {
+        indexByUid[uid] = out.length;
+        out.add(m);
+      } else if (m.role == 'owner' && out[at].role != 'owner') {
+        out[at] = m;
+      }
+    }
+    return out;
   }
 
   Workspace _workspaceFromDoc(Map<String, dynamic> doc) {
@@ -162,20 +194,75 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // requires a live Firestore backend.
   // ----------------------------------------------------------- boot
   /// Loads the signed-in user's families from Firestore. Returns true when the
-  /// user already had cloud state (or it was migrated), false when brand new.
+  /// user already belongs to a family (or legacy state was migrated), false when
+  /// brand new.
+  ///
+  /// Membership is read from the families' own `memberUids` — the same field the
+  /// security rules treat as the source of truth — rather than the per-user
+  /// `familyIds` mirror, which is written best-effort and could lag a create or
+  /// join and strand an existing member on the onboarding gate (issue #128).
   Future<bool> cloudBoot(String meUid) async {
+    Map<String, dynamic>? userData;
     try {
-      final userSnap = await _userDocRef(meUid).get();
-      final userData = userSnap.data();
+      userData = (await _userDocRef(meUid).get()).data();
+    } catch (e) {
+      debugPrint('[cloud] boot user-doc read failed: $e');
+    }
+    try {
+      final snap = await _familiesCol()
+          .where('memberUids', arrayContains: meUid)
+          .get()
+          .timeout(kCloudOpTimeout);
+      final docs = <MapEntry<String, Map<String, dynamic>>>[
+        for (final d in snap.docs)
+          if (_includeBootFamily(d.id, d.data(), meUid, userData))
+            MapEntry(d.id, d.data()),
+      ];
+      if (docs.isNotEmpty) {
+        _applyFamilyDocs(meUid, docs, userData);
+        if (families.isNotEmpty) {
+          // Repair the user-doc mirror so its `familyIds` reflects reality.
+          unawaited(_writeUserDoc(meUid).catchError((_) {}));
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('[cloud] boot membership query failed: $e');
+    }
+    // Fallbacks: the user-doc id list (e.g. if the query is unavailable), then
+    // legacy single-blob migration for first-run upgrades.
+    try {
       if (userData != null && (userData['familyIds'] is List)) {
         await _loadFamiliesFromCloud(meUid, userData);
-        return families.isNotEmpty;
+        if (families.isNotEmpty) return true;
       }
       return await _migrateLegacyState(meUid);
     } catch (e) {
-      debugPrint('[cloud] boot failed: $e');
+      debugPrint('[cloud] boot fallback failed: $e');
       return false;
     }
+  }
+
+  CollectionReference<Map<String, dynamic>> _familiesCol() =>
+      FirebaseFirestore.instance.collection(kFamiliesCollection);
+
+  /// Whether a family surfaced by the membership query should be auto-adopted on
+  /// boot. Everything qualifies except the shared demo family for the user who
+  /// merely seeded it (its nominal owner): they never chose to join it, so it
+  /// only loads once it is explicitly recorded in their `familyIds`. A real
+  /// member who joined the demo is not its owner, so they keep it.
+  bool _includeBootFamily(
+    String fid,
+    Map<String, dynamic> data,
+    String meUid,
+    Map<String, dynamic>? userData,
+  ) {
+    if (fid != kDemoFamilyId) return true;
+    final ids = userData?['familyIds'];
+    if (ids is List && ids.map((e) => e.toString()).contains(kDemoFamilyId)) {
+      return true;
+    }
+    return (data['ownerUid'] ?? '') != meUid;
   }
 
   Future<void> _loadFamiliesFromCloud(
@@ -183,32 +270,47 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     Map<String, dynamic> userData,
   ) async {
     final ids = [for (final i in (userData['familyIds'] as List)) i.toString()];
+    final docs = <MapEntry<String, Map<String, dynamic>>>[];
+    for (final fid in ids) {
+      final data = (await _familyDocRef(fid).get()).data();
+      if (data != null) docs.add(MapEntry(fid, data));
+    }
+    _applyFamilyDocs(meUid, docs, userData);
+  }
+
+  /// Adopts a set of loaded family documents into local state, choosing the
+  /// active family from [userData] (falling back to the first) and restoring the
+  /// saved view state. Shared by every cloud boot path.
+  void _applyFamilyDocs(
+    String meUid,
+    List<MapEntry<String, Map<String, dynamic>>> docs,
+    Map<String, dynamic>? userData,
+  ) {
+    if (docs.isEmpty) return;
     final loadedFamilies = <Family>[];
     final loadedWorkspaces = <String, Workspace>{};
-    for (final fid in ids) {
-      final snap = await _familyDocRef(fid).get();
-      final data = snap.data();
-      if (data == null) continue;
-      loadedFamilies.add(_familyFromDoc(fid, data));
-      loadedWorkspaces[fid] = _workspaceFromDoc(data);
+    for (final entry in docs) {
+      loadedFamilies.add(_familyFromDoc(entry.key, entry.value));
+      loadedWorkspaces[entry.key] = _workspaceFromDoc(entry.value);
     }
-    if (loadedFamilies.isEmpty) return;
 
-    var active = (userData['activeFamilyId'] ?? '').toString();
+    var active = (userData?['activeFamilyId'] ?? '').toString();
     if (!loadedWorkspaces.containsKey(active)) active = loadedFamilies.first.id;
 
     families = loadedFamilies;
     workspaces = loadedWorkspaces;
     familyId = active;
     _adoptActiveWorkspace();
-    year = (userData['year'] as num?)?.toInt() ?? year;
-    monthIdx = ((userData['monthIdx'] as num?)?.toInt() ?? monthIdx).clamp(
-      0,
-      kMonthKeys.length - 1,
-    );
-    final rawScreen = (userData['screen'] ?? screen).toString();
-    if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
-      screen = rawScreen;
+    if (userData != null) {
+      year = (userData['year'] as num?)?.toInt() ?? year;
+      monthIdx = ((userData['monthIdx'] as num?)?.toInt() ?? monthIdx).clamp(
+        0,
+        kMonthKeys.length - 1,
+      );
+      final rawScreen = (userData['screen'] ?? screen).toString();
+      if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
+        screen = rawScreen;
+      }
     }
     _localizeMe(meUid);
   }
@@ -245,7 +347,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         slug,
       ).get().timeout(kCloudOpTimeout);
       if (handle.exists) return;
-      const fid = 'fam_demo_vanderberg';
+      const fid = kDemoFamilyId;
       final ws = await buildDemoWorkspace();
       final fam = Family(
         id: fid,
@@ -372,6 +474,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }, SetOptions(merge: true));
   }
 
+  /// Persists the user-doc mirror (profile, `familyIds`, active family, view
+  /// state) and AWAITS the backend ack, so a freshly created or joined family is
+  /// durably recorded in Firestore before we leave the flow. This closes the gap
+  /// where an app closed right after create/join — before any edit triggered a
+  /// persist — would lose its `familyIds` and bounce the user back to the
+  /// onboarding gate on next launch (issue #128). Bounded by [kCloudOpTimeout]
+  /// so a flaky connection can't strand the UI; the membership query in
+  /// [cloudBoot] remains the backstop if this write still doesn't land.
+  Future<void> _recordMembership(String meUid) async {
+    try {
+      await _writeUserDoc(meUid).timeout(kCloudOpTimeout);
+    } catch (e) {
+      debugPrint('[cloud] recordMembership failed: $e');
+    }
+  }
+
   Future<void> _persistAllFamilies(String meUid) async {
     for (final f in families) {
       final ws = workspaces[f.id] ?? Workspace.empty();
@@ -457,10 +575,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         collapsed = {};
       });
       // The family + handle now exist server-side, so creation has succeeded.
-      // Recording membership in the user doc is durable via offline persistence
-      // and must NOT block the UI — awaiting it could hang on a dropped
-      // connection and strand the user on the spinner.
-      unawaited(_writeUserDoc(meUid).catchError((_) {}));
+      // Durably record membership in the user doc before returning so a relaunch
+      // finds this family instead of the onboarding gate (issue #128). We just
+      // awaited online writes above, so this ack is fast; it's bounded anyway.
+      await _recordMembership(meUid);
       await bindCloudSync(meUid);
       flash('Created ${fam.name}');
       return null;
@@ -492,6 +610,34 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
       if (families.any((f) => f.id == fid)) {
         return 'You\u2019re already in this family';
+      }
+
+      // We may already be a member server-side even though this device's local
+      // list doesn't show it \u2014 e.g. the best-effort user-doc write never
+      // reached the backend last time, or this account seeded the demo family.
+      // Only members can read the family doc, so a successful read means we
+      // already belong: adopt it WITHOUT appending a second membership row,
+      // which is exactly what produced the repeated users in issue #125.
+      try {
+        final mineSnap = await _familyDocRef(
+          fid,
+        ).get().timeout(kCloudOpTimeout);
+        final mineData = mineSnap.data();
+        if (mineSnap.exists && mineData != null) {
+          _adoptJoinedFamily(fid, mineData, meUid);
+          await _recordMembership(meUid);
+          await bindCloudSync(meUid);
+          flash('Joined ${curFamily()?.name ?? 'family'}');
+          return null;
+        }
+      } on FirebaseException catch (e) {
+        // `permission-denied` just means we aren't a member yet \u2014 fall through
+        // to the password-verified self-join below. Anything else is a real
+        // failure we shouldn't paper over as a bad password.
+        if (e.code != 'permission-denied') {
+          debugPrint('[cloud] joinFamily pre-read failed: ${e.code}');
+          return 'Could not join family right now';
+        }
       }
 
       // Build our membership entry and append it. The password is verified
@@ -538,23 +684,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
-      final fam = _familyFromDoc(fid, data);
-      final ws = _workspaceFromDoc(data);
-      _syncWorkspaces();
-      workspaces[fid] = ws;
-      update(() {
-        families = [...families, fam];
-        familyId = fid;
-        _adoptActiveWorkspace();
-        screen = 'overview';
-        swipedId = null;
-        collapsed = {};
-      });
-      _localizeMeIn(fam, meUid);
-      // Best-effort: durable via offline persistence, must not block the UI.
-      unawaited(_writeUserDoc(meUid).catchError((_) {}));
+      _adoptJoinedFamily(fid, data, meUid);
+      // Durably record membership before returning so a relaunch finds this
+      // family rather than the onboarding gate (issue #128).
+      await _recordMembership(meUid);
       await bindCloudSync(meUid);
-      flash('Joined ${fam.name}');
+      flash('Joined ${curFamily()?.name ?? 'family'}');
       return null;
     } on TimeoutException {
       return 'Could not join family right now';
@@ -562,6 +697,29 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       debugPrint('[cloud] joinFamily failed: $e');
       return 'Could not join family right now';
     }
+  }
+
+  /// Loads a (just-joined or already-joined) family from its document into local
+  /// state and makes it the active workspace. Replaces an existing local entry
+  /// for the same family instead of appending, so adopting a family we already
+  /// hold can't produce a duplicate (issue #125).
+  void _adoptJoinedFamily(String fid, Map<String, dynamic> data, String meUid) {
+    final fam = _familyFromDoc(fid, data);
+    final ws = _workspaceFromDoc(data);
+    _syncWorkspaces();
+    workspaces[fid] = ws;
+    final alreadyLocal = families.any((f) => f.id == fid);
+    update(() {
+      families = alreadyLocal
+          ? [for (final f in families) f.id == fid ? fam : f]
+          : [...families, fam];
+      familyId = fid;
+      _adoptActiveWorkspace();
+      screen = 'overview';
+      swipedId = null;
+      collapsed = {};
+    });
+    _localizeMeIn(fam, meUid);
   }
 
   Future<void> cloudDeleteFamily(String meUid, String fid) async {

@@ -175,6 +175,12 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
       color: B.page,
       child: SafeArea(
         child: SingleChildScrollView(
+          // Mirror the login screen: let the form scroll clear of the on-screen
+          // keyboard instead of being overlapped by it (issue #129).
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

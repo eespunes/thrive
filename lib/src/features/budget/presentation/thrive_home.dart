@@ -395,7 +395,13 @@ class _ThriveHomeState extends State<ThriveHome> {
     if (_cloudBacked) {
       await prefs.remove(kStorageKeyV4);
       await prefs.remove(kStorageKey);
-      await _pushCloudState();
+      // Never push an EMPTY family set to the cloud. An empty in-memory
+      // `families` only occurs transiently — during sign-in (before cloudBoot
+      // has loaded them) and during sign-out (after they're cleared) — and
+      // writing `familyIds: []` then would wipe the account's membership and
+      // strand it on the onboarding gate next login (issue #128). Deliberate
+      // "leave/delete my last family" flows update the user doc on their own.
+      if (families.isNotEmpty) await _pushCloudState();
       return;
     }
     await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
@@ -716,9 +722,17 @@ class _ThriveHomeState extends State<ThriveHome> {
   @override
   Widget build(BuildContext context) {
     final authOpen = ready && user == null;
+    final familyLoading =
+        ready && user != null && families.isEmpty && _resolvingFamilies;
+    final onboardingOpen =
+        ready && user != null && families.isEmpty && !_resolvingFamilies;
     return Scaffold(
       backgroundColor: B.page,
-      resizeToAvoidBottomInset: authOpen,
+      // Resize above the keyboard whenever a full-screen, text-entry gate is
+      // shown so its fields scroll into view instead of hiding behind the
+      // keyboard (issue #129). The budget screen edits via bottom sheets, which
+      // handle their own insets, so it doesn't need this.
+      resizeToAvoidBottomInset: authOpen || onboardingOpen,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -754,14 +768,11 @@ class _ThriveHomeState extends State<ThriveHome> {
             // While a signed-in user's cloud families are still loading, show a
             // loader instead of the onboarding gate so we don't flash create/
             // join to someone who already has a family (#120).
-            if (ready && user != null && families.isEmpty && _resolvingFamilies)
+            if (familyLoading)
               const Positioned.fill(child: _FamilyLoadingScreen()),
             // Onboarding gate: a signed-in user with confirmed-no family must
             // create or join one before reaching the budget.
-            if (ready &&
-                user != null &&
-                families.isEmpty &&
-                !_resolvingFamilies)
+            if (onboardingOpen)
               Positioned.fill(child: _OnboardingScreen(state: this)),
           ],
         ),
