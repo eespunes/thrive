@@ -316,9 +316,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           .set({..._familyToDoc(fam, ws), 'joinHash': joinHash})
           .timeout(kCloudOpTimeout);
       try {
-        await _familyHandleRef(slug)
-            .set({'familyId': fid, 'ownerUid': meUid})
-            .timeout(kCloudOpTimeout);
+        await _familyHandleRef(
+          slug,
+        ).set({'familyId': fid, 'ownerUid': meUid}).timeout(kCloudOpTimeout);
       } catch (e) {
         // Roll back the family doc so we don't leave an unjoinable orphan with
         // no resolvable handle.
@@ -390,13 +390,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         status: 'active',
       );
       try {
-        await _familyDocRef(fid).update({
-          'memberUids': FieldValue.arrayUnion([meUid]),
-          'members': FieldValue.arrayUnion([_externalizeMember(me)]),
-          'joinProof': joinProof,
-          'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }).timeout(kCloudOpTimeout);
+        await _familyDocRef(fid)
+            .update({
+              'memberUids': FieldValue.arrayUnion([meUid]),
+              'members': FieldValue.arrayUnion([_externalizeMember(me)]),
+              'joinProof': joinProof,
+              'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
+              'updatedAt': FieldValue.serverTimestamp(),
+            })
+            .timeout(kCloudOpTimeout);
       } on FirebaseException catch (e) {
         // `permission-denied` is what the rules return for a wrong password.
         if (e.code == 'permission-denied') return 'Incorrect password';
