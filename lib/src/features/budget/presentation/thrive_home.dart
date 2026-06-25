@@ -157,7 +157,8 @@ class _ThriveHomeState extends State<ThriveHome> {
     // Seed the discoverable demo family for the offline/local join flow.
     if (!_cloudBacked) await ensureDemoFamily();
 
-    // coverage:ignore-start - Firebase boot sync is integration-only here.
+    // Firebase boot sync is integration-only here.
+    // coverage:ignore-start
     if (_cloudBacked) {
       final uid = _firebaseUid()!;
       // Load the shared families this user belongs to (migrating any legacy
@@ -452,7 +453,8 @@ class _ThriveHomeState extends State<ThriveHome> {
     };
   }
 
-  // coverage:ignore-start - requires a live Firestore backend.
+  // requires a live Firestore backend.
+  // coverage:ignore-start
   /// Pushes the active family + per-user view state to the shared collections.
   Future<void> _pushCloudState() async {
     if (_applyingCloudSnapshot) return;

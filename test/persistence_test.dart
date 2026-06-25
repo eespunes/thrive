@@ -39,7 +39,11 @@ void main() {
       'families': <dynamic>[],
       'workspaces': <String, dynamic>{},
     });
-    await pumpApp(tester, signedIn: false, prefs: {'flutter.thrive.v4': payload});
+    await pumpApp(
+      tester,
+      signedIn: false,
+      prefs: {'flutter.thrive.v4': payload},
+    );
     expect(find.text('Overview'), findsOneWidget);
   });
 

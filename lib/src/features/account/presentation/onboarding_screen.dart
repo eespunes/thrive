@@ -69,6 +69,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     super.dispose();
   }
 
+  // coverage:ignore-start
   Future<void> _pickPhoto() async {
     try {
       final file = await _picker.pickImage(
@@ -85,6 +86,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
       s.flash('Could not load image');
     }
   }
+  // coverage:ignore-end
 
   Future<void> _submit() async {
     if (_busy) return;

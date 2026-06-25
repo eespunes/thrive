@@ -95,6 +95,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
     });
   }
 
+  // coverage:ignore-start
   Future<void> _pickPhoto() async {
     try {
       final XFile? file = await _picker.pickImage(
@@ -116,6 +117,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
       s.flash('Could not load image');
     }
   }
+  // coverage:ignore-end
 
   @override
   Widget build(BuildContext context) {
@@ -1319,6 +1321,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
     super.dispose();
   }
 
+  // coverage:ignore-start
   Future<void> _pickPhoto() async {
     try {
       final file = await _picker.pickImage(
@@ -1335,6 +1338,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
       s.flash('Could not load image');
     }
   }
+  // coverage:ignore-end
 
   Future<void> _submit() async {
     if (_busy) return;

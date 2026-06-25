@@ -1,3 +1,4 @@
+// ignore_for_file: depend_on_referenced_packages, unnecessary_import, prefer_final_fields, unused_element_parameter, unnecessary_underscores
 import 'package:family_money_management_app/main.dart' as app;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_auth_platform_interface/firebase_auth_platform_interface.dart';

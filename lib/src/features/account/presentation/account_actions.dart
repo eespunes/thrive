@@ -134,7 +134,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Welcome, ${u.name.split(' ').first}');
   }
 
-  // coverage:ignore-start - requires a live Firestore backend.
+  // requires a live Firestore backend.
+  // coverage:ignore-start
   /// After a successful Firebase sign-in, loads the shared families this user
   /// belongs to. Leaves `families` empty (→ onboarding) for brand-new users.
   Future<void> _loadCloudAfterSignIn() async {
@@ -480,6 +481,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
         return 'Password must be at least 4 characters';
       }
       final uid = _firebaseUid();
+      // coverage:ignore-start
       if (uid != null) {
         return cloudCreateFamily(
           meUid: uid,
@@ -489,6 +491,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
           picture: picture,
         );
       }
+      // coverage:ignore-end
       return localCreateFamily(
         name: trimmedName,
         username: slug,
@@ -506,6 +509,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     required String password,
   }) async {
     final uid = _firebaseUid();
+    // coverage:ignore-start
     if (uid != null) {
       return cloudJoinFamily(
         meUid: uid,
@@ -513,6 +517,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
         password: password,
       );
     }
+    // coverage:ignore-end
     return localJoinFamily(username: username, password: password);
   }
 

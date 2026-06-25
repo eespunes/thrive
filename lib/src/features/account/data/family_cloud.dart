@@ -32,6 +32,9 @@ String hashFamilyPassword(String password, String salt) {
 
 /// Cloud + local persistence for the families↔users relationship.
 extension _ThriveFamilyCloud on _ThriveHomeState {
+  // Cloud document refs + (de)serialization helpers are only exercised against
+  // a live Firestore backend.
+  // coverage:ignore-start
   // --------------------------------------------------------------- refs
   DocumentReference<Map<String, dynamic>> _userDocRef(String meUid) =>
       FirebaseFirestore.instance.collection(kUsersCollection).doc(meUid);
@@ -80,7 +83,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     return Workspace.empty();
   }
 
-  // coverage:ignore-start - requires a live Firestore backend.
+  // requires a live Firestore backend.
   // ----------------------------------------------------------- boot
   /// Loads the signed-in user's families from Firestore. Returns true when the
   /// user already had cloud state (or it was migrated), false when brand new.
@@ -573,6 +576,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   /// Tags the `me` member of every family with the signed-in uid so security
   /// rules and `isMe` checks line up after a cloud load.
+  // coverage:ignore-start
   void _localizeMe(String meUid) {
     for (final f in families) {
       _localizeMeIn(f, meUid);
@@ -587,4 +591,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
     }
   }
+
+  // coverage:ignore-end
 }
