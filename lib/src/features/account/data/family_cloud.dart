@@ -9,18 +9,21 @@ const String kUsersCollection = 'users';
 /// its `workspace` map is the budget shared by every member.
 const String kFamiliesCollection = 'families';
 
-/// Backend-only resolver collection mapping a family `username` to its id +
-/// salted password hash. Clients can NO LONGER read or write this collection
-/// (see `firestore.rules`); only Cloud Functions touch it. Kept here for
-/// documentation of the data model.
-const String kFamilyCodesCollection = 'family_codes';
+/// Backend handle resolver: maps a family `username` to its `familyId`. This
+/// collection holds NO secret material (the salted password hash lives only in
+/// the members-only family doc as `joinHash`), so any signed-in user may read
+/// it to resolve a handle when joining. Writes are restricted by security rules
+/// to the owner of the referenced family.
+const String kFamilyHandlesCollection = 'family_handles';
 
 /// Local (no-Firebase) family registry, mirroring the design's
 /// `localStorage['thrive.registry']`, so demo create/join works offline.
 const String kRegistryKey = 'thrive.registry';
 
-/// Cloud Functions region. MUST match `REGION` in `functions/index.js`.
-const String kFunctionsRegion = 'europe-west1';
+/// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
+/// it, so with offline persistence a dropped connection would otherwise hang
+/// the UI forever. Bounding every await turns that into a recoverable error.
+const Duration kCloudOpTimeout = Duration(seconds: 12);
 
 /// Salted SHA-256 of a family join password, used only by the offline/demo
 /// local registry. Cloud joins are verified server-side by a Cloud Function;
@@ -29,6 +32,12 @@ String hashFamilyPassword(String password, String salt) {
   final digest = sha256.convert(utf8.encode('$salt::$password'));
   return digest.toString();
 }
+
+/// Salt used to derive a cloud family's `joinHash`. The salt must be derivable
+/// by any joining client (which cannot read the family doc yet), so we use the
+/// family's own username slug. This is verified server-side by security rules,
+/// never on the client.
+String _cloudJoinSalt(String slug) => 'thrive-family::$slug';
 
 /// Cloud + local persistence for the families↔users relationship.
 extension _ThriveFamilyCloud on _ThriveHomeState {
@@ -42,8 +51,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   DocumentReference<Map<String, dynamic>> _familyDocRef(String fid) =>
       FirebaseFirestore.instance.collection(kFamiliesCollection).doc(fid);
 
-  FirebaseFunctions get _functions =>
-      FirebaseFunctions.instanceFor(region: kFunctionsRegion);
+  DocumentReference<Map<String, dynamic>> _familyHandleRef(String slug) =>
+      FirebaseFirestore.instance.collection(kFamilyHandlesCollection).doc(slug);
 
   // ------------------------------------------------------- (de)serialize
   Map<String, dynamic> _familyToDoc(Family f, Workspace ws) => {
@@ -262,6 +271,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }) async {
     final slug = familySlug(username);
     try {
+      // Usernames are global handles. Reject one already claimed by another
+      // family before writing anything. The handle doc is readable by any
+      // signed-in user (it holds no secrets), so this lookup is allowed.
+      final existingHandle = await _familyHandleRef(
+        slug,
+      ).get().timeout(kCloudOpTimeout);
+      if (existingHandle.exists) {
+        return 'That family username is taken';
+      }
+
       final fid = 'fam_${uid()}';
       final me = FamilyMember(
         id: 'me',
@@ -284,20 +303,28 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         members: [me],
       );
       final ws = Workspace.empty();
-      await _familyDocRef(fid).set(_familyToDoc(fam, ws));
-      // Credentials (and their salted hash) are written ONLY by the backend.
-      // The owner registers them through a Cloud Function so the password
-      // never lands in a client-readable document.
+      // The salted password hash lives on the family doc itself, which is
+      // readable ONLY by members (see firestore.rules). A non-member joining
+      // proves knowledge of the password by matching this `joinHash`; they can
+      // never read it, which prevents offline brute-forcing.
+      final joinHash = hashFamilyPassword(password, _cloudJoinSalt(slug));
+      // Commit the family doc, then publish its public handle. Bounded: awaiting
+      // a Firestore write only resolves once the backend acks it, so an
+      // offline/flaky connection surfaces an error instead of stranding the
+      // user on "Creating…".
+      await _familyDocRef(fid)
+          .set({..._familyToDoc(fam, ws), 'joinHash': joinHash})
+          .timeout(kCloudOpTimeout);
       try {
-        await _functions.httpsCallable('createFamilyCredentials').call({
-          'familyId': fid,
-          'username': slug,
-          'password': password,
-        });
-      } on FirebaseFunctionsException catch (e) {
-        // Roll back the family doc so we don't leave an unjoinable orphan.
-        await _familyDocRef(fid).delete();
-        return _functionsMessage(e, 'Could not create family right now');
+        await _familyHandleRef(
+          slug,
+        ).set({'familyId': fid, 'ownerUid': meUid}).timeout(kCloudOpTimeout);
+      } catch (e) {
+        // Roll back the family doc so we don't leave an unjoinable orphan with
+        // no resolvable handle.
+        await _familyDocRef(fid).delete().catchError((_) {});
+        debugPrint('[cloud] createFamily handle write failed: $e');
+        return 'Could not create family right now';
       }
       _syncWorkspaces();
       workspaces[fid] = ws;
@@ -309,10 +336,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         swipedId = null;
         collapsed = {};
       });
-      await _writeUserDoc(meUid);
+      // The family + handle now exist server-side, so creation has succeeded.
+      // Recording membership in the user doc is durable via offline persistence
+      // and must NOT block the UI — awaiting it could hang on a dropped
+      // connection and strand the user on the spinner.
+      unawaited(_writeUserDoc(meUid).catchError((_) {}));
       await bindCloudSync(meUid);
       flash('Created ${fam.name}');
       return null;
+    } on TimeoutException {
+      return 'Could not create family right now';
     } catch (e) {
       debugPrint('[cloud] createFamily failed: $e');
       return 'Could not create family right now';
@@ -327,25 +360,62 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final slug = familySlug(username);
     if (slug.isEmpty) return 'Enter a family username';
     try {
-      // The password is verified server-side; the client never reads the
-      // family's password hash. On success the function has already added us
-      // to the family's membership, so we are now allowed to read it.
-      final String fid;
-      try {
-        final res = await _functions.httpsCallable('joinFamily').call({
-          'username': slug,
-          'password': password,
-        });
-        final data = Map<String, dynamic>.from(res.data as Map);
-        fid = (data['familyId'] ?? '').toString();
-      } on FirebaseFunctionsException catch (e) {
-        return _functionsMessage(e, 'Could not join family right now');
+      // Resolve the public handle to find which family doc to write to. The
+      // handle holds no secret material, so non-members may read it.
+      final handleSnap = await _familyHandleRef(
+        slug,
+      ).get().timeout(kCloudOpTimeout);
+      final handle = handleSnap.data();
+      final fid = (handle?['familyId'] ?? '').toString();
+      if (!handleSnap.exists || fid.isEmpty) {
+        return 'No family found with that username';
       }
-      if (fid.isEmpty) return 'Could not join family right now';
       if (families.any((f) => f.id == fid)) {
         return 'You\u2019re already in this family';
       }
-      final snap = await _familyDocRef(fid).get();
+
+      // Build our membership entry and append it. The password is verified
+      // server-side by security rules: the write is rejected unless `joinProof`
+      // matches the family's (unreadable) `joinHash`. We never read the hash.
+      final joinProof = hashFamilyPassword(password, _cloudJoinSalt(slug));
+      final me = FamilyMember(
+        id: meUid,
+        name: user?.name ?? '',
+        email: user?.email ?? '',
+        initials: user?.initials ?? '?',
+        color: kMemberColors[families.length % kMemberColors.length],
+        uid: meUid,
+        photo: user?.photo,
+        role: 'member',
+        status: 'active',
+      );
+      try {
+        await _familyDocRef(fid)
+            .update({
+              'memberUids': FieldValue.arrayUnion([meUid]),
+              'members': FieldValue.arrayUnion([_externalizeMember(me)]),
+              'joinProof': joinProof,
+              'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
+              'updatedAt': FieldValue.serverTimestamp(),
+            })
+            .timeout(kCloudOpTimeout);
+      } on FirebaseException catch (e) {
+        // `permission-denied` is what the rules return for a wrong password.
+        if (e.code == 'permission-denied') return 'Incorrect password';
+        debugPrint('[cloud] joinFamily write failed: ${e.code}');
+        return 'Could not join family right now';
+      }
+
+      // We are now a member, so we may read the family doc. Drop the transient
+      // `joinProof` we wrote so it isn't left lingering on the shared doc
+      // (best-effort: it is only ever readable by members anyway).
+      unawaited(
+        _familyDocRef(
+          fid,
+        ).update({'joinProof': FieldValue.delete()}).catchError((_) {}),
+      );
+
+      final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
       final fam = _familyFromDoc(fid, data);
@@ -361,10 +431,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         collapsed = {};
       });
       _localizeMeIn(fam, meUid);
-      await _writeUserDoc(meUid);
+      // Best-effort: durable via offline persistence, must not block the UI.
+      unawaited(_writeUserDoc(meUid).catchError((_) {}));
       await bindCloudSync(meUid);
       flash('Joined ${fam.name}');
       return null;
+    } on TimeoutException {
+      return 'Could not join family right now';
     } catch (e) {
       debugPrint('[cloud] joinFamily failed: $e');
       return 'Could not join family right now';
@@ -376,8 +449,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final snap = await _familyDocRef(fid).get();
       final data = snap.data();
       if (data != null && (data['ownerUid'] ?? '') == meUid) {
-        // Deleting the family doc triggers `onFamilyDeleted`, which purges the
-        // matching family_codes credential mapping server-side.
+        // The owner also removes the public handle so a stale username can
+        // never resolve to a missing family (previously done by a Function).
+        final slug = (data['username'] ?? '').toString();
+        if (slug.isNotEmpty) {
+          await _familyHandleRef(slug).delete().catchError((_) {});
+        }
         await _familyDocRef(fid).delete();
       } else {
         await _familyDocRef(fid).update({
@@ -388,13 +465,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     } catch (e) {
       debugPrint('[cloud] deleteFamily failed: $e');
     }
-  }
-
-  /// Maps a Cloud Functions error to a friendly, user-facing message.
-  String _functionsMessage(FirebaseFunctionsException e, String fallback) {
-    final msg = e.message?.trim();
-    if (msg != null && msg.isNotEmpty && e.code != 'internal') return msg;
-    return fallback;
   }
   // coverage:ignore-end
 

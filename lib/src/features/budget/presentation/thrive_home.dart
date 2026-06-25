@@ -97,6 +97,8 @@ class ThriveDebugController {
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
   void flash(String msg) => _s.flash(msg);
+  void showError(String? msg) => _s.showError(msg);
+  void dismissError() => _s.dismissError();
   String? get toast => _s.toast;
   void restoreV3(Map<String, dynamic> saved) => _s._restore(saved);
   void restoreV4(Map<String, dynamic> saved) => _s._restoreV4(saved);
@@ -491,6 +493,14 @@ class _ThriveHomeState extends State<ThriveHome> {
       if (mounted) setState(() => toast = null);
     });
   }
+
+  /// Surfaces [msg] in the global, user-closable error popup. Use this for any
+  /// failure the user must acknowledge; keep [flash] for transient success
+  /// confirmations only.
+  void showError(String? msg) => showAppError(msg);
+
+  /// Dismisses the global error popup.
+  void dismissError() => dismissAppError();
 
   MonthData? cur() => data[year]?[kMonthKeys[monthIdx]];
 

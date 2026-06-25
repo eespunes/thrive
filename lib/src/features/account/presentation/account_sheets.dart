@@ -114,7 +114,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
         _colorTouched = true;
       });
     } catch (_) {
-      s.flash('Could not load image');
+      s.showError('Could not load image');
     }
   }
   // coverage:ignore-end
@@ -1307,7 +1307,6 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
   final _username = TextEditingController();
   final _password = TextEditingController();
   String? _picture;
-  String? _err;
   bool _busy = false;
   final _picker = ImagePicker();
 
@@ -1335,7 +1334,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
       if (!mounted) return;
       setState(() => _picture = base64Encode(bytes));
     } catch (_) {
-      s.flash('Could not load image');
+      s.showError('Could not load image');
     }
   }
   // coverage:ignore-end
@@ -1344,13 +1343,11 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
     if (_busy) return;
     final hasCreds = _username.text.trim().isNotEmpty;
     if (hasCreds && _password.text.length < 4) {
-      setState(() => _err = 'Password must be at least 4 characters');
+      s.showError('Password must be at least 4 characters');
       return;
     }
-    setState(() {
-      _busy = true;
-      _err = null;
-    });
+    s.dismissError();
+    setState(() => _busy = true);
     final err = await s.createFamily(
       _name.text,
       username: hasCreds ? _username.text : null,
@@ -1362,10 +1359,8 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
       Navigator.of(context).pop();
       return;
     }
-    setState(() {
-      _busy = false;
-      _err = err;
-    });
+    setState(() => _busy = false);
+    s.showError(err);
   }
 
   @override
@@ -1424,7 +1419,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
             _sheetInput(
               _name,
               hint: 'e.g. The Janssens',
-              onChanged: (_) => setState(() => _err = null),
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
           _sheetField(
@@ -1432,7 +1427,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
             _sheetInput(
               _username,
               hint: 'e.g. beach-house',
-              onChanged: (_) => setState(() => _err = null),
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
           _sheetField(
@@ -1441,10 +1436,9 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
               _password,
               hint: 'At least 4 characters',
               obscure: true,
-              onChanged: (_) => setState(() => _err = null),
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
-          if (_err != null) _sheetError(_err!),
           _primaryBtn(
             _busy ? 'Creating…' : 'Create family',
             _submit,
@@ -1480,7 +1474,6 @@ class _JoinFamilySheet extends StatefulWidget {
 class _JoinFamilySheetState extends State<_JoinFamilySheet> {
   final _username = TextEditingController();
   final _password = TextEditingController();
-  String? _err;
   bool _busy = false;
 
   _ThriveHomeState get s => widget.state;
@@ -1494,10 +1487,8 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
 
   Future<void> _submit() async {
     if (_busy) return;
-    setState(() {
-      _busy = true;
-      _err = null;
-    });
+    s.dismissError();
+    setState(() => _busy = true);
     final err = await s.joinFamily(
       username: _username.text,
       password: _password.text,
@@ -1507,10 +1498,8 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
       Navigator.of(context).pop();
       return;
     }
-    setState(() {
-      _busy = false;
-      _err = err;
-    });
+    setState(() => _busy = false);
+    s.showError(err);
   }
 
   @override
@@ -1562,7 +1551,7 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
             _sheetInput(
               _username,
               hint: 'e.g. vanderberg',
-              onChanged: (_) => setState(() => _err = null),
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
           _sheetField(
@@ -1571,10 +1560,9 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
               _password,
               hint: 'Family password',
               obscure: true,
-              onChanged: (_) => setState(() => _err = null),
+              onChanged: (_) => setState(s.dismissError),
             ),
           ),
-          if (_err != null) _sheetError(_err!),
           _primaryBtn(
             _busy ? 'Joining…' : 'Join family',
             _submit,
@@ -1596,27 +1584,4 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
       ),
     );
   }
-}
-
-/// Inline form error row shared by the family sheets.
-Widget _sheetError(String err) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(
-      children: [
-        ic('x', size: 14, sw: 2.4, color: B.red),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            err,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: B.red,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

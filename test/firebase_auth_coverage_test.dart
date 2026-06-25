@@ -7,10 +7,8 @@ import 'package:firebase_auth_platform_interface/src/method_channel/method_chann
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
-import 'package:google_sign_in_platform_interface/src/method_channel_google_sign_in.dart';
 
 import 'helpers.dart';
 
@@ -170,50 +168,66 @@ class _FakeFirebaseAuthPlatform extends FirebaseAuthPlatform {
 
 class _FakeGoogleSignInPlatform extends GoogleSignInPlatform {
   _FakeGoogleSignInPlatform({
-    this.signInResult,
-    this.tokens,
-    this.signInError,
-    this.tokensError,
+    this.authResult,
+    this.idToken,
+    this.authError,
+    this.supportsAuth = true,
   });
 
-  final GoogleSignInUserData? signInResult;
-  final GoogleSignInTokenData? tokens;
-  final Object? signInError;
-  final Object? tokensError;
+  final GoogleSignInUserData? authResult;
+  final String? idToken;
+  final Object? authError;
+  final bool supportsAuth;
   int signOutCalls = 0;
 
   @override
-  Future<void> initWithParams(SignInInitParameters params) async {}
+  Future<void> init(InitParameters params) async {}
 
   @override
-  Future<GoogleSignInUserData?> signIn() async {
-    if (signInError != null) throw signInError!;
-    return signInResult;
+  Future<AuthenticationResults?>? attemptLightweightAuthentication(
+    AttemptLightweightAuthenticationParameters params,
+  ) => null;
+
+  @override
+  bool supportsAuthenticate() => supportsAuth;
+
+  @override
+  Future<AuthenticationResults> authenticate(
+    AuthenticateParameters params,
+  ) async {
+    if (authError != null) throw authError!;
+    final user = authResult;
+    if (user == null) {
+      throw const GoogleSignInException(
+        code: GoogleSignInExceptionCode.canceled,
+      );
+    }
+    return AuthenticationResults(
+      user: user,
+      authenticationTokens: AuthenticationTokenData(idToken: idToken),
+    );
   }
 
   @override
-  Future<GoogleSignInTokenData> getTokens({
-    required String email,
-    bool? shouldRecoverAuth,
-  }) async {
-    if (tokensError != null) throw tokensError!;
-    return tokens ?? GoogleSignInTokenData(accessToken: 'access-token');
-  }
+  bool authorizationRequiresUserInteraction() => false;
 
   @override
-  Future<void> signOut() async {
+  Future<ClientAuthorizationTokenData?> clientAuthorizationTokensForScopes(
+    ClientAuthorizationTokensForScopesParameters params,
+  ) async => null;
+
+  @override
+  Future<ServerAuthorizationTokenData?> serverAuthorizationTokensForScopes(
+    ServerAuthorizationTokensForScopesParameters params,
+  ) async => null;
+
+  @override
+  Future<void> signOut(SignOutParams params) async {
     signOutCalls += 1;
   }
 
   @override
-  Future<void> clearAuthCache({required String token}) async {}
-
-  @override
-  Future<bool> isSignedIn() async => signInResult != null;
-
-  @override
-  Stream<GoogleSignInUserData?>? get userDataEvents =>
-      const Stream<GoogleSignInUserData?>.empty();
+  Future<void> disconnect(DisconnectParams params) async {}
 }
 
 void main() {
@@ -231,7 +245,7 @@ void main() {
   tearDown(() async {
     app.firebaseAppsAvailableOverride = null;
     FirebaseAuthPlatform.instance = MethodChannelFirebaseAuth.instance;
-    GoogleSignInPlatform.instance = MethodChannelGoogleSignIn();
+    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform();
   });
 
   testWidgets('firebase-backed email sign in uses auth and display name', (
@@ -343,14 +357,13 @@ void main() {
       return _FakeUserCredential(auth: auth, user: user);
     };
     GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      signInResult: GoogleSignInUserData(
+      authResult: GoogleSignInUserData(
         email: 'eva@example.com',
         id: 'google-id',
         displayName: 'Eva G',
         photoUrl: 'https://example.com/photo.png',
-        idToken: 'google-id-token',
       ),
-      tokens: GoogleSignInTokenData(accessToken: 'google-access-token'),
+      idToken: 'google-id-token',
     );
     final googleSuccessResult = await app.thriveDebug.signInWithGoogle();
     expect(auth.signInCredentialCalls, 1);
@@ -371,20 +384,16 @@ void main() {
     await tester.pumpAndSettle();
     app.thriveDebug.setApplyingCloudSnapshot(false);
 
-    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      signInResult: null,
-      tokens: GoogleSignInTokenData(accessToken: 'x'),
-    );
+    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform();
     final googleCancelledResult = await app.thriveDebug.signInWithGoogle();
     expect(googleCancelledResult, 'Google sign-in cancelled');
 
     GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      signInResult: GoogleSignInUserData(
+      authResult: GoogleSignInUserData(
         email: 'missing@example.com',
         id: 'missing-id',
         displayName: 'Missing Token',
       ),
-      tokens: GoogleSignInTokenData(accessToken: 'token'),
     );
     final missingTokenResult = await app.thriveDebug.signInWithGoogle();
     expect(missingTokenResult, 'Google sign-in failed (missing id token)');
@@ -394,13 +403,12 @@ void main() {
       message: 'disabled',
     );
     GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      signInResult: GoogleSignInUserData(
+      authResult: GoogleSignInUserData(
         email: 'error@example.com',
         id: 'error-id',
         displayName: 'Error',
-        idToken: 'error-token',
       ),
-      tokens: GoogleSignInTokenData(accessToken: 'error-access'),
+      idToken: 'error-token',
     );
     final operationNotAllowedResult = await app.thriveDebug.signInWithGoogle();
     expect(
@@ -409,9 +417,17 @@ void main() {
     );
 
     GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      signInError: PlatformException(code: 'google_sign_in_failed'),
+      authError: const GoogleSignInException(
+        code: GoogleSignInExceptionCode.interrupted,
+      ),
     );
     final platformFailureResult = await app.thriveDebug.signInWithGoogle();
     expect(platformFailureResult, 'Google sign-in failed on device');
+
+    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
+      supportsAuth: false,
+    );
+    final unsupportedResult = await app.thriveDebug.signInWithGoogle();
+    expect(unsupportedResult, 'Google sign-in is not supported on this device');
   });
 }
