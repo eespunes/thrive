@@ -130,6 +130,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
         cats = ws.cats;
         data = ws.data;
       } else {
+        // Cloud sign-in: the user's shared families are about to be fetched.
+        // Mark them as resolving so the onboarding gate stays hidden until we
+        // know whether they already belong to a family (#120).
+        if (_cloudBacked) _resolvingFamilies = true;
         _syncMe(u);
       }
     });
@@ -144,9 +148,17 @@ extension _ThriveAccountActions on _ThriveHomeState {
   Future<void> _loadCloudAfterSignIn() async {
     final uid = _firebaseUid();
     if (uid == null) return;
-    await cloudBoot(uid);
-    await bindCloudSync(uid);
-    if (mounted) update(() {});
+    // Make sure the shared demo family exists so it is joinable (#123).
+    unawaited(ensureCloudDemoFamily(uid).catchError((_) {}));
+    try {
+      await cloudBoot(uid);
+      await bindCloudSync(uid);
+    } finally {
+      // Families are now resolved (loaded, migrated, or confirmed-none): let the
+      // onboarding gate decide based on the real result (#120).
+      _resolvingFamilies = false;
+      if (mounted) update(() {});
+    }
   }
   // coverage:ignore-end
 
@@ -156,6 +168,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       families = [];
       workspaces = {};
       familyId = 'fam_main';
+      _resolvingFamilies = false;
     });
     _cloudSub?.cancel();
     _cloudSub = null;

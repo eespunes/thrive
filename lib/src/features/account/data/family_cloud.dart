@@ -39,6 +39,73 @@ String hashFamilyPassword(String password, String salt) {
 /// never on the client.
 String _cloudJoinSalt(String slug) => 'thrive-family::$slug';
 
+/// Builds the demo family's workspace, populated from the bundled sample budget
+/// (`assets/data/budget.json`) so the demo shows real mock data instead of an
+/// empty shell. Shared by the local demo registry, the cloud demo seed and the
+/// first-launch sample seed.
+Future<Workspace> buildDemoWorkspace() async {
+  Map<String, dynamic> raw = {};
+  try {
+    final text = await rootBundle.loadString('assets/data/budget.json');
+    raw = json.decode(text) as Map<String, dynamic>;
+  } catch (_) {
+    /* fall back to an unpopulated-but-default workspace below */
+  }
+  final cats = defaultCats();
+  final yearMap = <String, MonthData>{};
+  for (final mk in kMonthKeys) {
+    final month = MonthData();
+    for (final c in cats) {
+      month.blocks[c.key] = [];
+    }
+    final m = raw[mk] as Map<String, dynamic>?;
+    if (m != null) {
+      for (final it in (m['income'] as List? ?? [])) {
+        final map = Map<String, dynamic>.from(it as Map);
+        month.income.add(
+          IncomeItem(
+            id: uid(),
+            label: (map['label'] ?? '').toString(),
+            expected: parseNum(map['expected']),
+            actual: parseNum(map['actual']),
+            received: map['received'] == true,
+            account: accForLabel(map['label']?.toString()),
+          ),
+        );
+      }
+      for (final c in cats) {
+        for (final it in (m[c.key] as List? ?? [])) {
+          final map = Map<String, dynamic>.from(it as Map);
+          month.blocks[c.key]!.add(
+            ExpenseItem(
+              id: uid(),
+              label: (map['label'] ?? '').toString(),
+              marker: markerShow(map['day'] ?? map['date']),
+              amount: parseNum(map['amount']),
+              paid: map['paid'] == true,
+              account: accForLabel(map['label']?.toString()),
+              until: map['until'],
+            ),
+          );
+        }
+      }
+    }
+    yearMap[mk] = month;
+  }
+  // Sample spending limits so the cap feature is visible in the demo.
+  yearMap['Juli']?.caps.addAll({
+    'food': 850,
+    'personal': 700,
+    'additional': 1600,
+  });
+  yearMap['Juni']?.caps.addAll({'food': 800});
+  return Workspace(
+    accounts: defaultAccounts(),
+    cats: cats,
+    data: {2026: yearMap},
+  );
+}
+
 /// Cloud + local persistence for the families↔users relationship.
 extension _ThriveFamilyCloud on _ThriveHomeState {
   // Cloud document refs + (de)serialization helpers are only exercised against
@@ -164,6 +231,59 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await _persistAllFamilies(meUid);
     await _writeUserDoc(meUid);
     return true;
+  }
+
+  /// Seeds the shared demo family (`vanderberg` / `demo`) into Firestore so
+  /// cloud users can join it with mock data (see issue #123). Idempotent: a
+  /// no-op once the public handle exists. Security rules only let a client
+  /// create a family it owns, so the first signed-in user to boot becomes the
+  /// demo's nominal owner — but it is never added to their own family list.
+  Future<void> ensureCloudDemoFamily(String meUid) async {
+    const slug = 'vanderberg';
+    try {
+      final handle = await _familyHandleRef(
+        slug,
+      ).get().timeout(kCloudOpTimeout);
+      if (handle.exists) return;
+      const fid = 'fam_demo_vanderberg';
+      final ws = await buildDemoWorkspace();
+      final fam = Family(
+        id: fid,
+        name: 'van der Berg family',
+        username: slug,
+        ownerUid: meUid,
+        memberUids: [meUid],
+        members: [
+          FamilyMember(
+            id: 'owner_demo',
+            name: 'Sophie van der Berg',
+            email: 'sophie@vanderberg.nl',
+            initials: 'SB',
+            color: kMemberColors[2],
+            role: 'owner',
+            status: 'active',
+          ),
+          FamilyMember(
+            id: 'm_demo2',
+            name: 'Tom van der Berg',
+            email: 'tom@vanderberg.nl',
+            initials: 'TB',
+            color: kMemberColors[3],
+            role: 'member',
+            status: 'active',
+          ),
+        ],
+      );
+      final joinHash = hashFamilyPassword('demo', _cloudJoinSalt(slug));
+      await _familyDocRef(fid)
+          .set({..._familyToDoc(fam, ws), 'joinHash': joinHash})
+          .timeout(kCloudOpTimeout);
+      await _familyHandleRef(
+        slug,
+      ).set({'familyId': fid, 'ownerUid': meUid}).timeout(kCloudOpTimeout);
+    } catch (e) {
+      debugPrint('[cloud] ensureCloudDemoFamily failed: $e');
+    }
   }
 
   // ----------------------------------------------------------- streams
@@ -519,11 +639,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Seeds the design's demo family (`vanderberg` / `demo`) so the join flow is
-  /// discoverable offline.
+  /// discoverable offline. The demo carries full mock data (see issue #123); an
+  /// older install that seeded it empty is upgraded the next time this runs.
   Future<void> ensureDemoFamily() async {
     final reg = await loadRegistry();
-    if (reg.containsKey('vanderberg')) return;
-    final ws = Workspace.empty();
+    final existing = reg['vanderberg'];
+    if (existing is Map) {
+      final wsRaw = existing['workspace'];
+      final seeded = wsRaw is Map && (wsRaw['cats'] as List? ?? []).isNotEmpty;
+      if (seeded) return;
+    }
+    final ws = await buildDemoWorkspace();
     reg['vanderberg'] = {
       'username': 'vanderberg',
       'password': 'demo',

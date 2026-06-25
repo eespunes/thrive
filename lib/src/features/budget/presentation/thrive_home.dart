@@ -130,6 +130,11 @@ class _ThriveHomeState extends State<ThriveHome> {
   int _lastSyncedAtMillis = 0;
   bool _applyingCloudSnapshot = false;
 
+  // True while a just-signed-in user's shared families are still being loaded
+  // from the cloud. Suppresses the create/join onboarding gate so a returning
+  // user goes straight to their existing family instead of flashing it (#120).
+  bool _resolvingFamilies = false;
+
   // Auth + family state (ported from the design's v4 state).
   AppUser? user;
   List<Family> families = [];
@@ -156,8 +161,14 @@ class _ThriveHomeState extends State<ThriveHome> {
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
-    // Seed the discoverable demo family for the offline/local join flow.
-    if (!_cloudBacked) await ensureDemoFamily();
+    // Seed the discoverable demo family so the join flow works. Cloud-backed
+    // users get the shared Firestore demo (see issue #123); offline/local users
+    // get a registry-backed copy.
+    if (_cloudBacked) {
+      unawaited(ensureCloudDemoFamily(_firebaseUid()!).catchError((_) {}));
+    } else {
+      await ensureDemoFamily();
+    }
 
     // Firebase boot sync is integration-only here.
     // coverage:ignore-start
@@ -354,66 +365,14 @@ class _ThriveHomeState extends State<ThriveHome> {
   }
 
   Future<void> _seedFromAsset() async {
-    Map<String, dynamic> raw = {};
-    try {
-      final text = await rootBundle.loadString('assets/data/budget.json');
-      raw = json.decode(text) as Map<String, dynamic>;
-    } catch (_) {
-      /* empty seed */
-    }
-    final seededCats = defaultCats();
-    final yearMap = <String, MonthData>{};
-    for (final mk in kMonthKeys) {
-      final month = MonthData();
-      for (final c in seededCats) {
-        month.blocks[c.key] = [];
-      }
-      final m = raw[mk] as Map<String, dynamic>?;
-      if (m != null) {
-        for (final it in (m['income'] as List? ?? [])) {
-          final map = Map<String, dynamic>.from(it as Map);
-          month.income.add(
-            IncomeItem(
-              id: uid(),
-              label: (map['label'] ?? '').toString(),
-              expected: parseNum(map['expected']),
-              actual: parseNum(map['actual']),
-              received: map['received'] == true,
-              account: accForLabel(map['label']?.toString()),
-            ),
-          );
-        }
-        for (final c in seededCats) {
-          for (final it in (m[c.key] as List? ?? [])) {
-            final map = Map<String, dynamic>.from(it as Map);
-            month.blocks[c.key]!.add(
-              ExpenseItem(
-                id: uid(),
-                label: (map['label'] ?? '').toString(),
-                marker: markerShow(map['day'] ?? map['date']),
-                amount: parseNum(map['amount']),
-                paid: map['paid'] == true,
-                account: accForLabel(map['label']?.toString()),
-                until: map['until'],
-              ),
-            );
-          }
-        }
-      }
-      yearMap[mk] = month;
-    }
-    // Sample limits so the feature is visible.
-    yearMap['Juli']?.caps.addAll({
-      'food': 850,
-      'personal': 700,
-      'additional': 1600,
-    });
-    yearMap['Juni']?.caps.addAll({'food': 800});
-
+    // First launch with no stored state: seed the bundled sample budget so the
+    // app isn't empty. Newly *created* families start blank (see issue #119).
+    final ws = await buildDemoWorkspace();
     if (!mounted) return;
     setState(() {
-      cats = seededCats;
-      data = {2026: yearMap};
+      accounts = ws.accounts;
+      cats = ws.cats;
+      data = ws.data;
       _seedFamiliesAndWorkspace();
       ready = true;
     });
@@ -792,9 +751,17 @@ class _ThriveHomeState extends State<ThriveHome> {
               ),
             // Auth gate: covers the app until a user is signed in.
             if (authOpen) Positioned.fill(child: _AuthScreen(state: this)),
-            // Onboarding gate: a signed-in user with no family must create or
-            // join one before reaching the budget.
-            if (ready && user != null && families.isEmpty)
+            // While a signed-in user's cloud families are still loading, show a
+            // loader instead of the onboarding gate so we don't flash create/
+            // join to someone who already has a family (#120).
+            if (ready && user != null && families.isEmpty && _resolvingFamilies)
+              const Positioned.fill(child: _FamilyLoadingScreen()),
+            // Onboarding gate: a signed-in user with confirmed-no family must
+            // create or join one before reaching the budget.
+            if (ready &&
+                user != null &&
+                families.isEmpty &&
+                !_resolvingFamilies)
               Positioned.fill(child: _OnboardingScreen(state: this)),
           ],
         ),
@@ -1184,6 +1151,45 @@ class _RowCompute {
   final ExpenseItem item;
   final String? untilLabel;
   final UntilState untilState;
+}
+
+// ============================================ family loading gate widget
+/// Full-screen loader shown while a just-signed-in user's shared families are
+/// fetched from the cloud, so the onboarding gate never flashes for someone who
+/// already belongs to a family (#120).
+class _FamilyLoadingScreen extends StatelessWidget {
+  const _FamilyLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      color: B.page,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.6,
+                color: B.primary,
+              ),
+            ),
+            SizedBox(height: 14),
+            Text(
+              'Loading your family…',
+              style: TextStyle(
+                color: B.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ================================================== confirm dialog widget
