@@ -474,6 +474,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }, SetOptions(merge: true));
   }
 
+  /// Persists the user-doc mirror (profile, `familyIds`, active family, view
+  /// state) and AWAITS the backend ack, so a freshly created or joined family is
+  /// durably recorded in Firestore before we leave the flow. This closes the gap
+  /// where an app closed right after create/join — before any edit triggered a
+  /// persist — would lose its `familyIds` and bounce the user back to the
+  /// onboarding gate on next launch (issue #128). Bounded by [kCloudOpTimeout]
+  /// so a flaky connection can't strand the UI; the membership query in
+  /// [cloudBoot] remains the backstop if this write still doesn't land.
+  Future<void> _recordMembership(String meUid) async {
+    try {
+      await _writeUserDoc(meUid).timeout(kCloudOpTimeout);
+    } catch (e) {
+      debugPrint('[cloud] recordMembership failed: $e');
+    }
+  }
+
   Future<void> _persistAllFamilies(String meUid) async {
     for (final f in families) {
       final ws = workspaces[f.id] ?? Workspace.empty();
@@ -559,10 +575,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         collapsed = {};
       });
       // The family + handle now exist server-side, so creation has succeeded.
-      // Recording membership in the user doc is durable via offline persistence
-      // and must NOT block the UI — awaiting it could hang on a dropped
-      // connection and strand the user on the spinner.
-      unawaited(_writeUserDoc(meUid).catchError((_) {}));
+      // Durably record membership in the user doc before returning so a relaunch
+      // finds this family instead of the onboarding gate (issue #128). We just
+      // awaited online writes above, so this ack is fast; it's bounded anyway.
+      await _recordMembership(meUid);
       await bindCloudSync(meUid);
       flash('Created ${fam.name}');
       return null;
@@ -609,7 +625,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final mineData = mineSnap.data();
         if (mineSnap.exists && mineData != null) {
           _adoptJoinedFamily(fid, mineData, meUid);
-          unawaited(_writeUserDoc(meUid).catchError((_) {}));
+          await _recordMembership(meUid);
           await bindCloudSync(meUid);
           flash('Joined ${curFamily()?.name ?? 'family'}');
           return null;
@@ -669,8 +685,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
       _adoptJoinedFamily(fid, data, meUid);
-      // Best-effort: durable via offline persistence, must not block the UI.
-      unawaited(_writeUserDoc(meUid).catchError((_) {}));
+      // Durably record membership before returning so a relaunch finds this
+      // family rather than the onboarding gate (issue #128).
+      await _recordMembership(meUid);
       await bindCloudSync(meUid);
       flash('Joined ${curFamily()?.name ?? 'family'}');
       return null;
