@@ -715,9 +715,10 @@ class _ThriveHomeState extends State<ThriveHome> {
   // =============================================================== build
   @override
   Widget build(BuildContext context) {
+    final authOpen = ready && user == null;
     return Scaffold(
       backgroundColor: B.page,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: authOpen,
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -749,8 +750,7 @@ class _ThriveHomeState extends State<ThriveHome> {
                 child: Center(child: _buildToast()),
               ),
             // Auth gate: covers the app until a user is signed in.
-            if (ready && user == null)
-              Positioned.fill(child: _AuthScreen(state: this)),
+            if (authOpen) Positioned.fill(child: _AuthScreen(state: this)),
             // While a signed-in user's cloud families are still loading, show a
             // loader instead of the onboarding gate so we don't flash create/
             // join to someone who already has a family (#120).
