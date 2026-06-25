@@ -44,10 +44,17 @@ service cloud.firestore {
                == resource.data.memberUids.size() + 1
           && request.resource.data.members.size()
                == resource.data.members.size() + 1
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.username == resource.data.username
-          && request.resource.data.joinHash == resource.data.joinHash
-          && request.resource.data.workspace == resource.data.workspace;
+          // A joiner may ONLY touch the membership arrays, their password proof
+          // and the update timestamps. Restricting the changed keys this way
+          // keeps ownership, the username handle, the join hash and the shared
+          // workspace immutable WITHOUT deep-comparing the (potentially large)
+          // workspace map — that comparison is both costly and brittle and was
+          // rejecting otherwise-valid joins into data-rich families (issue #127).
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly([
+                 'memberUids', 'members', 'joinProof',
+                 'updatedAt', 'updatedAtMillis',
+               ]);
       }
 
       // Members can read the shared workspace.

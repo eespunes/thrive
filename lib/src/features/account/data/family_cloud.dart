@@ -148,7 +148,34 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
+    fam.members = _dedupeMembers(fam.members);
     return fam;
+  }
+
+  /// Collapses members that share the same Firebase `uid` down to a single
+  /// entry (preferring the owner row) so a person who ended up appended more
+  /// than once no longer shows up repeatedly (issue #125). Invited members have
+  /// no uid yet and are always preserved as-is. Loading through this also
+  /// repairs already-corrupted family docs: the de-duped list is what the owner
+  /// later persists back, cleaning the shared document.
+  List<FamilyMember> _dedupeMembers(List<FamilyMember> members) {
+    final indexByUid = <String, int>{};
+    final out = <FamilyMember>[];
+    for (final m in members) {
+      final uid = m.uid ?? '';
+      if (uid.isEmpty) {
+        out.add(m);
+        continue;
+      }
+      final at = indexByUid[uid];
+      if (at == null) {
+        indexByUid[uid] = out.length;
+        out.add(m);
+      } else if (m.role == 'owner' && out[at].role != 'owner') {
+        out[at] = m;
+      }
+    }
+    return out;
   }
 
   Workspace _workspaceFromDoc(Map<String, dynamic> doc) {
@@ -494,6 +521,34 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         return 'You\u2019re already in this family';
       }
 
+      // We may already be a member server-side even though this device's local
+      // list doesn't show it \u2014 e.g. the best-effort user-doc write never
+      // reached the backend last time, or this account seeded the demo family.
+      // Only members can read the family doc, so a successful read means we
+      // already belong: adopt it WITHOUT appending a second membership row,
+      // which is exactly what produced the repeated users in issue #125.
+      try {
+        final mineSnap = await _familyDocRef(
+          fid,
+        ).get().timeout(kCloudOpTimeout);
+        final mineData = mineSnap.data();
+        if (mineSnap.exists && mineData != null) {
+          _adoptJoinedFamily(fid, mineData, meUid);
+          unawaited(_writeUserDoc(meUid).catchError((_) {}));
+          await bindCloudSync(meUid);
+          flash('Joined ${curFamily()?.name ?? 'family'}');
+          return null;
+        }
+      } on FirebaseException catch (e) {
+        // `permission-denied` just means we aren't a member yet \u2014 fall through
+        // to the password-verified self-join below. Anything else is a real
+        // failure we shouldn't paper over as a bad password.
+        if (e.code != 'permission-denied') {
+          debugPrint('[cloud] joinFamily pre-read failed: ${e.code}');
+          return 'Could not join family right now';
+        }
+      }
+
       // Build our membership entry and append it. The password is verified
       // server-side by security rules: the write is rejected unless `joinProof`
       // matches the family's (unreadable) `joinHash`. We never read the hash.
@@ -538,23 +593,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
-      final fam = _familyFromDoc(fid, data);
-      final ws = _workspaceFromDoc(data);
-      _syncWorkspaces();
-      workspaces[fid] = ws;
-      update(() {
-        families = [...families, fam];
-        familyId = fid;
-        _adoptActiveWorkspace();
-        screen = 'overview';
-        swipedId = null;
-        collapsed = {};
-      });
-      _localizeMeIn(fam, meUid);
+      _adoptJoinedFamily(fid, data, meUid);
       // Best-effort: durable via offline persistence, must not block the UI.
       unawaited(_writeUserDoc(meUid).catchError((_) {}));
       await bindCloudSync(meUid);
-      flash('Joined ${fam.name}');
+      flash('Joined ${curFamily()?.name ?? 'family'}');
       return null;
     } on TimeoutException {
       return 'Could not join family right now';
@@ -562,6 +605,29 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       debugPrint('[cloud] joinFamily failed: $e');
       return 'Could not join family right now';
     }
+  }
+
+  /// Loads a (just-joined or already-joined) family from its document into local
+  /// state and makes it the active workspace. Replaces an existing local entry
+  /// for the same family instead of appending, so adopting a family we already
+  /// hold can't produce a duplicate (issue #125).
+  void _adoptJoinedFamily(String fid, Map<String, dynamic> data, String meUid) {
+    final fam = _familyFromDoc(fid, data);
+    final ws = _workspaceFromDoc(data);
+    _syncWorkspaces();
+    workspaces[fid] = ws;
+    final alreadyLocal = families.any((f) => f.id == fid);
+    update(() {
+      families = alreadyLocal
+          ? [for (final f in families) f.id == fid ? fam : f]
+          : [...families, fam];
+      familyId = fid;
+      _adoptActiveWorkspace();
+      screen = 'overview';
+      swipedId = null;
+      collapsed = {};
+    });
+    _localizeMeIn(fam, meUid);
   }
 
   Future<void> cloudDeleteFamily(String meUid, String fid) async {
