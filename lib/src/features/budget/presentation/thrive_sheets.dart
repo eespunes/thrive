@@ -583,11 +583,13 @@ Widget _sheetInput(
   TextEditingController ctrl, {
   String hint = '',
   bool number = false,
+  bool obscure = false,
   ValueChanged<String>? onChanged,
 }) {
   return TextField(
     controller: ctrl,
     onChanged: onChanged,
+    obscureText: obscure,
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,

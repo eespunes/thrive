@@ -16,6 +16,25 @@ const List<Color> kMemberColors = [
   Color(0xff54A96A),
 ];
 
+/// Generates a fresh id outside any class scope (so the `uid()` generator is
+/// reachable even where a `uid` field would otherwise shadow it).
+String _genUid() => uid();
+
+/// Mirrors the design's `slug(s)` — a URL/username-safe family handle.
+String familySlug(String? s) {
+  var out = (s ?? '')
+      .toLowerCase()
+      .trim()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'(^-+|-+$)'), '');
+  if (out.length > 24) out = out.substring(0, 24);
+  return out;
+}
+
+/// Mirrors the design's `validUsername(u)` — 3–24 chars, starts alphanumeric.
+bool validFamilyUsername(String? u) =>
+    RegExp(r'^[a-z0-9][a-z0-9_-]{2,23}$').hasMatch(u ?? '');
+
 /// Mirrors `initialsOf(name)` — up to two uppercase initials from a name.
 String initialsOf(String? name) {
   final parts = (name ?? '')
@@ -74,6 +93,7 @@ class FamilyMember {
     required this.email,
     required this.initials,
     required this.color,
+    this.uid,
     this.photo,
     this.role = 'member', // 'owner' | 'member'
     this.status = 'active', // 'active' | 'invited'
@@ -84,6 +104,10 @@ class FamilyMember {
   String email;
   String initials;
   Color color;
+
+  /// Firebase Auth uid of the signed-in user backing this member, when known.
+  /// `null` for invited-but-not-yet-joined members.
+  String? uid;
   String? photo;
   String role;
   String status;
@@ -94,6 +118,7 @@ class FamilyMember {
     email: email,
     initials: initials,
     color: color,
+    uid: uid,
     photo: photo,
     role: role,
     status: status,
@@ -105,17 +130,19 @@ class FamilyMember {
     'email': email,
     'initials': initials,
     'color': color.toARGB32(),
+    if (uid != null) 'uid': uid,
     if (photo != null) 'photo': photo,
     'role': role,
     'status': status,
   };
 
   factory FamilyMember.fromJson(Map<String, dynamic> j) => FamilyMember(
-    id: (j['id'] ?? uid()).toString(),
+    id: (j['id'] ?? _genUid()).toString(),
     name: (j['name'] ?? '').toString(),
     email: (j['email'] ?? '').toString(),
     initials: (j['initials'] ?? initialsOf(j['name']?.toString())).toString(),
     color: Color((j['color'] as num?)?.toInt() ?? 0xff0E9A8D),
+    uid: j['uid']?.toString(),
     photo: j['photo']?.toString(),
     role: (j['role'] ?? 'member').toString(),
     status: (j['status'] ?? 'active').toString(),
@@ -124,21 +151,52 @@ class FamilyMember {
 
 /// A family workspace. Mirrors the design's `family` object.
 class Family {
-  Family({required this.id, required this.name, required this.members});
+  Family({
+    required this.id,
+    required this.name,
+    required this.members,
+    this.username = '',
+    this.picture,
+    this.ownerUid,
+    List<String>? memberUids,
+  }) : memberUids = memberUids ?? <String>[];
 
   String id;
   String name;
   List<FamilyMember> members;
 
+  /// Shared family handle relatives type to join (mirrors the design).
+  String username;
+
+  /// Optional base64 family avatar.
+  String? picture;
+
+  /// Firebase Auth uid of the owner (cloud mode). `null` in local/demo mode.
+  String? ownerUid;
+
+  /// Firebase Auth uids with access — the source of truth for sharing and the
+  /// field Firestore security rules check for membership.
+  List<String> memberUids;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'username': username,
+    if (picture != null) 'picture': picture,
+    if (ownerUid != null) 'ownerUid': ownerUid,
+    'memberUids': memberUids,
     'members': members.map((m) => m.toJson()).toList(),
   };
 
   factory Family.fromJson(Map<String, dynamic> j) => Family(
     id: (j['id'] ?? 'fam_main').toString(),
     name: (j['name'] ?? 'Family').toString(),
+    username: (j['username'] ?? '').toString(),
+    picture: j['picture']?.toString(),
+    ownerUid: j['ownerUid']?.toString(),
+    memberUids: [
+      for (final u in (j['memberUids'] as List? ?? [])) u.toString(),
+    ],
     members: [
       for (final m in (j['members'] as List? ?? []))
         FamilyMember.fromJson(Map<String, dynamic>.from(m as Map)),
@@ -210,11 +268,15 @@ class Workspace {
 
 /// Mirrors the design's `seedFamily(user)` — creates the initial family with
 /// the user as owner plus one dummy member, so a new account isn't empty.
-Family seedFamily(String id, AppUser u) {
+Family seedFamily(String id, AppUser u, {String? ownerUid}) {
   final last = u.name.trim().split(RegExp(r'\s+')).last;
+  final name = '$last family';
   return Family(
     id: id,
-    name: '$last family',
+    name: name,
+    username: familySlug(name),
+    ownerUid: ownerUid,
+    memberUids: ownerUid != null ? [ownerUid] : <String>[],
     members: [
       FamilyMember(
         id: 'me',
@@ -222,6 +284,7 @@ Family seedFamily(String id, AppUser u) {
         email: u.email,
         initials: u.initials,
         color: kMemberColors[0],
+        uid: ownerUid,
         photo: u.photo,
         role: 'owner',
         status: 'active',
