@@ -225,16 +225,18 @@ class Workspace {
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
-    var accounts = <Account>[
+    // A freshly created family starts with no accounts and no budget blocks
+    // (see [Workspace.empty]). We must NOT backfill defaults here, otherwise a
+    // legitimately-empty workspace would sprout default accounts/blocks the
+    // next time it round-trips through Firestore or local storage.
+    final accounts = <Account>[
       for (final a in (j['accounts'] as List? ?? []))
         Account.fromJson(Map<String, dynamic>.from(a as Map)),
     ];
-    if (accounts.isEmpty) accounts = defaultAccounts();
-    var cats = <Category>[
+    final cats = <Category>[
       for (final c in (j['cats'] as List? ?? []))
         Category.fromJson(Map<String, dynamic>.from(c as Map)),
     ];
-    if (cats.isEmpty) cats = defaultCats();
     final data = <int, Map<String, MonthData>>{};
     (j['data'] as Map<String, dynamic>? ?? {}).forEach((yr, months) {
       final yKey = int.tryParse(yr) ?? 2026;
@@ -247,20 +249,17 @@ class Workspace {
     return Workspace(accounts: accounts, cats: cats, data: data);
   }
 
-  /// Builds a fresh empty workspace (default accounts/cats, empty months).
+  /// Builds a fresh, truly empty workspace: no accounts and no budget blocks.
+  /// A newly created family starts blank — the user adds their own accounts and
+  /// blocks from Settings (see issue #119).
   factory Workspace.empty() {
-    final cats = defaultCats();
     final yearMap = <String, MonthData>{};
     for (final mk in kMonthKeys) {
-      final month = MonthData();
-      for (final c in cats) {
-        month.blocks[c.key] = [];
-      }
-      yearMap[mk] = month;
+      yearMap[mk] = MonthData();
     }
     return Workspace(
-      accounts: defaultAccounts(),
-      cats: cats,
+      accounts: <Account>[],
+      cats: <Category>[],
       data: {2026: yearMap},
     );
   }
