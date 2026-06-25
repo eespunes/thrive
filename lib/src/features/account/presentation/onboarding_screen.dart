@@ -56,16 +56,80 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
   final _joinPw = TextEditingController();
   final _picker = ImagePicker();
 
+  // Username suggestion / availability state (issue #121).
+  bool _usernameEdited = false;
+  Timer? _usernameDebounce;
+  int _usernameCheckSeq = 0;
+  String? _usernameNote;
+  Color _usernameNoteColor = B.muted;
+
   _ThriveHomeState get s => widget.state;
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _name.dispose();
     _username.dispose();
     _password.dispose();
     _joinUser.dispose();
     _joinPw.dispose();
     super.dispose();
+  }
+
+  /// Fills the username field with an available suggestion derived from the
+  /// family [name], unless the user has already typed their own handle.
+  void _suggestUsername(String name) {
+    _usernameDebounce?.cancel();
+    final base = familySlug(name);
+    final seq = ++_usernameCheckSeq;
+    if (!validFamilyUsername(base)) {
+      if (_username.text.isNotEmpty) _username.clear();
+      setState(() => _usernameNote = null);
+      return;
+    }
+    _usernameDebounce = Timer(const Duration(milliseconds: 350), () async {
+      final suggestion = await s.suggestFamilyUsername(name);
+      if (!mounted || seq != _usernameCheckSeq || _usernameEdited) return;
+      setState(() {
+        _username.text = suggestion;
+        if (suggestion.isEmpty) {
+          _usernameNote = null;
+        } else {
+          _usernameNote = 'Suggested · available';
+          _usernameNoteColor = B.green;
+        }
+      });
+    });
+  }
+
+  /// Validates a user-typed handle and notifies whether it is free to claim.
+  void _checkUsername(String value) {
+    _usernameDebounce?.cancel();
+    final slug = familySlug(value);
+    if (slug.isEmpty) {
+      setState(() => _usernameNote = null);
+      return;
+    }
+    if (!validFamilyUsername(slug)) {
+      setState(() {
+        _usernameNote = '3–24 letters, numbers, - or _';
+        _usernameNoteColor = B.red;
+      });
+      return;
+    }
+    setState(() {
+      _usernameNote = 'Checking availability…';
+      _usernameNoteColor = B.muted;
+    });
+    final seq = ++_usernameCheckSeq;
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final available = await s.familyUsernameAvailable(slug);
+      if (!mounted || seq != _usernameCheckSeq) return;
+      setState(() {
+        _usernameNote = available ? 'Available' : 'That username is taken';
+        _usernameNoteColor = available ? B.green : B.red;
+      });
+    });
   }
 
   // coverage:ignore-start
@@ -353,8 +417,29 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _field('Family name', _name, 'e.g. The Janssens'),
-        _field('Family username', _username, 'e.g. janssen-home'),
+        _field(
+          'Family name',
+          _name,
+          'e.g. The Janssens',
+          onChanged: (v) {
+            if (!_usernameEdited) _suggestUsername(v);
+          },
+        ),
+        _field(
+          'Family username',
+          _username,
+          'e.g. janssen-home',
+          onChanged: (v) {
+            _usernameEdited = v.trim().isNotEmpty;
+            if (_usernameEdited) {
+              _checkUsername(v);
+            } else {
+              _suggestUsername(_name.text);
+            }
+          },
+          note: _usernameNote,
+          noteColor: _usernameNoteColor,
+        ),
         _field(
           'Family password',
           _password,
@@ -456,6 +541,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     TextEditingController c,
     String hint, {
     bool obscure = false,
+    ValueChanged<String>? onChanged,
+    String? note,
+    Color noteColor = B.muted,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 13),
@@ -477,7 +565,10 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           TextField(
             controller: c,
             obscureText: obscure,
-            onChanged: (_) => s.dismissError(),
+            onChanged: (v) {
+              s.dismissError();
+              onChanged?.call(v);
+            },
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -502,6 +593,18 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               ),
             ),
           ),
+          if (note != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 2),
+              child: Text(
+                note,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: noteColor,
+                ),
+              ),
+            ),
         ],
       ),
     );

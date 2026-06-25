@@ -189,6 +189,49 @@ void main() {
       expect(find.text('Joined van der Berg family'), findsOneWidget);
     });
 
+    testWidgets('new family sheet suggests a username from the name', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-new-family')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'The Janssens');
+      // Let the debounce + availability lookup resolve.
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+
+      final username = tester.widget<TextField>(find.byType(TextField).at(1));
+      expect(username.controller!.text, 'the-janssens');
+      expect(find.text('Suggested · available'), findsOneWidget);
+    });
+
+    testWidgets('new family sheet flags a taken username', (tester) async {
+      await pumpApp(tester);
+      // Create a family that claims the "beach-house" handle.
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-new-family')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
+      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
+      await tester.enterText(find.byType(TextField).at(2), 'sandy');
+      await tester.tap(find.text('Create family'));
+      await tester.pumpAndSettle();
+
+      // Reopen the sheet and reuse the same handle.
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-new-family')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('That username is taken'), findsOneWidget);
+    });
+
     testWidgets('family credentials card copies the username', (tester) async {
       await pumpApp(tester);
       // Create a credentialed family first so the cred card renders.

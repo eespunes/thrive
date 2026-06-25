@@ -1310,14 +1310,80 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
   bool _busy = false;
   final _picker = ImagePicker();
 
+  // Username suggestion / availability state (issue #121). While the user hasn't
+  // touched the username field we auto-fill it with an available suggestion
+  // derived from the family name; once they edit it we validate it live instead.
+  bool _usernameEdited = false;
+  Timer? _usernameDebounce;
+  int _usernameCheckSeq = 0;
+  String? _usernameNote;
+  Color _usernameNoteColor = B.muted;
+
   _ThriveHomeState get s => widget.state;
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _name.dispose();
     _username.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  /// Fills the username field with an available suggestion derived from the
+  /// family [name], unless the user has already typed their own handle.
+  void _suggestUsername(String name) {
+    _usernameDebounce?.cancel();
+    final base = familySlug(name);
+    final seq = ++_usernameCheckSeq;
+    if (!validFamilyUsername(base)) {
+      if (_username.text.isNotEmpty) _username.clear();
+      setState(() => _usernameNote = null);
+      return;
+    }
+    _usernameDebounce = Timer(const Duration(milliseconds: 350), () async {
+      final suggestion = await s.suggestFamilyUsername(name);
+      if (!mounted || seq != _usernameCheckSeq || _usernameEdited) return;
+      setState(() {
+        _username.text = suggestion;
+        if (suggestion.isEmpty) {
+          _usernameNote = null;
+        } else {
+          _usernameNote = 'Suggested · available';
+          _usernameNoteColor = B.green;
+        }
+      });
+    });
+  }
+
+  /// Validates a user-typed handle and notifies whether it is free to claim.
+  void _checkUsername(String value) {
+    _usernameDebounce?.cancel();
+    final slug = familySlug(value);
+    if (slug.isEmpty) {
+      setState(() => _usernameNote = null);
+      return;
+    }
+    if (!validFamilyUsername(slug)) {
+      setState(() {
+        _usernameNote = '3–24 letters, numbers, - or _';
+        _usernameNoteColor = B.red;
+      });
+      return;
+    }
+    setState(() {
+      _usernameNote = 'Checking availability…';
+      _usernameNoteColor = B.muted;
+    });
+    final seq = ++_usernameCheckSeq;
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final available = await s.familyUsernameAvailable(slug);
+      if (!mounted || seq != _usernameCheckSeq) return;
+      setState(() {
+        _usernameNote = available ? 'Available' : 'That username is taken';
+        _usernameNoteColor = available ? B.green : B.red;
+      });
+    });
   }
 
   // coverage:ignore-start
@@ -1419,15 +1485,43 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
             _sheetInput(
               _name,
               hint: 'e.g. The Janssens',
-              onChanged: (_) => setState(s.dismissError),
+              onChanged: (v) {
+                setState(s.dismissError);
+                if (!_usernameEdited) _suggestUsername(v);
+              },
             ),
           ),
           _sheetField(
             'Family username (optional)',
-            _sheetInput(
-              _username,
-              hint: 'e.g. beach-house',
-              onChanged: (_) => setState(s.dismissError),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetInput(
+                  _username,
+                  hint: 'e.g. beach-house',
+                  onChanged: (v) {
+                    _usernameEdited = v.trim().isNotEmpty;
+                    setState(s.dismissError);
+                    if (_usernameEdited) {
+                      _checkUsername(v);
+                    } else {
+                      _suggestUsername(_name.text);
+                    }
+                  },
+                ),
+                if (_usernameNote != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 2),
+                    child: Text(
+                      _usernameNote!,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: _usernameNoteColor,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           _sheetField(

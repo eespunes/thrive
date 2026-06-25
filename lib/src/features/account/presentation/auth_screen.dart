@@ -172,52 +172,90 @@ class _AuthScreenState extends State<_AuthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // brand hero
-            Container(
-              padding: const EdgeInsets.fromLTRB(26, 64, 26, 30),
-              decoration: const BoxDecoration(
-                gradient: B.grad,
-                borderRadius: BorderRadius.vertical(
-                  bottom: Radius.circular(30),
-                ),
+            // brand hero / login banner
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(30),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .18),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(child: _heroGlyph(size: 26)),
-                  ),
-                  const Text(
-                    'Thrive',
-                    style: TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 260),
-                    child: Text(
-                      'The shared money workspace for your family. Track income, '
-                      'expenses & savings together.',
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
-                        color: Colors.white.withValues(alpha: .92),
+              child: Container(
+                decoration: const BoxDecoration(gradient: B.grad),
+                child: Stack(
+                  children: [
+                    // soft radial highlight in the top-right corner
+                    Positioned(
+                      top: -52,
+                      right: -36,
+                      child: Container(
+                        width: 190,
+                        height: 190,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: .10),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(26, 64, 26, 34),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: .18),
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Center(child: _heroGlyph(size: 25)),
+                              ),
+                              const SizedBox(width: 13),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'FAMILY FINANCE',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.6,
+                                      color: Colors.white.withValues(
+                                        alpha: .82,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  const Text(
+                                    'Thrive',
+                                    style: TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 22),
+                          const Text(
+                            'Every euro, every account — in sync for the '
+                            'whole family.',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              height: 1.25,
+                              letterSpacing: -.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // form

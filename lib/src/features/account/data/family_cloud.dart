@@ -466,6 +466,38 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       debugPrint('[cloud] deleteFamily failed: $e');
     }
   }
+
+  /// Detaches the signed-in user from every family — deleting any family they
+  /// are the sole member of (and its public handle) and otherwise removing only
+  /// their membership — then drops their user doc and Firebase auth account.
+  Future<void> _deleteAccountCloud(String meUid) async {
+    for (final f in [...families]) {
+      try {
+        final others = f.memberUids.where((u) => u != meUid).toList();
+        if (others.isEmpty) {
+          final slug = f.username;
+          if (slug.isNotEmpty) {
+            await _familyHandleRef(slug).delete().catchError((_) {});
+          }
+          await _familyDocRef(f.id).delete();
+        } else {
+          await _familyDocRef(f.id).update({
+            'memberUids': FieldValue.arrayRemove([meUid]),
+          });
+        }
+      } catch (e) {
+        debugPrint('[cloud] deleteAccount family ${f.id} failed: $e');
+      }
+    }
+    await _userDocRef(meUid).delete().catchError((_) {});
+    try {
+      await FirebaseAuth.instance.currentUser?.delete();
+    } on FirebaseAuthException catch (e) {
+      // `requires-recent-login` can block deletion; the cloud data is already
+      // detached, so the caller still signs the user out locally.
+      debugPrint('[auth] account delete failed: ${e.code}');
+    }
+  }
   // coverage:ignore-end
 
   // -------------------------------------------------------- local mode
