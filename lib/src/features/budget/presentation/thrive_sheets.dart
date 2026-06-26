@@ -63,13 +63,6 @@ extension _ThriveSheets on _ThriveHomeState {
     );
   }
 
-  void openIncomeSheet({required String mode, String? id}) {
-    _showSheet(
-      monthScoped: true,
-      (ctx) => _IncomeSheet(state: this, mode: mode, id: id),
-    );
-  }
-
   void openCapSheet(String cat, double? value) {
     _showSheet(
       monthScoped: true,
@@ -93,11 +86,9 @@ extension _ThriveSheets on _ThriveHomeState {
   void setItemAccount(String kind, String id, String accKey, String? catKey) {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
-      if (kind == 'income') {
-        for (final it in m.income) {
-          if (it.id == id) it.account = accKey;
-        }
-      } else if (catKey != null) {
+      // Income lives in income-direction blocks now (issue #137), so every
+      // item is reached through its block regardless of [kind].
+      if (catKey != null) {
         for (final it in (m.blocks[catKey] ?? <ExpenseItem>[])) {
           if (it.id == id) it.account = accKey;
         }
@@ -153,51 +144,6 @@ extension _ThriveSheets on _ThriveHomeState {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
       m.blocks[cat]?.removeWhere((x) => x.id == id);
-      swipedId = null;
-    }, () => flash('Deleted'));
-  }
-
-  void saveIncome(
-    String mode,
-    String? id, {
-    required String label,
-    required double expected,
-    required double actual,
-    required bool received,
-    required String account,
-  }) {
-    mutate(() {
-      final arr = data[year]![kMonthKeys[monthIdx]]!.income;
-      if (mode == 'edit' && id != null) {
-        for (final it in arr) {
-          if (it.id == id) {
-            it
-              ..label = label
-              ..expected = expected
-              ..actual = actual
-              ..received = received
-              ..account = account;
-          }
-        }
-      } else {
-        arr.add(
-          IncomeItem(
-            id: uid(),
-            label: label,
-            expected: expected,
-            actual: actual,
-            received: received,
-            account: account,
-          ),
-        );
-      }
-    }, () => flash(mode == 'edit' ? 'Saved' : 'Income added'));
-  }
-
-  void deleteIncome(String id) {
-    mutate(() {
-      final m = data[year]![kMonthKeys[monthIdx]]!;
-      m.income.removeWhere((x) => x.id == id);
       swipedId = null;
     }, () => flash('Deleted'));
   }
@@ -280,9 +226,6 @@ extension _ThriveSheets on _ThriveHomeState {
             for (final mk in kMonthKeys) {
               final m = data[yr]![mk];
               if (m == null || m.closed) continue;
-              for (final it in m.income) {
-                if (it.account == key) it.account = fallback;
-              }
               for (final arr in m.blocks.values) {
                 for (final it in arr) {
                   if (it.account == key) it.account = fallback;
@@ -306,6 +249,8 @@ extension _ThriveSheets on _ThriveHomeState {
     required String capRaw,
     String? emoji,
     String? picture,
+    bool isIncome = false,
+    bool isSavings = false,
   }) {
     final cap = capRaw.isNotEmpty ? parseNum(capRaw) : null;
     if (mode == 'edit' && key != null) {
@@ -320,7 +265,9 @@ extension _ThriveSheets on _ThriveHomeState {
               ..tone = tone
               ..hasUntil = hasUntil
               ..bg = tintFor(tone)
-              ..temporary = temporary;
+              ..temporary = temporary
+              ..isIncome = isIncome
+              ..isSavings = isSavings;
             if (temporary) {
               c.ownerYear ??= year;
               c.ownerMonthIdx ??= monthIdx;
@@ -369,6 +316,8 @@ extension _ThriveSheets on _ThriveHomeState {
           temporary: temporary,
           ownerYear: temporary ? year : null,
           ownerMonthIdx: temporary ? monthIdx : null,
+          isIncome: isIncome,
+          isSavings: isSavings,
         ),
       );
     });
@@ -430,9 +379,7 @@ extension _ThriveSheets on _ThriveHomeState {
       () {
         final src = data[fromYear]?[kMonthKeys[from]];
         if (src == null) return;
-        final dst = MonthData(
-          income: src.income.map((it) => it.copyWithId(uid())).toList(),
-        );
+        final dst = MonthData();
         for (final c in srcCats) {
           final items = (src.blocks[c.key] ?? const <ExpenseItem>[])
               .map((it) => it.copyWithId(uid()))
@@ -1155,13 +1102,17 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
           if (cat.hasUntil)
             _sheetField('Until (MM-YY)', _sheetInput(_until, hint: '12-28')),
           _sheetField(
-            widget.cat == 'savings' ? 'Save from' : 'Pay from',
+            cat.isIncome
+                ? 'Received into'
+                : (cat.isSavings ? 'Save from' : 'Pay from'),
             _accChips(),
           ),
           _sheetField(
             'Status',
             _toggleRow(
-              widget.cat == 'savings' ? 'Saved this month' : 'Paid',
+              cat.isIncome
+                  ? 'Received'
+                  : (cat.isSavings ? 'Saved this month' : 'Paid'),
               _paid,
               () => setState(() => _paid = !_paid),
             ),
@@ -1177,201 +1128,6 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               paid: _paid,
               account: _account,
               until: _until.text.trim(),
-            );
-            Navigator.of(context).pop();
-          }, enabled: valid),
-          if (_editing)
-            Padding(
-              padding: const EdgeInsets.only(top: 13, bottom: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ic('cleft', size: 13, sw: 2.4, color: B.muted),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Swipe the row left to delete',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _accChips() {
-    return Row(
-      children: [
-        for (final a in widget.state.accounts) ...[
-          if (a != widget.state.accounts.first) const SizedBox(width: 8),
-          Expanded(child: _accChip(a)),
-        ],
-      ],
-    );
-  }
-
-  Widget _accChip(Account a) {
-    final sel = a.key == _account;
-    return GestureDetector(
-      onTap: () => setState(() => _account = a.key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
-        decoration: BoxDecoration(
-          color: sel ? B.soft : Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: sel ? B.primary : B.line),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: a.color,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              alignment: Alignment.center,
-              child: glyphTile(
-                size: 24,
-                radius: 7,
-                picture: a.picture,
-                emoji: a.emoji,
-                emojiSize: 13,
-                fallback: Text(
-                  a.initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              a.short,
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: B.text,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =========================================================== income sheet
-class _IncomeSheet extends StatefulWidget {
-  const _IncomeSheet({required this.state, required this.mode, this.id});
-  final _ThriveHomeState state;
-  final String mode;
-  final String? id;
-
-  @override
-  State<_IncomeSheet> createState() => _IncomeSheetState();
-}
-
-class _IncomeSheetState extends State<_IncomeSheet> {
-  late final TextEditingController _label;
-  late final TextEditingController _expected;
-  late final TextEditingController _actual;
-  String _account = 'shared';
-  bool _received = false;
-
-  bool get _editing => widget.mode == 'edit';
-
-  @override
-  void initState() {
-    super.initState();
-    IncomeItem? it;
-    if (_editing) {
-      it = (widget.state.cur()?.income ?? [])
-          .where((x) => x.id == widget.id)
-          .firstOrNull;
-    }
-    _label = TextEditingController(text: it?.label ?? '');
-    _expected = TextEditingController(
-      text: it != null ? _numStr(it.expected) : '',
-    );
-    _actual = TextEditingController(text: it != null ? _numStr(it.actual) : '');
-    _account = it?.account ?? 'shared';
-    _received = it?.received ?? false;
-  }
-
-  @override
-  void dispose() {
-    _label.dispose();
-    _expected.dispose();
-    _actual.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.state;
-    final valid = _label.text.trim().isNotEmpty;
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sheetHead(
-            context,
-            _editing ? 'Edit income' : 'Add income',
-            _editing ? null : 'New source',
-          ),
-          _sheetField(
-            'Name',
-            _sheetInput(
-              _label,
-              hint: 'e.g. Salary',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _sheetField(
-                  'Expected (\u20ac)',
-                  _sheetInput(_expected, hint: '0,00', number: true),
-                ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: _sheetField(
-                  'Actual (\u20ac)',
-                  _sheetInput(_actual, hint: '0,00', number: true),
-                ),
-              ),
-            ],
-          ),
-          _sheetField('Received into', _accChips()),
-          _sheetField(
-            'Status',
-            _toggleRow(
-              'Received',
-              _received,
-              () => setState(() => _received = !_received),
-            ),
-          ),
-          _primaryBtn(_editing ? 'Save changes' : 'Add income', () {
-            s.saveIncome(
-              widget.mode,
-              widget.id,
-              label: _label.text.trim(),
-              expected: parseNum(_expected.text),
-              actual: parseNum(_actual.text),
-              received: _received,
-              account: _account,
             );
             Navigator.of(context).pop();
           }, enabled: valid),
@@ -1886,6 +1642,8 @@ class _BlockSheetState extends State<_BlockSheet> {
   Color _tone = kCatPalette.first;
   bool _hasUntil = false;
   bool _temporary = false;
+  bool _isIncome = false;
+  bool _isSavings = false;
 
   bool get _editing => widget.mode == 'edit';
 
@@ -1907,6 +1665,8 @@ class _BlockSheetState extends State<_BlockSheet> {
     _tone = c?.tone ?? kCatPalette.first;
     _hasUntil = c?.hasUntil ?? false;
     _temporary = c?.temporary ?? false;
+    _isIncome = c?.isIncome ?? false;
+    _isSavings = c?.isSavings ?? false;
   }
 
   @override
@@ -1944,6 +1704,7 @@ class _BlockSheetState extends State<_BlockSheet> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          _sheetField('Money direction', _directionSeg()),
           _sheetField('Color', _swatches()),
           _sheetField('Applies to', _scopeSeg()),
           if (_temporary)
@@ -1966,20 +1727,34 @@ class _BlockSheetState extends State<_BlockSheet> {
                 ),
               ),
             ),
-          _sheetField(
-            'Monthly limit for ${kMonthsEn[s.monthIdx]} (optional)',
-            _sheetInput(_cap, hint: 'No limit', number: true),
-          ),
-          _sheetField(
-            '',
-            _toggleRow(
-              'Track end date (Until MM-YY)',
-              _hasUntil,
-              () => setState(() => _hasUntil = !_hasUntil),
-              subtitle: 'For loans & debts with a payoff date',
-              activeColor: B.primary,
+          // Limits, end dates and the savings flag only apply to blocks that
+          // withdraw money — income blocks just receive it (issue #137).
+          if (!_isIncome) ...[
+            _sheetField(
+              'Monthly limit for ${kMonthsEn[s.monthIdx]} (optional)',
+              _sheetInput(_cap, hint: 'No limit', number: true),
             ),
-          ),
+            _sheetField(
+              '',
+              _toggleRow(
+                'Track end date (Until MM-YY)',
+                _hasUntil,
+                () => setState(() => _hasUntil = !_hasUntil),
+                subtitle: 'For loans & debts with a payoff date',
+                activeColor: B.primary,
+              ),
+            ),
+            _sheetField(
+              '',
+              _toggleRow(
+                'Counts as savings',
+                _isSavings,
+                () => setState(() => _isSavings = !_isSavings),
+                subtitle: 'Include this block in your savings statistics',
+                activeColor: B.primary,
+              ),
+            ),
+          ],
           _primaryBtn(_editing ? 'Save block' : 'Create block', () {
             s.saveBlock(
               widget.mode,
@@ -1989,9 +1764,11 @@ class _BlockSheetState extends State<_BlockSheet> {
               emoji: _emoji,
               picture: _picture,
               tone: _tone,
-              hasUntil: _hasUntil,
+              hasUntil: _isIncome ? false : _hasUntil,
               temporary: _temporary,
-              capRaw: _cap.text.trim(),
+              capRaw: _isIncome ? '' : _cap.text.trim(),
+              isIncome: _isIncome,
+              isSavings: _isIncome ? false : _isSavings,
             );
             Navigator.of(context).pop();
           }, enabled: valid),
@@ -2028,6 +1805,55 @@ class _BlockSheetState extends State<_BlockSheet> {
                   : null,
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _directionSeg() {
+    Widget btn(bool active, String icon, String label, VoidCallback onTap) =>
+        Expanded(
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+              decoration: BoxDecoration(
+                color: active ? B.soft : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: active ? B.primary : B.line),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ic(icon, size: 15, sw: 2.2, color: active ? B.deep : B.soft2),
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: active ? B.deep : B.soft2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    return Row(
+      children: [
+        btn(
+          !_isIncome,
+          'cart',
+          'Withdraws',
+          () => setState(() => _isIncome = false),
+        ),
+        const SizedBox(width: 8),
+        btn(_isIncome, 'wallet', 'Receives', () {
+          setState(() {
+            _isIncome = true;
+            _isSavings = false;
+          });
+        }),
       ],
     );
   }
@@ -2144,7 +1970,7 @@ class _CopySheetState extends State<_CopySheet> {
             child: Text(
               targetClosed
                   ? '${kMonthsEn[_to]} $_toYear is closed. Reopen it before overwriting.'
-                  : 'This replaces every block, item and limit in ${kMonthsEn[_to]} $_toYear with a copy of ${kMonthsEn[_from]} $_fromYear. Income is copied too.',
+                  : 'This replaces every block, item and limit in ${kMonthsEn[_to]} $_toYear with a copy of ${kMonthsEn[_from]} $_fromYear. Income blocks are copied too.',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: targetClosed ? FontWeight.w700 : FontWeight.w600,

@@ -59,33 +59,38 @@ Future<Workspace> buildSampleWorkspace() async {
     }
     final m = raw[mk] as Map<String, dynamic>?;
     if (m != null) {
-      for (final it in (m['income'] as List? ?? [])) {
-        final map = Map<String, dynamic>.from(it as Map);
-        month.income.add(
-          IncomeItem(
-            id: uid(),
-            label: (map['label'] ?? '').toString(),
-            expected: parseNum(map['expected']),
-            actual: parseNum(map['actual']),
-            received: map['received'] == true,
-            account: accForLabel(map['label']?.toString()),
-          ),
-        );
-      }
+      // The sample budget keys income under 'income' and each expense block by
+      // its category key. Income is now the income-direction block (issue #137),
+      // so it loads through the same loop — its rows carry expected/actual/
+      // received rather than amount/paid.
       for (final c in cats) {
         for (final it in (m[c.key] as List? ?? [])) {
           final map = Map<String, dynamic>.from(it as Map);
-          month.blocks[c.key]!.add(
-            ExpenseItem(
-              id: uid(),
-              label: (map['label'] ?? '').toString(),
-              marker: markerShow(map['day'] ?? map['date']),
-              amount: parseNum(map['amount']),
-              paid: map['paid'] == true,
-              account: accForLabel(map['label']?.toString()),
-              until: map['until'],
-            ),
-          );
+          if (c.isIncome) {
+            final expected = parseNum(map['expected']);
+            month.blocks[c.key]!.add(
+              ExpenseItem(
+                id: uid(),
+                label: (map['label'] ?? '').toString(),
+                marker: '',
+                amount: expected != 0 ? expected : parseNum(map['actual']),
+                paid: map['received'] == true,
+                account: accForLabel(map['label']?.toString()),
+              ),
+            );
+          } else {
+            month.blocks[c.key]!.add(
+              ExpenseItem(
+                id: uid(),
+                label: (map['label'] ?? '').toString(),
+                marker: markerShow(map['day'] ?? map['date']),
+                amount: parseNum(map['amount']),
+                paid: map['paid'] == true,
+                account: accForLabel(map['label']?.toString()),
+                until: map['until'],
+              ),
+            );
+          }
         }
       }
     }

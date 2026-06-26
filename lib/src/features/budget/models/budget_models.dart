@@ -3,6 +3,12 @@ part of 'package:family_money_management_app/main.dart';
 const String kStorageKey = 'thrive.v3';
 const String kDefaultAccountKey = 'shared';
 
+/// Reserved key for the block that legacy `MonthData.income` entries migrate
+/// into (issue #137 — income is now just a block whose [Category.isIncome] is
+/// true). Kept stable so the migration in [MonthData.fromJson] and the income
+/// category injected on load line up.
+const String kIncomeBlockKey = 'income';
+
 /// Palettes & icon choices used by the editor sheets.
 const List<Color> kCatPalette = [
   Color(0xff2563eb),
@@ -98,6 +104,8 @@ class Category {
     this.temporary = false,
     this.ownerYear,
     this.ownerMonthIdx,
+    this.isIncome = false,
+    this.isSavings = false,
   });
 
   String key;
@@ -121,6 +129,14 @@ class Category {
   int? ownerYear;
   int? ownerMonthIdx;
 
+  /// Whether this block *receives* money (income) rather than withdrawing it
+  /// (a normal expense). Issue #137 — income is just a block with a direction.
+  bool isIncome;
+
+  /// Whether this block's amounts count towards savings in the statistics
+  /// (issue #136). Only meaningful for withdrawing blocks.
+  bool isSavings;
+
   Category copy() => Category(
     key: key,
     title: title,
@@ -134,6 +150,8 @@ class Category {
     temporary: temporary,
     ownerYear: ownerYear,
     ownerMonthIdx: ownerMonthIdx,
+    isIncome: isIncome,
+    isSavings: isSavings,
   );
 
   Map<String, dynamic> toJson() => {
@@ -149,6 +167,8 @@ class Category {
     if (temporary) 'temporary': true,
     if (ownerYear != null) 'ownerYear': ownerYear,
     if (ownerMonthIdx != null) 'ownerMonthIdx': ownerMonthIdx,
+    if (isIncome) 'isIncome': true,
+    if (isSavings) 'isSavings': true,
   };
 
   factory Category.fromJson(Map<String, dynamic> j) {
@@ -168,53 +188,10 @@ class Category {
       temporary: j['temporary'] == true,
       ownerYear: (j['ownerYear'] as num?)?.toInt(),
       ownerMonthIdx: (j['ownerMonthIdx'] as num?)?.toInt(),
+      isIncome: j['isIncome'] == true,
+      isSavings: j['isSavings'] == true,
     );
   }
-}
-
-class IncomeItem {
-  IncomeItem({
-    required this.id,
-    required this.label,
-    required this.expected,
-    required this.actual,
-    required this.received,
-    required this.account,
-  });
-
-  String id;
-  String label;
-  double expected;
-  double actual;
-  bool received;
-  String account;
-
-  IncomeItem copyWithId(String newId) => IncomeItem(
-    id: newId,
-    label: label,
-    expected: expected,
-    actual: actual,
-    received: received,
-    account: account,
-  );
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'label': label,
-    'expected': expected,
-    'actual': actual,
-    'received': received,
-    'account': account,
-  };
-
-  factory IncomeItem.fromJson(Map<String, dynamic> j) => IncomeItem(
-    id: (j['id'] ?? uid()).toString(),
-    label: (j['label'] ?? '').toString(),
-    expected: parseNum(j['expected']),
-    actual: parseNum(j['actual']),
-    received: j['received'] == true,
-    account: (j['account'] ?? kDefaultAccountKey).toString(),
-  );
 }
 
 class ExpenseItem {
@@ -269,17 +246,14 @@ class ExpenseItem {
 
 class MonthData {
   MonthData({
-    List<IncomeItem>? income,
     Map<String, List<ExpenseItem>>? blocks,
     Map<String, double>? caps,
     this.closed = false,
     this.catsSnapshot,
     this.accountsSnapshot,
-  }) : income = income ?? [],
-       blocks = blocks ?? {},
+  }) : blocks = blocks ?? {},
        caps = caps ?? {};
 
-  List<IncomeItem> income;
   Map<String, List<ExpenseItem>> blocks;
   Map<String, double> caps;
   bool closed;
@@ -287,7 +261,6 @@ class MonthData {
   List<Account>? accountsSnapshot;
 
   Map<String, dynamic> toJson() => {
-    'income': income.map((e) => e.toJson()).toList(),
     'blocks': blocks.map(
       (k, v) => MapEntry(k, v.map((e) => e.toJson()).toList()),
     ),
@@ -307,15 +280,32 @@ class MonthData {
           ExpenseItem.fromJson(Map<String, dynamic>.from(it as Map)),
       ];
     });
+    // Migrate legacy `income` entries (pre-#137) into the reserved income
+    // block. Income used `expected`/`actual`/`received`; the unified item keeps
+    // the planned amount and maps `received` onto `paid`.
+    final legacyIncome = j['income'] as List? ?? const [];
+    if (legacyIncome.isNotEmpty) {
+      final dst = blocks.putIfAbsent(kIncomeBlockKey, () => <ExpenseItem>[]);
+      for (final raw in legacyIncome) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final expected = parseNum(map['expected']);
+        dst.add(
+          ExpenseItem(
+            id: (map['id'] ?? uid()).toString(),
+            label: (map['label'] ?? '').toString(),
+            marker: '',
+            amount: expected != 0 ? expected : parseNum(map['actual']),
+            paid: map['received'] == true,
+            account: (map['account'] ?? kDefaultAccountKey).toString(),
+          ),
+        );
+      }
+    }
     final caps = <String, double>{};
     (j['caps'] as Map<String, dynamic>? ?? {}).forEach(
       (k, v) => caps[k] = parseNum(v),
     );
     return MonthData(
-      income: [
-        for (final it in (j['income'] as List? ?? []))
-          IncomeItem.fromJson(Map<String, dynamic>.from(it as Map)),
-      ],
       blocks: blocks,
       caps: caps,
       closed: j['closed'] == true,
@@ -333,6 +323,25 @@ class MonthData {
             ],
     );
   }
+}
+
+/// Ensures the category list has an income block when month data carries
+/// migrated legacy income (issue #137). Existing workspaces stored income
+/// outside `cats`, so after [MonthData.fromJson] lifts it into the reserved
+/// income block we must surface a matching [Category] or it would render
+/// nowhere. Mutates and returns [cats].
+List<Category> ensureIncomeCategory(
+  List<Category> cats,
+  Map<int, Map<String, MonthData>> data,
+) {
+  if (cats.any((c) => c.key == kIncomeBlockKey || c.isIncome)) return cats;
+  final hasIncomeItems = data.values.any(
+    (months) => months.values.any(
+      (m) => (m.blocks[kIncomeBlockKey] ?? const []).isNotEmpty,
+    ),
+  );
+  if (hasIncomeItems) cats.insert(0, defaultIncomeCat());
+  return cats;
 }
 
 List<Account> defaultAccounts() => [
@@ -359,7 +368,21 @@ List<Account> defaultAccounts() => [
   ),
 ];
 
+/// The reserved income block (issue #137). Income is rendered like any other
+/// block but [isIncome] flips its labels and routes its amounts to income
+/// totals instead of expenses.
+Category defaultIncomeCat() => Category(
+  key: kIncomeBlockKey,
+  title: 'Income',
+  icon: 'wallet',
+  marker: 'date',
+  tone: const Color(0xff059669),
+  bg: const Color(0xffecfdf5),
+  isIncome: true,
+);
+
 List<Category> defaultCats() => [
+  defaultIncomeCat(),
   Category(
     key: 'home',
     title: 'Home',
@@ -392,6 +415,7 @@ List<Category> defaultCats() => [
     marker: 'date',
     tone: const Color(0xff059669),
     bg: const Color(0xffecfdf5),
+    isSavings: true,
   ),
   Category(
     key: 'personal',

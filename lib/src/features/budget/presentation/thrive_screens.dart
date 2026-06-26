@@ -16,9 +16,13 @@ extension _ThriveScreens on _ThriveHomeState {
           if (locked) _closedBanner(),
           _sumUpCard(c),
           const SizedBox(height: 12),
-          _incomeBlock(c, locked),
-          const SizedBox(height: 12),
-          for (final b in c.blocks) ...[
+          // Income blocks first (issue #137 — income is just an income-direction
+          // block), then the withdrawing blocks.
+          for (final b in c.incomeBlocks) ...[
+            _expenseBlock(b, locked),
+            const SizedBox(height: 12),
+          ],
+          for (final b in c.expenseBlocks) ...[
             _expenseBlock(b, locked),
             const SizedBox(height: 12),
           ],
@@ -422,209 +426,13 @@ extension _ThriveScreens on _ThriveHomeState {
     );
   }
 
-  Widget _incomeBlock(_Compute c, bool locked) {
-    final isCollapsed = collapsed['__income'] ?? false;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: B.line),
-        boxShadow: cardShadow(),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: () => toggleCollapse('__income'),
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: B.soft,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Center(
-                      child: ic('wallet3', size: 18, sw: 2, color: B.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'Income',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: B.ink,
-                          ),
-                        ),
-                        Text(
-                          '${c.income.length} source${c.income.length == 1 ? '' : 's'}'
-                              .toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .4,
-                            color: B.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        eur(c.realIncome, cents: false),
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: B.ink,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      Text(
-                        'of ${eur(c.expIncome, cents: false)}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: B.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: isCollapsed ? -0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: ic('cdown', size: 18, sw: 2.4, color: B.muted),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (!isCollapsed)
-            for (final it in c.income) _incomeRow(it, locked),
-          if (!isCollapsed && !locked)
-            _addButton(
-              'Add income',
-              B.primary,
-              () => openIncomeSheet(mode: 'add'),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _incomeRow(IncomeItem it, bool locked) {
-    final acc = accByKey(it.account);
-    final delta = it.actual - it.expected;
-    final inner = GestureDetector(
-      onTap: locked ? null : () => openIncomeSheet(mode: 'edit', id: it.id),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    it.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: B.text,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _accountPill(
-                        acc,
-                        onTap: locked
-                            ? null
-                            : () => openAccountPicker(
-                                'income',
-                                it.id,
-                                it.account,
-                              ),
-                      ),
-                      if (delta != 0) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '${delta > 0 ? '+' : '\u2212'}${eurBare(delta.abs())}',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: delta > 0 ? B.green : B.red,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              eur(it.actual),
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: B.ink,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
-            const SizedBox(width: 10),
-            _statusPill(
-              it.received,
-              it.received ? 'In' : 'Pending',
-              onTap: locked ? null : () => toggleReceived(it.id),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (locked) {
-      return Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: B.faint)),
-        ),
-        child: inner,
-      );
-    }
-    return _SwipeRow(
-      key: ValueKey('inc-${it.id}'),
-      open: swipedId == it.id,
-      onOpenChanged: (open) => update(() => swipedId = open ? it.id : null),
-      onDelete: () => askDelete(
-        it.label,
-        'This income source will be removed from this month.',
-        () => deleteIncome(it.id),
-      ),
-      topBorder: true,
-      child: inner,
-    );
-  }
-
   Widget _expenseBlock(_BlockCompute b, bool locked) {
     final isCollapsed = collapsed[b.key] ?? false;
+    // Income/savings blocks reuse this card; only the verbs differ (issue #137).
+    final verbPast = b.isIncome ? 'received' : (b.isSavings ? 'saved' : 'paid');
+    final verbLabel = b.isIncome
+        ? 'RECEIVED'
+        : (b.isSavings ? 'SAVED' : 'PAID');
     final overCap = b.cap != null && b.total > b.cap!;
     final capPct = b.cap != null
         ? math.min(100, (b.total / math.max(1, b.cap!) * 100).round())
@@ -723,7 +531,7 @@ extension _ThriveScreens on _ThriveHomeState {
                       Text(
                         b.cap != null
                             ? 'limit ${eur(b.cap, cents: false)}'
-                            : '${eur(b.paid, cents: false)} paid',
+                            : '${eur(b.paid, cents: false)} $verbPast',
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -751,7 +559,7 @@ extension _ThriveScreens on _ThriveHomeState {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        b.cap != null ? 'BUDGET USED' : 'PAID',
+                        b.cap != null ? 'BUDGET USED' : verbLabel,
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
@@ -759,7 +567,8 @@ extension _ThriveScreens on _ThriveHomeState {
                           color: B.muted,
                         ),
                       ),
-                      _limitChip(b, overCap, locked),
+                      // Spending limits only make sense for withdrawing blocks.
+                      if (!b.isIncome) _limitChip(b, overCap, locked),
                     ],
                   ),
                   const SizedBox(height: 7),
@@ -869,7 +678,7 @@ extension _ThriveScreens on _ThriveHomeState {
                         onTap: locked
                             ? null
                             : () => openAccountPicker(
-                                'expense',
+                                b.isIncome ? 'income' : 'expense',
                                 it.id,
                                 it.account,
                                 b.key,
@@ -934,7 +743,9 @@ extension _ThriveScreens on _ThriveHomeState {
             const SizedBox(width: 10),
             _statusPill(
               it.paid,
-              b.key == 'savings'
+              b.isIncome
+                  ? (it.paid ? 'In' : 'Pending')
+                  : b.isSavings
                   ? (it.paid ? 'Saved' : 'Save')
                   : (it.paid ? 'Paid' : 'Open'),
               onTap: locked ? null : () => togglePaid(b.key, it.id),
@@ -1107,11 +918,14 @@ extension _ThriveScreens on _ThriveHomeState {
 
   Widget _statsMonth() {
     final c = compute(monthIdx);
-    final cats = c.blocks.where((b) => b.total > 0).toList()
+    // Spending breakdown covers withdrawing blocks only (income isn't spending).
+    final cats = c.expenseBlocks.where((b) => b.total > 0).toList()
       ..sort((a, b) => b.total.compareTo(a.total));
     final totalExp = c.totalBudget == 0 ? 1.0 : c.totalBudget;
+    // Savings rate = the share of income routed into savings-flagged blocks
+    // (issue #136), rather than whatever happens to be left unspent.
     final savingsRate = c.expIncome > 0
-        ? ((c.expIncome - c.totalBudget) / c.expIncome * 100).round()
+        ? (c.savings / c.expIncome * 100).round()
         : 0;
 
     Widget kpi(String label, String val, Color color, String icon) => Expanded(
@@ -1398,11 +1212,7 @@ extension _ThriveScreens on _ThriveHomeState {
     final yIncome = months.fold<double>(0, (a, b) => a + b.expIncome);
     final yExp = months.fold<double>(0, (a, b) => a + b.totalBudget);
     final rates = months
-        .map(
-          (m) => m.expIncome > 0
-              ? (m.expIncome - m.totalBudget) / m.expIncome
-              : 0.0,
-        )
+        .map((m) => m.expIncome > 0 ? m.savings / m.expIncome : 0.0)
         .toList();
     final avgRate = (rates.fold<double>(0, (a, b) => a + b) / 12 * 100).round();
 
@@ -1549,7 +1359,7 @@ extension _ThriveScreens on _ThriveHomeState {
               ),
               const SizedBox(height: 2),
               const Text(
-                'Share of income left over',
+                'Share of income put into savings',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,

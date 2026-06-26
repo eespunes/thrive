@@ -23,10 +23,10 @@ void main() {
     await tester.tap(find.text('Add account'));
     await tester.pumpAndSettle();
     expect(find.text('Add account'), findsWidgets);
-    // Field 0 is the emoji/picture picker's free-form field (issue #131); the
-    // name and short-label fields follow it.
-    await tester.enterText(find.byType(TextField).at(1), 'Travel fund');
-    await tester.enterText(find.byType(TextField).at(2), 'TR');
+    // The glyph picker has no text field now (issue #131), so the name and
+    // short-label fields are the first two text inputs.
+    await tester.enterText(find.byType(TextField).at(0), 'Travel fund');
+    await tester.enterText(find.byType(TextField).at(1), 'TR');
     await tester.pump();
     await tester.tap(find.text('Add account').last);
     await tester.pumpAndSettle();
@@ -58,9 +58,9 @@ void main() {
     await tester.tap(find.text('Add budget block'));
     await tester.pumpAndSettle();
     expect(find.text('New budget block'), findsOneWidget);
-    // Field 0 is the emoji/picture picker's free-form field (issue #131); the
-    // block name field follows it.
-    await tester.enterText(find.byType(TextField).at(1), 'Kids');
+    // The glyph picker has no text field now (issue #131), so the block name
+    // is the first text input.
+    await tester.enterText(find.byType(TextField).at(0), 'Kids');
     await tester.pump();
     await tester.tap(find.text('This month only'));
     await tester.pump();

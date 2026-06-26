@@ -13,6 +13,19 @@ Future<void> _openJoinSheet(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// The glyph picker no longer has a free-form field; an emoji is chosen
+/// through the in-app picker that opens from the + tile. The Recents tab
+/// starts empty, so we hop to Smileys (tab 1) and tap its first emoji (😀).
+Future<String> _pickEmoji(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(Tab).at(1));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('😀').first);
+  await tester.pumpAndSettle();
+  return '😀';
+}
+
 void main() {
   group('issue #132 — demo family removed', () {
     testWidgets('the join sheet no longer advertises the demo family', (
@@ -145,18 +158,17 @@ void main() {
         expect(find.text('EMOJI OR PICTURE'), findsOneWidget);
         expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
 
-        // Name the block and pick an emoji, then create it. The preset grid is
-        // gone; emojis are entered via the field (the + tile focuses it so the
-        // user can use the native emoji keyboard).
-        await tester.enterText(find.byType(TextField).at(1), 'Games');
-        await tester.enterText(find.byType(TextField).at(0), '🎮');
+        // Name the block and pick an emoji from the in-app picker, then create
+        // it. The preset icon grid and the old free-form field are both gone.
+        await tester.enterText(find.byType(TextField).at(0), 'Games');
         await tester.pump();
+        final emoji = await _pickEmoji(tester);
         await tester.tap(find.text('Create block'));
         await tester.pumpAndSettle();
 
         // The chosen emoji renders for the new block.
         expect(find.text('Games'), findsWidgets);
-        expect(find.text('🎮'), findsWidgets);
+        expect(find.text(emoji), findsWidgets);
       },
     );
 
@@ -183,14 +195,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('EMOJI OR PICTURE'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(1), 'Travel fund');
-      await tester.enterText(find.byType(TextField).at(0), '🚗');
+      await tester.enterText(find.byType(TextField).at(0), 'Travel fund');
       await tester.pump();
+      final emoji = await _pickEmoji(tester);
       await tester.tap(find.text('Add account').last);
       await tester.pumpAndSettle();
 
       expect(find.text('Travel fund'), findsWidgets);
-      expect(find.text('🚗'), findsWidgets);
+      expect(find.text(emoji), findsWidgets);
     });
 
     testWidgets('editing an account can set an emoji', (tester) async {
@@ -199,11 +211,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('acc-edit-eva')));
       await tester.pumpAndSettle();
       expect(find.text('Edit account'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).at(0), '🐶');
-      await tester.pump();
+      final emoji = await _pickEmoji(tester);
       await tester.tap(find.text('Save account'));
       await tester.pumpAndSettle();
-      expect(find.text('🐶'), findsWidgets);
+      expect(find.text(emoji), findsWidgets);
     });
 
     testWidgets('editing a block can set an emoji', (tester) async {
@@ -212,11 +223,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
       await tester.pumpAndSettle();
       expect(find.text('Edit block'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).at(0), '🏠');
-      await tester.pump();
+      final emoji = await _pickEmoji(tester);
       await tester.tap(find.text('Save block'));
       await tester.pumpAndSettle();
-      expect(find.text('🏠'), findsWidgets);
+      expect(find.text(emoji), findsWidgets);
     });
 
     testWidgets('the glyph picker can clear a chosen emoji', (tester) async {
@@ -224,8 +234,7 @@ void main() {
       await goToTab(tester, 'settings');
       await tester.tap(find.text('Add account'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), '🐶');
-      await tester.pump();
+      await _pickEmoji(tester);
       expect(find.byKey(const ValueKey('glyph-clear')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('glyph-clear')));
       await tester.pump();

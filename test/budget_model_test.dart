@@ -43,6 +43,94 @@ void main() {
       expect(back.ownerMonthIdx, 5);
     });
 
+    test('Category round-trips income/savings flags (issues #136/#137)', () {
+      final income = Category(
+        key: 'income',
+        title: 'Income',
+        icon: 'wallet',
+        marker: 'date',
+        tone: const Color(0xff059669),
+        bg: tintFor(const Color(0xff059669)),
+        isIncome: true,
+      );
+      final back = Category.fromJson(income.toJson());
+      expect(back.isIncome, isTrue);
+      expect(back.isSavings, isFalse);
+
+      final savings = Category(
+        key: 'savings',
+        title: 'Savings',
+        icon: 'trend',
+        marker: 'date',
+        tone: const Color(0xff059669),
+        bg: tintFor(const Color(0xff059669)),
+        isSavings: true,
+      );
+      expect(Category.fromJson(savings.toJson()).isSavings, isTrue);
+    });
+
+    test('Category defaults flags to false when JSON omits them', () {
+      final c = Category.fromJson({'key': 'home', 'title': 'Home'});
+      expect(c.isIncome, isFalse);
+      expect(c.isSavings, isFalse);
+    });
+
+    test('defaultCats seeds an income block and a savings block', () {
+      final cats = defaultCats();
+      expect(cats.any((c) => c.isIncome), isTrue);
+      expect(cats.any((c) => c.isSavings), isTrue);
+    });
+
+    test('MonthData migrates legacy income into the income block (#137)', () {
+      final m = MonthData.fromJson({
+        'income': [
+          {
+            'id': 'i1',
+            'label': 'Salary',
+            'expected': 2000,
+            'actual': 1900,
+            'received': true,
+            'account': 'shared',
+          },
+        ],
+        'blocks': <String, dynamic>{},
+      });
+      final income = m.blocks[kIncomeBlockKey];
+      expect(income, isNotNull);
+      expect(income!.single.label, 'Salary');
+      expect(income.single.amount, 2000); // planned amount preserved
+      expect(income.single.paid, isTrue); // received -> paid
+      expect(m.toJson().containsKey('income'), isFalse);
+    });
+
+    test('ensureIncomeCategory injects an income cat for migrated data', () {
+      final data = {
+        2026: {
+          'Juni': MonthData(
+            blocks: {
+              kIncomeBlockKey: [
+                ExpenseItem(
+                  id: 'a',
+                  label: 'Salary',
+                  marker: '',
+                  amount: 100,
+                  paid: true,
+                  account: 'shared',
+                ),
+              ],
+            },
+          ),
+        },
+      };
+      final cats = ensureIncomeCategory(<Category>[], data);
+      expect(cats.any((c) => c.isIncome), isTrue);
+      // Idempotent: a second pass doesn't add a duplicate.
+      expect(
+        ensureIncomeCategory(cats, data).where((c) => c.isIncome).length,
+        1,
+      );
+    });
+
     test('MonthData keeps snapshots and closed flag', () {
       final m = MonthData(closed: true);
       m.catsSnapshot = defaultCats();
