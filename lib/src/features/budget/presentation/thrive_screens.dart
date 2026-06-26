@@ -174,12 +174,19 @@ extension _ThriveScreens on _ThriveHomeState {
                 borderRadius: BorderRadius.circular(9),
               ),
               alignment: Alignment.center,
-              child: Text(
-                a.initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
+              child: glyphTile(
+                size: 28,
+                radius: 9,
+                picture: a.picture,
+                emoji: a.emoji,
+                emojiSize: 15,
+                fallback: Text(
+                  a.initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
@@ -469,8 +476,15 @@ extension _ThriveScreens on _ThriveHomeState {
                       color: b.bg,
                       borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Center(
-                      child: ic(b.icon, size: 18, sw: 2, color: b.tone),
+                    child: glyphTile(
+                      size: 36,
+                      radius: 11,
+                      picture: b.picture,
+                      emoji: b.emoji,
+                      emojiSize: 19,
+                      fallback: Center(
+                        child: ic(b.icon, size: 18, sw: 2, color: b.tone),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 11),
@@ -807,12 +821,19 @@ extension _ThriveScreens on _ThriveHomeState {
             height: 16,
             decoration: BoxDecoration(color: acc.color, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Text(
-              acc.initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-                fontWeight: FontWeight.w800,
+            child: glyphTile(
+              size: 16,
+              radius: 8,
+              picture: acc.picture,
+              emoji: acc.emoji,
+              emojiSize: 10,
+              fallback: Text(
+                acc.initials,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -1433,12 +1454,19 @@ extension _ThriveScreens on _ThriveHomeState {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  a.initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                child: glyphTile(
+                  size: 32,
+                  radius: 10,
+                  picture: a.picture,
+                  emoji: a.emoji,
+                  emojiSize: 17,
+                  fallback: Text(
+                    a.initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
@@ -1518,8 +1546,15 @@ extension _ThriveScreens on _ThriveHomeState {
                   color: c.bg,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Center(
-                  child: ic(c.icon, size: 16, sw: 2, color: c.tone),
+                child: glyphTile(
+                  size: 32,
+                  radius: 10,
+                  picture: c.picture,
+                  emoji: c.emoji,
+                  emojiSize: 17,
+                  fallback: Center(
+                    child: ic(c.icon, size: 16, sw: 2, color: c.tone),
+                  ),
                 ),
               ),
               const SizedBox(width: 9),

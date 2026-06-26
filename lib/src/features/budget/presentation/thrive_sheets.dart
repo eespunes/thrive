@@ -166,6 +166,8 @@ extension _ThriveSheets on _ThriveHomeState {
     required String name,
     required String short,
     required Color color,
+    String? emoji,
+    String? picture,
   }) {
     final initials = (short.isNotEmpty ? short : name).trim().toUpperCase();
     final init = initials.length > 2 ? initials.substring(0, 2) : initials;
@@ -177,7 +179,9 @@ extension _ThriveSheets on _ThriveHomeState {
               ..name = name.trim()
               ..short = (short.isNotEmpty ? short : name).trim()
               ..color = color
-              ..initials = init;
+              ..initials = init
+              ..emoji = emoji
+              ..picture = picture;
           }
         }
       } else {
@@ -197,6 +201,8 @@ extension _ThriveSheets on _ThriveHomeState {
             short: (short.isNotEmpty ? short : name).trim(),
             initials: init,
             color: color,
+            emoji: emoji,
+            picture: picture,
           ),
         );
       }
@@ -241,6 +247,8 @@ extension _ThriveSheets on _ThriveHomeState {
     required bool hasUntil,
     required bool temporary,
     required String capRaw,
+    String? emoji,
+    String? picture,
     bool isIncome = false,
     bool isSavings = false,
   }) {
@@ -252,6 +260,8 @@ extension _ThriveSheets on _ThriveHomeState {
             c
               ..title = title.trim()
               ..icon = icon
+              ..emoji = emoji
+              ..picture = picture
               ..tone = tone
               ..hasUntil = hasUntil
               ..bg = tintFor(tone)
@@ -297,6 +307,8 @@ extension _ThriveSheets on _ThriveHomeState {
           key: newKey,
           title: title.trim(),
           icon: icon,
+          emoji: emoji,
+          picture: picture,
           marker: 'date',
           tone: tone,
           bg: tintFor(tone),
@@ -942,12 +954,19 @@ class _AccountPickerSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         alignment: Alignment.center,
-                        child: Text(
-                          a.initials,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                        child: glyphTile(
+                          size: 34,
+                          radius: 10,
+                          picture: a.picture,
+                          emoji: a.emoji,
+                          emojiSize: 18,
+                          fallback: Text(
+                            a.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
                       ),
@@ -1169,12 +1188,19 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                 borderRadius: BorderRadius.circular(7),
               ),
               alignment: Alignment.center,
-              child: Text(
-                a.initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
+              child: glyphTile(
+                size: 24,
+                radius: 7,
+                picture: a.picture,
+                emoji: a.emoji,
+                emojiSize: 13,
+                fallback: Text(
+                  a.initials,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
@@ -1274,6 +1300,209 @@ class _CapSheetState extends State<_CapSheet> {
   }
 }
 
+// =========================================================== glyph picker
+/// Picks the visual for an account or budget block (issue #131): any emoji
+/// (curated quick-picks plus a free-form field for the rest) or an uploaded
+/// picture. Reports the choice through [onChanged]; the two are mutually
+/// exclusive — choosing one clears the other.
+class _GlyphPicker extends StatefulWidget {
+  const _GlyphPicker({
+    required this.emoji,
+    required this.picture,
+    required this.onChanged,
+  });
+
+  final String? emoji;
+  final String? picture;
+  final void Function({String? emoji, String? picture}) onChanged;
+
+  @override
+  State<_GlyphPicker> createState() => _GlyphPickerState();
+}
+
+class _GlyphPickerState extends State<_GlyphPicker> {
+  String? _emoji;
+  String? _picture;
+  final _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _emoji = widget.emoji;
+    _picture = widget.picture;
+  }
+
+  // coverage:ignore-start
+  Future<void> _pickEmoji() async {
+    FocusScope.of(context).unfocus();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: SizedBox(
+          height: 340,
+          child: ep.EmojiPicker(
+            onEmojiSelected: (ep.Category? category, ep.Emoji emoji) {
+              _selectEmoji(emoji.emoji);
+              Navigator.of(sheetCtx).pop();
+            },
+            config: const ep.Config(
+              height: 340,
+              emojiViewConfig: ep.EmojiViewConfig(
+                emojiSizeMax: 28,
+                backgroundColor: Colors.white,
+              ),
+              categoryViewConfig: ep.CategoryViewConfig(
+                backgroundColor: Colors.white,
+                indicatorColor: B.primary,
+                iconColorSelected: B.primary,
+                backspaceColor: B.primary,
+              ),
+              bottomActionBarConfig: ep.BottomActionBarConfig(enabled: false),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  // coverage:ignore-end
+
+  void _selectEmoji(String raw) {
+    final e = raw.trim();
+    setState(() {
+      _emoji = e.isEmpty ? null : e;
+      if (e.isNotEmpty) _picture = null;
+    });
+    widget.onChanged(emoji: _emoji, picture: _picture);
+  }
+
+  // coverage:ignore-start
+  Future<void> _pickPicture() async {
+    try {
+      final XFile? file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 82,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _picture = base64Encode(bytes);
+        _emoji = null;
+      });
+      widget.onChanged(emoji: null, picture: _picture);
+    } catch (_) {
+      /* ignore an unreadable image */
+    }
+  }
+  // coverage:ignore-end
+
+  void _clear() {
+    setState(() {
+      _emoji = null;
+      _picture = null;
+    });
+    widget.onChanged(emoji: null, picture: null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasGlyph =
+        (_emoji?.isNotEmpty ?? false) || (_picture?.isNotEmpty ?? false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            GestureDetector(
+              key: const ValueKey('glyph-pick-emoji'),
+              onTap: _pickEmoji,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: B.faint,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: glyphTile(
+                  size: 56,
+                  radius: 15,
+                  picture: _picture,
+                  emoji: _emoji,
+                  emojiSize: 30,
+                  fallback: Center(
+                    child: ic('plus', size: 20, sw: 2.2, color: B.muted),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    key: const ValueKey('glyph-upload'),
+                    onTap: _pickPicture,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: B.soft,
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ic('edit', size: 15, sw: 2.2, color: B.deep),
+                          const SizedBox(width: 7),
+                          const Text(
+                            'Upload picture',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: B.deep,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (hasGlyph)
+                    GestureDetector(
+                      key: const ValueKey('glyph-clear'),
+                      onTap: _clear,
+                      child: const Padding(
+                        padding: EdgeInsets.only(top: 7, left: 2),
+                        child: Text(
+                          'Remove',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: B.red,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 // ========================================================== account sheet
 class _AccountSheet extends StatefulWidget {
   const _AccountSheet({required this.state, required this.mode, this.accKey});
@@ -1289,6 +1518,8 @@ class _AccountSheetState extends State<_AccountSheet> {
   late final TextEditingController _name;
   late final TextEditingController _short;
   late Color _color;
+  String? _emoji;
+  String? _picture;
 
   bool get _editing => widget.mode == 'edit';
 
@@ -1300,6 +1531,8 @@ class _AccountSheetState extends State<_AccountSheet> {
     _name = TextEditingController(text: a?.name ?? '');
     _short = TextEditingController(text: a?.short ?? '');
     _color = a?.color ?? kAccPalette.first;
+    _emoji = a?.emoji;
+    _picture = a?.picture;
   }
 
   @override
@@ -1319,6 +1552,17 @@ class _AccountSheetState extends State<_AccountSheet> {
         children: [
           _sheetHead(context, _editing ? 'Edit account' : 'Add account'),
           _sheetField(
+            'Emoji or picture',
+            _GlyphPicker(
+              emoji: _emoji,
+              picture: _picture,
+              onChanged: ({String? emoji, String? picture}) {
+                _emoji = emoji;
+                _picture = picture;
+              },
+            ),
+          ),
+          _sheetField(
             'Name',
             _sheetInput(
               _name,
@@ -1335,6 +1579,8 @@ class _AccountSheetState extends State<_AccountSheet> {
               name: _name.text.trim(),
               short: _short.text.trim(),
               color: _color,
+              emoji: _emoji,
+              picture: _picture,
             );
             Navigator.of(context).pop();
           }, enabled: valid),
@@ -1391,6 +1637,8 @@ class _BlockSheetState extends State<_BlockSheet> {
   late final TextEditingController _title;
   late final TextEditingController _cap;
   String _icon = 'folder';
+  String? _emoji;
+  String? _picture;
   Color _tone = kCatPalette.first;
   bool _hasUntil = false;
   bool _temporary = false;
@@ -1412,6 +1660,8 @@ class _BlockSheetState extends State<_BlockSheet> {
     _title = TextEditingController(text: c?.title ?? '');
     _cap = TextEditingController(text: cap != null ? _numStr(cap) : '');
     _icon = c?.icon ?? 'folder';
+    _emoji = c?.emoji;
+    _picture = c?.picture;
     _tone = c?.tone ?? kCatPalette.first;
     _hasUntil = c?.hasUntil ?? false;
     _temporary = c?.temporary ?? false;
@@ -1436,6 +1686,17 @@ class _BlockSheetState extends State<_BlockSheet> {
         children: [
           _sheetHead(context, _editing ? 'Edit block' : 'New budget block'),
           _sheetField(
+            'Emoji or picture',
+            _GlyphPicker(
+              emoji: _emoji,
+              picture: _picture,
+              onChanged: ({String? emoji, String? picture}) {
+                _emoji = emoji;
+                _picture = picture;
+              },
+            ),
+          ),
+          _sheetField(
             'Name',
             _sheetInput(
               _title,
@@ -1444,7 +1705,6 @@ class _BlockSheetState extends State<_BlockSheet> {
             ),
           ),
           _sheetField('Money direction', _directionSeg()),
-          _sheetField('Icon', _iconPicker()),
           _sheetField('Color', _swatches()),
           _sheetField('Applies to', _scopeSeg()),
           if (_temporary)
@@ -1501,6 +1761,8 @@ class _BlockSheetState extends State<_BlockSheet> {
               widget.blockKey,
               title: _title.text.trim(),
               icon: _icon,
+              emoji: _emoji,
+              picture: _picture,
               tone: _tone,
               hasUntil: _isIncome ? false : _hasUntil,
               temporary: _temporary,
@@ -1512,36 +1774,6 @@ class _BlockSheetState extends State<_BlockSheet> {
           }, enabled: valid),
         ],
       ),
-    );
-  }
-
-  Widget _iconPicker() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final n in kCatIcons)
-          GestureDetector(
-            onTap: () => setState(() => _icon = n),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: _icon == n ? B.soft : Colors.white,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: _icon == n ? B.primary : B.line),
-              ),
-              child: Center(
-                child: ic(
-                  n,
-                  size: 18,
-                  sw: 2,
-                  color: _icon == n ? B.deep : B.soft2,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 

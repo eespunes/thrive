@@ -510,34 +510,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
             ],
           ),
         ),
-        _field('Family username', _joinUser, 'e.g. vanderberg'),
+        _field('Family username', _joinUser, 'e.g. smith-home'),
         _field('Family password', _joinPw, 'Family password', obscure: true),
         _primaryBtn(_busy ? 'Joining…' : 'Join family', _submit),
-        const Padding(
-          padding: EdgeInsets.only(top: 13),
-          child: Text.rich(
-            TextSpan(
-              text: 'Demo: try ',
-              children: [
-                TextSpan(
-                  text: 'vanderberg',
-                  style: TextStyle(color: B.deep),
-                ),
-                TextSpan(text: ' / '),
-                TextSpan(
-                  text: 'demo',
-                  style: TextStyle(color: B.deep),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: B.muted,
-            ),
-          ),
-        ),
       ],
     );
   }
