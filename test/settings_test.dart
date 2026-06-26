@@ -23,7 +23,9 @@ void main() {
     await tester.tap(find.text('Add account'));
     await tester.pumpAndSettle();
     expect(find.text('Add account'), findsWidgets);
-    await tester.enterText(find.byType(TextField).first, 'Travel fund');
+    // The glyph picker has no text field now (issue #131), so the name and
+    // short-label fields are the first two text inputs.
+    await tester.enterText(find.byType(TextField).at(0), 'Travel fund');
     await tester.enterText(find.byType(TextField).at(1), 'TR');
     await tester.pump();
     await tester.tap(find.text('Add account').last);
@@ -56,7 +58,9 @@ void main() {
     await tester.tap(find.text('Add budget block'));
     await tester.pumpAndSettle();
     expect(find.text('New budget block'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'Kids');
+    // The glyph picker has no text field now (issue #131), so the block name
+    // is the first text input.
+    await tester.enterText(find.byType(TextField).at(0), 'Kids');
     await tester.pump();
     await tester.tap(find.text('This month only'));
     await tester.pump();
@@ -95,7 +99,7 @@ void main() {
   testWidgets('delete account leaves a shared family for its other members', (
     tester,
   ) async {
-    await pumpApp(tester);
+    await pumpApp(tester, prefs: joinableFamilyPrefs());
     // Join the demo family, which already has other members.
     await tester.tap(find.byKey(const ValueKey('profile-avatar')));
     await tester.pumpAndSettle();

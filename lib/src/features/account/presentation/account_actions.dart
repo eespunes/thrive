@@ -156,8 +156,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
   Future<void> _loadCloudAfterSignIn() async {
     final uid = _firebaseUid();
     if (uid == null) return;
-    // Make sure the shared demo family exists so it is joinable (#123).
-    unawaited(ensureCloudDemoFamily(uid).catchError((_) {}));
     try {
       await cloudBoot(uid);
       await bindCloudSync(uid);
@@ -676,8 +674,68 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Created $name');
   }
 
+  /// Leaves family [id]: the signed-in user drops their own membership while the
+  /// family stays intact for everyone else (issue #133). An owner who leaves
+  /// hands the family to a randomly chosen remaining member (preferring an
+  /// already-active one); a regular member simply leaves. Leaving the last
+  /// family lands the user back on the onboarding gate.
+  void leaveFamily(String id) {
+    Family? fam;
+    for (final f in families) {
+      if (f.id == id) {
+        fam = f;
+        break;
+      }
+    }
+    if (fam == null) return;
+
+    final iAmOwner = fam.members.any((m) => m.id == 'me' && m.role == 'owner');
+    final others = fam.members.where((m) => m.id != 'me').toList();
+
+    // An owner leaving must hand ownership off so the family keeps an owner.
+    if (iAmOwner && others.isNotEmpty) {
+      final active = others.where((m) => m.status == 'active').toList();
+      final pool = active.isNotEmpty ? active : others;
+      final heir = pool[math.Random().nextInt(pool.length)];
+      heir.role = 'owner';
+      fam.ownerUid = heir.uid;
+    }
+
+    // Drop my own membership from the shared family record.
+    fam.members.removeWhere((m) => m.id == 'me');
+    final uid = _firebaseUid();
+    // coverage:ignore-start
+    if (uid != null) {
+      fam.memberUids.remove(uid);
+      unawaited(cloudLeaveFamily(uid, fam));
+    } else {
+      // coverage:ignore-end
+      unawaited(_leaveFamilyLocal(fam));
+    }
+
+    final leftName = fam.name;
+    final remaining = families.where((f) => f.id != id).toList();
+    workspaces.remove(id);
+    update(() {
+      families = remaining;
+      if (id == familyId) {
+        familyId = remaining.isNotEmpty ? remaining.first.id : 'fam_main';
+        final t = workspaces[familyId] ?? Workspace.empty();
+        workspaces[familyId] = t;
+        accounts = t.accounts;
+        cats = t.cats;
+        data = t.data;
+        collapsed = {};
+      }
+    });
+    _persist();
+    flash('Left $leftName');
+  }
+
+  /// Deletes family [id] for everyone (owner-only). Switches to the next family
+  /// if one remains; deleting the last family lands the user back on the
+  /// create/join onboarding gate.
   void deleteFamily(String id) {
-    if (families.length <= 1) return;
     final uid = _firebaseUid();
     if (uid != null) unawaited(cloudDeleteFamily(uid, id));
     final remaining = families.where((f) => f.id != id).toList();
@@ -685,7 +743,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     update(() {
       families = remaining;
       if (id == familyId) {
-        familyId = remaining.first.id;
+        familyId = remaining.isNotEmpty ? remaining.first.id : 'fam_main';
         final t = workspaces[familyId] ?? Workspace.empty();
         workspaces[familyId] = t;
         accounts = t.accounts;

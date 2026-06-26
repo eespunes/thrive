@@ -17,13 +17,8 @@ const String kFamiliesCollection = 'families';
 const String kFamilyHandlesCollection = 'family_handles';
 
 /// Local (no-Firebase) family registry, mirroring the design's
-/// `localStorage['thrive.registry']`, so demo create/join works offline.
+/// `localStorage['thrive.registry']`, so create/join works offline.
 const String kRegistryKey = 'thrive.registry';
-
-/// Document id of the shared cloud demo family seeded by [ensureCloudDemoFamily].
-/// Whoever first boots becomes its nominal owner, so boot must not auto-adopt it
-/// for that owner just because they appear in its `memberUids` (see #128/#123).
-const String kDemoFamilyId = 'fam_demo_vanderberg';
 
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
 /// it, so with offline persistence a dropped connection would otherwise hang
@@ -44,11 +39,10 @@ String hashFamilyPassword(String password, String salt) {
 /// never on the client.
 String _cloudJoinSalt(String slug) => 'thrive-family::$slug';
 
-/// Builds the demo family's workspace, populated from the bundled sample budget
-/// (`assets/data/budget.json`) so the demo shows real mock data instead of an
-/// empty shell. Shared by the local demo registry, the cloud demo seed and the
-/// first-launch sample seed.
-Future<Workspace> buildDemoWorkspace() async {
+/// Builds a starter workspace populated from the bundled sample budget
+/// (`assets/data/budget.json`) so a brand-new install isn't an empty shell.
+/// Used by the first-launch sample seed.
+Future<Workspace> buildSampleWorkspace() async {
   Map<String, dynamic> raw = {};
   try {
     final text = await rootBundle.loadString('assets/data/budget.json');
@@ -219,9 +213,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           .get()
           .timeout(kCloudOpTimeout);
       final docs = <MapEntry<String, Map<String, dynamic>>>[
-        for (final d in snap.docs)
-          if (_includeBootFamily(d.id, d.data(), meUid, userData))
-            MapEntry(d.id, d.data()),
+        for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
         _applyFamilyDocs(meUid, docs, userData);
@@ -250,25 +242,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   CollectionReference<Map<String, dynamic>> _familiesCol() =>
       FirebaseFirestore.instance.collection(kFamiliesCollection);
-
-  /// Whether a family surfaced by the membership query should be auto-adopted on
-  /// boot. Everything qualifies except the shared demo family for the user who
-  /// merely seeded it (its nominal owner): they never chose to join it, so it
-  /// only loads once it is explicitly recorded in their `familyIds`. A real
-  /// member who joined the demo is not its owner, so they keep it.
-  bool _includeBootFamily(
-    String fid,
-    Map<String, dynamic> data,
-    String meUid,
-    Map<String, dynamic>? userData,
-  ) {
-    if (fid != kDemoFamilyId) return true;
-    final ids = userData?['familyIds'];
-    if (ids is List && ids.map((e) => e.toString()).contains(kDemoFamilyId)) {
-      return true;
-    }
-    return (data['ownerUid'] ?? '') != meUid;
-  }
 
   Future<void> _loadFamiliesFromCloud(
     String meUid,
@@ -340,59 +313,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     return true;
   }
 
-  /// Seeds the shared demo family (`vanderberg` / `demo`) into Firestore so
-  /// cloud users can join it with mock data (see issue #123). Idempotent: a
-  /// no-op once the public handle exists. Security rules only let a client
-  /// create a family it owns, so the first signed-in user to boot becomes the
-  /// demo's nominal owner — but it is never added to their own family list.
-  Future<void> ensureCloudDemoFamily(String meUid) async {
-    const slug = 'vanderberg';
-    try {
-      final handle = await _familyHandleRef(
-        slug,
-      ).get().timeout(kCloudOpTimeout);
-      if (handle.exists) return;
-      const fid = kDemoFamilyId;
-      final ws = await buildDemoWorkspace();
-      final fam = Family(
-        id: fid,
-        name: 'van der Berg family',
-        username: slug,
-        ownerUid: meUid,
-        memberUids: [meUid],
-        members: [
-          FamilyMember(
-            id: 'owner_demo',
-            name: 'Sophie van der Berg',
-            email: 'sophie@vanderberg.nl',
-            initials: 'SB',
-            color: kMemberColors[2],
-            role: 'owner',
-            status: 'active',
-          ),
-          FamilyMember(
-            id: 'm_demo2',
-            name: 'Tom van der Berg',
-            email: 'tom@vanderberg.nl',
-            initials: 'TB',
-            color: kMemberColors[3],
-            role: 'member',
-            status: 'active',
-          ),
-        ],
-      );
-      final joinHash = hashFamilyPassword('demo', _cloudJoinSalt(slug));
-      await _familyDocRef(fid)
-          .set({..._familyToDoc(fam, ws), 'joinHash': joinHash})
-          .timeout(kCloudOpTimeout);
-      await _familyHandleRef(
-        slug,
-      ).set({'familyId': fid, 'ownerUid': meUid}).timeout(kCloudOpTimeout);
-    } catch (e) {
-      debugPrint('[cloud] ensureCloudDemoFamily failed: $e');
-    }
-  }
-
   // ----------------------------------------------------------- streams
   Future<void> bindCloudSync(String meUid) async {
     await _cloudSub?.cancel();
@@ -425,10 +345,30 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
+        final fam = _familyFromDoc(fid, data);
+        // We're no longer a member of this family (we left it, or an owner
+        // removed us). Drop it locally and fall back to the next family — or
+        // the create/join gate when it was our last — instead of re-adopting
+        // it. The shared doc lives on for everyone else, so without this guard
+        // the active-family stream fires on our own leave-write and keeps
+        // re-adding a family we just left (issue #133).
+        if (!fam.memberUids.contains(meUid)) {
+          final present = families.any((f) => f.id == fid);
+          if (!present && fid != familyId) return;
+          _applyingCloudSnapshot = true;
+          families = families.where((f) => f.id != fid).toList();
+          workspaces.remove(fid);
+          if (fid == familyId) {
+            familyId = families.isNotEmpty ? families.first.id : 'fam_main';
+            _adoptActiveWorkspace();
+          }
+          _applyingCloudSnapshot = false;
+          if (mounted) update(() {});
+          return;
+        }
         final remoteMillis = (data['updatedAtMillis'] as num?)?.toInt() ?? 0;
         if (remoteMillis <= _lastSyncedAtMillis) return;
         _applyingCloudSnapshot = true;
-        final fam = _familyFromDoc(fid, data);
         final ws = _workspaceFromDoc(data);
         final idx = families.indexWhere((f) => f.id == fid);
         if (idx >= 0) {
@@ -750,6 +690,31 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
   }
 
+  /// Persists a family the signed-in user is leaving (issue #133). [fam] has
+  /// already had this user removed from `members`/`memberUids` and — when an
+  /// owner is leaving — a remaining member promoted. If no members remain the
+  /// family and its public handle are deleted; otherwise the handed-off document
+  /// is written so the new owner + dropped membership are durable.
+  Future<void> cloudLeaveFamily(String meUid, Family fam) async {
+    try {
+      if (fam.memberUids.isEmpty) {
+        final slug = fam.username;
+        if (slug.isNotEmpty) {
+          await _familyHandleRef(slug).delete().catchError((_) {});
+        }
+        await _familyDocRef(fam.id).delete();
+      } else {
+        final ws = workspaces[fam.id] ?? Workspace.empty();
+        await _familyDocRef(
+          fam.id,
+        ).set(_familyToDoc(fam, ws), SetOptions(merge: true));
+      }
+      await _writeUserDoc(meUid);
+    } catch (e) {
+      debugPrint('[cloud] leaveFamily failed: $e');
+    }
+  }
+
   /// Detaches the signed-in user from every family — deleting any family they
   /// are the sole member of (and its public handle) and otherwise removing only
   /// their membership — then drops their user doc and Firebase auth account.
@@ -801,45 +766,23 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await prefs.setString(kRegistryKey, json.encode(reg));
   }
 
-  /// Seeds the design's demo family (`vanderberg` / `demo`) so the join flow is
-  /// discoverable offline. The demo carries full mock data (see issue #123); an
-  /// older install that seeded it empty is upgraded the next time this runs.
-  Future<void> ensureDemoFamily() async {
+  /// Offline/local equivalent of leaving a family (issue #133): writes [fam]'s
+  /// post-departure member list (this user removed, any new owner promoted) back
+  /// to the registry so a later re-join sees the handed-off family. Drops the
+  /// registry entry entirely when no members remain.
+  Future<void> _leaveFamilyLocal(Family fam) async {
+    final slug = fam.username;
+    if (slug.isEmpty) return;
     final reg = await loadRegistry();
-    final existing = reg['vanderberg'];
-    if (existing is Map) {
-      final wsRaw = existing['workspace'];
-      final seeded = wsRaw is Map && (wsRaw['cats'] as List? ?? []).isNotEmpty;
-      if (seeded) return;
+    if (fam.members.isEmpty) {
+      reg.remove(slug);
+    } else {
+      final entry = reg[slug];
+      if (entry is! Map) return;
+      final map = Map<String, dynamic>.from(entry);
+      map['members'] = fam.members.map((m) => m.toJson()).toList();
+      reg[slug] = map;
     }
-    final ws = await buildDemoWorkspace();
-    reg['vanderberg'] = {
-      'username': 'vanderberg',
-      'password': 'demo',
-      'name': 'van der Berg family',
-      'picture': null,
-      'members': [
-        FamilyMember(
-          id: 'owner_demo',
-          name: 'Sophie van der Berg',
-          email: 'sophie@vanderberg.nl',
-          initials: 'SB',
-          color: kMemberColors[2],
-          role: 'owner',
-          status: 'active',
-        ).toJson(),
-        FamilyMember(
-          id: 'm_demo2',
-          name: 'Tom van der Berg',
-          email: 'tom@vanderberg.nl',
-          initials: 'TB',
-          color: kMemberColors[3],
-          role: 'member',
-          status: 'active',
-        ).toJson(),
-      ],
-      'workspace': ws.toJson(),
-    };
     await saveRegistry(reg);
   }
 

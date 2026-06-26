@@ -1,5 +1,41 @@
 part of 'package:family_money_management_app/main.dart';
 
+/// Renders the visual chosen for an account or budget block (issue #131): an
+/// uploaded [picture] (base64) wins, then an [emoji], otherwise [fallback]
+/// (a legacy stroke icon or a colored initials tile). The result fills a
+/// [size]×[size] box clipped to [radius] (pass `size / 2` for a circle).
+Widget glyphTile({
+  required double size,
+  required double radius,
+  String? picture,
+  String? emoji,
+  double? emojiSize,
+  required Widget fallback,
+}) {
+  if (picture != null && picture.isNotEmpty) {
+    try {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Image.memory(
+          base64Decode(picture),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        ),
+      );
+    } catch (_) {
+      /* fall through to emoji / fallback */
+    }
+  }
+  if (emoji != null && emoji.isNotEmpty) {
+    return Center(
+      child: Text(emoji, style: TextStyle(fontSize: emojiSize ?? size * 0.56)),
+    );
+  }
+  return fallback;
+}
+
 /// A row that reveals a red "Delete" action when swiped right-to-left,
 /// mirroring the design's `swipeWrap`. Tapping the action triggers [onDelete].
 class _SwipeRow extends StatefulWidget {
