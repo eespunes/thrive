@@ -1584,6 +1584,45 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     super.dispose();
   }
 
+  // coverage:ignore-start
+  Future<void> _pickEmoji() async {
+    FocusScope.of(context).unfocus();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: SizedBox(
+          height: 340,
+          child: ep.EmojiPicker(
+            onEmojiSelected: (ep.Category? category, ep.Emoji emoji) {
+              _selectEmoji(emoji.emoji);
+              Navigator.of(sheetCtx).pop();
+            },
+            config: const ep.Config(
+              height: 340,
+              emojiViewConfig: ep.EmojiViewConfig(
+                emojiSizeMax: 28,
+                backgroundColor: Colors.white,
+              ),
+              categoryViewConfig: ep.CategoryViewConfig(
+                backgroundColor: Colors.white,
+                indicatorColor: B.primary,
+                iconColorSelected: B.primary,
+                backspaceColor: B.primary,
+              ),
+              bottomActionBarConfig: ep.BottomActionBarConfig(enabled: false),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  // coverage:ignore-end
+
   void _selectEmoji(String raw) {
     final e = raw.trim();
     setState(() {
@@ -1636,21 +1675,25 @@ class _GlyphPickerState extends State<_GlyphPicker> {
       children: [
         Row(
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: B.faint,
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: glyphTile(
-                size: 56,
-                radius: 15,
-                picture: _picture,
-                emoji: _emoji,
-                emojiSize: 30,
-                fallback: Center(
-                  child: ic('plus', size: 20, sw: 2.2, color: B.muted),
+            GestureDetector(
+              key: const ValueKey('glyph-pick-emoji'),
+              onTap: _pickEmoji,
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: B.faint,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: glyphTile(
+                  size: 56,
+                  radius: 15,
+                  picture: _picture,
+                  emoji: _emoji,
+                  emojiSize: 30,
+                  fallback: Center(
+                    child: ic('plus', size: 20, sw: 2.2, color: B.muted),
+                  ),
                 ),
               ),
             ),
@@ -1713,31 +1756,8 @@ class _GlyphPickerState extends State<_GlyphPicker> {
         const SizedBox(height: 11),
         _sheetInput(
           _custom,
-          hint: 'Type or paste any emoji',
+          hint: 'Tap the + to pick, or paste any emoji',
           onChanged: _selectEmoji,
-        ),
-        const SizedBox(height: 11),
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          children: [
-            for (final e in kQuickEmojis)
-              GestureDetector(
-                onTap: () => _selectEmoji(e),
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: _emoji == e ? B.soft : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _emoji == e ? B.primary : B.line),
-                  ),
-                  child: Center(
-                    child: Text(e, style: const TextStyle(fontSize: 18)),
-                  ),
-                ),
-              ),
-          ],
         ),
       ],
     );

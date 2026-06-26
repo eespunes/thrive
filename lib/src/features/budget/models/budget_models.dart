@@ -28,43 +28,6 @@ const List<Color> kAccPalette = [
   Color(0xff2563eb),
 ];
 
-/// A generous set of emoji quick-picks offered by the account/block glyph
-/// picker. Any other emoji can still be typed in (issue #131).
-const List<String> kQuickEmojis = [
-  '🏠',
-  '🍔',
-  '🚗',
-  '💡',
-  '🛒',
-  '🎁',
-  '✈️',
-  '💊',
-  '📚',
-  '👕',
-  '🐾',
-  '🎉',
-  '💰',
-  '💳',
-  '🏦',
-  '📈',
-  '👶',
-  '🐶',
-  '☕',
-  '🎮',
-  '🏥',
-  '🎓',
-  '🔧',
-  '🌱',
-  '❤️',
-  '⭐',
-  '🔑',
-  '📱',
-  '🎵',
-  '🏖️',
-  '🍼',
-  '💼',
-];
-
 class Account {
   Account({
     required this.key,
