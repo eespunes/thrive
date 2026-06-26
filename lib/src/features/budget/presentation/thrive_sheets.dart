@@ -525,10 +525,16 @@ Widget _sheetInput(
   bool number = false,
   bool obscure = false,
   ValueChanged<String>? onChanged,
+  FocusNode? focusNode,
+  TextInputAction? textInputAction,
+  ValueChanged<String>? onSubmitted,
 }) {
   return TextField(
     controller: ctrl,
+    focusNode: focusNode,
     onChanged: onChanged,
+    onSubmitted: onSubmitted,
+    textInputAction: textInputAction,
     obscureText: obscure,
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
