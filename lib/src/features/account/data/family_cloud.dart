@@ -340,10 +340,30 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
+        final fam = _familyFromDoc(fid, data);
+        // We're no longer a member of this family (we left it, or an owner
+        // removed us). Drop it locally and fall back to the next family — or
+        // the create/join gate when it was our last — instead of re-adopting
+        // it. The shared doc lives on for everyone else, so without this guard
+        // the active-family stream fires on our own leave-write and keeps
+        // re-adding a family we just left (issue #133).
+        if (!fam.memberUids.contains(meUid)) {
+          final present = families.any((f) => f.id == fid);
+          if (!present && fid != familyId) return;
+          _applyingCloudSnapshot = true;
+          families = families.where((f) => f.id != fid).toList();
+          workspaces.remove(fid);
+          if (fid == familyId) {
+            familyId = families.isNotEmpty ? families.first.id : 'fam_main';
+            _adoptActiveWorkspace();
+          }
+          _applyingCloudSnapshot = false;
+          if (mounted) update(() {});
+          return;
+        }
         final remoteMillis = (data['updatedAtMillis'] as num?)?.toInt() ?? 0;
         if (remoteMillis <= _lastSyncedAtMillis) return;
         _applyingCloudSnapshot = true;
-        final fam = _familyFromDoc(fid, data);
         final ws = _workspaceFromDoc(data);
         final idx = families.indexWhere((f) => f.id == fid);
         if (idx >= 0) {
