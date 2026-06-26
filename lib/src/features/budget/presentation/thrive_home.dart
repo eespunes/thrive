@@ -95,6 +95,7 @@ class ThriveDebugController {
     }
     return null;
   }
+
   String? firstExpenseId(String catKey) =>
       _s.cur()?.blocks[catKey]?.isNotEmpty == true
       ? _s.cur()!.blocks[catKey]!.first.id

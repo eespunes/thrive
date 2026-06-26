@@ -422,9 +422,7 @@ extension _ThriveScreens on _ThriveHomeState {
   Widget _expenseBlock(_BlockCompute b, bool locked) {
     final isCollapsed = collapsed[b.key] ?? false;
     // Income/savings blocks reuse this card; only the verbs differ (issue #137).
-    final verbPast = b.isIncome
-        ? 'received'
-        : (b.isSavings ? 'saved' : 'paid');
+    final verbPast = b.isIncome ? 'received' : (b.isSavings ? 'saved' : 'paid');
     final verbLabel = b.isIncome
         ? 'RECEIVED'
         : (b.isSavings ? 'SAVED' : 'PAID');

@@ -125,8 +125,10 @@ void main() {
       final cats = ensureIncomeCategory(<Category>[], data);
       expect(cats.any((c) => c.isIncome), isTrue);
       // Idempotent: a second pass doesn't add a duplicate.
-      expect(ensureIncomeCategory(cats, data).where((c) => c.isIncome).length,
-          1);
+      expect(
+        ensureIncomeCategory(cats, data).where((c) => c.isIncome).length,
+        1,
+      );
     });
 
     test('MonthData keeps snapshots and closed flag', () {
