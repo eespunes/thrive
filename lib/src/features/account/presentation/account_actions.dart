@@ -5,6 +5,14 @@ part of 'package:family_money_management_app/main.dart';
 /// Tracks whether the google_sign_in v7 singleton has been initialized.
 bool _googleSignInInitialized = false;
 
+/// OAuth 2.0 *Web* client id (client_type 3 in google-services.json). The
+/// google_sign_in v7 plugin requires this as `serverClientId` on Android to
+/// mint a Firebase-compatible id token — without it `authenticate()` throws
+/// "serverClientId must be provided on Android". It is not a secret (it ships
+/// in google-services.json) and is the same value across platforms.
+const String _googleServerClientId =
+    '825420918937-ni6ni1as5oa2sk00bs79ro71ge8ksj7i.apps.googleusercontent.com';
+
 extension _ThriveAccountActions on _ThriveHomeState {
   // ----------------------------------------------------------- identity
   /// The current family, or null when signed out / none exist.
@@ -287,7 +295,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       debugPrint('[auth] Google sign-in started');
       final googleSignIn = GoogleSignIn.instance;
       if (!_googleSignInInitialized) {
-        await googleSignIn.initialize();
+        await googleSignIn.initialize(serverClientId: _googleServerClientId);
         _googleSignInInitialized = true;
       }
       if (!googleSignIn.supportsAuthenticate()) {
