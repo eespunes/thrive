@@ -726,8 +726,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Left $leftName');
   }
 
+  /// Deletes family [id] for everyone (owner-only). Switches to the next family
+  /// if one remains; deleting the last family lands the user back on the
+  /// create/join onboarding gate.
   void deleteFamily(String id) {
-    if (families.length <= 1) return;
     final uid = _firebaseUid();
     if (uid != null) unawaited(cloudDeleteFamily(uid, id));
     final remaining = families.where((f) => f.id != id).toList();
@@ -735,7 +737,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     update(() {
       families = remaining;
       if (id == familyId) {
-        familyId = remaining.first.id;
+        familyId = remaining.isNotEmpty ? remaining.first.id : 'fam_main';
         final t = workspaces[familyId] ?? Workspace.empty();
         workspaces[familyId] = t;
         accounts = t.accounts;

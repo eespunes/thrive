@@ -29,6 +29,19 @@ service cloud.firestore {
         return isSignedIn() && resource.data.ownerUid == uid();
       }
 
+      // The current owner may hand the family to another member as they leave:
+      // ownership transfers to someone who is already a member and remains one,
+      // and the departing owner drops their own membership. Nobody else can
+      // change `ownerUid`. This keeps a family owned after its owner leaves
+      // (issue #133) without ever letting a non-owner seize ownership.
+      function isOwnerHandoff() {
+        return isOwner()
+          && request.resource.data.ownerUid != uid()
+          && request.resource.data.ownerUid in resource.data.memberUids
+          && request.resource.data.ownerUid in request.resource.data.memberUids
+          && !(uid() in request.resource.data.memberUids);
+      }
+
       // A non-member joining must supply the correct password proof
       // (`joinProof == joinHash`) and may only append THEMSELVES to the
       // membership. Ownership, the username handle, the join hash and the
@@ -67,12 +80,14 @@ service cloud.firestore {
         && uid() in request.resource.data.memberUids;
 
       // Update is for EXISTING members (editing the shared workspace, members
-      // list, profile) — ownership and the username handle cannot change — OR a
-      // non-member performing a password-verified self-join. Existing members
-      // may also leave by removing only themselves.
+      // list, profile) — the username handle never changes and ownership only
+      // changes via an owner handing off as they leave — OR a non-member
+      // performing a password-verified self-join. Existing members may also
+      // leave by removing only themselves.
       allow update: if (isMember()
-          && request.resource.data.ownerUid == resource.data.ownerUid
-          && request.resource.data.username == resource.data.username)
+          && request.resource.data.username == resource.data.username
+          && (request.resource.data.ownerUid == resource.data.ownerUid
+              || isOwnerHandoff()))
         || isValidSelfJoin();
 
       // Only the owner may delete the family.

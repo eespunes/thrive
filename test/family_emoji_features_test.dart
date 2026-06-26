@@ -102,10 +102,29 @@ void main() {
       await tester.pumpAndSettle();
 
       // Owner of fam_main (which has an active member) sees both buttons; the
-      // leave button is rendered above the delete button.
+      // leave button is rendered above the delete button. The owner can always
+      // delete a family — even their only one (issue #133 follow-up).
       expect(find.byKey(const ValueKey('family-leave')), findsOneWidget);
-      // Delete only shows when more than one family exists, so here it is gone.
-      expect(find.byKey(const ValueKey('family-delete')), findsNothing);
+      expect(find.byKey(const ValueKey('family-delete')), findsOneWidget);
+    });
+
+    testWidgets('an owner can delete their only family back to onboarding', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('family-delete')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+
+      // No families remain, so the create/join onboarding gate returns.
+      expect(thriveDebug.families, isEmpty);
+      expect(find.text('One last step'), findsOneWidget);
     });
   });
 

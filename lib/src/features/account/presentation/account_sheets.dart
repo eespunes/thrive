@@ -697,7 +697,9 @@ class _FamilySheetState extends State<_FamilySheet> {
           ),
           if (!owner || f.members.where((m) => m.id != 'me').isNotEmpty)
             _leaveButton(f),
-          if (owner && s.families.length > 1) _deleteButton(),
+          // The owner can always delete a family, even their last one (it then
+          // drops them back to the create/join gate).
+          if (owner) _deleteButton(),
         ],
       ),
     );
