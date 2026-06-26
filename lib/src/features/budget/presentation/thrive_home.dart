@@ -86,8 +86,16 @@ class ThriveDebugController {
       _s.accountsForMonth(mIdx, yr);
   void togglePaid(String catKey, String id) => _s.togglePaid(catKey, id);
   void toggleReceived(String id) => _s.toggleReceived(id);
-  String? firstIncomeId() =>
-      _s.cur()?.income.isNotEmpty == true ? _s.cur()!.income.first.id : null;
+  String? firstIncomeId() {
+    final m = _s.cur();
+    if (m == null) return null;
+    for (final c in _s.cats.where((c) => c.isIncome)) {
+      final arr = m.blocks[c.key];
+      if (arr != null && arr.isNotEmpty) return arr.first.id;
+    }
+    return null;
+  }
+
   String? firstExpenseId(String catKey) =>
       _s.cur()?.blocks[catKey]?.isNotEmpty == true
       ? _s.cur()!.blocks[catKey]!.first.id
@@ -362,6 +370,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       });
       data[yKey] = map;
     });
+    ensureIncomeCategory(cats, data);
   }
 
   Future<void> _seedFromAsset() async {
@@ -612,14 +621,19 @@ class _ThriveHomeState extends State<ThriveHome> {
     });
   }
 
+  /// Toggles the "received" flag of an income item. Income items live in
+  /// income-direction blocks now (issue #137), so this resolves the owning
+  /// block and flips its `paid` flag.
   void toggleReceived(String id) {
     if (isClosed()) return;
-    mutate(() {
-      final arr = data[year]![kMonthKeys[monthIdx]]!.income;
-      for (final it in arr) {
-        if (it.id == id) it.received = !it.received;
+    final m = data[year]?[kMonthKeys[monthIdx]];
+    if (m == null) return;
+    for (final c in cats.where((c) => c.isIncome)) {
+      if ((m.blocks[c.key] ?? const <ExpenseItem>[]).any((x) => x.id == id)) {
+        togglePaid(c.key, id);
+        return;
       }
-    });
+    }
   }
 
   // --------------------------------------------------------------- delete confirm
@@ -643,14 +657,9 @@ class _ThriveHomeState extends State<ThriveHome> {
   // -------------------------------------------------------------- compute
   _Compute compute(int mIdx) {
     final m = data[year]?[kMonthKeys[mIdx]] ?? MonthData();
-    final expIncome = m.income.fold<double>(0, (a, b) => a + b.expected);
-    final realIncome = m.income.fold<double>(
-      0,
-      (a, b) => a + (b.received ? b.actual : 0),
-    );
-    final actIncome = m.income.fold<double>(0, (a, b) => a + b.actual);
 
-    double totalBudget = 0, totalPaid = 0;
+    double expIncome = 0, realIncome = 0;
+    double totalBudget = 0, totalPaid = 0, savings = 0;
     final blocks = <_BlockCompute>[];
     final acctTotals = <String, double>{};
     final accts = accountsForMonth(mIdx);
@@ -666,7 +675,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         bud += amt;
         if (it.paid) {
           paid += amt;
-        } else {
+        } else if (!c.isIncome) {
+          // Income blocks never feed the "still to pay from" account totals.
           acctTotals[it.account] = (acctTotals[it.account] ?? 0) + amt;
         }
         final ul = c.hasUntil ? untilLabel(it.until) : null;
@@ -680,8 +690,14 @@ class _ThriveHomeState extends State<ThriveHome> {
           ),
         );
       }
-      totalBudget += bud;
-      totalPaid += paid;
+      if (c.isIncome) {
+        expIncome += bud;
+        realIncome += paid;
+      } else {
+        totalBudget += bud;
+        totalPaid += paid;
+        if (c.isSavings) savings += bud;
+      }
       final cap = m.caps[c.key];
       blocks.add(
         _BlockCompute(
@@ -691,6 +707,8 @@ class _ThriveHomeState extends State<ThriveHome> {
           tone: c.tone,
           bg: c.bg,
           hasUntil: c.hasUntil,
+          isIncome: c.isIncome,
+          isSavings: c.isSavings,
           items: rows,
           total: bud,
           paid: paid,
@@ -704,7 +722,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       monthIdx: mIdx,
       expIncome: expIncome,
       realIncome: realIncome,
-      actIncome: actIncome,
+      savings: savings,
       blocks: blocks,
       totalBudget: totalBudget,
       totalPaid: totalPaid,
@@ -714,7 +732,6 @@ class _ThriveHomeState extends State<ThriveHome> {
       acctTotals: acctTotals,
       accounts: accts,
       closed: isClosed(mIdx),
-      income: m.income,
     );
   }
 
@@ -1105,7 +1122,7 @@ class _Compute {
     required this.monthIdx,
     required this.expIncome,
     required this.realIncome,
-    required this.actIncome,
+    required this.savings,
     required this.blocks,
     required this.totalBudget,
     required this.totalPaid,
@@ -1115,17 +1132,24 @@ class _Compute {
     required this.acctTotals,
     required this.accounts,
     required this.closed,
-    required this.income,
   });
 
   final int monthIdx;
-  final double expIncome, realIncome, actIncome;
+  final double expIncome, realIncome;
+
+  /// Planned amount across blocks flagged [Category.isSavings] (issue #136).
+  final double savings;
   final List<_BlockCompute> blocks;
   final double totalBudget, totalPaid, stillToPay, expectedBalance, balance;
   final Map<String, double> acctTotals;
   final List<Account> accounts;
   final bool closed;
-  final List<IncomeItem> income;
+
+  /// Income-direction blocks, kept separate for the overview's income section.
+  Iterable<_BlockCompute> get incomeBlocks => blocks.where((b) => b.isIncome);
+
+  /// Withdrawing (expense) blocks — everything that is not income.
+  Iterable<_BlockCompute> get expenseBlocks => blocks.where((b) => !b.isIncome);
 }
 
 class _BlockCompute {
@@ -1136,6 +1160,8 @@ class _BlockCompute {
     required this.tone,
     required this.bg,
     required this.hasUntil,
+    required this.isIncome,
+    required this.isSavings,
     required this.items,
     required this.total,
     required this.paid,
@@ -1146,6 +1172,8 @@ class _BlockCompute {
   final String key, title, icon;
   final Color tone, bg;
   final bool hasUntil;
+  final bool isIncome;
+  final bool isSavings;
   final List<_RowCompute> items;
   final double total, paid;
   final double? cap;

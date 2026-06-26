@@ -50,13 +50,13 @@ void main() {
   testWidgets('reboot restores persisted state', (tester) async {
     await pumpApp(tester);
     // Make a change that persists, then reboot to hit the _restore path.
-    await tester.tap(find.text('Add income'));
+    // Income is an income-direction block now (issue #137).
+    await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Persisted');
     await tester.enterText(find.byType(TextField).at(1), '50');
-    await tester.enterText(find.byType(TextField).at(2), '50');
     await tester.pump();
-    await tester.tap(find.text('Add income').last);
+    await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
     expect(find.text('Persisted'), findsWidgets);
 

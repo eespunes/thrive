@@ -246,6 +246,7 @@ class Workspace {
       });
       data[yKey] = map;
     });
+    ensureIncomeCategory(cats, data);
     return Workspace(accounts: accounts, cats: cats, data: data);
   }
 
