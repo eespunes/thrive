@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thrive — Delete Your Account</title>
+  <meta name="description" content="How to request deletion of your Thrive account and associated data: steps, what is deleted, what is retained, and retention periods." />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="brand">Thrive</p>
+      <p class="tagline">Delete your account</p>
+    </div>
+  </header>
+  <main>
+    <div class="wrap">
+      <div class="card">
+        <h1>Delete your Thrive account</h1>
+        <p class="updated">Last updated: 26 June 2026</p>
+        <p>This page explains how to request deletion of your <strong>Thrive</strong>
+        account (package <code>cat.eespunes.thrive</code>) and its associated data.
+        Thrive is operated by <strong>Erik Espuñes Jubero</strong>.</p>
+
+        <h2>Option 1 — Delete in the app (instant)</h2>
+        <p>The fastest way to delete your account is from within Thrive:</p>
+        <ul>
+          <li>Open Thrive and make sure you are signed in.</li>
+          <li>Go to <strong>Account</strong> (your profile / settings).</li>
+          <li>Tap <strong>Delete account</strong>.</li>
+          <li>Confirm when prompted.</li>
+        </ul>
+        <p>Your account and the data described below are deleted immediately. You may
+        be asked to sign in again first to confirm it is really you.</p>
+
+        <h2>Option 2 — Request deletion by email</h2>
+        <p>If you cannot access the app, email
+        <a href="mailto:erik.espunyes7@gmail.com?subject=Thrive%20account%20deletion%20request">erik.espunyes7@gmail.com</a>
+        with the subject “Thrive account deletion request”.</p>
+        <ul>
+          <li><strong>Send from the email address registered to your Thrive account</strong>
+          (or, for Google sign-in, your Google account email) so we can verify your
+          identity.</li>
+          <li>State that you want your account and associated data deleted.</li>
+        </ul>
+        <p>We verify that the request comes from the registered account holder before
+        deleting any data, and we will confirm by email once it is done.</p>
+        <p style="margin-top:14px">
+          <a class="btn" href="mailto:erik.espunyes7@gmail.com?subject=Thrive%20account%20deletion%20request">Email a deletion request</a>
+        </p>
+
+        <h2>What is deleted</h2>
+        <ul>
+          <li>Your user profile record (<code>users/{uid}</code>): name, email,
+          avatar, sign-in provider and saved app state.</li>
+          <li>Any family workspace where you are the <strong>sole member</strong> —
+          including its budget content, its public join handle and its private join
+          credential.</li>
+          <li>Your Firebase Authentication record (your login identity).</li>
+        </ul>
+
+        <h2>What is retained</h2>
+        <table>
+          <tr><th>Data</th><th>Why / how long</th></tr>
+          <tr>
+            <td>Shared family workspaces you do <em>not</em> solely own</td>
+            <td>Kept for the remaining members. Your personal membership is removed,
+            but the shared budget the household still uses is not deleted.</td>
+          </tr>
+          <tr>
+            <td>Security / backup logs</td>
+            <td>May persist for up to <strong>90 days</strong> for fraud prevention,
+            security and legal compliance, then deleted.</td>
+          </tr>
+          <tr>
+            <td>On-device data</td>
+            <td>The local cache on your phone is cleared when you uninstall the app.</td>
+          </tr>
+        </table>
+
+        <div class="note">
+          <strong>Timing:</strong> in-app deletion is immediate. Email requests are
+          actioned within <strong>30 days</strong> of identity verification, and
+          usually much sooner.
+        </div>
+
+        <h2>Related</h2>
+        <p>For full details on what we collect and why, see the
+        <a href="../privacy/">Privacy Policy</a>.</p>
+
+        <h2>Contact</h2>
+        <p>Erik Espuñes Jubero —
+        <a href="mailto:erik.espunyes7@gmail.com">erik.espunyes7@gmail.com</a></p>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <span>© Thrive — Erik Espuñes Jubero</span>
+      <span><a href="../">Home</a> · <a href="../privacy/">Privacy</a></span>
+    </div>
+  </footer>
+</body>
+</html>

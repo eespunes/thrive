@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Thrive — Privacy Policy</title>
+  <meta name="description" content="Privacy policy for the Thrive family budgeting app: what data is collected, why, where it is stored, sharing, retention and your rights." />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="brand">Thrive</p>
+      <p class="tagline">Privacy Policy</p>
+    </div>
+  </header>
+  <main>
+    <div class="wrap">
+      <div class="card">
+        <h1>Privacy Policy</h1>
+        <p class="updated">Last updated: 26 June 2026</p>
+        <p>This Privacy Policy explains how the <strong>Thrive</strong> mobile app
+        (package <code>cat.eespunes.thrive</code>), operated by
+        <strong>Erik Espuñes Jubero</strong> (“we”, “us”), collects, uses, stores and
+        shares your data. Thrive is a family budgeting app that lets members of a
+        household share a single budget workspace across devices.</p>
+
+        <h2>1. Data we collect</h2>
+        <table>
+          <tr><th>Category</th><th>Examples</th></tr>
+          <tr>
+            <td>Account identity</td>
+            <td>Your email address (email/password sign-in) or your Google account
+            profile — name, email address and profile photo — if you choose
+            “Continue with Google”.</td>
+          </tr>
+          <tr>
+            <td>Authentication credentials</td>
+            <td>Your password is handled by Firebase Authentication and is never
+            stored by us in readable form. The optional <em>family join password</em>
+            is stored only as a salted hash on our backend and is never readable by
+            apps or other users.</td>
+          </tr>
+          <tr>
+            <td>Profile data</td>
+            <td>Display name, initials, sign-in provider, and an optional avatar
+            photo you select from your device.</td>
+          </tr>
+          <tr>
+            <td>Budget / workspace content</td>
+            <td>The financial information you enter: family name and members,
+            income, expenses, savings, categories and related amounts.</td>
+          </tr>
+          <tr>
+            <td>App state</td>
+            <td>Lightweight preferences used to restore your view — active family,
+            selected year/month and last screen.</td>
+          </tr>
+          <tr>
+            <td>On-device storage</td>
+            <td>A local cache (via <code>SharedPreferences</code>) so the app works
+            offline. This stays on your device.</td>
+          </tr>
+        </table>
+        <p>We do <strong>not</strong> collect location, contacts, advertising
+        identifiers, or device sensor data, and Thrive contains no advertising SDKs.</p>
+
+        <h2>2. Why we collect it (purpose &amp; legal basis)</h2>
+        <ul>
+          <li><strong>Provide the service</strong> — authenticate you and sync your
+          family budget across your devices (performance of a contract).</li>
+          <li><strong>Family collaboration</strong> — let invited members share one
+          budget workspace.</li>
+          <li><strong>Security</strong> — verify family join requests server-side so
+          only authorised people join a household (legitimate interest).</li>
+        </ul>
+
+        <h2>3. Where and how data is stored</h2>
+        <p>Thrive uses <strong>Google Firebase</strong> as its backend:</p>
+        <ul>
+          <li><strong>Firebase Authentication</strong> — manages your identity and credentials.</li>
+          <li><strong>Cloud Firestore</strong> — stores your profile
+          (<code>users/{uid}</code>) and shared family workspaces
+          (<code>families/{familyId}</code>).</li>
+          <li><strong>Cloud Functions</strong> — verify family join passwords; the
+          salted credential mapping is private to the backend.</li>
+        </ul>
+        <p>This data is hosted by Google Cloud (primary processing region
+        <code>europe-west1</code>). Google processes data on our behalf under
+        Google’s security and privacy terms.</p>
+
+        <h2>4. Sharing with third parties</h2>
+        <ul>
+          <li><strong>Google (Firebase / Google Cloud)</strong> — our infrastructure
+          processor.</li>
+          <li><strong>Google Sign-In</strong> — only if you choose it; governed by
+          <a href="https://policies.google.com/privacy">Google’s Privacy Policy</a>.</li>
+          <li><strong>Within your family</strong> — budget content is visible to the
+          members of the family workspace you join or create.</li>
+        </ul>
+        <p>We do <strong>not</strong> sell your data or share it for advertising.</p>
+
+        <h2>5. Retention and deletion</h2>
+        <p>We keep your data while your account is active. You can delete your account
+        and associated data at any time — see our
+        <a href="../delete-account/">Account Deletion page</a> for the full process,
+        scope and timelines. In summary, deleting your account removes your profile,
+        deletes any family you are the sole member of, and removes your Firebase
+        Authentication record. Limited security/backup logs may persist for up to
+        90 days for legal and security reasons.</p>
+
+        <h2>6. Your rights</h2>
+        <p>You may request access to, correction of, or deletion of your personal
+        data. To exercise these rights, contact us at
+        <a href="mailto:erik.espunyes7@gmail.com">erik.espunyes7@gmail.com</a>.</p>
+
+        <h2>7. Children</h2>
+        <p>Thrive is intended for adults managing a household budget and is not
+        directed at children under 13.</p>
+
+        <h2>8. Changes</h2>
+        <p>We may update this policy; material changes will be reflected by the “Last
+        updated” date above.</p>
+
+        <h2>9. Contact</h2>
+        <p>Erik Espuñes Jubero —
+        <a href="mailto:erik.espunyes7@gmail.com">erik.espunyes7@gmail.com</a></p>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <span>© Thrive — Erik Espuñes Jubero</span>
+      <span><a href="../">Home</a> · <a href="../delete-account/">Account deletion</a></span>
+    </div>
+  </footer>
+</body>
+</html>

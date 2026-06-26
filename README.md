@@ -9,6 +9,31 @@ Flutter mobile app for managing the family budget, based on the supplied UI mock
 
 The generated web, macOS, Linux, and Windows targets have been removed so the project stays focused on mobile.
 
+## Legal & Play Store compliance pages
+
+The public Privacy Policy and Account Deletion pages required by Google Play live
+in [`docs/`](docs/) and are served via **GitHub Pages** (Settings → Pages → deploy
+from branch `main`, folder `/docs`). Canonical URLs:
+
+| Page | URL | Play Console field |
+| --- | --- | --- |
+| Privacy Policy (#110) | https://eespunes.github.io/thrive/privacy/ | App content → Privacy policy |
+| Account deletion (#109) | https://eespunes.github.io/thrive/delete-account/ | App content → Data deletion → external URL |
+| Landing | https://eespunes.github.io/thrive/ | — |
+
+**Account deletion process (owner: Erik Espuñes Jubero, erik.espunyes7@gmail.com):**
+
+1. Users self-serve in-app (Account → Delete account), which runs
+   `deleteUserAccount()` → `_deleteAccountCloud()`: removes the `users/{uid}` doc,
+   deletes sole-owner families (doc + public handle + join credential), and deletes
+   the Firebase Auth user.
+2. Out-of-app requests arrive by email; verify the sender matches the registered
+   account email, then delete the same records from the Firebase console.
+3. Security/backup logs are retained up to 90 days, then purged.
+
+Update the page content whenever the app's data flows change so the policy stays
+accurate, and keep these URLs in sync with the Play Console listing.
+
 ## Run
 
 ```sh
