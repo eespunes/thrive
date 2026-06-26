@@ -23,8 +23,10 @@ void main() {
     await tester.tap(find.text('Add account'));
     await tester.pumpAndSettle();
     expect(find.text('Add account'), findsWidgets);
-    await tester.enterText(find.byType(TextField).first, 'Travel fund');
-    await tester.enterText(find.byType(TextField).at(1), 'TR');
+    // Field 0 is the emoji/picture picker's free-form field (issue #131); the
+    // name and short-label fields follow it.
+    await tester.enterText(find.byType(TextField).at(1), 'Travel fund');
+    await tester.enterText(find.byType(TextField).at(2), 'TR');
     await tester.pump();
     await tester.tap(find.text('Add account').last);
     await tester.pumpAndSettle();
@@ -56,7 +58,9 @@ void main() {
     await tester.tap(find.text('Add budget block'));
     await tester.pumpAndSettle();
     expect(find.text('New budget block'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'Kids');
+    // Field 0 is the emoji/picture picker's free-form field (issue #131); the
+    // block name field follows it.
+    await tester.enterText(find.byType(TextField).at(1), 'Kids');
     await tester.pump();
     await tester.tap(find.text('This month only'));
     await tester.pump();
@@ -95,7 +99,7 @@ void main() {
   testWidgets('delete account leaves a shared family for its other members', (
     tester,
   ) async {
-    await pumpApp(tester);
+    await pumpApp(tester, prefs: joinableFamilyPrefs());
     // Join the demo family, which already has other members.
     await tester.tap(find.byKey(const ValueKey('profile-avatar')));
     await tester.pumpAndSettle();

@@ -16,6 +16,43 @@ final Map<String, Object> _signedInUser = {
   }),
 };
 
+/// A local family registry pre-seeded with a joinable family
+/// ("vanderberg" / "demo") that already has two members. The app's built-in
+/// demo family was removed (issue #132), so tests that exercise the join flow
+/// seed their own joinable family through the registry prefs blob.
+Map<String, Object> joinableFamilyPrefs() {
+  final reg = {
+    'vanderberg': {
+      'username': 'vanderberg',
+      'password': 'demo',
+      'name': 'van der Berg family',
+      'picture': null,
+      'members': [
+        FamilyMember(
+          id: 'owner_demo',
+          name: 'Sophie van der Berg',
+          email: 'sophie@vanderberg.nl',
+          initials: 'SB',
+          color: kMemberColors[2],
+          role: 'owner',
+          status: 'active',
+        ).toJson(),
+        FamilyMember(
+          id: 'm_demo2',
+          name: 'Tom van der Berg',
+          email: 'tom@vanderberg.nl',
+          initials: 'TB',
+          color: kMemberColors[3],
+          role: 'member',
+          status: 'active',
+        ).toJson(),
+      ],
+      'workspace': Workspace.empty().toJson(),
+    },
+  };
+  return {'flutter.thrive.registry': json.encode(reg)};
+}
+
 /// Boots the app with a clean prefs store (seeds from the bundled asset) and
 /// pumps until the async boot completes. Uses a tall surface so the whole
 /// overview list builds (no lazy off-screen rows).

@@ -17,7 +17,10 @@ Future<void> pumpOnboarding(WidgetTester tester) async {
     'families': <dynamic>[],
     'workspaces': <String, dynamic>{},
   });
-  await pumpApp(tester, prefs: {'flutter.thrive.v4': payload});
+  await pumpApp(
+    tester,
+    prefs: {'flutter.thrive.v4': payload, ...joinableFamilyPrefs()},
+  );
 }
 
 void main() {
@@ -175,7 +178,7 @@ void main() {
     });
 
     testWidgets('join family sheet joins the demo family', (tester) async {
-      await pumpApp(tester);
+      await pumpApp(tester, prefs: joinableFamilyPrefs());
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-join-family')));

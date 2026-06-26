@@ -695,48 +695,100 @@ class _FamilySheetState extends State<_FamilySheet> {
                     ),
                   ),
           ),
-          if (owner && s.families.length > 1)
-            GestureDetector(
-              key: const ValueKey('family-delete'),
-              onTap: () {
-                final fam = s.curFamily();
-                if (fam == null) return;
-                s.askDelete(
-                  fam.name,
-                  'This family and its entire budget workspace will be '
-                  'permanently removed.',
-                  () {
-                    s.deleteFamily(fam.id);
-                    if (mounted) Navigator.of(context).maybePop();
-                  },
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(top: 4),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(color: B.redLine),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ic('trash', size: 15, sw: 2.2, color: B.red),
-                    const SizedBox(width: 7),
-                    const Text(
-                      'Delete this family',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.red,
-                      ),
-                    ),
-                  ],
-                ),
+          if (!owner || f.members.where((m) => m.id != 'me').isNotEmpty)
+            _leaveButton(f),
+          if (owner && s.families.length > 1) _deleteButton(),
+        ],
+      ),
+    );
+  }
+
+  /// Drops the signed-in user's own membership. An owner hands the family to a
+  /// remaining member; a regular member just leaves (issue #133). Shown above
+  /// the delete button when an owner sees both.
+  Widget _leaveButton(Family f) {
+    final owner = s.amOwner();
+    final message = owner
+        ? 'You’ll hand this family to another member and lose access to '
+              'its workspace.'
+        : 'You’ll lose access to the ${f.name} workspace. The family stays '
+              'for everyone else.';
+    return GestureDetector(
+      key: const ValueKey('family-leave'),
+      onTap: () {
+        final fam = s.curFamily();
+        if (fam == null) return;
+        s.askDelete(fam.name, message, () {
+          s.leaveFamily(fam.id);
+          if (mounted) Navigator.of(context).maybePop();
+        }, confirmLabel: 'Leave');
+      },
+      child: Container(
+        margin: const EdgeInsets.only(top: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: B.line),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ic('back', size: 15, sw: 2.2, color: B.deep),
+            const SizedBox(width: 7),
+            const Text(
+              'Leave this family',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: B.deep,
               ),
             ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _deleteButton() {
+    return GestureDetector(
+      key: const ValueKey('family-delete'),
+      onTap: () {
+        final fam = s.curFamily();
+        if (fam == null) return;
+        s.askDelete(
+          fam.name,
+          'This family and its entire budget workspace will be '
+          'permanently removed.',
+          () {
+            s.deleteFamily(fam.id);
+            if (mounted) Navigator.of(context).maybePop();
+          },
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(color: B.redLine),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ic('trash', size: 15, sw: 2.2, color: B.red),
+            const SizedBox(width: 7),
+            const Text(
+              'Delete this family',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: B.red,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1644,7 +1696,7 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
             'Family username',
             _sheetInput(
               _username,
-              hint: 'e.g. vanderberg',
+              hint: 'e.g. smith-home',
               onChanged: (_) => setState(s.dismissError),
             ),
           ),
@@ -1661,18 +1713,6 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
             _busy ? 'Joining…' : 'Join family',
             _submit,
             enabled: valid,
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 13),
-            child: Text(
-              'Demo: vanderberg / demo',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: B.muted,
-              ),
-            ),
           ),
         ],
       ),

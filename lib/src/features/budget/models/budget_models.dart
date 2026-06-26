@@ -28,19 +28,41 @@ const List<Color> kAccPalette = [
   Color(0xff2563eb),
 ];
 
-const List<String> kCatIcons = [
-  'home',
-  'repeat',
-  'card',
-  'trend',
-  'users',
-  'cart',
-  'heart',
-  'receipt',
-  'folder',
-  'wallet',
-  'tag',
-  'shield',
+/// A generous set of emoji quick-picks offered by the account/block glyph
+/// picker. Any other emoji can still be typed in (issue #131).
+const List<String> kQuickEmojis = [
+  '🏠',
+  '🍔',
+  '🚗',
+  '💡',
+  '🛒',
+  '🎁',
+  '✈️',
+  '💊',
+  '📚',
+  '👕',
+  '🐾',
+  '🎉',
+  '💰',
+  '💳',
+  '🏦',
+  '📈',
+  '👶',
+  '🐶',
+  '☕',
+  '🎮',
+  '🏥',
+  '🎓',
+  '🔧',
+  '🌱',
+  '❤️',
+  '⭐',
+  '🔑',
+  '📱',
+  '🎵',
+  '🏖️',
+  '🍼',
+  '💼',
 ];
 
 class Account {
@@ -50,6 +72,8 @@ class Account {
     required this.short,
     required this.initials,
     required this.color,
+    this.emoji,
+    this.picture,
   });
 
   String key;
@@ -58,12 +82,20 @@ class Account {
   String initials;
   Color color;
 
+  /// Optional emoji shown instead of the colored initials tile (issue #131).
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/initials (issue #131).
+  String? picture;
+
   Account copy() => Account(
     key: key,
     name: name,
     short: short,
     initials: initials,
     color: color,
+    emoji: emoji,
+    picture: picture,
   );
 
   Map<String, dynamic> toJson() => {
@@ -72,6 +104,8 @@ class Account {
     'short': short,
     'initials': initials,
     'color': color.toARGB32(),
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
   };
 
   factory Account.fromJson(Map<String, dynamic> j) => Account(
@@ -80,6 +114,10 @@ class Account {
     short: (j['short'] ?? 'Account').toString(),
     initials: (j['initials'] ?? 'AC').toString(),
     color: Color((j['color'] as num?)?.toInt() ?? 0xff0E9A8D),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture']
+        : null,
   );
 }
 
@@ -91,6 +129,8 @@ class Category {
     required this.marker,
     required this.tone,
     required this.bg,
+    this.emoji,
+    this.picture,
     this.hasUntil = false,
     this.temporary = false,
     this.ownerYear,
@@ -99,10 +139,20 @@ class Category {
 
   String key;
   String title;
+
+  /// Legacy stroke-icon name. Kept for blocks created before the emoji/picture
+  /// picker (issue #131); rendered only as the fallback when no emoji/picture
+  /// is set.
   String icon;
   String marker; // 'day' | 'date'
   Color tone;
   Color bg;
+
+  /// Optional emoji shown instead of the icon (issue #131).
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/icon (issue #131).
+  String? picture;
   bool hasUntil;
   bool temporary;
   int? ownerYear;
@@ -115,6 +165,8 @@ class Category {
     marker: marker,
     tone: tone,
     bg: bg,
+    emoji: emoji,
+    picture: picture,
     hasUntil: hasUntil,
     temporary: temporary,
     ownerYear: ownerYear,
@@ -128,6 +180,8 @@ class Category {
     'marker': marker,
     'tone': tone.toARGB32(),
     'bg': bg.toARGB32(),
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
     'hasUntil': hasUntil,
     if (temporary) 'temporary': true,
     if (ownerYear != null) 'ownerYear': ownerYear,
@@ -143,6 +197,10 @@ class Category {
       marker: (j['marker'] ?? 'date').toString(),
       tone: tone,
       bg: j['bg'] != null ? Color((j['bg'] as num).toInt()) : tintFor(tone),
+      emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+      picture: (j['picture'] as String?)?.isNotEmpty == true
+          ? j['picture']
+          : null,
       hasUntil: j['hasUntil'] == true,
       temporary: j['temporary'] == true,
       ownerYear: (j['ownerYear'] as num?)?.toInt(),

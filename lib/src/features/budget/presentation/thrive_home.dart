@@ -69,6 +69,7 @@ class ThriveDebugController {
   void switchFamily(String id) => _s.switchFamily(id);
   void createFamily(String name) => _s.createFamily(name);
   void deleteFamily(String id) => _s.deleteFamily(id);
+  void leaveFamily(String id) => _s.leaveFamily(id);
   void setYear(int y) => _s.setYear(y);
   void moveAccount(String key, int dir) => _s.moveAccount(key, dir);
   void moveBlock(String key, int dir) => _s.moveBlock(key, dir);
@@ -92,8 +93,12 @@ class ThriveDebugController {
       _s.cur()?.blocks[catKey]?.isNotEmpty == true
       ? _s.cur()!.blocks[catKey]!.first.id
       : null;
-  void askDelete(String name, String message, VoidCallback onConfirm) =>
-      _s.askDelete(name, message, onConfirm);
+  void askDelete(
+    String name,
+    String message,
+    VoidCallback onConfirm, {
+    String confirmLabel = 'Delete',
+  }) => _s.askDelete(name, message, onConfirm, confirmLabel: confirmLabel);
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
   void flash(String msg) => _s.flash(msg);
@@ -161,14 +166,6 @@ class _ThriveHomeState extends State<ThriveHome> {
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
-    // Seed the discoverable demo family so the join flow works. Cloud-backed
-    // users get the shared Firestore demo (see issue #123); offline/local users
-    // get a registry-backed copy.
-    if (_cloudBacked) {
-      unawaited(ensureCloudDemoFamily(_firebaseUid()!).catchError((_) {}));
-    } else {
-      await ensureDemoFamily();
-    }
 
     // Firebase boot sync is integration-only here.
     // coverage:ignore-start
@@ -367,7 +364,7 @@ class _ThriveHomeState extends State<ThriveHome> {
   Future<void> _seedFromAsset() async {
     // First launch with no stored state: seed the bundled sample budget so the
     // app isn't empty. Newly *created* families start blank (see issue #119).
-    final ws = await buildDemoWorkspace();
+    final ws = await buildSampleWorkspace();
     if (!mounted) return;
     setState(() {
       accounts = ws.accounts;
@@ -623,7 +620,12 @@ class _ThriveHomeState extends State<ThriveHome> {
   }
 
   // --------------------------------------------------------------- delete confirm
-  void askDelete(String name, String message, VoidCallback onConfirm) {
+  void askDelete(
+    String name,
+    String message,
+    VoidCallback onConfirm, {
+    String confirmLabel = 'Delete',
+  }) {
     setState(() => swipedId = null);
     showDialog<void>(
       context: context,
@@ -631,6 +633,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       builder: (ctx) => _ConfirmDialog(
         name: name,
         message: message,
+        confirmLabel: confirmLabel,
         onCancel: () => Navigator.of(ctx).pop(),
         onDelete: () {
           Navigator.of(ctx).pop();
@@ -688,6 +691,8 @@ class _ThriveHomeState extends State<ThriveHome> {
           key: c.key,
           title: c.title,
           icon: c.icon,
+          emoji: c.emoji,
+          picture: c.picture,
           tone: c.tone,
           bg: c.bg,
           hasUntil: c.hasUntil,
@@ -1141,9 +1146,12 @@ class _BlockCompute {
     required this.paid,
     required this.cap,
     required this.count,
+    this.emoji,
+    this.picture,
   });
 
   final String key, title, icon;
+  final String? emoji, picture;
   final Color tone, bg;
   final bool hasUntil;
   final List<_RowCompute> items;
@@ -1210,10 +1218,12 @@ class _ConfirmDialog extends StatelessWidget {
     required this.message,
     required this.onCancel,
     required this.onDelete,
+    this.confirmLabel = 'Delete',
   });
 
   final String name;
   final String message;
+  final String confirmLabel;
   final VoidCallback onCancel;
   final VoidCallback onDelete;
 
@@ -1245,7 +1255,7 @@ class _ConfirmDialog extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             Text(
-              'Delete ${name.isNotEmpty ? '\u201C$name\u201D' : 'this'}?',
+              '$confirmLabel ${name.isNotEmpty ? '\u201C$name\u201D' : 'this'}?',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 17.5,
@@ -1300,10 +1310,10 @@ class _ConfirmDialog extends StatelessWidget {
                         color: B.red,
                         borderRadius: BorderRadius.circular(13),
                       ),
-                      child: const Text(
-                        'Delete',
+                      child: Text(
+                        confirmLabel,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
