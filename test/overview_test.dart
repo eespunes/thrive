@@ -14,18 +14,18 @@ void main() {
 
   testWidgets('add income via sheet', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Add income'));
+    // Income is now an income-direction block (issue #137): add via the block's
+    // "Add to Income" button; the item sheet is the shared block-item editor.
+    await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
     expect(find.text('Add income'), findsWidgets);
     await tester.enterText(find.byType(TextField).first, 'Bonus');
     await tester.pump();
-    final fields = find.byType(TextField);
-    await tester.enterText(fields.at(1), '100');
-    await tester.enterText(fields.at(2), '100');
+    await tester.enterText(find.byType(TextField).at(1), '100');
     await tester.pump();
     await tester.tap(find.text('Received'));
     await tester.pump();
-    await tester.tap(find.text('Add income').last);
+    await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
     expect(find.text('Bonus'), findsWidgets);
   });
