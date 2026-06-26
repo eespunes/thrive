@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "825420918937-2ab2ves9nbf7t5d958m64m6loqpj4jej.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "cat.eespunes.thrive",
+            "certificate_hash": "8d3f2a5e43d0c918063d24115319f516df0aa9e2"
+          }
+        },
+        {
           "client_id": "825420918937-ali0s36kisbvia7omsjl02fe0kpgu4dr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
