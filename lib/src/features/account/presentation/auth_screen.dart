@@ -194,17 +194,23 @@ class _AuthScreenState extends State<_AuthScreen> {
                               Container(
                                 width: 50,
                                 height: 50,
+                                padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: .18),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(15),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: .12,
+                                      ),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
                                 ),
-                                child: Center(
-                                  child: Image.asset(
-                                    'assets/logos/thrive-unicolor.png',
-                                    width: 38,
-                                    height: 38,
-                                    fit: BoxFit.contain,
-                                  ),
+                                child: Image.asset(
+                                  'assets/logos/thrive-colored.png',
+                                  fit: BoxFit.contain,
                                 ),
                               ),
                               const SizedBox(width: 13),
