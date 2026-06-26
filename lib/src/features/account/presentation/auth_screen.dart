@@ -14,29 +14,6 @@ Widget _googleLogo({double size = 19}) {
   return SvgPicture.string(svg, width: size, height: size);
 }
 
-/// The Thrive leaf/sprout glyph used in the auth hero.
-Widget _heroGlyph({double size = 26}) {
-  const paths = [
-    'M12 2v6',
-    'M12 22v-4',
-    'M4.5 9.5 8 12',
-    'M19.5 9.5 16 12',
-    'M6 18l3-3',
-    'M18 18l-3-3',
-  ];
-  final buffer = StringBuffer()
-    ..write(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="$size" height="$size" '
-      'viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" '
-      'stroke-linecap="round" stroke-linejoin="round">',
-    );
-  for (final d in paths) {
-    buffer.write('<path d="$d"/>');
-  }
-  buffer.write('<circle cx="12" cy="13" r="3"/></svg>');
-  return SvgPicture.string(buffer.toString(), width: size, height: size);
-}
-
 /// Full-screen login / registration gate.
 class _AuthScreen extends StatefulWidget {
   const _AuthScreen({required this.state});
@@ -52,12 +29,16 @@ class _AuthScreenState extends State<_AuthScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _pw = TextEditingController();
+  final _emailFocus = FocusNode();
+  final _pwFocus = FocusNode();
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
     _pw.dispose();
+    _emailFocus.dispose();
+    _pwFocus.dispose();
     super.dispose();
   }
 
@@ -102,6 +83,9 @@ class _AuthScreenState extends State<_AuthScreen> {
     bool obscure = false,
     TextInputType? type,
     Key? key,
+    FocusNode? focusNode,
+    TextInputAction action = TextInputAction.done,
+    VoidCallback? onSubmitted,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -123,12 +107,14 @@ class _AuthScreenState extends State<_AuthScreen> {
           TextField(
             key: key,
             controller: ctrl,
+            focusNode: focusNode,
             obscureText: obscure,
             keyboardType: type,
+            textInputAction: action,
             onChanged: (_) {
               widget.state.dismissError();
             },
-            onSubmitted: (_) => _emailAuth(),
+            onSubmitted: (_) => (onSubmitted ?? _emailAuth)(),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -212,7 +198,14 @@ class _AuthScreenState extends State<_AuthScreen> {
                                   color: Colors.white.withValues(alpha: .18),
                                   borderRadius: BorderRadius.circular(15),
                                 ),
-                                child: Center(child: _heroGlyph(size: 25)),
+                                child: Center(
+                                  child: Image.asset(
+                                    'assets/logos/thrive-unicolor.png',
+                                    width: 38,
+                                    height: 38,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 13),
                               Column(
@@ -349,6 +342,8 @@ class _AuthScreenState extends State<_AuthScreen> {
                       _name,
                       'Eva Janssen',
                       key: const ValueKey('auth-name'),
+                      action: TextInputAction.next,
+                      onSubmitted: () => _emailFocus.requestFocus(),
                     ),
                   _field(
                     'Email',
@@ -356,6 +351,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                     'you@email.com',
                     type: TextInputType.emailAddress,
                     key: const ValueKey('auth-email'),
+                    focusNode: _emailFocus,
+                    action: TextInputAction.next,
+                    onSubmitted: () => _pwFocus.requestFocus(),
                   ),
                   _field(
                     'Password',
@@ -363,6 +361,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                     '••••••••',
                     obscure: true,
                     key: const ValueKey('auth-pw'),
+                    focusNode: _pwFocus,
+                    action: TextInputAction.done,
+                    onSubmitted: _emailAuth,
                   ),
                   GestureDetector(
                     key: const ValueKey('auth-submit'),

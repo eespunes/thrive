@@ -219,6 +219,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       return null;
     }
 
+    final typedName = (name ?? '').trim();
     try {
       UserCredential credential;
       if (register) {
@@ -226,9 +227,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
           email: email,
           password: password,
         );
-        final displayName = (name ?? '').trim();
-        if (displayName.isNotEmpty) {
-          await credential.user?.updateDisplayName(displayName);
+        if (typedName.isNotEmpty) {
+          await credential.user?.updateDisplayName(typedName);
         }
       } else {
         credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -238,7 +238,13 @@ extension _ThriveAccountActions on _ThriveHomeState {
       }
       final current = credential.user;
       if (current == null) return 'Authentication failed';
-      final resolvedName = (current.displayName ?? '').trim().isNotEmpty
+      // On registration `displayName` is still stale right after the account is
+      // created (updateDisplayName hasn't propagated to this User instance), so
+      // prefer the name the user just typed. On a later login the stored
+      // displayName is authoritative (issue #141).
+      final resolvedName = register && typedName.isNotEmpty
+          ? typedName
+          : (current.displayName ?? '').trim().isNotEmpty
           ? current.displayName!.trim()
           : email
                 .split('@')

@@ -54,6 +54,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
   final _password = TextEditingController();
   final _joinUser = TextEditingController();
   final _joinPw = TextEditingController();
+  final _usernameFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _joinPwFocus = FocusNode();
   final _picker = ImagePicker();
 
   // Username suggestion / availability state (issue #121).
@@ -73,6 +76,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     _password.dispose();
     _joinUser.dispose();
     _joinPw.dispose();
+    _usernameFocus.dispose();
+    _passwordFocus.dispose();
+    _joinPwFocus.dispose();
     super.dispose();
   }
 
@@ -427,6 +433,8 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           'Family name',
           _name,
           'e.g. The Janssens',
+          action: TextInputAction.next,
+          onSubmitted: () => _usernameFocus.requestFocus(),
           onChanged: (v) {
             if (!_usernameEdited) _suggestUsername(v);
           },
@@ -435,6 +443,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           'Family username',
           _username,
           'e.g. janssen-home',
+          focusNode: _usernameFocus,
+          action: TextInputAction.next,
+          onSubmitted: () => _passwordFocus.requestFocus(),
           onChanged: (v) {
             _usernameEdited = v.trim().isNotEmpty;
             if (_usernameEdited) {
@@ -451,6 +462,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           _password,
           'At least 4 characters',
           obscure: true,
+          focusNode: _passwordFocus,
+          action: TextInputAction.done,
+          onSubmitted: _submit,
         ),
         _primaryBtn(_busy ? 'Creating…' : 'Create family', _submit),
         const Padding(
@@ -510,8 +524,22 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
             ],
           ),
         ),
-        _field('Family username', _joinUser, 'e.g. vanderberg'),
-        _field('Family password', _joinPw, 'Family password', obscure: true),
+        _field(
+          'Family username',
+          _joinUser,
+          'e.g. vanderberg',
+          action: TextInputAction.next,
+          onSubmitted: () => _joinPwFocus.requestFocus(),
+        ),
+        _field(
+          'Family password',
+          _joinPw,
+          'Family password',
+          obscure: true,
+          focusNode: _joinPwFocus,
+          action: TextInputAction.done,
+          onSubmitted: _submit,
+        ),
         _primaryBtn(_busy ? 'Joining…' : 'Join family', _submit),
         const Padding(
           padding: EdgeInsets.only(top: 13),
@@ -550,6 +578,9 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     ValueChanged<String>? onChanged,
     String? note,
     Color noteColor = B.muted,
+    FocusNode? focusNode,
+    TextInputAction action = TextInputAction.done,
+    VoidCallback? onSubmitted,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 13),
@@ -570,7 +601,10 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           ),
           TextField(
             controller: c,
+            focusNode: focusNode,
             obscureText: obscure,
+            textInputAction: action,
+            onSubmitted: (_) => (onSubmitted ?? _submit)(),
             onChanged: (v) {
               s.dismissError();
               onChanged?.call(v);

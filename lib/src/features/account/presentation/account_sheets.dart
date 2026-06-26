@@ -615,6 +615,8 @@ class _FamilySheetState extends State<_FamilySheet> {
   final _mEmail = TextEditingController();
   final _iName = TextEditingController();
   final _iEmail = TextEditingController();
+  final _mEmailFocus = FocusNode();
+  final _iEmailFocus = FocusNode();
 
   _ThriveHomeState get s => widget.state;
 
@@ -631,6 +633,8 @@ class _FamilySheetState extends State<_FamilySheet> {
     _mEmail.dispose();
     _iName.dispose();
     _iEmail.dispose();
+    _mEmailFocus.dispose();
+    _iEmailFocus.dispose();
     super.dispose();
   }
 
@@ -974,6 +978,8 @@ class _FamilySheetState extends State<_FamilySheet> {
               _sheetInput(
                 _mName,
                 hint: 'Name',
+                textInputAction: TextInputAction.next,
+                onSubmitted: (_) => _mEmailFocus.requestFocus(),
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -982,6 +988,14 @@ class _FamilySheetState extends State<_FamilySheet> {
               _sheetInput(
                 _mEmail,
                 hint: 'email',
+                focusNode: _mEmailFocus,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (valid) {
+                    s.editMember(m.id, _mName.text.trim(), _mEmail.text.trim());
+                    setState(() => _editId = null);
+                  }
+                },
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -1219,6 +1233,8 @@ class _FamilySheetState extends State<_FamilySheet> {
             _sheetInput(
               _iName,
               hint: 'Lisa Janssen',
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _iEmailFocus.requestFocus(),
               onChanged: (_) => setState(() {}),
             ),
           ),
@@ -1227,6 +1243,14 @@ class _FamilySheetState extends State<_FamilySheet> {
             _sheetInput(
               _iEmail,
               hint: 'lisa@email.com',
+              focusNode: _iEmailFocus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (valid) {
+                  s.inviteMember(_iName.text.trim(), _iEmail.text.trim());
+                  setState(() => _invite = false);
+                }
+              },
               onChanged: (_) => setState(() {}),
             ),
           ),
@@ -1306,6 +1330,8 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
   final _name = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _usernameFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   String? _picture;
   bool _busy = false;
   final _picker = ImagePicker();
@@ -1327,6 +1353,8 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
     _name.dispose();
     _username.dispose();
     _password.dispose();
+    _usernameFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -1485,6 +1513,8 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
             _sheetInput(
               _name,
               hint: 'e.g. The Janssens',
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _usernameFocus.requestFocus(),
               onChanged: (v) {
                 setState(s.dismissError);
                 if (!_usernameEdited) _suggestUsername(v);
@@ -1499,6 +1529,9 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
                 _sheetInput(
                   _username,
                   hint: 'e.g. beach-house',
+                  focusNode: _usernameFocus,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => _passwordFocus.requestFocus(),
                   onChanged: (v) {
                     _usernameEdited = v.trim().isNotEmpty;
                     setState(s.dismissError);
@@ -1530,6 +1563,11 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
               _password,
               hint: 'At least 4 characters',
               obscure: true,
+              focusNode: _passwordFocus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (valid) _submit();
+              },
               onChanged: (_) => setState(s.dismissError),
             ),
           ),
@@ -1568,6 +1606,7 @@ class _JoinFamilySheet extends StatefulWidget {
 class _JoinFamilySheetState extends State<_JoinFamilySheet> {
   final _username = TextEditingController();
   final _password = TextEditingController();
+  final _passwordFocus = FocusNode();
   bool _busy = false;
 
   _ThriveHomeState get s => widget.state;
@@ -1576,6 +1615,7 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
   void dispose() {
     _username.dispose();
     _password.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -1645,6 +1685,8 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
             _sheetInput(
               _username,
               hint: 'e.g. vanderberg',
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _passwordFocus.requestFocus(),
               onChanged: (_) => setState(s.dismissError),
             ),
           ),
@@ -1654,6 +1696,11 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
               _password,
               hint: 'Family password',
               obscure: true,
+              focusNode: _passwordFocus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (valid) _submit();
+              },
               onChanged: (_) => setState(s.dismissError),
             ),
           ),

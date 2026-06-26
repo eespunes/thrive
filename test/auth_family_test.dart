@@ -66,6 +66,38 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Overview'), findsOneWidget);
     });
+
+    testWidgets('keyboard Enter advances email to password (#142)', (
+      tester,
+    ) async {
+      await pumpApp(tester, signedIn: false);
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-email')),
+        'eva@email.com',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pumpAndSettle();
+      final pw = tester.widget<TextField>(
+        find.byKey(const ValueKey('auth-pw')),
+      );
+      expect(pw.focusNode?.hasFocus, isTrue);
+    });
+
+    testWidgets('keyboard Enter on password submits the form (#142)', (
+      tester,
+    ) async {
+      await pumpApp(tester, signedIn: false);
+      await tester.enterText(
+        find.byKey(const ValueKey('auth-email')),
+        'eva@email.com',
+      );
+      await tester.enterText(find.byKey(const ValueKey('auth-pw')), 'secret');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+    });
   });
 
   group('profile', () {
