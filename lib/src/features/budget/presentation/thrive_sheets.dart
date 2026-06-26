@@ -1567,7 +1567,6 @@ class _GlyphPicker extends StatefulWidget {
 class _GlyphPickerState extends State<_GlyphPicker> {
   String? _emoji;
   String? _picture;
-  late final TextEditingController _custom;
   final _picker = ImagePicker();
 
   @override
@@ -1575,13 +1574,6 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     super.initState();
     _emoji = widget.emoji;
     _picture = widget.picture;
-    _custom = TextEditingController(text: _emoji ?? '');
-  }
-
-  @override
-  void dispose() {
-    _custom.dispose();
-    super.dispose();
   }
 
   // coverage:ignore-start
@@ -1628,7 +1620,6 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     setState(() {
       _emoji = e.isEmpty ? null : e;
       if (e.isNotEmpty) _picture = null;
-      if (_custom.text != raw) _custom.text = e;
     });
     widget.onChanged(emoji: _emoji, picture: _picture);
   }
@@ -1648,7 +1639,6 @@ class _GlyphPickerState extends State<_GlyphPicker> {
       setState(() {
         _picture = base64Encode(bytes);
         _emoji = null;
-        _custom.clear();
       });
       widget.onChanged(emoji: null, picture: _picture);
     } catch (_) {
@@ -1661,7 +1651,6 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     setState(() {
       _emoji = null;
       _picture = null;
-      _custom.clear();
     });
     widget.onChanged(emoji: null, picture: null);
   }
@@ -1752,12 +1741,6 @@ class _GlyphPickerState extends State<_GlyphPicker> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 11),
-        _sheetInput(
-          _custom,
-          hint: 'Tap the + to pick, or paste any emoji',
-          onChanged: _selectEmoji,
         ),
       ],
     );
