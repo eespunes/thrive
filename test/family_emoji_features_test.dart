@@ -1,4 +1,5 @@
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' show EmojiPicker;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart'
+    show EmojiPicker;
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
