@@ -207,11 +207,20 @@ class Family {
 /// Per-family budget workspace: its own accounts, blocks and month data.
 /// Switching family swaps the whole workspace, mirroring the design.
 class Workspace {
-  Workspace({required this.accounts, required this.cats, required this.data});
+  Workspace({
+    required this.accounts,
+    required this.cats,
+    required this.data,
+    List<TaskList>? taskLists,
+    List<ShoppingList>? shoppingLists,
+  }) : taskLists = taskLists ?? <TaskList>[],
+       shoppingLists = shoppingLists ?? <ShoppingList>[];
 
   List<Account> accounts;
   List<Category> cats;
   Map<int, Map<String, MonthData>> data;
+  List<TaskList> taskLists;
+  List<ShoppingList> shoppingLists;
 
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
@@ -222,6 +231,8 @@ class Workspace {
           for (final m in entry.value.entries) m.key: m.value.toJson(),
         },
     },
+    'taskLists': taskLists.map((l) => l.toJson()).toList(),
+    'shoppingLists': shoppingLists.map((l) => l.toJson()).toList(),
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -247,7 +258,21 @@ class Workspace {
       data[yKey] = map;
     });
     ensureIncomeCategory(cats, data);
-    return Workspace(accounts: accounts, cats: cats, data: data);
+    final taskLists = <TaskList>[
+      for (final l in (j['taskLists'] as List? ?? []))
+        TaskList.fromJson(Map<String, dynamic>.from(l as Map)),
+    ];
+    final shoppingLists = <ShoppingList>[
+      for (final l in (j['shoppingLists'] as List? ?? []))
+        ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
+    ];
+    return Workspace(
+      accounts: accounts,
+      cats: cats,
+      data: data,
+      taskLists: taskLists,
+      shoppingLists: shoppingLists,
+    );
   }
 
   /// Builds a fresh, truly empty workspace: no accounts and no budget blocks.

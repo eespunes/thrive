@@ -46,6 +46,7 @@ class _SwipeRow extends StatefulWidget {
     required this.open,
     required this.onOpenChanged,
     this.topBorder = false,
+    this.borderRadius = 0,
   }) : super(key: key);
 
   final Widget child;
@@ -53,6 +54,12 @@ class _SwipeRow extends StatefulWidget {
   final bool open;
   final ValueChanged<bool> onOpenChanged;
   final bool topBorder;
+
+  /// Matches [child]'s own corner radius so the sliding red "Delete" panel
+  /// stays clipped to the same rounded shape — otherwise it either peeks
+  /// out from behind the child's rounded corners at rest, or shows sharp
+  /// corners of its own once revealed.
+  final double borderRadius;
 
   @override
   State<_SwipeRow> createState() => _SwipeRowState();
@@ -93,7 +100,8 @@ class _SwipeRowState extends State<_SwipeRow>
               border: Border(top: BorderSide(color: B.faint)),
             )
           : null,
-      child: ClipRect(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         child: Stack(
           children: [
             Positioned(

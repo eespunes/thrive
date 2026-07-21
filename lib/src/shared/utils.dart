@@ -11,6 +11,14 @@ String uid() {
   return 'x$rand${_uidCounter.toRadixString(36)}';
 }
 
+/// Today's date as `YYYY-MM-DD`, mirrors the design's `TODAY` constant.
+String todayIso() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
+}
+
 /// Mirrors `num(v)` — tolerant number parsing.
 double parseNum(Object? v) {
   if (v is num) return v.isNaN ? 0 : v.toDouble();

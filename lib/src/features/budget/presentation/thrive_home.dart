@@ -74,6 +74,8 @@ class ThriveDebugController {
   void moveAccount(String key, int dir) => _s.moveAccount(key, dir);
   void moveBlock(String key, int dir) => _s.moveBlock(key, dir);
   void go(String s) => _s.go(s);
+  void goTab(String t) => _s.goTab(t);
+  String get tab => _s.tab;
   void setMonth(int d) => _s.setMonth(d);
   void pickMonth(int i) => _s.pickMonth(i);
   void toggleCollapse(String k) => _s.toggleCollapse(k);
@@ -126,7 +128,9 @@ class _ThriveHomeState extends State<ThriveHome> {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
-  String screen = 'overview'; // overview | stats | settings
+  String screen = 'overview'; // overview | stats — Finance tab's own sub-view
+  String tab =
+      'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String statsMode = 'month'; // month | year
 
   // Active workspace (the currently-selected family's budget). Kept in sync
@@ -134,6 +138,12 @@ class _ThriveHomeState extends State<ThriveHome> {
   List<Account> accounts = defaultAccounts();
   List<Category> cats = defaultCats();
   Map<int, Map<String, MonthData>> data = {};
+  List<TaskList> taskLists = [];
+  List<ShoppingList> shoppingLists = [];
+  String taskFilter = 'all'; // all | me
+  String? openTaskList;
+  String? openShopList;
+  final FocusNode shopQuickAddFocus = FocusNode();
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -167,6 +177,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     _cloudSub?.cancel();
     _familySub?.cancel();
     _toastTimer?.cancel();
+    shopQuickAddFocus.dispose();
     super.dispose();
   }
 
@@ -296,10 +307,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       0,
       kMonthKeys.length - 1,
     );
-    final rawScreen = (saved['screen'] ?? 'overview').toString();
-    screen = const {'overview', 'stats', 'settings'}.contains(rawScreen)
-        ? rawScreen
-        : 'overview';
+    _restoreNav(saved['screen'], saved['tab']);
 
     families = [
       for (final f in (saved['families'] as List? ?? []))
@@ -321,6 +329,8 @@ class _ThriveHomeState extends State<ThriveHome> {
     accounts = ws.accounts;
     cats = ws.cats;
     data = ws.data;
+    taskLists = ws.taskLists;
+    shoppingLists = ws.shoppingLists;
   }
 
   /// Wraps the just-restored/seeded active workspace into `workspaces` and
@@ -329,7 +339,13 @@ class _ThriveHomeState extends State<ThriveHome> {
   void _seedFamiliesAndWorkspace() {
     familyId = 'fam_main';
     workspaces = {
-      'fam_main': Workspace(accounts: accounts, cats: cats, data: data),
+      'fam_main': Workspace(
+        accounts: accounts,
+        cats: cats,
+        data: data,
+        taskLists: taskLists,
+        shoppingLists: shoppingLists,
+      ),
     };
     families = user != null ? [seedFamily('fam_main', user!)] : [];
   }
@@ -338,10 +354,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     year = (saved['year'] as num?)?.toInt() ?? 2026;
     final rawMonth = (saved['monthIdx'] as num?)?.toInt() ?? 5;
     monthIdx = rawMonth.clamp(0, kMonthKeys.length - 1);
-    final rawScreen = (saved['screen'] ?? 'overview').toString();
-    screen = const {'overview', 'stats', 'settings'}.contains(rawScreen)
-        ? rawScreen
-        : 'overview';
+    _restoreNav(saved['screen'], null);
     if (saved['accounts'] is List) {
       accounts = [
         for (final a in (saved['accounts'] as List))
@@ -370,6 +383,31 @@ class _ThriveHomeState extends State<ThriveHome> {
     ensureIncomeCategory(cats, data);
   }
 
+  /// Resolves `screen` (Finance tab's overview/stats sub-view) and `tab`
+  /// (top-level nav) from a saved blob. `rawTab` is null for saves written
+  /// before the 5-tab nav existed (or the v3 store, which never had a
+  /// concept of tabs) — in that case a legacy `screen: 'settings'` becomes
+  /// `finsettings` (More stays highlighted, matching #149), and any other
+  /// legacy screen keeps the user on the Finance tab where they left off
+  /// instead of dropping them onto the new Home placeholder.
+  void _restoreNav(Object? rawScreen, Object? rawTab) {
+    final legacyScreen = (rawScreen ?? 'overview').toString();
+    if (legacyScreen == 'settings') {
+      screen = 'overview';
+      tab = 'finsettings';
+      return;
+    }
+    screen = const {'overview', 'stats'}.contains(legacyScreen)
+        ? legacyScreen
+        : 'overview';
+    if (rawTab == null) {
+      tab = 'finance';
+      return;
+    }
+    final t = rawTab.toString();
+    tab = kValidTabs.contains(t) ? t : 'home';
+  }
+
   Future<void> _seedFromAsset() async {
     // First launch with no stored state: seed the bundled sample budget so the
     // app isn't empty. Newly *created* families start blank (see issue #119).
@@ -379,6 +417,8 @@ class _ThriveHomeState extends State<ThriveHome> {
       accounts = ws.accounts;
       cats = ws.cats;
       data = ws.data;
+      taskLists = ws.taskLists;
+      shoppingLists = ws.shoppingLists;
       _seedFamiliesAndWorkspace();
       ready = true;
     });
@@ -392,6 +432,8 @@ class _ThriveHomeState extends State<ThriveHome> {
       accounts: accounts,
       cats: cats,
       data: data,
+      taskLists: taskLists,
+      shoppingLists: shoppingLists,
     );
   }
 
@@ -418,6 +460,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       'year': year,
       'monthIdx': monthIdx,
       'screen': screen,
+      'tab': tab,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {
@@ -748,6 +791,9 @@ class _ThriveHomeState extends State<ThriveHome> {
         ready && user != null && families.isEmpty && _resolvingFamilies;
     final onboardingOpen =
         ready && user != null && families.isEmpty && !_resolvingFamilies;
+    // The nav bar + FAB only make sense once the budget/family gates are
+    // all clear — same condition every gate below uses.
+    final shellReady = ready && !authOpen && !familyLoading && !onboardingOpen;
     return Scaffold(
       backgroundColor: B.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is
@@ -776,6 +822,7 @@ class _ThriveHomeState extends State<ThriveHome> {
                           ),
                         ),
                 ),
+                if (shellReady) _buildNav(),
               ],
             ),
             if (toast != null)
@@ -785,6 +832,7 @@ class _ThriveHomeState extends State<ThriveHome> {
                 bottom: 36,
                 child: Center(child: _buildToast()),
               ),
+            ?(shellReady ? _buildFab() : null),
             // Auth gate: covers the app until a user is signed in.
             if (authOpen) Positioned.fill(child: _AuthScreen(state: this)),
             // While a signed-in user's cloud families are still loading, show a
@@ -836,11 +884,10 @@ class _ThriveHomeState extends State<ThriveHome> {
   }
 
   Widget _buildBody() {
+    if (tab != 'finance') return _renderTab(tab);
     switch (screen) {
       case 'stats':
         return _buildStats();
-      case 'settings':
-        return _buildSettings();
       default:
         return _buildOverview();
     }
@@ -848,18 +895,31 @@ class _ThriveHomeState extends State<ThriveHome> {
 
   // ------------------------------------------------------------- header
   Widget _buildHeader() {
-    final titles = <String, List<String>>{
-      'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
-      'stats': [
-        'Statistics',
-        statsMode == 'month'
-            ? '${kMonthsEn[monthIdx]} $year'
-            : 'Full year $year',
-      ],
-      'settings': ['Settings', 'Accounts, blocks & tools'],
-    };
-    final title = ready ? titles[screen]![0] : 'Thrive';
-    final subtitle = ready ? titles[screen]![1] : 'Loading…';
+    String title = 'Thrive';
+    String subtitle = 'Loading…';
+    if (ready) {
+      if (tab == 'finance') {
+        final titles = <String, List<String>>{
+          'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
+          'stats': [
+            'Statistics',
+            statsMode == 'month'
+                ? '${kMonthsEn[monthIdx]} $year'
+                : 'Full year $year',
+          ],
+        };
+        final t = titles[screen] ?? titles['overview']!;
+        title = t[0];
+        subtitle = t[1];
+      } else {
+        final meta = _tabMeta(tab);
+        title = meta.$1;
+        subtitle = meta.$2;
+      }
+    }
+    final subHeader = ready
+        ? (tab == 'finance' ? _buildSubHeader() : _tabSubHeader(tab))
+        : null;
 
     return Container(
       color: B.page,
@@ -917,20 +977,17 @@ class _ThriveHomeState extends State<ThriveHome> {
                   ],
                 ),
               ),
-              _buildSwitcher(),
+              if (tab == 'finance') _buildSwitcher(),
             ],
           ),
-          if (ready && screen != 'settings') ...[
-            const SizedBox(height: 13),
-            _buildSubHeader(),
-          ],
+          if (subHeader != null) ...[const SizedBox(height: 13), subHeader],
         ],
       ),
     );
   }
 
   Widget _buildSwitcher() {
-    Widget tab(String k, String icon) {
+    Widget seg(String k, String icon) {
       final active = screen == k;
       return GestureDetector(
         key: ValueKey('tab-$k'),
@@ -973,11 +1030,9 @@ class _ThriveHomeState extends State<ThriveHome> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          tab('overview', 'grid'),
+          seg('overview', 'grid'),
           const SizedBox(width: 4),
-          tab('stats', 'chart'),
-          const SizedBox(width: 4),
-          tab('settings', 'gear'),
+          seg('stats', 'chart'),
         ],
       ),
     );

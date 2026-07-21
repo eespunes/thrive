@@ -18,6 +18,9 @@ void main() {
       await tester.pump(); // start busy
       await tester.pump(const Duration(milliseconds: 800)); // resolve delay
       await tester.pumpAndSettle();
+      // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
+      await tester.tap(find.byKey(const ValueKey('nav-finance')));
+      await tester.pumpAndSettle();
       expect(find.text('Overview'), findsOneWidget);
     });
 
@@ -64,6 +67,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
+      // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
+      await tester.tap(find.byKey(const ValueKey('nav-finance')));
+      await tester.pumpAndSettle();
       expect(find.text('Overview'), findsOneWidget);
     });
 
@@ -95,6 +101,9 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+      // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
+      await tester.tap(find.byKey(const ValueKey('nav-finance')));
       await tester.pumpAndSettle();
       expect(find.text('Overview'), findsOneWidget);
     });

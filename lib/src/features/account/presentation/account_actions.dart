@@ -131,12 +131,20 @@ extension _ThriveAccountActions on _ThriveHomeState {
         familyId = 'fam_main';
         workspaces.putIfAbsent(
           'fam_main',
-          () => Workspace(accounts: accounts, cats: cats, data: data),
+          () => Workspace(
+            accounts: accounts,
+            cats: cats,
+            data: data,
+            taskLists: taskLists,
+            shoppingLists: shoppingLists,
+          ),
         );
         final ws = workspaces['fam_main']!;
         accounts = ws.accounts;
         cats = ws.cats;
         data = ws.data;
+        taskLists = ws.taskLists;
+        shoppingLists = ws.shoppingLists;
       } else {
         // Cloud sign-in: the user's shared families are about to be fetched.
         // Mark them as resolving so the onboarding gate stays hidden until we
@@ -666,6 +674,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
       accounts = ws.accounts;
       cats = ws.cats;
       data = ws.data;
+      taskLists = ws.taskLists;
+      shoppingLists = ws.shoppingLists;
       screen = 'overview';
       swipedId = null;
       collapsed = {};

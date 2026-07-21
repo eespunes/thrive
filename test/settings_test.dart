@@ -36,9 +36,6 @@ void main() {
   testWidgets('edit an existing account', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    // first edit mini button
-    await tester.tap(find.byKey(const ValueKey('tab-settings')));
-    await tester.pumpAndSettle();
     final editBtns = find.byIcon(Icons.edit);
     // The mini buttons use custom icons, so tap via the account row edit.
     // Fall back: open account sheet by tapping the first 'edit' painter is hard;

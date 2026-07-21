@@ -59,10 +59,18 @@ Map<String, Object> joinableFamilyPrefs() {
 ///
 /// By default a user is seeded so the app lands on the budget screens. Pass
 /// `signedIn: false` to exercise the auth gate.
+///
+/// The app's real default landing tab is Home (issue #149), but almost every
+/// existing test assumes it lands directly on the Finance/Overview screen —
+/// so by default this helper navigates to the Finance tab right after boot,
+/// once the 5-tab shell is actually showing (it's a no-op behind the auth/
+/// onboarding gates). Pass `landOnDefaultTab: true` to see the real Home
+/// landing instead (used by navigation-specific tests).
 Future<void> pumpApp(
   WidgetTester tester, {
   Map<String, Object> prefs = const {},
   bool signedIn = true,
+  bool landOnDefaultTab = false,
 }) async {
   tester.view.physicalSize = const Size(1080, 6400);
   tester.view.devicePixelRatio = 2.0;
@@ -81,6 +89,14 @@ Future<void> pumpApp(
   });
   await tester.pump();
   await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+  if (!landOnDefaultTab) {
+    final financeTab = find.byKey(const ValueKey('nav-finance'));
+    if (financeTab.evaluate().isNotEmpty) {
+      await tester.tap(financeTab);
+      await tester.pumpAndSettle();
+    }
+  }
 }
 
 /// Boots a fresh ThriveApp WITHOUT clearing the mock prefs store, so the app
@@ -96,8 +112,23 @@ Future<void> rebootApp(WidgetTester tester) async {
   await tester.pumpAndSettle(const Duration(milliseconds: 100));
 }
 
-/// Taps a switcher tab by its key (overview | stats | settings).
+/// Navigates to a Finance sub-screen (overview | stats), or to Finance
+/// settings via the More hub (settings). `settings` moved out of the Finance
+/// switcher and behind More → Finance settings when the 5-tab nav shipped
+/// (issue #149); `overview`/`stats` still live in the Finance tab's own
+/// switcher.
 Future<void> goToTab(WidgetTester tester, String tab) async {
+  if (tab == 'settings') {
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('more-finsettings')));
+    await tester.pumpAndSettle();
+    return;
+  }
+  if (find.byKey(ValueKey('tab-$tab')).evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('nav-finance')));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.byKey(ValueKey('tab-$tab')));
   await tester.pumpAndSettle();
 }

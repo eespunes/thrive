@@ -197,6 +197,30 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M9 12v5'],
     ['path', 'M15 12v5'],
   ],
+  'list': [
+    ['path', 'M8 6h13'],
+    ['path', 'M8 12h13'],
+    ['path', 'M8 18h13'],
+    ['path', 'M3 6h.01'],
+    ['path', 'M3 12h.01'],
+    ['path', 'M3 18h.01'],
+  ],
+  'menu': [
+    ['path', 'M4 6h16'],
+    ['path', 'M4 12h16'],
+    ['path', 'M4 18h16'],
+  ],
+  'moon': [
+    ['path', 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z'],
+  ],
+  'tasklist': [
+    [
+      'path',
+      'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2',
+    ],
+    ['rect', 9, 3, 6, 4, 1],
+    ['path', 'm9 14 2 2 4-4'],
+  ],
 };
 
 String _fmt(Object n) {

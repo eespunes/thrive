@@ -50,6 +50,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(app.thriveDebug.user?.email, 'tom@example.com');
+    // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
+    app.thriveDebug.goTab('finance');
+    await tester.pumpAndSettle();
     expect(find.text('Overview'), findsOneWidget);
 
     expect(await app.thriveDebug.signInWithGoogle(), isNull);
