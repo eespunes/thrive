@@ -517,10 +517,17 @@ extension _ThriveAccountActions on _ThriveHomeState {
       accounts = target.accounts;
       cats = target.cats;
       data = target.data;
+      taskLists = target.taskLists;
+      shoppingLists = target.shoppingLists;
+      events = target.events;
+      eventCategories = target.eventCategories;
+      importedCalendars = target.importedCalendars;
+      weeklyPlan = target.weeklyPlan;
       screen = 'overview';
       swipedId = null;
       collapsed = {};
     });
+    _rescheduleReminders();
     _persist();
     final uid = _firebaseUid();
     if (uid != null) _bindActiveFamily(uid);

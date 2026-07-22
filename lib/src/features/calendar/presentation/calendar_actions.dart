@@ -512,6 +512,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? createdBy,
   }) {
     final wasEditing = id != null;
+    CalendarEvent? saved;
     mutate(() {
       final ev = CalendarEvent(
         id: id ?? uid(),
@@ -537,21 +538,34 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       } else {
         events.add(ev);
       }
+      saved = ev;
     }, () => flash(wasEditing ? 'Event updated' : 'Event added'));
+    if (saved != null) {
+      NotificationService.instance.scheduleEventReminder(saved!);
+    }
   }
 
   /// `scope == 'one'` removes only the occurrence on [date] (recorded as an
   /// exception on a recurring event); `scope == 'all'` deletes the event.
   void deleteEvent(String id, String scope, [String? date]) {
+    var removedSeries = false;
+    CalendarEvent? updated;
     mutate(() {
       final ev = eventById(id);
       if (ev == null) return;
       if (scope == 'one' && ev.recur != 'none' && date != null) {
         ev.exceptions = [...ev.exceptions, date];
+        updated = ev;
       } else {
         events.removeWhere((x) => x.id == id);
+        removedSeries = true;
       }
     }, () => flash('Event deleted'));
+    if (removedSeries) {
+      NotificationService.instance.cancelEventReminder(id);
+    } else if (updated != null) {
+      NotificationService.instance.scheduleEventReminder(updated!);
+    }
   }
 
   // ---------------------------------------------------------- categories

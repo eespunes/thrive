@@ -381,7 +381,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         _localizeMe(meUid);
         _lastSyncedAtMillis = remoteMillis;
         _applyingCloudSnapshot = false;
-        if (mounted) update(() {});
+        if (mounted) {
+          update(() {});
+          _rescheduleReminders();
+        }
       });
     } catch (e) {
       debugPrint('[cloud] family stream failed: $e');

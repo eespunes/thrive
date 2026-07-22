@@ -206,26 +206,50 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// schedule — current whenever the app comes back to the foreground.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) syncDueImports();
+    if (state == AppLifecycleState.resumed) {
+      syncDueImports();
+      unawaited(_refreshReminderSchedule());
+    }
   }
 
-  /// Consumes [pendingNotificationDeepLink] and jumps to the tapped task's
-  /// list (#154). Deep-links only target tasks for now — event reminders
-  /// follow once Calendar/#153 exists.
+  Future<void> _refreshReminderSchedule() async {
+    await NotificationService.refreshTimeZone();
+    _rescheduleReminders();
+  }
+
+  /// Consumes [pendingNotificationDeepLink] and opens the task or calendar
+  /// event that produced the notification.
   void _handleNotificationDeepLink() {
-    if (!ready) return; // taskLists isn't populated until boot finishes.
+    if (!ready) return;
     final payload = pendingNotificationDeepLink.value;
-    if (payload == null || !payload.startsWith('task:')) return;
-    final taskId = payload.substring('task:'.length);
-    for (final l in taskLists) {
-      if (l.tasks.any((t) => t.id == taskId)) {
+    if (payload == null) return;
+    if (payload.startsWith('task:')) {
+      final taskId = payload.substring('task:'.length);
+      for (final l in taskLists) {
+        if (l.tasks.any((t) => t.id == taskId)) {
+          pendingNotificationDeepLink.value = null;
+          goTab('lists');
+          openTaskListDetail(l.id);
+          return;
+        }
+      }
+    } else if (payload.startsWith('event:') && payload.length > 17) {
+      final date = payload.substring(payload.length - 10);
+      final eventId = payload.substring('event:'.length, payload.length - 11);
+      if (eventById(eventId) != null) {
         pendingNotificationDeepLink.value = null;
-        goTab('lists');
-        openTaskListDetail(l.id);
+        update(() {
+          tab = 'calendar';
+          calAnchor = date;
+          calSel = date;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openEventView(eventId, date);
+        });
         return;
       }
     }
-    // Task no longer exists (deleted) — drop the stale deep link.
+    // The source item was deleted, so discard the stale deep link.
     pendingNotificationDeepLink.value = null;
   }
 
@@ -245,7 +269,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         await bindCloudSync(uid);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         return;
       }
@@ -263,7 +287,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           }
           if (!mounted) return;
           setState(() => ready = true);
-          _rescheduleTaskReminders();
+          _rescheduleReminders();
           _handleNotificationDeepLink();
           await _persist();
           await bindCloudSync(uid);
@@ -278,7 +302,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       workspaces = {};
       if (!mounted) return;
       setState(() => ready = true);
-      _rescheduleTaskReminders();
+      _rescheduleReminders();
       _handleNotificationDeepLink();
       return;
     }
@@ -301,7 +325,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         return;
       } catch (_) {
@@ -317,7 +341,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         _persist();
         return;
@@ -329,16 +353,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives every pending task reminder from `taskLists.due` on boot
-  /// (#154) — reminders aren't persisted separately, so this is what makes
-  /// them survive an app restart.
-  void _rescheduleTaskReminders() {
+  /// Re-derives pending reminders from persisted tasks and calendar events.
+  void _rescheduleReminders() {
     for (final l in taskLists) {
       for (final t in l.tasks) {
         if (t.done || (t.due ?? '').isEmpty) continue;
         NotificationService.instance.scheduleTaskReminder(t);
       }
     }
+    NotificationService.instance.syncEventReminders(events);
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -504,6 +527,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       _seedFamiliesAndWorkspace();
       ready = true;
     });
+    _rescheduleReminders();
     _persist();
   }
 

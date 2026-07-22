@@ -10,6 +10,32 @@ import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
+class _RecordingNotificationScheduler implements NotificationScheduler {
+  final List<CalendarEvent> scheduledEvents = [];
+  final List<String> cancelledEvents = [];
+
+  @override
+  Future<void> scheduleTaskReminder(ListTask task) async {}
+
+  @override
+  Future<void> cancelTaskReminder(String taskId) async {}
+
+  @override
+  Future<void> scheduleEventReminder(CalendarEvent event) async {
+    scheduledEvents.add(event);
+  }
+
+  @override
+  Future<void> cancelEventReminder(String eventId) async {
+    cancelledEvents.add(eventId);
+  }
+
+  @override
+  Future<void> syncEventReminders(Iterable<CalendarEvent> events) async {
+    scheduledEvents.addAll(events);
+  }
+}
+
 Future<void> goToCalendar(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-calendar')));
   await tester.pumpAndSettle();
@@ -337,6 +363,10 @@ void main() {
   testWidgets('view, edit and delete a one-off event', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
+    final originalScheduler = NotificationService.instance;
+    final scheduler = _RecordingNotificationScheduler();
+    NotificationService.instance = scheduler;
+    addTearDown(() => NotificationService.instance = originalScheduler);
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
@@ -344,6 +374,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
+    expect(scheduler.scheduledEvents, hasLength(1));
+    expect(scheduler.scheduledEvents.single.title, 'Team lunch');
+    final eventId = scheduler.scheduledEvents.single.id;
 
     await tester.tap(find.text('Team lunch').first);
     await tester.pumpAndSettle();
@@ -356,6 +389,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Team lunch'), findsNothing);
+    expect(scheduler.cancelledEvents, [eventId]);
   });
 
   testWidgets('creating a category from the event editor lands on Calendars & '
