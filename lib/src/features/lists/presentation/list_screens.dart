@@ -142,12 +142,19 @@ extension _ThriveListScreens on _ThriveHomeState {
                       color: list.color,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Center(
-                      child: ic(
-                        'tasklist',
-                        size: 17,
-                        sw: 2.1,
-                        color: Colors.white,
+                    child: glyphTile(
+                      size: 34,
+                      radius: 10,
+                      picture: list.picture,
+                      emoji: list.emoji,
+                      emojiSize: 18,
+                      fallback: Center(
+                        child: ic(
+                          'tasklist',
+                          size: 17,
+                          sw: 2.1,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -286,8 +293,15 @@ extension _ThriveListScreens on _ThriveHomeState {
                   color: const Color(0xffd97706),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Center(
-                  child: ic('cart', size: 17, sw: 2.1, color: Colors.white),
+                child: glyphTile(
+                  size: 34,
+                  radius: 10,
+                  picture: list.picture,
+                  emoji: list.emoji,
+                  emojiSize: 18,
+                  fallback: Center(
+                    child: ic('cart', size: 17, sw: 2.1, color: Colors.white),
+                  ),
                 ),
               ),
               const SizedBox(width: 11),

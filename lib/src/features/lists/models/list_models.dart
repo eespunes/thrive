@@ -65,18 +65,29 @@ class TaskList {
     required this.id,
     required this.name,
     required this.color,
+    this.emoji,
+    this.picture,
     List<ListTask>? tasks,
   }) : tasks = tasks ?? <ListTask>[];
 
   String id;
   String name;
   Color color;
+
+  /// Optional emoji shown instead of the default 'tasklist' icon.
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/icon.
+  String? picture;
+
   List<ListTask> tasks;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'color': color.toARGB32(),
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
     'tasks': tasks.map((t) => t.toJson()).toList(),
   };
 
@@ -84,6 +95,10 @@ class TaskList {
     id: (j['id'] ?? uid()).toString(),
     name: (j['name'] ?? 'New list').toString(),
     color: Color((j['color'] as num?)?.toInt() ?? 0xff0E9A8D),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture']
+        : null,
     tasks: [
       for (final t in (j['tasks'] as List? ?? []))
         ListTask.fromJson(Map<String, dynamic>.from(t as Map)),
@@ -137,22 +152,40 @@ class ShopItem {
 /// A shared shopping list — the `SHOPPING` list type in the unified Lists
 /// module.
 class ShoppingList {
-  ShoppingList({required this.id, required this.name, List<ShopItem>? items})
-    : items = items ?? <ShopItem>[];
+  ShoppingList({
+    required this.id,
+    required this.name,
+    this.emoji,
+    this.picture,
+    List<ShopItem>? items,
+  }) : items = items ?? <ShopItem>[];
 
   String id;
   String name;
+
+  /// Optional emoji shown instead of the default 'cart' icon.
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/icon.
+  String? picture;
+
   List<ShopItem> items;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
     'items': items.map((i) => i.toJson()).toList(),
   };
 
   factory ShoppingList.fromJson(Map<String, dynamic> j) => ShoppingList(
     id: (j['id'] ?? uid()).toString(),
     name: (j['name'] ?? 'New list').toString(),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture']
+        : null,
     items: [
       for (final i in (j['items'] as List? ?? []))
         ShopItem.fromJson(Map<String, dynamic>.from(i as Map)),
