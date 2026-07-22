@@ -66,6 +66,7 @@ Future<void> openCalFilters(WidgetTester tester) async {
 Map<String, Object> calendarPrefs({
   required List<CalendarEvent> events,
   List<EventCategory> categories = const [],
+  List<ImportedCalendar> importedCalendars = const [],
 }) {
   final family = Family(
     id: 'fam_main',
@@ -91,7 +92,8 @@ Map<String, Object> calendarPrefs({
   );
   final ws = Workspace.empty()
     ..events = events
-    ..eventCategories = categories;
+    ..eventCategories = categories
+    ..importedCalendars = importedCalendars;
   return {
     'flutter.$kStorageKeyV4': json.encode({
       'year': 2026,
@@ -468,6 +470,54 @@ void main() {
     // listed (matches the design's `saveCategory()`).
     expect(find.text('Calendars & categories'), findsWidgets);
     expect(find.text('Work'), findsWidgets);
+  });
+
+  testWidgets('calendar settings marks categories and assigned imports', (
+    tester,
+  ) async {
+    const categoryColor = Color(0xff7c3aed);
+    final category = EventCategory(
+      id: 'family',
+      name: 'Family',
+      color: categoryColor,
+      icon: 'star',
+    );
+    final imported = ImportedCalendar(
+      id: 'school-feed',
+      name: 'School calendar',
+      provider: 'ics',
+      color: const Color(0xff475569),
+      category: category.id,
+      events: [
+        ImportedCalendarEvent(
+          id: 'lesson',
+          title: 'Parent evening',
+          date: todayIso(),
+        ),
+      ],
+    );
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: const [],
+        categories: [category],
+        importedCalendars: [imported],
+      ),
+      landOnDefaultTab: true,
+    );
+    await openCalManage(tester);
+
+    for (final key in ['cat-marker-family', 'imp-marker-school-feed']) {
+      final marker = tester.widget<Container>(find.byKey(ValueKey(key)));
+      expect(marker.color, categoryColor);
+      expect(marker.constraints?.maxWidth, 4);
+    }
+    final importVisual = find.byKey(const ValueKey('imp-visual-school-feed'));
+    expect(
+      find.descendant(of: importVisual, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+    expect(find.text('Family · ICS / web link · 1 event'), findsOneWidget);
   });
 
   testWidgets('assigning a category to a new event selects its chip', (

@@ -1171,6 +1171,37 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
     final cats = s.eventCategories;
     final imps = s.importedCalendars;
 
+    Widget markedRow({
+      required Key key,
+      required Key markerKey,
+      required Color color,
+      required Widget child,
+    }) {
+      return Container(
+        key: key,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: B.line),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(key: markerKey, width: 4, color: color),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+              child: child,
+            ),
+          ],
+        ),
+      );
+    }
+
     Widget catRow(EventCategory c) {
       final inner = GestureDetector(
         onTap: () {
@@ -1178,13 +1209,10 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
           s.openCategory(c);
         },
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(13),
-          ),
+        child: markedRow(
+          key: ValueKey('cat-style-${c.id}'),
+          markerKey: ValueKey('cat-marker-${c.id}'),
+          color: c.color,
           child: Row(
             children: [
               Container(
@@ -1247,25 +1275,34 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
 
     Widget impRow(ImportedCalendar c) {
       final providerLabel = kImportProviders[c.provider]?.$1 ?? c.provider;
-      final inner = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
-          borderRadius: BorderRadius.circular(13),
-        ),
+      final category = s.catById(c.category);
+      final rowColor = category?.color ?? c.color;
+      final eventLabel =
+          '${c.events.length} event${c.events.length == 1 ? '' : 's'}';
+      final inner = markedRow(
+        key: ValueKey('imp-style-${c.id}'),
+        markerKey: ValueKey('imp-marker-${c.id}'),
+        color: rowColor,
         child: Row(
           children: [
             Container(
+              key: ValueKey('imp-visual-${c.id}'),
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: c.color,
+                color: rowColor,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Center(
-                child: ic('download', size: 16, sw: 2.2, color: Colors.white),
-              ),
+              child: category == null
+                  ? Center(
+                      child: ic(
+                        'download',
+                        size: 16,
+                        sw: 2.2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : categoryGlyph(category, size: 32, iconColor: Colors.white),
             ),
             const SizedBox(width: 11),
             Expanded(
@@ -1283,7 +1320,8 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                     ),
                   ),
                   Text(
-                    '$providerLabel · ${c.events.length} events',
+                    '${category == null ? '' : '${category.name} · '}'
+                    '$providerLabel · $eventLabel',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
