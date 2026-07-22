@@ -213,14 +213,20 @@ class Workspace {
     required this.data,
     List<TaskList>? taskLists,
     List<ShoppingList>? shoppingLists,
+    Map<String, DayPlan>? weeklyPlan,
   }) : taskLists = taskLists ?? <TaskList>[],
-       shoppingLists = shoppingLists ?? <ShoppingList>[];
+       shoppingLists = shoppingLists ?? <ShoppingList>[],
+       weeklyPlan = weeklyPlan ?? <String, DayPlan>{};
 
   List<Account> accounts;
   List<Category> cats;
   Map<int, Map<String, MonthData>> data;
   List<TaskList> taskLists;
   List<ShoppingList> shoppingLists;
+
+  /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
+  /// days with content need an entry.
+  Map<String, DayPlan> weeklyPlan;
 
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
@@ -233,6 +239,9 @@ class Workspace {
     },
     'taskLists': taskLists.map((l) => l.toJson()).toList(),
     'shoppingLists': shoppingLists.map((l) => l.toJson()).toList(),
+    'weeklyPlan': {
+      for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
+    },
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -266,12 +275,20 @@ class Workspace {
       for (final l in (j['shoppingLists'] as List? ?? []))
         ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
     ];
+    final weeklyPlan = <String, DayPlan>{
+      for (final entry
+          in (j['weeklyPlan'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: DayPlan.fromJson(
+          Map<String, dynamic>.from(entry.value as Map),
+        ),
+    };
     return Workspace(
       accounts: accounts,
       cats: cats,
       data: data,
       taskLists: taskLists,
       shoppingLists: shoppingLists,
+      weeklyPlan: weeklyPlan,
     );
   }
 
