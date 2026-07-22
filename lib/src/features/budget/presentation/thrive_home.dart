@@ -1112,47 +1112,29 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         onTap: () => go(k),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: 34,
-          height: 30,
+          margin: const EdgeInsets.only(left: 8),
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .14),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
+            color: active ? B.soft : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: active ? B.primary : B.line),
           ),
           child: Center(
             child: ic(
               icon,
-              size: 17,
+              size: 18,
               sw: 2.1,
-              color: active ? B.primary : const Color(0xff8995a6),
+              color: active ? B.deep : B.soft2,
             ),
           ),
         ),
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xffe8ecf2),
-        borderRadius: BorderRadius.circular(13),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          seg('overview', 'grid'),
-          const SizedBox(width: 4),
-          seg('stats', 'chart'),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [seg('overview', 'grid'), seg('stats', 'chart')],
     );
   }
 
@@ -1183,7 +1165,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [_buildSwitcher(), if (screen == 'overview') lockButton],
+      children: [_buildSwitcher(), lockButton],
     );
   }
 
