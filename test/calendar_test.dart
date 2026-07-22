@@ -1102,6 +1102,16 @@ void main() {
             color: kEventColors.first,
             attendees: ['erik'],
           ),
+          CalendarEvent(
+            id: 'fam-trip',
+            title: 'Family trip',
+            date: todayIso(),
+            endDate: addDaysForTest(todayIso(), 2),
+            start: '11:00',
+            end: '12:00',
+            color: kEventColors[1],
+            attendees: ['erik'],
+          ),
         ],
       ),
       landOnDefaultTab: true,
@@ -1114,6 +1124,14 @@ void main() {
     expect(find.text('Eva Janssen'), findsOneWidget);
     expect(find.text('Erik Janssen'), findsOneWidget);
     expect(find.textContaining('Guitar lesson'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('cal-family-pinned-fam-trip-${todayIso()}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('cal-family-erik-fam-trip')),
+      findsNothing,
+    );
   });
 
   testWidgets('filter sheet combines member and category filters', (
@@ -1226,6 +1244,16 @@ void main() {
             color: kEventColors[2],
             attendees: ['me'],
           ),
+          CalendarEvent(
+            id: 'week-trip',
+            title: 'Weekend away',
+            date: todayIso(),
+            endDate: addDaysForTest(todayIso(), 2),
+            start: '12:00',
+            end: '13:00',
+            color: kEventColors[3],
+            attendees: ['me'],
+          ),
         ],
       ),
       landOnDefaultTab: true,
@@ -1234,6 +1262,33 @@ void main() {
     await setCalView(tester, 'week');
 
     expect(find.byKey(const ValueKey('cal-timed-timed1')), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('cal-pinned-week-week-trip-${todayIso()}')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('cal-timed-week-trip')), findsNothing);
+    expect(find.text('00:00'), findsOneWidget);
+    expect(find.text('23:00'), findsOneWidget);
+
+    final timelineFinder = find.byKey(const ValueKey('cal-timeline-week'));
+    final viewportHeight = tester.getSize(timelineFinder).height;
+    final gridHeight = tester
+        .getSize(find.byKey(const ValueKey('cal-hour-grid-week')))
+        .height;
+    expect(gridHeight, closeTo(viewportHeight * 3, 0.1));
+
+    final scrollView = tester.widget<SingleChildScrollView>(timelineFinder);
+    final rowHeight = viewportHeight / 8;
+    final now = DateTime.now();
+    final currentHour = now.hour + now.minute / 60;
+    final expectedOffset = ((currentHour - 4) * rowHeight).clamp(
+      0.0,
+      gridHeight - viewportHeight,
+    );
+    expect(scrollView.controller!.offset, closeTo(expectedOffset, 2));
+
+    await tester.ensureVisible(find.byKey(const ValueKey('cal-timed-timed1')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('cal-timed-timed1')));
     await tester.pumpAndSettle();
 

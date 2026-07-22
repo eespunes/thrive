@@ -154,6 +154,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<String> calCatFilter = []; // category id multi-filter
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
+  final ScrollController calWeekTimelineController = ScrollController();
+  bool calWeekTimelineCentered = false;
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -199,6 +201,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _familySub?.cancel();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
+    calWeekTimelineController.dispose();
     super.dispose();
   }
 

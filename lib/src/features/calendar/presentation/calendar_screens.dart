@@ -359,12 +359,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   // --------------------------------------------------------------- week
   Widget _calWeek() {
-    const hStart = 7, hEnd = 23, rowH = 48.0, gutter = 42.0;
+    const visibleHours = 8.0, gutter = 42.0;
     final ws = _startOfWeekIso(calAnchor);
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
     final today = todayIso();
     final now = DateTime.now();
-
     final dayHead = Row(
       children: [
         SizedBox(width: gutter),
@@ -413,21 +412,26 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     final allDayByDay = [
       for (final iso in days)
-        eventOccurrences(iso, iso).where((o) => o.ev.allDay).toList(),
+        eventOccurrences(
+          iso,
+          iso,
+        ).where((o) => o.ev.allDay || o.isMultiDay).toList(),
     ];
     final allStrip = Row(
       children: [
         SizedBox(width: gutter),
-        for (final arr in allDayByDay)
+        for (var dayIndex = 0; dayIndex < allDayByDay.length; dayIndex++)
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 24),
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               child: Column(
                 children: [
-                  for (final o in arr.take(3))
+                  for (final o in allDayByDay[dayIndex].take(3))
                     GestureDetector(
-                      key: ValueKey('cal-allday-${o.ev.id}'),
+                      key: ValueKey(
+                        'cal-pinned-week-${o.ev.id}-${days[dayIndex]}',
+                      ),
                       onTap: () => openEventView(o.ev.id, o.date),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 2),
@@ -472,12 +476,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       ],
     );
 
-    final hours = [for (var h = hStart; h <= hEnd; h++) h];
-    final gridH = hours.length * rowH;
+    final hours = [for (var h = 0; h < 24; h++) h];
 
-    Widget dayCol(String iso) {
+    Widget dayCol(String iso, double rowH, double gridH) {
       final timed =
-          eventOccurrences(iso, iso).where((o) => !o.ev.allDay).toList()..sort(
+          eventOccurrences(
+            iso,
+            iso,
+          ).where((o) => !o.ev.allDay && !o.isMultiDay).toList()..sort(
             (a, b) => _toMinutes(a.ev.start).compareTo(_toMinutes(b.ev.start)),
           );
       final laid = packTimedColumns(timed);
@@ -495,8 +501,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       builder: (_) {
                         final o = item.o;
                         final col = evColor(o.ev);
-                        final top =
-                            (_toMinutes(o.ev.start) / 60 - hStart) * rowH;
+                        final top = _toMinutes(o.ev.start) / 60 * rowH;
                         final endMin = _toMinutes(
                           o.ev.end.isNotEmpty ? o.ev.end : o.ev.start,
                         );
@@ -569,7 +574,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     ),
                   if (isToday)
                     Positioned(
-                      top: ((now.hour * 60 + now.minute) / 60 - hStart) * rowH,
+                      top: (now.hour * 60 + now.minute) / 60 * rowH,
                       left: 0,
                       right: 0,
                       child: Container(
@@ -585,6 +590,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       );
     }
 
+    final controller = calWeekTimelineController;
+
     return Column(
       children: [
         dayHead,
@@ -598,58 +605,81 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           child: allStrip,
         ),
         Expanded(
-          child: SingleChildScrollView(
-            child: SizedBox(
-              height: gridH,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: gutter,
-                    height: gridH,
-                    child: Stack(
-                      children: [
-                        for (var i = 0; i < hours.length; i++)
-                          Positioned(
-                            top: i * rowH - 6,
-                            right: 6,
-                            child: Text(
-                              i == 0
-                                  ? ''
-                                  : '${hours[i].toString().padLeft(2, '0')}:00',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: B.muted,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportHeight = constraints.maxHeight;
+              final rowH = viewportHeight / visibleHours;
+              final gridH = hours.length * rowH;
+              if (!calWeekTimelineCentered) {
+                calWeekTimelineCentered = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || !controller.hasClients) return;
+                  final currentHour = now.hour + now.minute / 60;
+                  final target = ((currentHour - visibleHours / 2) * rowH)
+                      .clamp(0.0, gridH - viewportHeight);
+                  controller.jumpTo(target);
+                });
+              }
+              return SingleChildScrollView(
+                key: const ValueKey('cal-timeline-week'),
+                controller: controller,
+                child: SizedBox(
+                  key: const ValueKey('cal-hour-grid-week'),
+                  height: gridH,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: gutter,
+                        height: gridH,
+                        child: Stack(
                           children: [
                             for (var i = 0; i < hours.length; i++)
-                              Container(
-                                height: rowH,
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(color: B.faint),
+                              Positioned(
+                                top: i * rowH + 2,
+                                right: 6,
+                                child: Text(
+                                  '${hours[i].toString().padLeft(2, '0')}:00',
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: B.muted,
                                   ),
                                 ),
                               ),
                           ],
                         ),
-                        Row(children: [for (final iso in days) dayCol(iso)]),
-                      ],
-                    ),
+                      ),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Column(
+                              children: [
+                                for (var i = 0; i < hours.length; i++)
+                                  Container(
+                                    height: rowH,
+                                    decoration: const BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(color: B.faint),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                for (final iso in days)
+                                  dayCol(iso, rowH, gridH),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -662,6 +692,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
     final today = todayIso();
     final members = curFamily()?.members ?? const <FamilyMember>[];
+    final pinnedByDay = [
+      for (final iso in days)
+        eventOccurrences(
+          iso,
+          iso,
+        ).where((o) => o.isMultiDay && o.ev.attendees.isNotEmpty).toList(),
+    ];
 
     Widget head() {
       return Row(
@@ -713,6 +750,71 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       );
     }
 
+    Widget pinnedStrip() {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: 84),
+          for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 22),
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+                decoration: const BoxDecoration(
+                  border: Border(left: BorderSide(color: B.faint)),
+                ),
+                child: Column(
+                  children: [
+                    for (final o in pinnedByDay[dayIndex].take(3))
+                      GestureDetector(
+                        key: ValueKey(
+                          'cal-family-pinned-${o.ev.id}-${days[dayIndex]}',
+                        ),
+                        onTap: () => openEventView(o.ev.id, o.date),
+                        child: Container(
+                          width: double.infinity,
+                          height: 14,
+                          margin: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: evColor(o.ev),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              if (catById(o.ev.category)
+                                  case final category?) ...[
+                                categoryGlyph(
+                                  category,
+                                  size: 9,
+                                  iconColor: Colors.white,
+                                ),
+                                const SizedBox(width: 2),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  o.ev.title,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
     Widget memberRow(FamilyMember m, bool top) {
       return Container(
         decoration: BoxDecoration(
@@ -751,10 +853,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 child: Builder(
                   builder: (_) {
                     final evs =
-                        eventOccurrences(
-                            iso,
-                            iso,
-                          ).where((o) => o.ev.attendees.contains(m.id)).toList()
+                        eventOccurrences(iso, iso)
+                            .where(
+                              (o) =>
+                                  !o.isMultiDay &&
+                                  o.ev.attendees.contains(m.id),
+                            )
+                            .toList()
                           ..sort(
                             (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
                               b.ev.allDay ? '' : b.ev.start,
@@ -835,22 +940,35 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       );
     }
 
-    return SingleChildScrollView(
-      child: Container(
-        color: Colors.white,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: B.line)),
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: head(),
+          ),
+          Container(
+            key: const ValueKey('cal-family-pinned-strip'),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: B.faint),
+                bottom: BorderSide(color: B.line),
               ),
-              child: head(),
             ),
-            for (var i = 0; i < members.length; i++)
-              memberRow(members[i], i == 0),
-          ],
-        ),
+            child: pinnedStrip(),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var i = 0; i < members.length; i++)
+                    memberRow(members[i], i == 0),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
