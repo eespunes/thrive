@@ -14,8 +14,7 @@ const List<String> _kWeekdaysFull = [
 /// glance, tonight's dinner and the projected balance. Ported from the
 /// design's `renderHome()` / `homeCard()` / `glanceCard()` / `miniTaskRow()`.
 ///
-/// Calendar (#152/#153) isn't built yet, so "Today & upcoming" always shows
-/// its empty state for now — tasks, shopping, today's dinner (#157) and
+/// Today & upcoming events, tasks, shopping, today's dinner (#157) and
 /// projected balance are all real.
 extension _ThriveHomeScreen on _ThriveHomeState {
   String firstName() {
@@ -40,6 +39,13 @@ extension _ThriveHomeScreen on _ThriveHomeState {
     dueSoon.sort((a, b) => (a.$2.due ?? '9999').compareTo(b.$2.due ?? '9999'));
     final topDue = dueSoon.take(4).toList();
     final c = compute(monthIdx);
+    final todayEv = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 6))
+      ..sort(
+        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
+          b.date + (b.ev.allDay ? '' : b.ev.start),
+        ),
+      );
+    final topEvents = todayEv.take(3).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
@@ -48,7 +54,14 @@ extension _ThriveHomeScreen on _ThriveHomeState {
           title: 'Today & upcoming',
           icon: 'cal',
           onOpen: () => goTab('calendar'),
-          body: _emptyRow('Nothing scheduled — enjoy the calm.'),
+          body: topEvents.isEmpty
+              ? _emptyRow('Nothing scheduled — enjoy the calm.')
+              : Column(
+                  children: [
+                    for (var i = 0; i < topEvents.length; i++)
+                      _miniEventRow(topEvents[i], border: i > 0),
+                  ],
+                ),
         ),
         _homeCard(
           title: 'Tasks due soon',
@@ -352,6 +365,107 @@ extension _ThriveHomeScreen on _ThriveHomeState {
       ),
     ),
   );
+
+  Widget _miniEventRow(CalendarOccurrence o, {required bool border}) {
+    final ev = o.ev;
+    final category = catById(ev.category);
+    final color = evColor(ev);
+    final today = todayIso();
+    final timing = o.isMultiDay
+        ? '${o.date == today ? 'Today' : _shortDateIso(o.date)} – '
+              '${_shortDateIso(o.spanEnd)}'
+        : '${o.date == today ? 'Today' : _shortDateIso(o.date)} · '
+              '${ev.allDay ? 'All day' : ev.start}';
+    return GestureDetector(
+      key: ValueKey('home-event-${ev.id}-${o.date}'),
+      onTap: () => openEventView(ev.id, o.date),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          border: border ? const Border(top: BorderSide(color: B.faint)) : null,
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            Container(
+              key: ValueKey('home-event-accent-${ev.id}'),
+              width: 4,
+              constraints: const BoxConstraints(minHeight: 34),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      if (category != null) ...[
+                        Container(
+                          key: ValueKey('home-event-visual-${ev.id}'),
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: categoryGlyph(
+                            category,
+                            size: 18,
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          ev.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      ic(
+                        o.isMultiDay ? 'cal' : 'clock',
+                        size: 12,
+                        sw: 2.2,
+                        color: B.muted,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          timing,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: B.soft2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            _attendeeStack(ev.attendees, 22),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _miniTaskRow(TaskList list, ListTask t, {required bool border}) {
     final dl = _dueLabel(t.due);

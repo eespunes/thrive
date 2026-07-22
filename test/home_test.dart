@@ -1,9 +1,80 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
+Map<String, Object> homeEventPrefs() {
+  final family = Family(
+    id: 'fam_main',
+    name: 'Janssen family',
+    username: 'janssen',
+    members: [
+      FamilyMember(
+        id: 'me',
+        name: 'Eva Janssen',
+        email: 'eva.janssen@gmail.com',
+        initials: 'EJ',
+        color: kMemberColors.first,
+        role: 'owner',
+      ),
+    ],
+  );
+  final category = EventCategory(
+    id: 'family',
+    name: 'Family',
+    color: const Color(0xff0f9d6a),
+    icon: 'star',
+  );
+  final workspace = Workspace.empty()
+    ..events = [
+      CalendarEvent(
+        id: 'upcoming',
+        title: 'Family dinner',
+        date: todayIso(),
+        color: const Color(0xffe11d48),
+        category: category.id,
+        reminder: 'none',
+      ),
+    ]
+    ..eventCategories = [category];
+  return {
+    'flutter.$kStorageKeyV4': json.encode({
+      'year': 2026,
+      'monthIdx': 6,
+      'screen': 'overview',
+      'tab': 'home',
+      'familyId': family.id,
+      'families': [family.toJson()],
+      'workspaces': {family.id: workspace.toJson()},
+    }),
+  };
+}
+
 void main() {
+  testWidgets('upcoming event shows its chosen category visual', (
+    tester,
+  ) async {
+    const categoryColor = Color(0xff0f9d6a);
+    await pumpApp(tester, prefs: homeEventPrefs(), landOnDefaultTab: true);
+
+    final visual = find.byKey(const ValueKey('home-event-visual-upcoming'));
+    final accent = tester.widget<Container>(
+      find.byKey(const ValueKey('home-event-accent-upcoming')),
+    );
+    expect(find.text('Family dinner'), findsOneWidget);
+    expect(visual, findsOneWidget);
+    expect((accent.decoration! as BoxDecoration).color, categoryColor);
+    expect(
+      find.descendant(of: visual, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Home dashboard shows a greeting and empty states with no data', (
     tester,
   ) async {

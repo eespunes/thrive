@@ -14,12 +14,14 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('month prev/next arrows navigate', (tester) async {
+  testWidgets('finance month control is consolidated into the header', (
+    tester,
+  ) async {
     await pumpApp(tester);
-    await tester.tap(find.byKey(const ValueKey('month-next')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('month-prev')));
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('month-chip')), findsOneWidget);
+    expect(find.byKey(const ValueKey('month-next')), findsNothing);
+    expect(find.byKey(const ValueKey('month-prev')), findsNothing);
+    expect(find.byKey(const ValueKey('lock-btn')), findsOneWidget);
   });
 
   testWidgets('close a month then reopen it', (tester) async {

@@ -3,6 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
+/// The glyph picker's emoji field opens the in-app emoji picker from its `+`
+/// tile. The Recents tab starts empty, so we hop to Smileys (tab 1) and tap
+/// its first emoji (😀), mirroring `family_emoji_features_test.dart`.
+Future<String> _pickEmoji(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byType(Tab).at(1));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('😀').first);
+  await tester.pumpAndSettle();
+  return '😀';
+}
+
 Future<void> goToLists(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-lists')));
   await tester.pumpAndSettle();
@@ -61,6 +74,24 @@ void main() {
     await tester.tap(findCheckbox('task-check-'));
     await tester.pumpAndSettle();
     expect(find.textContaining('COMPLETED'), findsOneWidget);
+  });
+
+  testWidgets('create a list with a chosen emoji shows it on the card', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Chores');
+    await tester.pump();
+    final emoji = await _pickEmoji(tester);
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Chores'), findsOneWidget);
+    expect(find.text(emoji), findsOneWidget);
   });
 
   testWidgets(

@@ -124,7 +124,7 @@ class ThriveDebugController {
   String get familyId => _s.familyId;
 }
 
-class _ThriveHomeState extends State<ThriveHome> {
+class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
@@ -144,8 +144,18 @@ class _ThriveHomeState extends State<ThriveHome> {
   String taskFilter = 'all'; // all | me
   String? openTaskList;
   String? openShopList;
+  List<CalendarEvent> events = [];
+  List<EventCategory> eventCategories = [];
+  List<ImportedCalendar> importedCalendars = [];
+  String calView = 'month'; // month | week | family | agenda
+  String calAnchor = todayIso();
+  String calSel = todayIso();
+  List<String> calFilter = []; // member id multi-filter
+  List<String> calCatFilter = []; // category id multi-filter
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
+  final ScrollController calWeekTimelineController = ScrollController();
+  bool calWeekTimelineCentered = false;
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -160,6 +170,11 @@ class _ThriveHomeState extends State<ThriveHome> {
   // user goes straight to their existing family instead of flashing it (#120).
   bool _resolvingFamilies = false;
 
+  // Guards the one-time sync-on-open kicked off once the shell is first
+  // reachable (see `build()`); auto-sync on returning to the app is then
+  // driven by `didChangeAppLifecycleState`.
+  bool _didSyncImportsOnOpen = false;
+
   // Auth + family state (ported from the design's v4 state).
   AppUser? user;
   List<Family> families = [];
@@ -170,6 +185,7 @@ class _ThriveHomeState extends State<ThriveHome> {
   void initState() {
     super.initState();
     thriveDebug._attach(this);
+    WidgetsBinding.instance.addObserver(this);
     _boot();
     pendingNotificationDeepLink.addListener(_handleNotificationDeepLink);
     // A tap that launched the app cold arrives before this listener attaches.
@@ -179,31 +195,64 @@ class _ThriveHomeState extends State<ThriveHome> {
   @override
   void dispose() {
     thriveDebug._detach(this);
+    WidgetsBinding.instance.removeObserver(this);
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
     _familySub?.cancel();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
+    calWeekTimelineController.dispose();
     super.dispose();
   }
 
-  /// Consumes [pendingNotificationDeepLink] and jumps to the tapped task's
-  /// list (#154). Deep-links only target tasks for now — event reminders
-  /// follow once Calendar/#153 exists.
+  /// Keeps subscribed (auto-sync) ICS imports — e.g. a sports team's
+  /// schedule — current whenever the app comes back to the foreground.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      syncDueImports();
+      unawaited(_refreshReminderSchedule());
+    }
+  }
+
+  Future<void> _refreshReminderSchedule() async {
+    await NotificationService.refreshTimeZone();
+    _rescheduleReminders();
+  }
+
+  /// Consumes [pendingNotificationDeepLink] and opens the task or calendar
+  /// event that produced the notification.
   void _handleNotificationDeepLink() {
-    if (!ready) return; // taskLists isn't populated until boot finishes.
+    if (!ready) return;
     final payload = pendingNotificationDeepLink.value;
-    if (payload == null || !payload.startsWith('task:')) return;
-    final taskId = payload.substring('task:'.length);
-    for (final l in taskLists) {
-      if (l.tasks.any((t) => t.id == taskId)) {
+    if (payload == null) return;
+    if (payload.startsWith('task:')) {
+      final taskId = payload.substring('task:'.length);
+      for (final l in taskLists) {
+        if (l.tasks.any((t) => t.id == taskId)) {
+          pendingNotificationDeepLink.value = null;
+          goTab('lists');
+          openTaskListDetail(l.id);
+          return;
+        }
+      }
+    } else if (payload.startsWith('event:') && payload.length > 17) {
+      final date = payload.substring(payload.length - 10);
+      final eventId = payload.substring('event:'.length, payload.length - 11);
+      if (eventById(eventId) != null) {
         pendingNotificationDeepLink.value = null;
-        goTab('lists');
-        openTaskListDetail(l.id);
+        update(() {
+          tab = 'calendar';
+          calAnchor = date;
+          calSel = date;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openEventView(eventId, date);
+        });
         return;
       }
     }
-    // Task no longer exists (deleted) — drop the stale deep link.
+    // The source item was deleted, so discard the stale deep link.
     pendingNotificationDeepLink.value = null;
   }
 
@@ -223,7 +272,7 @@ class _ThriveHomeState extends State<ThriveHome> {
         await bindCloudSync(uid);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         return;
       }
@@ -241,7 +290,7 @@ class _ThriveHomeState extends State<ThriveHome> {
           }
           if (!mounted) return;
           setState(() => ready = true);
-          _rescheduleTaskReminders();
+          _rescheduleReminders();
           _handleNotificationDeepLink();
           await _persist();
           await bindCloudSync(uid);
@@ -256,7 +305,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       workspaces = {};
       if (!mounted) return;
       setState(() => ready = true);
-      _rescheduleTaskReminders();
+      _rescheduleReminders();
       _handleNotificationDeepLink();
       return;
     }
@@ -279,7 +328,7 @@ class _ThriveHomeState extends State<ThriveHome> {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         return;
       } catch (_) {
@@ -295,7 +344,7 @@ class _ThriveHomeState extends State<ThriveHome> {
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleTaskReminders();
+        _rescheduleReminders();
         _handleNotificationDeepLink();
         _persist();
         return;
@@ -307,16 +356,15 @@ class _ThriveHomeState extends State<ThriveHome> {
     await _seedFromAsset();
   }
 
-  /// Re-derives every pending task reminder from `taskLists.due` on boot
-  /// (#154) — reminders aren't persisted separately, so this is what makes
-  /// them survive an app restart.
-  void _rescheduleTaskReminders() {
+  /// Re-derives pending reminders from persisted tasks and calendar events.
+  void _rescheduleReminders() {
     for (final l in taskLists) {
       for (final t in l.tasks) {
         if (t.done || (t.due ?? '').isEmpty) continue;
         NotificationService.instance.scheduleTaskReminder(t);
       }
     }
+    NotificationService.instance.syncEventReminders(events);
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -379,6 +427,9 @@ class _ThriveHomeState extends State<ThriveHome> {
     data = ws.data;
     taskLists = ws.taskLists;
     shoppingLists = ws.shoppingLists;
+    events = ws.events;
+    eventCategories = ws.eventCategories;
+    importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
   }
 
@@ -394,6 +445,9 @@ class _ThriveHomeState extends State<ThriveHome> {
         data: data,
         taskLists: taskLists,
         shoppingLists: shoppingLists,
+        events: events,
+        eventCategories: eventCategories,
+        importedCalendars: importedCalendars,
         weeklyPlan: weeklyPlan,
       ),
     };
@@ -469,10 +523,14 @@ class _ThriveHomeState extends State<ThriveHome> {
       data = ws.data;
       taskLists = ws.taskLists;
       shoppingLists = ws.shoppingLists;
+      events = ws.events;
+      eventCategories = ws.eventCategories;
+      importedCalendars = ws.importedCalendars;
       weeklyPlan = ws.weeklyPlan;
       _seedFamiliesAndWorkspace();
       ready = true;
     });
+    _rescheduleReminders();
     _persist();
   }
 
@@ -485,6 +543,9 @@ class _ThriveHomeState extends State<ThriveHome> {
       data: data,
       taskLists: taskLists,
       shoppingLists: shoppingLists,
+      events: events,
+      eventCategories: eventCategories,
+      importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
     );
   }
@@ -846,6 +907,10 @@ class _ThriveHomeState extends State<ThriveHome> {
     // The nav bar + FAB only make sense once the budget/family gates are
     // all clear — same condition every gate below uses.
     final shellReady = ready && !authOpen && !familyLoading && !onboardingOpen;
+    if (shellReady && !_didSyncImportsOnOpen) {
+      _didSyncImportsOnOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
+    }
     return Scaffold(
       backgroundColor: B.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is
@@ -970,8 +1035,11 @@ class _ThriveHomeState extends State<ThriveHome> {
       }
     }
     final subHeader = ready
-        ? (tab == 'finance' ? _buildSubHeader() : _tabSubHeader(tab))
+        ? (tab == 'finance' && screen == 'stats'
+              ? _buildStatsModeSwitcher()
+              : _tabSubHeader(tab))
         : null;
+    final dateInHeader = tab == 'calendar' || tab == 'finance';
 
     return Container(
       color: B.page,
@@ -1003,33 +1071,58 @@ class _ThriveHomeState extends State<ThriveHome> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.3,
-                        color: B.ink,
+                child: GestureDetector(
+                  key: tab == 'calendar'
+                      ? const ValueKey('cal-month-title')
+                      : tab == 'finance'
+                      ? const ValueKey('month-chip')
+                      : null,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: tab == 'calendar'
+                      ? openCalMonthPicker
+                      : tab == 'finance'
+                      ? openMonthPicker
+                      : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.3,
+                          color: B.ink,
+                        ),
                       ),
-                    ),
-                    Text(
-                      subtitle,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: B.muted,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: B.muted,
+                              ),
+                            ),
+                          ),
+                          if (dateInHeader) ...[
+                            const SizedBox(width: 3),
+                            ic('cdown', size: 12, sw: 2.4, color: B.muted),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              if (tab == 'finance') _buildSwitcher(),
+              if (tab == 'finance') _buildFinanceHeaderActions(),
+              if (tab == 'calendar') _calHeaderActions(),
             ],
           ),
           if (subHeader != null) ...[const SizedBox(height: 13), subHeader],
@@ -1046,137 +1139,64 @@ class _ThriveHomeState extends State<ThriveHome> {
         onTap: () => go(k),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: 34,
-          height: 30,
+          margin: const EdgeInsets.only(left: 8),
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .14),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
+            color: active ? B.soft : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: active ? B.primary : B.line),
           ),
           child: Center(
             child: ic(
               icon,
-              size: 17,
+              size: 18,
               sw: 2.1,
-              color: active ? B.primary : const Color(0xff8995a6),
+              color: active ? B.deep : B.soft2,
             ),
           ),
         ),
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xffe8ecf2),
-        borderRadius: BorderRadius.circular(13),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          seg('overview', 'grid'),
-          const SizedBox(width: 4),
-          seg('stats', 'chart'),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [seg('overview', 'grid'), seg('stats', 'chart')],
     );
   }
 
-  Widget _buildSubHeader() {
-    Widget arrow(int d, String name) => GestureDetector(
-      key: ValueKey('month-${d < 0 ? 'prev' : 'next'}'),
-      onTap: () => setMonth(d),
+  Widget _buildFinanceHeaderActions() {
+    final closed = isClosed();
+    final lockButton = GestureDetector(
+      key: const ValueKey('lock-btn'),
+      onTap: () => closed ? reopenMonth() : openCloseConfirm(),
       child: Container(
-        width: 34,
-        height: 34,
+        margin: const EdgeInsets.only(left: 8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: B.line),
+          color: closed ? B.ink : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: closed ? B.ink : B.line),
         ),
-        child: Center(child: ic(name, size: 17, sw: 2.4, color: B.soft2)),
-      ),
-    );
-
-    final monthChip = GestureDetector(
-      key: const ValueKey('month-chip'),
-      onTap: openMonthPicker,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: B.line),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ic('cal', size: 15, sw: 2.2, color: B.primary),
-            const SizedBox(width: 7),
-            Text(
-              '${kMonthsEn[monthIdx]} $year',
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: B.ink,
-              ),
-            ),
-            const SizedBox(width: 7),
-            ic('cdown', size: 14, sw: 2.4, color: B.muted),
-          ],
+        child: Center(
+          child: ic(
+            closed ? 'lock' : 'unlock',
+            size: 18,
+            sw: 2.1,
+            color: closed ? Colors.white : B.soft2,
+          ),
         ),
       ),
     );
 
-    final left = Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        arrow(-1, 'cleft'),
-        const SizedBox(width: 8),
-        monthChip,
-        const SizedBox(width: 8),
-        arrow(1, 'cright'),
-      ],
+      children: [_buildSwitcher(), lockButton],
     );
+  }
 
-    if (screen == 'overview') {
-      final closed = isClosed();
-      final lockBtn = GestureDetector(
-        key: const ValueKey('lock-btn'),
-        onTap: () => closed ? reopenMonth() : openCloseConfirm(),
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: closed ? B.ink : Colors.white,
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: closed ? B.ink : B.line),
-          ),
-          child: Center(
-            child: ic(
-              closed ? 'lock' : 'unlock',
-              size: 16,
-              sw: 2.2,
-              color: closed ? Colors.white : B.soft2,
-            ),
-          ),
-        ),
-      );
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [left, lockBtn],
-      );
-    }
-
-    // stats: month strip + month/year toggle
+  Widget _buildStatsModeSwitcher() {
     Widget seg(String label, String val) {
       final active = statsMode == val;
       return GestureDetector(
@@ -1221,10 +1241,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       ),
     );
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [left, toggle],
-    );
+    return Align(alignment: Alignment.centerRight, child: toggle);
   }
 }
 

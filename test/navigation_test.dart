@@ -18,7 +18,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();
-    expect(find.text('Calendar is coming soon'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-month-title')), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-header-view')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
@@ -123,7 +124,7 @@ void main() {
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
-  testWidgets('More → Calendars & categories opens a placeholder sheet', (
+  testWidgets('More → Calendars & categories opens the management sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -133,13 +134,61 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('more-calmanage')));
     await tester.pumpAndSettle();
     expect(find.text('Calendars & categories'), findsWidgets);
-    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('No categories yet.'), findsOneWidget);
+    expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
 
-  testWidgets('Quick-Add FAB shows a coming-soon toast', (tester) async {
+  testWidgets(
+    'Quick-Add FAB on Home opens the chooser with Event/Task/Shopping rows',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('What would you like to add?'), findsOneWidget);
+      expect(find.byKey(const ValueKey('quickadd-event')), findsOneWidget);
+      expect(find.byKey(const ValueKey('quickadd-task')), findsOneWidget);
+      expect(find.byKey(const ValueKey('quickadd-shopping')), findsOneWidget);
+    },
+  );
+
+  testWidgets('Quick-Add chooser → Event opens the event editor', (
+    tester,
+  ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-    await tester.pump();
-    expect(find.text('Quick-Add is coming soon'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-event')));
+    await tester.pumpAndSettle();
+    expect(find.text('New event'), findsOneWidget);
   });
+
+  testWidgets(
+    'Quick-Add chooser → Task prompts to create a list when none exist yet',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
+      await tester.pumpAndSettle();
+      // Lands on the Lists tab with the "new list" sheet open.
+      expect(find.text('New list'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'Quick-Add chooser → Shopping item prompts to create a list when none '
+    'exist yet',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
+      await tester.pumpAndSettle();
+      expect(find.text('New list'), findsWidgets);
+    },
+  );
 }

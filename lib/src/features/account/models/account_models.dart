@@ -213,9 +213,15 @@ class Workspace {
     required this.data,
     List<TaskList>? taskLists,
     List<ShoppingList>? shoppingLists,
+    List<CalendarEvent>? events,
+    List<EventCategory>? eventCategories,
+    List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
+       events = events ?? <CalendarEvent>[],
+       eventCategories = eventCategories ?? <EventCategory>[],
+       importedCalendars = importedCalendars ?? <ImportedCalendar>[],
        weeklyPlan = weeklyPlan ?? <String, DayPlan>{};
 
   List<Account> accounts;
@@ -223,6 +229,9 @@ class Workspace {
   Map<int, Map<String, MonthData>> data;
   List<TaskList> taskLists;
   List<ShoppingList> shoppingLists;
+  List<CalendarEvent> events;
+  List<EventCategory> eventCategories;
+  List<ImportedCalendar> importedCalendars;
 
   /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
   /// days with content need an entry.
@@ -239,6 +248,9 @@ class Workspace {
     },
     'taskLists': taskLists.map((l) => l.toJson()).toList(),
     'shoppingLists': shoppingLists.map((l) => l.toJson()).toList(),
+    'events': events.map((e) => e.toJson()).toList(),
+    'eventCategories': eventCategories.map((c) => c.toJson()).toList(),
+    'importedCalendars': importedCalendars.map((c) => c.toJson()).toList(),
     'weeklyPlan': {
       for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
     },
@@ -275,6 +287,18 @@ class Workspace {
       for (final l in (j['shoppingLists'] as List? ?? []))
         ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
     ];
+    final events = <CalendarEvent>[
+      for (final e in (j['events'] as List? ?? []))
+        CalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),
+    ];
+    final eventCategories = <EventCategory>[
+      for (final c in (j['eventCategories'] as List? ?? []))
+        EventCategory.fromJson(Map<String, dynamic>.from(c as Map)),
+    ];
+    final importedCalendars = <ImportedCalendar>[
+      for (final c in (j['importedCalendars'] as List? ?? []))
+        ImportedCalendar.fromJson(Map<String, dynamic>.from(c as Map)),
+    ];
     final weeklyPlan = <String, DayPlan>{
       for (final entry
           in (j['weeklyPlan'] as Map<String, dynamic>? ?? {}).entries)
@@ -288,6 +312,9 @@ class Workspace {
       data: data,
       taskLists: taskLists,
       shoppingLists: shoppingLists,
+      events: events,
+      eventCategories: eventCategories,
+      importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
     );
   }

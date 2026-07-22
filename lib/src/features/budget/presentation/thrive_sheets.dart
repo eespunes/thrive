@@ -528,6 +528,7 @@ Widget _sheetInput(
   FocusNode? focusNode,
   TextInputAction? textInputAction,
   ValueChanged<String>? onSubmitted,
+  int maxLines = 1,
 }) {
   return TextField(
     controller: ctrl,
@@ -536,6 +537,7 @@ Widget _sheetInput(
     onSubmitted: onSubmitted,
     textInputAction: textInputAction,
     obscureText: obscure,
+    maxLines: maxLines,
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,

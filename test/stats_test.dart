@@ -7,6 +7,9 @@ void main() {
   testWidgets('statistics screen renders charts', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'stats');
+    expect(find.byKey(const ValueKey('tab-overview')), findsOneWidget);
+    expect(find.byKey(const ValueKey('tab-stats')), findsOneWidget);
+    expect(find.byKey(const ValueKey('lock-btn')), findsOneWidget);
     // Toggle to year view and back to exercise both painters.
     await tester.tap(find.byKey(const ValueKey('stats-year')));
     await tester.pumpAndSettle();

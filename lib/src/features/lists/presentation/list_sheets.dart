@@ -24,6 +24,8 @@ class _NewListSheetState extends State<_NewListSheet> {
   late String _kind;
   late final TextEditingController _name;
   Color _color = _kListColors.first;
+  String? _emoji;
+  String? _picture;
 
   @override
   void initState() {
@@ -113,6 +115,17 @@ class _NewListSheetState extends State<_NewListSheet> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          _sheetField(
+            'Icon',
+            _GlyphPicker(
+              emoji: _emoji,
+              picture: _picture,
+              onChanged: ({String? emoji, String? picture}) => setState(() {
+                _emoji = emoji;
+                _picture = picture;
+              }),
+            ),
+          ),
           if (!shopping)
             _sheetField(
               'Color',
@@ -140,9 +153,18 @@ class _NewListSheetState extends State<_NewListSheet> {
             ),
           _primaryBtn('Create list', () {
             if (shopping) {
-              widget.state.saveShopList(_name.text);
+              widget.state.saveShopList(
+                _name.text,
+                emoji: _emoji,
+                picture: _picture,
+              );
             } else {
-              widget.state.saveTaskList(_name.text, _color);
+              widget.state.saveTaskList(
+                _name.text,
+                _color,
+                emoji: _emoji,
+                picture: _picture,
+              );
             }
             Navigator.of(context).pop();
           }, enabled: valid),

@@ -1,9 +1,7 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// "Coming soon" placeholders for modules the design specifies but that
-/// aren't built yet (Calendar #152/#153, Calendars & categories #160/#161).
-/// Each is a thin wrapper around [_emptyState], a faithful port of the
-/// design's `emptyState()` helper.
+/// Shared "coming soon" empty-state helper, still used by in-progress
+/// features. A faithful port of the design's `emptyState()` helper.
 extension _ThrivePlaceholderScreens on _ThriveHomeState {
   Widget _emptyState({
     required String icon,
@@ -82,41 +80,6 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
                 ),
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendarPlaceholder() {
-    return _emptyState(
-      icon: 'cal',
-      title: 'Calendar is coming soon',
-      sub:
-          'A shared family calendar with month, week and agenda views is on '
-          'the way (issues #152, #153).',
-    );
-  }
-
-  /// The design opens "Calendars & categories" as a bottom sheet, not a
-  /// full-screen tab (`openSheet({type:'calmanage'})` in `renderMore()`).
-  /// Import/category management isn't built yet (#160/#161), so this shows a
-  /// placeholder sheet in the same slot.
-  void _openCalendarsCategoriesPlaceholder() {
-    _showSheet(
-      (ctx) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _sheetHead(ctx, 'Calendars & categories'),
-            _emptyState(
-              icon: 'cal',
-              title: 'Coming soon',
-              sub:
-                  'Calendar imports and event category management are on '
-                  'the way (issues #160, #161).',
-            ),
           ],
         ),
       ),

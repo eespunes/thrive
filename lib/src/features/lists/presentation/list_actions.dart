@@ -50,13 +50,20 @@ extension _ThriveListActions on _ThriveHomeState {
     );
   }
 
-  void saveTaskList(String name, Color color) {
+  void saveTaskList(
+    String name,
+    Color color, {
+    String? emoji,
+    String? picture,
+  }) {
     mutate(() {
       taskLists.add(
         TaskList(
           id: uid(),
           name: name.trim().isEmpty ? 'New list' : name.trim(),
           color: color,
+          emoji: emoji,
+          picture: picture,
         ),
       );
     }, () => flash('List created'));
@@ -154,12 +161,14 @@ extension _ThriveListActions on _ThriveHomeState {
   }
 
   // ----------------------------------------------------------- shopping
-  void saveShopList(String name) {
+  void saveShopList(String name, {String? emoji, String? picture}) {
     mutate(() {
       shoppingLists.add(
         ShoppingList(
           id: uid(),
           name: name.trim().isEmpty ? 'New list' : name.trim(),
+          emoji: emoji,
+          picture: picture,
         ),
       );
     }, () => flash('List created'));
