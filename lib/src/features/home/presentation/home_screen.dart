@@ -368,6 +368,7 @@ extension _ThriveHomeScreen on _ThriveHomeState {
 
   Widget _miniEventRow(CalendarOccurrence o, {required bool border}) {
     final ev = o.ev;
+    final category = catById(ev.category);
     final today = todayIso();
     return GestureDetector(
       key: ValueKey('home-event-${ev.id}-${o.date}'),
@@ -380,14 +381,31 @@ extension _ThriveHomeScreen on _ThriveHomeState {
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
-            Container(
-              width: 4,
-              height: 30,
-              decoration: BoxDecoration(
-                color: evColor(ev),
-                borderRadius: BorderRadius.circular(3),
+            if (category != null)
+              Container(
+                key: ValueKey('home-event-visual-${ev.id}'),
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: category.color.withValues(alpha: .13),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: categoryGlyph(
+                  category,
+                  size: 30,
+                  iconColor: category.color,
+                ),
+              )
+            else
+              Container(
+                key: ValueKey('home-event-visual-${ev.id}'),
+                width: 4,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: evColor(ev),
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
