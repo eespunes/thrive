@@ -15,7 +15,10 @@ Future<List<ImportedCalendarEvent>> fetchIcsEvents(String rawUrl) async {
     res = icsHttpGetOverride != null
         ? await icsHttpGetOverride!(uri)
         : await http
-              .get(uri, headers: const {'Accept': 'text/calendar, text/plain, */*'})
+              .get(
+                uri,
+                headers: const {'Accept': 'text/calendar, text/plain, */*'},
+              )
               .timeout(const Duration(seconds: 20));
   } on TimeoutException {
     throw IcsImportException('Calendar link timed out');
@@ -67,7 +70,8 @@ class IcsImportException implements Exception {
 List<ImportedCalendarEvent> parseIcsEvents(String ics) {
   final out = <ImportedCalendarEvent>[];
   Map<String, String>? cur;
-  var depth = 0; // 0 = outside VEVENT; 1 = VEVENT top level; >1 = nested (e.g. VALARM)
+  var depth =
+      0; // 0 = outside VEVENT; 1 = VEVENT top level; >1 = nested (e.g. VALARM)
   for (final line in _unfoldIcsLines(ics)) {
     final trimmed = line.trim();
     if (trimmed.startsWith('BEGIN:')) {
@@ -134,8 +138,9 @@ ImportedCalendarEvent? _icsEventFromProps(Map<String, String> p) {
   );
 }
 
-final RegExp _icsDatePattern =
-    RegExp(r'^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?');
+final RegExp _icsDatePattern = RegExp(
+  r'^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?',
+);
 
 /// Parses a `DTSTART`/`DTEND` value into the device's local time.
 ///

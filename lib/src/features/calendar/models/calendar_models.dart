@@ -248,21 +248,20 @@ class ImportedCalendar {
     'events': events.map((e) => e.toJson()).toList(),
   };
 
-  factory ImportedCalendar.fromJson(Map<String, dynamic> j) =>
-      ImportedCalendar(
-        id: (j['id'] ?? uid()).toString(),
-        name: (j['name'] ?? 'Imported calendar').toString(),
-        provider: (j['provider'] ?? 'ics').toString(),
-        color: Color((j['color'] as num?)?.toInt() ?? 0xff475569),
-        category: j['category']?.toString(),
-        visible: j['visible'] != false,
-        url: (j['url'] as String?)?.isNotEmpty == true ? j['url'] as String : null,
-        autoSync: j['autoSync'] != false,
-        includeLocation: j['includeLocation'] != false,
-        includeDescription: j['includeDescription'] != false,
-        events: [
-          for (final e in (j['events'] as List? ?? []))
-            ImportedCalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),
-        ],
-      );
+  factory ImportedCalendar.fromJson(Map<String, dynamic> j) => ImportedCalendar(
+    id: (j['id'] ?? uid()).toString(),
+    name: (j['name'] ?? 'Imported calendar').toString(),
+    provider: (j['provider'] ?? 'ics').toString(),
+    color: Color((j['color'] as num?)?.toInt() ?? 0xff475569),
+    category: j['category']?.toString(),
+    visible: j['visible'] != false,
+    url: (j['url'] as String?)?.isNotEmpty == true ? j['url'] as String : null,
+    autoSync: j['autoSync'] != false,
+    includeLocation: j['includeLocation'] != false,
+    includeDescription: j['includeDescription'] != false,
+    events: [
+      for (final e in (j['events'] as List? ?? []))
+        ImportedCalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),
+    ],
+  );
 }

@@ -50,7 +50,12 @@ extension _ThriveListActions on _ThriveHomeState {
     );
   }
 
-  void saveTaskList(String name, Color color, {String? emoji, String? picture}) {
+  void saveTaskList(
+    String name,
+    Color color, {
+    String? emoji,
+    String? picture,
+  }) {
     mutate(() {
       taskLists.add(
         TaskList(

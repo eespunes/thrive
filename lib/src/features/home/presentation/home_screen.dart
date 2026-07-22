@@ -41,8 +41,11 @@ extension _ThriveHomeScreen on _ThriveHomeState {
     final topDue = dueSoon.take(4).toList();
     final c = compute(monthIdx);
     final todayEv = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 6))
-      ..sort((a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start))
-          .compareTo(b.date + (b.ev.allDay ? '' : b.ev.start)));
+      ..sort(
+        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
+          b.date + (b.ev.allDay ? '' : b.ev.start),
+        ),
+      );
     final topEvents = todayEv.take(3).toList();
 
     return ListView(
@@ -380,7 +383,10 @@ extension _ThriveHomeScreen on _ThriveHomeState {
             Container(
               width: 4,
               height: 30,
-              decoration: BoxDecoration(color: evColor(ev), borderRadius: BorderRadius.circular(3)),
+              decoration: BoxDecoration(
+                color: evColor(ev),
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -391,12 +397,20 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                   Text(
                     ev.title,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: B.ink),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: B.ink,
+                    ),
                   ),
                   Text(
                     (o.date == today ? 'Today' : _shortDateIso(o.date)) +
                         (ev.allDay ? ' · All day' : ' · ${ev.start}'),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: B.soft2,
+                    ),
                   ),
                 ],
               ),

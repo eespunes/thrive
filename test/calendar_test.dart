@@ -72,9 +72,7 @@ void main() {
     expect(find.text('No events'), findsNothing);
   });
 
-  testWidgets('All-day toggle hides the start/end time fields', (
-    tester,
-  ) async {
+  testWidgets('All-day toggle hides the start/end time fields', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -114,30 +112,27 @@ void main() {
     expect(find.text('No events'), findsOneWidget);
   });
 
-  testWidgets(
-    'creating a category from the event editor lands on Calendars & '
-    'categories with it listed',
-    (tester) async {
-      await pumpApp(tester, landOnDefaultTab: true);
-      await goToCalendar(tester);
+  testWidgets('creating a category from the event editor lands on Calendars & '
+      'categories with it listed', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
 
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('event-new-category')));
-      await tester.pumpAndSettle();
-      expect(find.text('New category'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('event-new-category')));
+    await tester.pumpAndSettle();
+    expect(find.text('New category'), findsWidgets);
 
-      await tester.enterText(find.byType(TextField).first, 'Work');
-      await tester.pump();
-      await tester.tap(find.text('Add category'));
-      await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Work');
+    await tester.pump();
+    await tester.tap(find.text('Add category'));
+    await tester.pumpAndSettle();
 
-      // Saving routes to "Calendars & categories" with the new category
-      // listed (matches the design's `saveCategory()`).
-      expect(find.text('Calendars & categories'), findsWidgets);
-      expect(find.text('Work'), findsWidgets);
-    },
-  );
+    // Saving routes to "Calendars & categories" with the new category
+    // listed (matches the design's `saveCategory()`).
+    expect(find.text('Calendars & categories'), findsWidgets);
+    expect(find.text('Work'), findsWidgets);
+  });
 
   testWidgets('assigning a category to a new event selects its chip', (
     tester,
@@ -235,7 +230,10 @@ void main() {
 
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'https://example.com/team.ics');
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://example.com/team.ics',
+    );
     await tester.enterText(find.byType(TextField).at(1), 'Erik · Work');
     await tester.pump();
     await tester.tap(find.text('Import calendar'));
@@ -287,7 +285,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'https://example.com/team.ics');
+      await tester.enterText(
+        find.byType(TextField).first,
+        'https://example.com/team.ics',
+      );
       await tester.tap(find.text('Import location'));
       await tester.pump();
       await tester.tap(find.text('Import calendar'));

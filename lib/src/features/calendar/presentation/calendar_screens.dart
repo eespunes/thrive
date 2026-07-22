@@ -18,11 +18,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   /// The calendar sub-header: view toggle, prev/today/next nav (hidden in
   /// agenda), member filter chips and category filter chips + "Manage".
   Widget _calSubHeader() {
-    final toggle = _segRow(const [
-      ('month', 'Month'),
-      ('week', 'Week'),
-      ('agenda', 'Agenda'),
-    ], calView, setCalView);
+    final toggle = _segRow(
+      const [('month', 'Month'), ('week', 'Week'), ('agenda', 'Agenda')],
+      calView,
+      setCalView,
+    );
 
     final nav = calView == 'agenda'
         ? null
@@ -130,12 +130,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        toggle,
-        ?nav,
-        memberChips,
-        catChips,
-      ],
+      children: [toggle, ?nav, memberChips, catChips],
     );
   }
 
@@ -205,7 +200,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            categoryGlyph(c, size: 14, iconColor: active ? Colors.white : c.color),
+            categoryGlyph(
+              c,
+              size: 14,
+              iconColor: active ? Colors.white : c.color,
+            ),
             const SizedBox(width: 5),
             Text(
               c.name,
@@ -254,10 +253,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 '${d.day}',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: isToday || sel ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: isToday || sel
+                      ? FontWeight.w800
+                      : FontWeight.w600,
                   color: sel
                       ? Colors.white
-                      : (isToday ? B.primary : (inMonth ? B.ink : const Color(0xffc2cad6))),
+                      : (isToday
+                            ? B.primary
+                            : (inMonth ? B.ink : const Color(0xffc2cad6))),
                 ),
               ),
               const SizedBox(height: 3),
@@ -286,7 +289,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     }
 
     final dayEvents = eventOccurrences(calSel, calSel)
-      ..sort((a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(b.ev.allDay ? '' : b.ev.start));
+      ..sort(
+        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+          b.ev.allDay ? '' : b.ev.start,
+        ),
+      );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -379,7 +386,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   Widget _calWeekDayRow(String iso, String today) {
     final evs = eventOccurrences(iso, iso)
-      ..sort((a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(b.ev.allDay ? '' : b.ev.start));
+      ..sort(
+        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+          b.ev.allDay ? '' : b.ev.start,
+        ),
+      );
     final d = _parseIso(iso);
     final isToday = iso == today;
     return Row(
@@ -430,7 +441,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        border: Border.all(color: B.line, style: BorderStyle.solid),
+                        border: Border.all(
+                          color: B.line,
+                          style: BorderStyle.solid,
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
@@ -460,8 +474,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   // ------------------------------------------------------------- agenda
   Widget _calAgenda() {
     final occ = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 160))
-      ..sort((a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start))
-          .compareTo(b.date + (b.ev.allDay ? '' : b.ev.start)));
+      ..sort(
+        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
+          b.date + (b.ev.allDay ? '' : b.ev.start),
+        ),
+      );
     if (occ.isEmpty) {
       return _emptyState(
         icon: 'cal',
@@ -483,7 +500,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final date in dates) ...[
-            _secLabel(date == today ? 'Today · ${_shortDateIso(date)}' : _prettyDateIso(date)),
+            _secLabel(
+              date == today
+                  ? 'Today · ${_shortDateIso(date)}'
+                  : _prettyDateIso(date),
+            ),
             for (final o in groups[date]!) ...[
               _eventCard(o),
               const SizedBox(height: 9),
@@ -506,7 +527,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         Container(
           width: 4,
           constraints: const BoxConstraints(minHeight: 34),
-          decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(3)),
+          decoration: BoxDecoration(
+            color: col,
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -520,8 +544,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     Container(
                       width: 18,
                       height: 18,
-                      decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(6)),
-                      child: categoryGlyph(cat, size: 18, iconColor: Colors.white),
+                      decoration: BoxDecoration(
+                        color: col,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: categoryGlyph(
+                        cat,
+                        size: 18,
+                        iconColor: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 6),
                   ],
@@ -529,7 +560,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     child: Text(
                       ev.title,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.ink,
+                      ),
                     ),
                   ),
                 ],
@@ -546,8 +581,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       ic('clock', size: 12, sw: 2.2, color: B.muted),
                       const SizedBox(width: 4),
                       Text(
-                        ev.allDay ? 'All day' : '${ev.start}${ev.end.isNotEmpty ? '–${ev.end}' : ''}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: B.soft2),
+                        ev.allDay
+                            ? 'All day'
+                            : '${ev.start}${ev.end.isNotEmpty ? '–${ev.end}' : ''}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: B.soft2,
+                        ),
                       ),
                     ],
                   ),
@@ -562,28 +603,51 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           child: Text(
                             ev.location,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: B.soft2),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: B.soft2,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   if (ev.recur != 'none')
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(color: B.soft, borderRadius: BorderRadius.circular(6)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: B.soft,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ic('repeat', size: 10, sw: 2.4, color: B.deep),
                           const SizedBox(width: 3),
-                          Text(ev.recur, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: B.deep)),
+                          Text(
+                            ev.recur,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: B.deep,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   if (imp)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(color: B.faint, borderRadius: BorderRadius.circular(6)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: B.faint,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -591,7 +655,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           const SizedBox(width: 3),
                           Text(
                             ev.createdBy ?? 'Imported',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: B.soft2),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: B.soft2,
+                            ),
                           ),
                         ],
                       ),
@@ -601,7 +669,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             ],
           ),
         ),
-        if (!imp) ...[const SizedBox(width: 8), _attendeeStack(ev.attendees, 24)],
+        if (!imp) ...[
+          const SizedBox(width: 8),
+          _attendeeStack(ev.attendees, 24),
+        ],
       ],
     );
 

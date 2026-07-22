@@ -235,10 +235,7 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M13.73 21a2 2 0 0 1-3.46 0'],
   ],
   'note': [
-    [
-      'path',
-      'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z',
-    ],
+    ['path', 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'],
     ['path', 'M14 2v6h6'],
     ['path', 'M9 13h6'],
     ['path', 'M9 17h6'],
@@ -261,14 +258,8 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'],
   ],
   'book': [
-    [
-      'path',
-      'M4 19.5A2.5 2.5 0 0 1 6.5 17H20',
-    ],
-    [
-      'path',
-      'M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z',
-    ],
+    ['path', 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20'],
+    ['path', 'M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z'],
   ],
   'whistle': [
     ['circle', 8, 16, 5],

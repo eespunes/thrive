@@ -4,7 +4,11 @@ part of 'package:family_money_management_app/main.dart';
 /// (possibly a recurrence instance) or an imported (read-only) event
 /// surfaced through a synthetic [CalendarEvent] for uniform rendering.
 class CalendarOccurrence {
-  CalendarOccurrence({required this.ev, required this.date, this.imported = false});
+  CalendarOccurrence({
+    required this.ev,
+    required this.date,
+    this.imported = false,
+  });
   final CalendarEvent ev;
   final String date;
   final bool imported;
@@ -198,7 +202,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// imported-calendar events, within `[rangeStart, rangeEnd]` (inclusive,
   /// ISO dates), honouring the active member/category filters. Mirrors the
   /// design's `eventOccurrences()`.
-  List<CalendarOccurrence> eventOccurrences(String rangeStart, String rangeEnd) {
+  List<CalendarOccurrence> eventOccurrences(
+    String rangeStart,
+    String rangeEnd,
+  ) {
     final out = <CalendarOccurrence>[];
     final flt = calFilter;
     final cflt = calCatFilter;
@@ -446,7 +453,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     bool includeLocation = true,
     bool includeDescription = true,
   }) async {
-    final calName = name.trim().isEmpty ? kImportProviders['ics']!.$1 : name.trim();
+    final calName = name.trim().isEmpty
+        ? kImportProviders['ics']!.$1
+        : name.trim();
 
     List<ImportedCalendarEvent> events;
     try {
@@ -458,26 +467,31 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       return 'Could not import that calendar';
     }
 
-    mutate(() {
-      importedCalendars.add(
-        ImportedCalendar(
-          id: uid(),
-          name: calName,
-          provider: 'ics',
-          color: kImportProviders['ics']!.$2,
-          category: category,
-          url: url.trim(),
-          autoSync: autoSync,
-          includeLocation: includeLocation,
-          includeDescription: includeDescription,
-          events: _applyImportPrefs(
-            events,
+    mutate(
+      () {
+        importedCalendars.add(
+          ImportedCalendar(
+            id: uid(),
+            name: calName,
+            provider: 'ics',
+            color: kImportProviders['ics']!.$2,
+            category: category,
+            url: url.trim(),
+            autoSync: autoSync,
             includeLocation: includeLocation,
             includeDescription: includeDescription,
+            events: _applyImportPrefs(
+              events,
+              includeLocation: includeLocation,
+              includeDescription: includeDescription,
+            ),
           ),
-        ),
-      );
-    }, () => flash('Calendar imported (${events.length} event${events.length == 1 ? '' : 's'})'));
+        );
+      },
+      () => flash(
+        'Calendar imported (${events.length} event${events.length == 1 ? '' : 's'})',
+      ),
+    );
     return null;
   }
 
@@ -547,13 +561,20 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       return 'Could not sync that calendar';
     }
 
-    mutate(() {
-      resolvedCal.events = _applyImportPrefs(
-        events,
-        includeLocation: resolvedCal.includeLocation,
-        includeDescription: resolvedCal.includeDescription,
-      );
-    }, silent ? null : () => flash('Calendar synced (${events.length} event${events.length == 1 ? '' : 's'})'));
+    mutate(
+      () {
+        resolvedCal.events = _applyImportPrefs(
+          events,
+          includeLocation: resolvedCal.includeLocation,
+          includeDescription: resolvedCal.includeDescription,
+        );
+      },
+      silent
+          ? null
+          : () => flash(
+              'Calendar synced (${events.length} event${events.length == 1 ? '' : 's'})',
+            ),
+    );
     return null;
   }
 
