@@ -911,6 +911,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     events = ws.events;
     eventCategories = ws.eventCategories;
     importedCalendars = ws.importedCalendars;
+    weeklyPlan = ws.weeklyPlan;
   }
 
   /// Tags the `me` member of every family with the signed-in uid so security

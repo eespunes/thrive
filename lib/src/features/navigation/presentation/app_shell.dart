@@ -183,7 +183,7 @@ extension _ThriveAppShell on _ThriveHomeState {
         final n = taskLists.length + shoppingLists.length;
         return ('Lists', '$n list${n == 1 ? '' : 's'}');
       case 'weekly':
-        return ('Weekly plan', 'Coming soon');
+        return ('Weekly plan', 'Meals & notes for the week');
       case 'finsettings':
         return ('Finance settings', 'Accounts, blocks & tools');
       case 'more':
@@ -212,6 +212,9 @@ extension _ThriveAppShell on _ThriveHomeState {
         taskFilter,
         setTaskFilter,
       );
+    }
+    if (t == 'weekly') {
+      return _weekSubHeader();
     }
     return null;
   }
@@ -282,7 +285,7 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'lists':
         return _buildListsHub();
       case 'weekly':
-        return _buildWeeklyPlaceholder();
+        return _buildWeeklyPlan();
       case 'finsettings':
         return _buildSettings();
       case 'more':

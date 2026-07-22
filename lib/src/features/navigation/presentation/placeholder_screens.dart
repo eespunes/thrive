@@ -1,8 +1,7 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// "Coming soon" placeholders for modules the design specifies but that
-/// aren't built yet (Weekly plan #157). Each is a thin wrapper around
-/// [_emptyState], a faithful port of the design's `emptyState()` helper.
+/// Shared "coming soon" empty-state helper, still used by in-progress
+/// features. A faithful port of the design's `emptyState()` helper.
 extension _ThrivePlaceholderScreens on _ThriveHomeState {
   Widget _emptyState({
     required String icon,
@@ -84,16 +83,6 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildWeeklyPlaceholder() {
-    return _emptyState(
-      icon: 'moon',
-      title: 'Weekly plan is coming soon',
-      sub:
-          "Breakfast, lunch and dinner planning for the week is on the way "
-          '(issue #157).',
     );
   }
 }

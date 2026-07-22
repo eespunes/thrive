@@ -178,4 +178,154 @@ void main() {
       expect(find.text('Household'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'add a task with a due date, edit it, un-complete it, then delete it',
+    (tester) async {
+      await pumpApp(tester);
+      await goToLists(tester);
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Household'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Take out bins');
+      await tester.pump();
+      // The "Due date" toggle defaults to today — no need to open the
+      // native date picker to have a valid due date set.
+      await tester.tap(find.text('Due date'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Take out bins'), findsOneWidget);
+
+      // Edit: reopen the sheet and change the title (saveTask's editing
+      // branch, task still has a due date -> reschedule).
+      await tester.tap(find.text('Take out bins'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Take out trash');
+      await tester.pump();
+      await tester.tap(find.text('Save task'));
+      await tester.pumpAndSettle();
+      expect(find.text('Take out trash'), findsOneWidget);
+
+      // Toggle done (cancels reminder), then toggle again (reschedules,
+      // since it still has a due date).
+      await tester.tap(findCheckbox('task-check-'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('COMPLETED'), findsOneWidget);
+      await tester.tap(findCheckbox('task-check-'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('COMPLETED'), findsNothing);
+
+      // Delete the task itself (cancels its reminder).
+      await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Take out trash'), findsNothing);
+    },
+  );
+
+  testWidgets('deleting a list with tasks cancels their reminders', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Chores');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chores'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Vacuum');
+    await tester.pump();
+    await tester.tap(find.text('Add task').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('back-row')));
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.text('Chores'), const Offset(-220, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Chores'), findsNothing);
+  });
+
+  testWidgets('adjust shopping item quantity and delete it', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Supermarket');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Supermarket'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Eggs');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.tap(find.text('+'));
+    await tester.pumpAndSettle();
+    expect(find.text('2'), findsOneWidget);
+
+    await tester.tap(find.text('−'));
+    await tester.pumpAndSettle();
+    expect(find.text('1'), findsOneWidget);
+
+    await tester.drag(find.text('Eggs'), const Offset(-220, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Eggs'), findsNothing);
+  });
+
+  testWidgets('delete a shopping list via swipe + confirm', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Pharmacy');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pharmacy'), findsOneWidget);
+
+    await tester.drag(find.text('Pharmacy'), const Offset(-220, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Pharmacy'), findsNothing);
+    expect(find.text('No lists yet'), findsOneWidget);
+  });
 }

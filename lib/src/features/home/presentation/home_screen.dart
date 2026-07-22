@@ -14,9 +14,8 @@ const List<String> _kWeekdaysFull = [
 /// glance, tonight's dinner and the projected balance. Ported from the
 /// design's `renderHome()` / `homeCard()` / `glanceCard()` / `miniTaskRow()`.
 ///
-/// The weekly meal plan (#157) isn't built yet, so "Today's dinner" always
-/// shows its empty state for now — everything else (today & upcoming events,
-/// tasks, shopping, projected balance) is real.
+/// Today & upcoming events, tasks, shopping, today's dinner (#157) and
+/// projected balance are all real.
 extension _ThriveHomeScreen on _ThriveHomeState {
   String firstName() {
     final name = user?.name.trim() ?? '';
@@ -152,11 +151,12 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                     title: "Today's dinner",
                     icon: 'moon',
                     onOpen: () => goTab('weekly'),
-                    body: const Padding(
-                      padding: EdgeInsets.only(top: 4),
+                    body: Padding(
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Not planned',
-                        style: TextStyle(
+                        dayPlan(todayIso())?.dinner ?? 'Not planned',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                           color: B.ink,

@@ -97,7 +97,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('more-weekly')));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly plan is coming soon'), findsOneWidget);
+    expect(find.text('Weekly plan'), findsWidgets);
+    expect(find.byKey(const ValueKey('week-prev')), findsOneWidget);
   });
 
   testWidgets('More → Your profile opens the existing profile sheet', (

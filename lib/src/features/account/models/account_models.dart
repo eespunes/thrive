@@ -216,11 +216,13 @@ class Workspace {
     List<CalendarEvent>? events,
     List<EventCategory>? eventCategories,
     List<ImportedCalendar>? importedCalendars,
+    Map<String, DayPlan>? weeklyPlan,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
        eventCategories = eventCategories ?? <EventCategory>[],
-       importedCalendars = importedCalendars ?? <ImportedCalendar>[];
+       importedCalendars = importedCalendars ?? <ImportedCalendar>[],
+       weeklyPlan = weeklyPlan ?? <String, DayPlan>{};
 
   List<Account> accounts;
   List<Category> cats;
@@ -230,6 +232,10 @@ class Workspace {
   List<CalendarEvent> events;
   List<EventCategory> eventCategories;
   List<ImportedCalendar> importedCalendars;
+
+  /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
+  /// days with content need an entry.
+  Map<String, DayPlan> weeklyPlan;
 
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
@@ -245,6 +251,9 @@ class Workspace {
     'events': events.map((e) => e.toJson()).toList(),
     'eventCategories': eventCategories.map((c) => c.toJson()).toList(),
     'importedCalendars': importedCalendars.map((c) => c.toJson()).toList(),
+    'weeklyPlan': {
+      for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
+    },
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -290,6 +299,13 @@ class Workspace {
       for (final c in (j['importedCalendars'] as List? ?? []))
         ImportedCalendar.fromJson(Map<String, dynamic>.from(c as Map)),
     ];
+    final weeklyPlan = <String, DayPlan>{
+      for (final entry
+          in (j['weeklyPlan'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: DayPlan.fromJson(
+          Map<String, dynamic>.from(entry.value as Map),
+        ),
+    };
     return Workspace(
       accounts: accounts,
       cats: cats,
@@ -299,6 +315,7 @@ class Workspace {
       events: events,
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
+      weeklyPlan: weeklyPlan,
     );
   }
 
