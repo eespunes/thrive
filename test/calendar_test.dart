@@ -40,8 +40,12 @@ void main() {
       final events = parseIcsEvents(ics);
       expect(events, hasLength(1));
       final ev = events.single;
-      expect(ev.title, 'NAC Breda - Ajax  (0-2)');
-      expect(ev.notes, 'https://www.fotmob.com/match/4815511\nEredivisie');
+      // The double space before the score is also collapsed by the emoji/
+      // whitespace stripping applied to imported titles.
+      expect(ev.title, 'NAC Breda - Ajax (0-2)');
+      // The match-link URL is stripped from imported descriptions, leaving
+      // just the competition name.
+      expect(ev.notes, 'Eredivisie');
       expect(ev.location, 'Rat Verlegh Stadion, Stadionstraat 23, Breda, NED');
     },
   );

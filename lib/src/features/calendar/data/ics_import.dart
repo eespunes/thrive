@@ -128,15 +128,48 @@ ImportedCalendarEvent? _icsEventFromProps(Map<String, String> p) {
   final end = dtend != null ? _parseIcsDate(dtend) : null;
   return ImportedCalendarEvent(
     id: (p['UID'] ?? uid()).toString(),
-    title: _unescapeIcsText(p['SUMMARY'] ?? 'Imported event'),
+    title: _stripEmoji(_unescapeIcsText(p['SUMMARY'] ?? 'Imported event')),
     date: _isoOfDate(start),
     allDay: allDay,
     start: allDay ? '' : _hhmmOfIcs(start),
     end: allDay || end == null ? '' : _hhmmOfIcs(end),
     location: _unescapeIcsText(p['LOCATION'] ?? ''),
-    notes: _unescapeIcsText(p['DESCRIPTION'] ?? ''),
+    notes: _stripUrls(_unescapeIcsText(p['DESCRIPTION'] ?? '')),
   );
 }
+
+final RegExp _emojiPattern = RegExp(
+  '['
+  r'\u{1F000}-\u{1FFFF}'
+  r'\u{2190}-\u{2BFF}'
+  r'\u{2600}-\u{27BF}'
+  r'\u{FE0F}'
+  r'\u{200D}'
+  ']',
+  unicode: true,
+);
+
+/// Strips emoji (and their variation-selector/ZWJ glue) from imported event
+/// titles — some feeds decorate SUMMARY with decorative emoji we don't want
+/// surfaced in the app's event list.
+String _stripEmoji(String v) => v
+    .replaceAll(_emojiPattern, '')
+    .replaceAll(RegExp(r'[ \t]{2,}'), ' ')
+    .trim();
+
+final RegExp _urlPattern = RegExp(
+  r'(https?://\S+|www\.\S+)',
+  caseSensitive: false,
+);
+
+/// Removes URLs from imported event descriptions — some feeds (e.g.
+/// ticketing/streaming calendars) append a link into `DESCRIPTION` that we
+/// don't want surfaced as event notes.
+String _stripUrls(String v) => v
+    .replaceAll(_urlPattern, '')
+    .replaceAll(RegExp(r'[ \t]+\n'), '\n')
+    .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+    .trim();
 
 final RegExp _icsDatePattern = RegExp(
   r'^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?',
