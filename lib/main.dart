@@ -26,6 +26,7 @@ part 'src/features/account/data/family_cloud.dart';
 part 'src/features/budget/presentation/thrive_home.dart';
 part 'src/features/navigation/presentation/app_shell.dart';
 part 'src/features/navigation/presentation/placeholder_screens.dart';
+part 'src/features/navigation/presentation/quickadd_sheets.dart';
 part 'src/features/lists/presentation/list_actions.dart';
 part 'src/features/lists/presentation/list_screens.dart';
 part 'src/features/lists/presentation/list_sheets.dart';

@@ -100,11 +100,11 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   /// Quick-Add FAB. Only shown on `home`/`calendar`/`lists`, matching the
-  /// design's `renderFab(tab)` map. On `lists` it opens the right sheet for
-  /// whatever's currently in view (mirrors `renderFab`'s `lists` handler);
-  /// `home`/`calendar` aren't built yet (#158/#152/#153), so they still
-  /// surface a "coming soon" toast — real quick-add flows are tracked in
-  /// #162.
+  /// design's `renderFab(tab)` map. `calendar` opens the event editor
+  /// directly and `lists` opens the right sheet for whatever's currently in
+  /// view (mirrors `renderFab`'s handlers); every other tab (currently just
+  /// `home`) opens the Quick-Add chooser (#162) so the user can still add an
+  /// event, task, or shopping item from there.
   Widget? _buildFab() {
     if (!const {'home', 'calendar', 'lists'}.contains(tab)) return null;
     return Positioned(
@@ -142,7 +142,7 @@ extension _ThriveAppShell on _ThriveHomeState {
       return;
     }
     if (tab != 'lists') {
-      flash('Quick-Add is coming soon');
+      openQuickAddSheet();
       return;
     }
     final shop = openShop();
