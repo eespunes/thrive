@@ -1,0 +1,1347 @@
+part of 'package:family_money_management_app/main.dart';
+
+/// "New event" / "Edit event" sheet — title, all-day, date/time, location,
+/// category, attendees, colour, reminder, repeat, notes. Ported from the
+/// design's `sheetEventEdit()`.
+class _EventEditSheet extends StatefulWidget {
+  const _EventEditSheet({required this.state, required this.date, this.event});
+  final _ThriveHomeState state;
+  final String date;
+  final CalendarEvent? event;
+
+  @override
+  State<_EventEditSheet> createState() => _EventEditSheetState();
+}
+
+class _EventEditSheetState extends State<_EventEditSheet> {
+  late final TextEditingController _title;
+  late final TextEditingController _location;
+  late final TextEditingController _notes;
+  late bool _allDay;
+  late String _date;
+  late String _start;
+  late String _end;
+  String? _category;
+  late Color _color;
+  late List<String> _attendees;
+  late String _reminder;
+  late String _recur;
+
+  bool get _editing => widget.event != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.event;
+    _title = TextEditingController(text: e?.title ?? '');
+    _location = TextEditingController(text: e?.location ?? '');
+    _notes = TextEditingController(text: e?.notes ?? '');
+    _allDay = e?.allDay ?? false;
+    _date = e?.date ?? widget.date;
+    _start = e?.start.isNotEmpty == true ? e!.start : '09:00';
+    _end = e?.end.isNotEmpty == true ? e!.end : '10:00';
+    _category = e?.category;
+    _color = e?.color ?? kEventColors.first;
+    _attendees = (e?.attendees ?? const ['me']).toList();
+    _reminder = e?.reminder ?? '1h';
+    _recur = e?.recur ?? 'none';
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _location.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _parseIso(_date),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _date = _isoOfDate(picked));
+  }
+
+  Future<void> _pickTime(bool isStart) async {
+    final cur = isStart ? _start : _end;
+    final parts = cur.split(':');
+    final initial = TimeOfDay(
+      hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 9,
+      minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0,
+    );
+    final picked = await showTimePicker(context: context, initialTime: initial);
+    if (picked == null) return;
+    final formatted =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    setState(() {
+      if (isStart) {
+        _start = formatted;
+      } else {
+        _end = formatted;
+      }
+    });
+  }
+
+  Widget _timeField(String label, String value, VoidCallback onTap) {
+    return _sheetField(
+      label,
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: B.line),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chipRow(List<(String, String)> opts, String value, ValueChanged<String> onPick) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (k, label) in opts) ...[
+            GestureDetector(
+              onTap: () => onPick(k),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                decoration: BoxDecoration(
+                  color: value == k ? B.soft : Colors.white,
+                  border: Border.all(color: value == k ? B.primary : B.line),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == k ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final members = s.curFamily()?.members ?? const <FamilyMember>[];
+    final categories = s.eventCategories;
+    final valid = _title.text.trim().isNotEmpty;
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sheetHead(context, _editing ? 'Edit event' : 'New event'),
+          _sheetField(
+            'Title',
+            _sheetInput(
+              _title,
+              hint: 'e.g. Dentist appointment',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          _toggleRow(
+            'All-day',
+            _allDay,
+            () => setState(() => _allDay = !_allDay),
+            activeColor: B.primary,
+          ),
+          const SizedBox(height: 13),
+          _sheetField(
+            'Date',
+            GestureDetector(
+              onTap: _pickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: B.line),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    ic('cal', size: 15, sw: 2.2, color: B.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      _date,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!_allDay)
+            Row(
+              children: [
+                Expanded(child: _timeField('Start', _start, () => _pickTime(true))),
+                const SizedBox(width: 10),
+                Expanded(child: _timeField('End', _end, () => _pickTime(false))),
+              ],
+            ),
+          _sheetField(
+            'Location',
+            _sheetInput(_location, hint: 'Optional', onChanged: (_) => setState(() {})),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'CATEGORY',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _category = null),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _category == null ? B.soft : Colors.white,
+                        border: Border.all(color: _category == null ? B.primary : B.line),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'None',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: _category == null ? B.deep : B.soft2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                  for (final c in categories) ...[
+                    GestureDetector(
+                      key: ValueKey('event-cat-${c.id}'),
+                      onTap: () => setState(() {
+                        _category = c.id;
+                        _color = c.color;
+                        for (final mid in c.members) {
+                          if (!_attendees.contains(mid)) _attendees.add(mid);
+                        }
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: _category == c.id ? c.color : Colors.white,
+                          border: Border.all(color: _category == c.id ? c.color : B.line),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            categoryGlyph(
+                              c,
+                              size: 14,
+                              iconColor: _category == c.id ? Colors.white : c.color,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              c.name,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _category == c.id ? Colors.white : B.soft2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                  GestureDetector(
+                    key: const ValueKey('event-new-category'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      s.openCategory(null);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: B.line, style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ic('plus', size: 13, sw: 2.5, color: B.primary),
+                          const SizedBox(width: 3),
+                          const Text(
+                            'New',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: B.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'ATTENDEES',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final m in members)
+                  GestureDetector(
+                    key: ValueKey('event-att-${m.id}'),
+                    onTap: () => setState(() {
+                      if (_attendees.contains(m.id)) {
+                        _attendees.remove(m.id);
+                      } else {
+                        _attendees.add(m.id);
+                      }
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
+                      decoration: BoxDecoration(
+                        color: _attendees.contains(m.id) ? B.soft : Colors.white,
+                        border: Border.all(color: _attendees.contains(m.id) ? B.primary : B.line),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          s.avatarNode(
+                            photo: m.photo,
+                            initials: m.initials,
+                            color: m.color,
+                            size: 22,
+                            radius: 11,
+                            fs: 10,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            m.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: _attendees.contains(m.id) ? B.deep : B.soft2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              _category != null ? 'COLOUR (FROM CATEGORY)' : 'COLOUR',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: Wrap(
+              spacing: 9,
+              runSpacing: 9,
+              children: [
+                for (final c in kEventColors)
+                  GestureDetector(
+                    onTap: () => setState(() => _color = c),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: c,
+                        borderRadius: BorderRadius.circular(11),
+                        border: _color == c ? Border.all(color: B.ink, width: 2) : null,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'REMINDER',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: _chipRow(
+              const [('none', 'None'), ('at', 'At time'), ('1h', '1 hour before'), ('1d', '1 day before')],
+              _reminder,
+              (v) => setState(() => _reminder = v),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'REPEAT',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: _chipRow(
+              const [
+                ('none', 'Never'),
+                ('daily', 'Daily'),
+                ('weekly', 'Weekly'),
+                ('monthly', 'Monthly'),
+                ('yearly', 'Yearly'),
+              ],
+              _recur,
+              (v) => setState(() => _recur = v),
+            ),
+          ),
+          _sheetField(
+            'Notes',
+            _sheetInput(_notes, hint: 'Optional notes', maxLines: 3),
+          ),
+          _primaryBtn(
+            _editing ? 'Save event' : 'Add event',
+            () {
+              s.saveEvent(
+                id: widget.event?.id,
+                title: _title.text,
+                allDay: _allDay,
+                date: _date,
+                start: _start,
+                end: _end,
+                location: _location.text,
+                notes: _notes.text,
+                category: _category,
+                color: _color,
+                attendees: _attendees,
+                reminder: _reminder,
+                recur: _recur,
+                exceptions: widget.event?.exceptions,
+                createdBy: widget.event?.createdBy,
+              );
+              Navigator.of(context).pop();
+            },
+            enabled: valid,
+          ),
+          if (_editing)
+            GestureDetector(
+              onTap: () {
+                final ev = s.eventById(widget.event!.id);
+                Navigator.of(context).pop();
+                if (ev != null && ev.recur != 'none') {
+                  s._showSheet(
+                    (ctx) => _RecurDeleteSheet(state: s, eventId: ev.id, date: _date),
+                  );
+                } else {
+                  s.askDelete(
+                    _title.text,
+                    'This event will be permanently removed.',
+                    () => s.deleteEvent(widget.event!.id, 'all'),
+                  );
+                }
+              },
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
+                child: Text(
+                  'Delete event',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: B.red),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+extension _NullableList<T> on List<T> {
+  T? elementAtOrNull(int i) => i >= 0 && i < length ? this[i] : null;
+}
+
+/// Read-only event detail sheet, ported from `sheetEventView()`.
+class _EventViewSheet extends StatelessWidget {
+  const _EventViewSheet({required this.state, required this.eventId, required this.date});
+  final _ThriveHomeState state;
+  final String eventId;
+  final String date;
+
+  Widget _metaRow(String icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: B.faint))),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(color: B.soft, borderRadius: BorderRadius.circular(9)),
+            child: Center(child: ic(icon, size: 15, sw: 2.1, color: B.primary)),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: B.text)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ev = state.eventById(eventId);
+    if (ev == null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [_sheetHead(context, 'Event', 'Not found')],
+      );
+    }
+    final cat = state.catById(ev.category);
+    final creatorId = ev.createdBy;
+    final creator = creatorId == null
+        ? null
+        : (state.curFamily()?.members ?? const <FamilyMember>[])
+            .where((m) => m.id == creatorId);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 10,
+              height: 34,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(color: state.evColor(ev), borderRadius: BorderRadius.circular(5)),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ev.title,
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, letterSpacing: -.3, color: B.ink),
+                  ),
+                  Text(
+                    _prettyDateIso(date),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: B.soft2),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: B.faint, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: ic('x', size: 17, sw: 2.2, color: B.soft2)),
+              ),
+            ),
+          ],
+        ),
+        if (cat != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 2),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(color: cat.color, borderRadius: BorderRadius.circular(999)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  categoryGlyph(cat, size: 15, iconColor: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(cat.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            children: [
+              _metaRow('clock', ev.allDay ? 'All day' : '${ev.start}${ev.end.isNotEmpty ? ' – ${ev.end}' : ''}'),
+              if (ev.location.isNotEmpty) _metaRow('mappin', ev.location),
+              if (ev.recur != 'none') _metaRow('repeat', 'Repeats ${ev.recur}'),
+              if (ev.reminder != 'none')
+                _metaRow('bell', 'Reminder · ${ev.reminder == 'at' ? 'at time' : '${ev.reminder} before'}'),
+              if (ev.notes.isNotEmpty) _metaRow('note', ev.notes),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 7),
+          child: Text(
+            'ATTENDEES',
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final id in ev.attendees)
+                Container(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
+                  decoration: BoxDecoration(color: B.soft, borderRadius: BorderRadius.circular(999)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      state._memberAvatar(id, size: 22),
+                      const SizedBox(width: 6),
+                      Text(
+                        state._memberById(id)?.name ?? '?',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: B.deep),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (creator != null && creator.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(
+              'Created by ${creator.first.name}',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.muted),
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  state.openEvent(ev, date);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(border: Border.all(color: B.line), borderRadius: BorderRadius.circular(13)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ic('edit', size: 16, sw: 2.2, color: B.soft2),
+                      const SizedBox(width: 7),
+                      const Text('Edit', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  if (ev.recur != 'none') {
+                    state._showSheet(
+                      (ctx) => _RecurDeleteSheet(state: state, eventId: ev.id, date: date),
+                    );
+                  } else {
+                    state.askDelete(
+                      ev.title,
+                      'This event will be permanently removed.',
+                      () => state.deleteEvent(ev.id, 'all'),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: B.redSoft,
+                    border: Border.all(color: B.redLine),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ic('trash', size: 16, sw: 2.2, color: B.red),
+                      const SizedBox(width: 7),
+                      const Text('Delete', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.red)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// "Delete this event only" vs "Every occurrence in the series", ported
+/// from `sheetRecurDelete()`.
+class _RecurDeleteSheet extends StatelessWidget {
+  const _RecurDeleteSheet({required this.state, required this.eventId, required this.date});
+  final _ThriveHomeState state;
+  final String eventId;
+  final String date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHead(context, 'Delete recurring event', 'This event repeats'),
+        GestureDetector(
+          key: const ValueKey('recur-delete-one'),
+          onTap: () {
+            Navigator.of(context).pop();
+            state.deleteEvent(eventId, 'one', date);
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(border: Border.all(color: B.line), borderRadius: BorderRadius.circular(14)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Delete this event only', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: B.ink)),
+                const SizedBox(height: 3),
+                Text('Just ${_prettyDateIso(date)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: B.soft2)),
+              ],
+            ),
+          ),
+        ),
+        GestureDetector(
+          key: const ValueKey('recur-delete-all'),
+          onTap: () {
+            Navigator.of(context).pop();
+            state.deleteEvent(eventId, 'all');
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(color: B.redSoft, border: Border.all(color: B.redLine), borderRadius: BorderRadius.circular(14)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Delete all events', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: B.red)),
+                const SizedBox(height: 3),
+                const Text('Every occurrence in the series', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: B.red)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Calendars & categories" — categories + imported calendars management,
+/// ported from `sheetCalManage()`. Replaces the #160/#161 placeholder.
+class _CalendarManageSheet extends StatefulWidget {
+  const _CalendarManageSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_CalendarManageSheet> createState() => _CalendarManageSheetState();
+}
+
+class _CalendarManageSheetState extends State<_CalendarManageSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final cats = s.eventCategories;
+    final imps = s.importedCalendars;
+
+    Widget catRow(EventCategory c) {
+      final inner = GestureDetector(
+        onTap: () {
+          Navigator.of(context).pop();
+          s.openCategory(c);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          decoration: BoxDecoration(color: Colors.white, border: Border.all(color: B.line), borderRadius: BorderRadius.circular(13)),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(color: c.color, borderRadius: BorderRadius.circular(10)),
+                child: categoryGlyph(c, size: 32, iconColor: Colors.white),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(c.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink)),
+                    Text(
+                      c.members.isEmpty ? 'No one assigned' : '${c.members.length} member${c.members.length == 1 ? '' : 's'}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return _SwipeRow(
+        key: ValueKey('cat-${c.id}'),
+        open: s.swipedId == 'cat-${c.id}',
+        onOpenChanged: (o) => s.update(() => s.swipedId = o ? 'cat-${c.id}' : null),
+        onDelete: () => s.askDelete(
+          c.name,
+          'Events keep their times but lose this category.',
+          () {
+            s.deleteCategory(c.id);
+            setState(() {});
+          },
+        ),
+        borderRadius: 13,
+        child: inner,
+      );
+    }
+
+    Widget impRow(ImportedCalendar c) {
+      final providerLabel = kImportProviders[c.provider]?.$1 ?? c.provider;
+      final inner = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: B.line), borderRadius: BorderRadius.circular(13)),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(color: c.color, borderRadius: BorderRadius.circular(10)),
+              child: Center(child: ic('download', size: 16, sw: 2.2, color: Colors.white)),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(c.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink)),
+                  Text(
+                    '$providerLabel · ${c.events.length} events',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              key: ValueKey('imp-toggle-${c.id}'),
+              onTap: () {
+                s.toggleImportVisible(c.id);
+                setState(() {});
+              },
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: c.visible ? B.soft : Colors.white,
+                  border: Border.all(color: B.line),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: ic(c.visible ? 'eye' : 'eyeoff', size: 16, sw: 2.2, color: c.visible ? B.deep : B.muted),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return _SwipeRow(
+        key: ValueKey('imp-${c.id}'),
+        open: s.swipedId == 'imp-${c.id}',
+        onOpenChanged: (o) => s.update(() => s.swipedId = o ? 'imp-${c.id}' : null),
+        onDelete: () => s.askDelete(
+          c.name,
+          'This imported calendar and its events will be removed.',
+          () {
+            s.deleteImport(c.id);
+            setState(() {});
+          },
+        ),
+        borderRadius: 13,
+        child: inner,
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sheetHead(context, 'Calendars & categories', 'Colours, icons & imports'),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 9),
+            child: Text(
+              'CATEGORIES',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: .3, color: Color(0xff64748b)),
+            ),
+          ),
+          if (cats.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text('No categories yet.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: B.muted)),
+            )
+          else
+            for (final c in cats) Padding(padding: const EdgeInsets.only(bottom: 8), child: catRow(c)),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: _addButtonForSheet('New category', () {
+              Navigator.of(context).pop();
+              s.openCategory(null);
+            }),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 20, bottom: 9),
+            child: Text(
+              'IMPORTED CALENDARS',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: .3, color: Color(0xff64748b)),
+            ),
+          ),
+          if (imps.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text('Nothing imported yet.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: B.muted)),
+            )
+          else
+            for (final c in imps) Padding(padding: const EdgeInsets.only(bottom: 8), child: impRow(c)),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: _addButtonForSheet('Import a calendar', () {
+              Navigator.of(context).pop();
+              s.openImportCalendarSheet();
+            }, icon: 'download'),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ic('cleft', size: 13, sw: 2.4, color: B.muted),
+                const SizedBox(width: 6),
+                const Text('Swipe left to delete', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addButtonForSheet(String label, VoidCallback onTap, {String icon = 'plus'}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(border: Border.all(color: B.line, style: BorderStyle.solid), borderRadius: BorderRadius.circular(13)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ic(icon, size: 15, sw: 2.4, color: B.primary),
+            const SizedBox(width: 7),
+            Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: B.primary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "New category" / "Edit category" sheet, ported from `sheetCategory()`.
+class _CategorySheet extends StatefulWidget {
+  const _CategorySheet({required this.state, this.category});
+  final _ThriveHomeState state;
+  final EventCategory? category;
+
+  @override
+  State<_CategorySheet> createState() => _CategorySheetState();
+}
+
+class _CategorySheetState extends State<_CategorySheet> {
+  late final TextEditingController _name;
+  late Color _color;
+  late String _icon;
+  String? _emoji;
+  String? _picture;
+  late List<String> _members;
+
+  bool get _editing => widget.category != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.category;
+    _name = TextEditingController(text: c?.name ?? '');
+    _color = c?.color ?? kCatColors.first;
+    _icon = c?.icon ?? kCatIconsList.first;
+    _emoji = c?.emoji;
+    _picture = c?.picture;
+    _members = (c?.members ?? const <String>[]).toList();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final members = s.curFamily()?.members ?? const <FamilyMember>[];
+    final valid = _name.text.trim().isNotEmpty;
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sheetHead(context, _editing ? 'Edit category' : 'New category'),
+          _sheetField('Name', _sheetInput(_name, hint: 'e.g. Work', onChanged: (_) => setState(() {}))),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'COLOUR',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Wrap(
+              spacing: 9,
+              runSpacing: 9,
+              children: [
+                for (final c in kCatColors)
+                  GestureDetector(
+                    onTap: () => setState(() => _color = c),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: c,
+                        borderRadius: BorderRadius.circular(10),
+                        border: _color == c ? Border.all(color: B.ink, width: 2) : null,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          _sheetField(
+            'Emoji or picture',
+            _GlyphPicker(
+              emoji: _emoji,
+              picture: _picture,
+              onChanged: ({String? emoji, String? picture}) {
+                _emoji = emoji;
+                _picture = picture;
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'ASSIGNED PEOPLE',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final m in members)
+                  GestureDetector(
+                    key: ValueKey('cat-member-${m.id}'),
+                    onTap: () => setState(() {
+                      if (_members.contains(m.id)) {
+                        _members.remove(m.id);
+                      } else {
+                        _members.add(m.id);
+                      }
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
+                      decoration: BoxDecoration(
+                        color: _members.contains(m.id) ? B.soft : Colors.white,
+                        border: Border.all(color: _members.contains(m.id) ? B.primary : B.line),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          s.avatarNode(photo: m.photo, initials: m.initials, color: m.color, size: 22, radius: 11, fs: 10),
+                          const SizedBox(width: 6),
+                          Text(
+                            m.name,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: _members.contains(m.id) ? B.deep : B.soft2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          _primaryBtn(
+            _editing ? 'Save category' : 'Add category',
+            () {
+              s.saveCategory(
+                id: widget.category?.id,
+                name: _name.text,
+                color: _color,
+                icon: _icon,
+                emoji: _emoji,
+                picture: _picture,
+                members: _members,
+              );
+              Navigator.of(context).pop();
+              s.openCalendarManageSheet();
+            },
+            enabled: valid,
+          ),
+          if (_editing)
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).pop();
+                s.askDelete(
+                  _name.text,
+                  'Events keep their times but lose this category.',
+                  () {
+                    s.deleteCategory(widget.category!.id);
+                    s.openCalendarManageSheet();
+                  },
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
+                child: Text(
+                  'Delete category',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: B.red),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Import a calendar" sheet, ported from `sheetImportCal()`.
+class _ImportCalendarSheet extends StatefulWidget {
+  const _ImportCalendarSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_ImportCalendarSheet> createState() => _ImportCalendarSheetState();
+}
+
+class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
+  String _provider = 'google';
+  late final TextEditingController _name;
+  String? _category;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final cats = s.eventCategories;
+    final valid = _name.text.trim().isNotEmpty;
+
+    Widget provBtn(String p) {
+      final (label, color) = kImportProviders[p]!;
+      final active = _provider == p;
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey('import-prov-$p'),
+          onTap: () => setState(() => _provider = p),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            decoration: BoxDecoration(
+              color: active ? B.soft : Colors.white,
+              border: Border.all(color: active ? B.primary : B.line),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+                  child: Center(child: ic(p == 'ics' ? 'download' : 'cal', size: 17, sw: 2.1, color: Colors.white)),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: active ? B.deep : B.soft2,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sheetHead(context, 'Import a calendar', 'Bring in an external calendar'),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: Row(
+              children: [for (final p in kImportProviders.keys) ...[provBtn(p), const SizedBox(width: 9)]]
+                ..removeLast(),
+            ),
+          ),
+          _sheetField(
+            _provider == 'ics' ? 'Calendar URL' : 'Account / name',
+            _sheetInput(
+              _name,
+              hint: _provider == 'ics' ? 'https://…/calendar.ics' : 'e.g. Erik · Work',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'ASSIGN A CATEGORY (OPTIONAL)',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                GestureDetector(
+                  onTap: () => setState(() => _category = null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _category == null ? B.soft : Colors.white,
+                      border: Border.all(color: _category == null ? B.primary : B.line),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'None',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _category == null ? B.deep : B.soft2),
+                    ),
+                  ),
+                ),
+                for (final c in cats)
+                  GestureDetector(
+                    onTap: () => setState(() => _category = c.id),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _category == c.id ? c.color : Colors.white,
+                        border: Border.all(color: _category == c.id ? c.color : B.line),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          categoryGlyph(
+                            c,
+                            size: 14,
+                            iconColor: _category == c.id ? Colors.white : c.color,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            c.name,
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: _category == c.id ? Colors.white : B.soft2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 14),
+            child: Text(
+              'Imported events are read-only and shown with a download tag. '
+              'This demo adds two sample events.',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.muted, height: 1.5),
+            ),
+          ),
+          _primaryBtn(
+            'Import calendar',
+            () {
+              s.saveImport(provider: _provider, name: _name.text, category: _category);
+              Navigator.of(context).pop();
+              s.openCalendarManageSheet();
+            },
+            enabled: valid,
+          ),
+        ],
+      ),
+    );
+  }
+}

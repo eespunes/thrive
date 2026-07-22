@@ -18,7 +18,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();
-    expect(find.text('Calendar is coming soon'), findsOneWidget);
+    expect(find.text('No events'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
@@ -122,7 +122,7 @@ void main() {
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
-  testWidgets('More → Calendars & categories opens a placeholder sheet', (
+  testWidgets('More → Calendars & categories opens the management sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -132,7 +132,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('more-calmanage')));
     await tester.pumpAndSettle();
     expect(find.text('Calendars & categories'), findsWidgets);
-    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('No categories yet.'), findsOneWidget);
+    expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
 
   testWidgets('Quick-Add FAB shows a coming-soon toast', (tester) async {

@@ -908,6 +908,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     data = ws.data;
     taskLists = ws.taskLists;
     shoppingLists = ws.shoppingLists;
+    events = ws.events;
+    eventCategories = ws.eventCategories;
+    importedCalendars = ws.importedCalendars;
   }
 
   /// Tags the `me` member of every family with the signed-in uid so security

@@ -14,9 +14,9 @@ const List<String> _kWeekdaysFull = [
 /// glance, tonight's dinner and the projected balance. Ported from the
 /// design's `renderHome()` / `homeCard()` / `glanceCard()` / `miniTaskRow()`.
 ///
-/// Calendar (#152/#153) and the weekly meal plan (#157) aren't built yet, so
-/// "Today & upcoming" and "Today's dinner" always show their empty states
-/// for now — everything else (tasks, shopping, projected balance) is real.
+/// The weekly meal plan (#157) isn't built yet, so "Today's dinner" always
+/// shows its empty state for now — everything else (today & upcoming events,
+/// tasks, shopping, projected balance) is real.
 extension _ThriveHomeScreen on _ThriveHomeState {
   String firstName() {
     final name = user?.name.trim() ?? '';
@@ -40,6 +40,10 @@ extension _ThriveHomeScreen on _ThriveHomeState {
     dueSoon.sort((a, b) => (a.$2.due ?? '9999').compareTo(b.$2.due ?? '9999'));
     final topDue = dueSoon.take(4).toList();
     final c = compute(monthIdx);
+    final todayEv = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 6))
+      ..sort((a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start))
+          .compareTo(b.date + (b.ev.allDay ? '' : b.ev.start)));
+    final topEvents = todayEv.take(3).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
@@ -48,7 +52,14 @@ extension _ThriveHomeScreen on _ThriveHomeState {
           title: 'Today & upcoming',
           icon: 'cal',
           onOpen: () => goTab('calendar'),
-          body: _emptyRow('Nothing scheduled — enjoy the calm.'),
+          body: topEvents.isEmpty
+              ? _emptyRow('Nothing scheduled — enjoy the calm.')
+              : Column(
+                  children: [
+                    for (var i = 0; i < topEvents.length; i++)
+                      _miniEventRow(topEvents[i], border: i > 0),
+                  ],
+                ),
         ),
         _homeCard(
           title: 'Tasks due soon',
@@ -351,6 +362,51 @@ extension _ThriveHomeScreen on _ThriveHomeState {
       ),
     ),
   );
+
+  Widget _miniEventRow(CalendarOccurrence o, {required bool border}) {
+    final ev = o.ev;
+    final today = todayIso();
+    return GestureDetector(
+      key: ValueKey('home-event-${ev.id}-${o.date}'),
+      onTap: () => openEventView(ev.id, o.date),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          border: border ? const Border(top: BorderSide(color: B.faint)) : null,
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 30,
+              decoration: BoxDecoration(color: evColor(ev), borderRadius: BorderRadius.circular(3)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: B.ink),
+                  ),
+                  Text(
+                    (o.date == today ? 'Today' : _shortDateIso(o.date)) +
+                        (ev.allDay ? ' · All day' : ' · ${ev.start}'),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2),
+                  ),
+                ],
+              ),
+            ),
+            _attendeeStack(ev.attendees, 22),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _miniTaskRow(TaskList list, ListTask t, {required bool border}) {
     final dl = _dueLabel(t.due);

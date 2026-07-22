@@ -143,6 +143,14 @@ class _ThriveHomeState extends State<ThriveHome> {
   String taskFilter = 'all'; // all | me
   String? openTaskList;
   String? openShopList;
+  List<CalendarEvent> events = [];
+  List<EventCategory> eventCategories = [];
+  List<ImportedCalendar> importedCalendars = [];
+  String calView = 'month'; // month | week | agenda
+  String calAnchor = todayIso();
+  String calSel = todayIso();
+  String? calFilter; // member id filter
+  String? calCatFilter; // category id filter
   final FocusNode shopQuickAddFocus = FocusNode();
   Map<String, bool> collapsed = {};
   String? swipedId;
@@ -331,6 +339,9 @@ class _ThriveHomeState extends State<ThriveHome> {
     data = ws.data;
     taskLists = ws.taskLists;
     shoppingLists = ws.shoppingLists;
+    events = ws.events;
+    eventCategories = ws.eventCategories;
+    importedCalendars = ws.importedCalendars;
   }
 
   /// Wraps the just-restored/seeded active workspace into `workspaces` and
@@ -345,6 +356,9 @@ class _ThriveHomeState extends State<ThriveHome> {
         data: data,
         taskLists: taskLists,
         shoppingLists: shoppingLists,
+        events: events,
+        eventCategories: eventCategories,
+        importedCalendars: importedCalendars,
       ),
     };
     families = user != null ? [seedFamily('fam_main', user!)] : [];
@@ -419,6 +433,9 @@ class _ThriveHomeState extends State<ThriveHome> {
       data = ws.data;
       taskLists = ws.taskLists;
       shoppingLists = ws.shoppingLists;
+      events = ws.events;
+      eventCategories = ws.eventCategories;
+      importedCalendars = ws.importedCalendars;
       _seedFamiliesAndWorkspace();
       ready = true;
     });
@@ -434,6 +451,9 @@ class _ThriveHomeState extends State<ThriveHome> {
       data: data,
       taskLists: taskLists,
       shoppingLists: shoppingLists,
+      events: events,
+      eventCategories: eventCategories,
+      importedCalendars: importedCalendars,
     );
   }
 

@@ -137,6 +137,10 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   void _onFabTap() {
+    if (tab == 'calendar') {
+      openEvent(null);
+      return;
+    }
     if (tab != 'lists') {
       flash('Quick-Add is coming soon');
       return;
@@ -161,7 +165,7 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'home':
         return ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
-        return ('Calendar', 'Coming soon');
+        return ('Calendar', _monthTitleIso(calAnchor));
       case 'lists':
         final tl = openList();
         if (tl != null) {
@@ -195,6 +199,9 @@ extension _ThriveAppShell on _ThriveHomeState {
   Widget? _tabSubHeader(String t) {
     if (t == 'finsettings') {
       return _backRow('More', () => goTab('more'));
+    }
+    if (t == 'calendar') {
+      return _calSubHeader();
     }
     if (t == 'lists') {
       if (openShop() != null || openList() != null) {
@@ -271,7 +278,7 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'home':
         return _buildHomeDashboard();
       case 'calendar':
-        return _buildCalendarPlaceholder();
+        return _buildCalendar();
       case 'lists':
         return _buildListsHub();
       case 'weekly':
@@ -345,7 +352,7 @@ extension _ThriveAppShell on _ThriveHomeState {
         'cal',
         'Calendars & categories',
         'Imports, colours & icons',
-        _openCalendarsCategoriesPlaceholder,
+        openCalendarManageSheet,
       ),
       (
         'more-family',
