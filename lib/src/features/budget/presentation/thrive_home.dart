@@ -147,11 +147,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<CalendarEvent> events = [];
   List<EventCategory> eventCategories = [];
   List<ImportedCalendar> importedCalendars = [];
-  String calView = 'month'; // month | week | agenda
+  String calView = 'month'; // month | week | family | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
-  String? calFilter; // member id filter
-  String? calCatFilter; // category id filter
+  List<String> calFilter = []; // member id multi-filter
+  List<String> calCatFilter = []; // category id multi-filter
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   Map<String, bool> collapsed = {};
@@ -1008,8 +1008,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       }
     }
     final subHeader = ready
-        ? (tab == 'finance' ? _buildSubHeader() : _tabSubHeader(tab))
+        ? (tab == 'finance' && screen == 'stats'
+              ? _buildStatsModeSwitcher()
+              : _tabSubHeader(tab))
         : null;
+    final dateInHeader = tab == 'calendar' || tab == 'finance';
 
     return Container(
       color: B.page,
@@ -1041,33 +1044,58 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.3,
-                        color: B.ink,
+                child: GestureDetector(
+                  key: tab == 'calendar'
+                      ? const ValueKey('cal-month-title')
+                      : tab == 'finance'
+                      ? const ValueKey('month-chip')
+                      : null,
+                  behavior: HitTestBehavior.opaque,
+                  onTap: tab == 'calendar'
+                      ? openCalMonthPicker
+                      : tab == 'finance'
+                      ? openMonthPicker
+                      : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.3,
+                          color: B.ink,
+                        ),
                       ),
-                    ),
-                    Text(
-                      subtitle,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: B.muted,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: B.muted,
+                              ),
+                            ),
+                          ),
+                          if (dateInHeader) ...[
+                            const SizedBox(width: 3),
+                            ic('cdown', size: 12, sw: 2.4, color: B.muted),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              if (tab == 'finance') _buildSwitcher(),
+              if (tab == 'finance') _buildFinanceHeaderActions(),
+              if (tab == 'calendar') _calHeaderActions(),
             ],
           ),
           if (subHeader != null) ...[const SizedBox(height: 13), subHeader],
@@ -1128,93 +1156,38 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildSubHeader() {
-    Widget arrow(int d, String name) => GestureDetector(
-      key: ValueKey('month-${d < 0 ? 'prev' : 'next'}'),
-      onTap: () => setMonth(d),
+  Widget _buildFinanceHeaderActions() {
+    final closed = isClosed();
+    final lockButton = GestureDetector(
+      key: const ValueKey('lock-btn'),
+      onTap: () => closed ? reopenMonth() : openCloseConfirm(),
       child: Container(
-        width: 34,
-        height: 34,
+        margin: const EdgeInsets.only(left: 8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: B.line),
+          color: closed ? B.ink : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: closed ? B.ink : B.line),
         ),
-        child: Center(child: ic(name, size: 17, sw: 2.4, color: B.soft2)),
-      ),
-    );
-
-    final monthChip = GestureDetector(
-      key: const ValueKey('month-chip'),
-      onTap: openMonthPicker,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: B.line),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ic('cal', size: 15, sw: 2.2, color: B.primary),
-            const SizedBox(width: 7),
-            Text(
-              '${kMonthsEn[monthIdx]} $year',
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: B.ink,
-              ),
-            ),
-            const SizedBox(width: 7),
-            ic('cdown', size: 14, sw: 2.4, color: B.muted),
-          ],
+        child: Center(
+          child: ic(
+            closed ? 'lock' : 'unlock',
+            size: 18,
+            sw: 2.1,
+            color: closed ? Colors.white : B.soft2,
+          ),
         ),
       ),
     );
 
-    final left = Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        arrow(-1, 'cleft'),
-        const SizedBox(width: 8),
-        monthChip,
-        const SizedBox(width: 8),
-        arrow(1, 'cright'),
-      ],
+      children: [_buildSwitcher(), if (screen == 'overview') lockButton],
     );
+  }
 
-    if (screen == 'overview') {
-      final closed = isClosed();
-      final lockBtn = GestureDetector(
-        key: const ValueKey('lock-btn'),
-        onTap: () => closed ? reopenMonth() : openCloseConfirm(),
-        child: Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: closed ? B.ink : Colors.white,
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: closed ? B.ink : B.line),
-          ),
-          child: Center(
-            child: ic(
-              closed ? 'lock' : 'unlock',
-              size: 16,
-              sw: 2.2,
-              color: closed ? Colors.white : B.soft2,
-            ),
-          ),
-        ),
-      );
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [left, lockBtn],
-      );
-    }
-
-    // stats: month strip + month/year toggle
+  Widget _buildStatsModeSwitcher() {
     Widget seg(String label, String val) {
       final active = statsMode == val;
       return GestureDetector(
@@ -1259,10 +1232,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       ),
     );
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [left, toggle],
-    );
+    return Align(alignment: Alignment.centerRight, child: toggle);
   }
 }
 

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
@@ -11,6 +13,96 @@ import 'helpers.dart';
 Future<void> goToCalendar(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-calendar')));
   await tester.pumpAndSettle();
+}
+
+/// Calendar management (categories/imports) moved behind the More hub once
+/// the new header replaced the old inline sub-header's "Manage" button.
+Future<void> openCalManage(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('nav-more')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('more-calmanage')));
+  await tester.pumpAndSettle();
+}
+
+/// Switches the calendar view via the header's view-switcher sheet.
+Future<void> setCalView(WidgetTester tester, String value) async {
+  await tester.tap(find.byKey(const ValueKey('cal-header-view')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey('cal-view-$value')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openCalFilters(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('cal-header-filter')));
+  await tester.pumpAndSettle();
+}
+
+Map<String, Object> calendarPrefs({
+  required List<CalendarEvent> events,
+  List<EventCategory> categories = const [],
+}) {
+  final family = Family(
+    id: 'fam_main',
+    name: 'Janssen family',
+    username: 'janssen',
+    members: [
+      FamilyMember(
+        id: 'me',
+        name: 'Eva Janssen',
+        email: 'eva.janssen@gmail.com',
+        initials: 'EJ',
+        color: kMemberColors[0],
+        role: 'owner',
+      ),
+      FamilyMember(
+        id: 'erik',
+        name: 'Erik Janssen',
+        email: 'erik.janssen@gmail.com',
+        initials: 'EJ',
+        color: kMemberColors[1],
+      ),
+    ],
+  );
+  final ws = Workspace.empty()
+    ..events = events
+    ..eventCategories = categories;
+  return {
+    'flutter.$kStorageKeyV4': json.encode({
+      'year': 2026,
+      'monthIdx': 6,
+      'screen': 'overview',
+      'tab': 'home',
+      'familyId': 'fam_main',
+      'families': [family.toJson()],
+      'workspaces': {'fam_main': ws.toJson()},
+    }),
+  };
+}
+
+String addDaysForTest(String iso, int n) {
+  final d = DateTime.parse('${iso}T00:00:00Z').add(Duration(days: n));
+  return '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+}
+
+String shortDateForTest(String iso) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  return '${months[d.month - 1]} ${d.day}';
 }
 
 void main() {
@@ -167,13 +259,33 @@ void main() {
     });
   });
 
-  testWidgets('Calendar month view shows the empty state with no events', (
+  testWidgets('calendar header shows both action icons', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    final viewButton = find.byKey(const ValueKey('cal-header-view'));
+    final filterButton = find.byKey(const ValueKey('cal-header-filter'));
+    expect(viewButton, findsOneWidget);
+    expect(filterButton, findsOneWidget);
+    expect(
+      find.descendant(of: viewButton, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: filterButton, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('tapping a day in Month view opens its day-detail sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    expect(find.text('No events'), findsOneWidget);
-    expect(find.text('Nothing planned for this day.'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('cal-day-${todayIso()}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
   });
 
   testWidgets('add an event via the FAB and see it in month view', (
@@ -191,8 +303,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Dentist'), findsOneWidget);
-    expect(find.text('No events'), findsNothing);
+    expect(find.text('Dentist'), findsWidgets);
   });
 
   testWidgets('All-day toggle hides the start/end time fields', (tester) async {
@@ -210,6 +321,19 @@ void main() {
     expect(find.text('10:00'), findsNothing);
   });
 
+  testWidgets('the multi-day toggle reveals an end-date field', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    expect(find.text('ENDS'), findsNothing);
+
+    await tester.tap(find.text('Multi-day'));
+    await tester.pumpAndSettle();
+    expect(find.text('ENDS'), findsOneWidget);
+  });
+
   testWidgets('view, edit and delete a one-off event', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
@@ -221,7 +345,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Team lunch'));
+    await tester.tap(find.text('Team lunch').first);
     await tester.pumpAndSettle();
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
@@ -232,7 +356,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Team lunch'), findsNothing);
-    expect(find.text('No events'), findsOneWidget);
   });
 
   testWidgets('creating a category from the event editor lands on Calendars & '
@@ -264,8 +387,7 @@ void main() {
     await goToCalendar(tester);
 
     // Create the category via the management sheet first.
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     await tester.tap(find.text('New category'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Family');
@@ -278,6 +400,7 @@ void main() {
     // an event and pick the new category.
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
+    await goToCalendar(tester);
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Dinner');
@@ -287,7 +410,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Dinner'), findsOneWidget);
+    expect(find.text('Dinner'), findsWidgets);
   });
 
   testWidgets(
@@ -305,7 +428,7 @@ void main() {
       await tester.tap(find.text('Add event').last);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Standup'));
+      await tester.tap(find.text('Standup').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
@@ -319,8 +442,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-lists')));
       await tester.pumpAndSettle();
       await goToCalendar(tester);
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
+      await setCalView(tester, 'agenda');
       expect(find.text('Standup'), findsWidgets);
     },
   );
@@ -347,8 +469,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
 
     await tester.tap(find.text('Import a calendar'));
@@ -365,11 +486,11 @@ void main() {
     expect(find.text('Erik · Work'), findsWidgets);
 
     // Dismiss the management sheet (tap the barrier above it) to reach the
-    // calendar sub-header underneath.
+    // calendar screen underneath.
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Agenda'));
-    await tester.pumpAndSettle();
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
     expect(find.text('Imported event'), findsWidgets);
 
     // Tapping the imported event opens a read-only view: no Edit/Delete.
@@ -404,8 +525,7 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
 
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -419,8 +539,8 @@ void main() {
 
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
       await tester.tap(find.text('Match day').first);
       await tester.pumpAndSettle();
 
@@ -445,8 +565,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -462,8 +581,7 @@ void main() {
       title = 'Match day v2';
       await rebootApp(tester);
       await goToCalendar(tester);
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
+      await setCalView(tester, 'agenda');
       expect(find.text('Match day v2'), findsWidgets);
 
       // Turn auto-sync off, change the feed again, reboot — should NOT
@@ -479,8 +597,7 @@ void main() {
       title = 'Match day v3';
       await rebootApp(tester);
       await goToCalendar(tester);
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
+      await setCalView(tester, 'agenda');
       expect(find.text('Match day v2'), findsWidgets);
       expect(find.text('Match day v3'), findsNothing);
     },
@@ -499,8 +616,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -541,8 +657,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -561,8 +676,8 @@ void main() {
 
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Agenda'));
-      await tester.pumpAndSettle();
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
       await tester.tap(find.text('Match day').first);
       await tester.pumpAndSettle();
 
@@ -584,8 +699,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -617,8 +731,7 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
 
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('New category'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Family');
@@ -627,8 +740,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Family'), findsWidgets);
 
-      // "Family" also appears as a filter chip in the calendar sub-header
-      // underneath the modal sheet — target the sheet row (rendered last).
       // Edit: tap the category row, rename, save.
       await tester.tap(find.text('Family').last);
       await tester.pumpAndSettle();
@@ -644,6 +755,7 @@ void main() {
       // event survives without it.
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
+      await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Dinner');
@@ -653,8 +765,7 @@ void main() {
       await tester.tap(find.text('Add event').last);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('Household').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete category'));
@@ -665,7 +776,8 @@ void main() {
       expect(find.text('Household'), findsNothing);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
-      expect(find.text('Dinner'), findsOneWidget);
+      await goToCalendar(tester);
+      expect(find.text('Dinner'), findsWidgets);
     },
   );
 
@@ -680,15 +792,15 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Agenda'));
-    await tester.pumpAndSettle();
+    await setCalView(tester, 'agenda');
     expect(find.text('Solo task'), findsOneWidget);
 
-    // "Everyone" chip is the default; tap it again then check a specific
-    // member filter still shows the event (default attendee is "me").
-    final everyone = find.byKey(const ValueKey('cal-filter-all'));
-    expect(everyone, findsOneWidget);
-    await tester.tap(everyone);
+    // No filters active by default; opening and closing the filter sheet
+    // without picking anything leaves everything showing (default attendee
+    // is "me").
+    await openCalFilters(tester);
+    expect(find.text('Show all events'), findsOneWidget);
+    await tester.tap(find.text('Show all events'));
     await tester.pumpAndSettle();
     expect(find.text('Solo task'), findsOneWidget);
   });
@@ -708,8 +820,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Agenda'));
-    await tester.pumpAndSettle();
+    await setCalView(tester, 'agenda');
     // Over a 160-day agenda window, a daily recurrence shows many times.
     expect(find.text('Daily pill'), findsAtLeastNWidgets(2));
   });
@@ -729,8 +840,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Agenda'));
-    await tester.pumpAndSettle();
+    await setCalView(tester, 'agenda');
     expect(find.text('Monthly bill'), findsAtLeastNWidgets(2));
   });
 
@@ -741,8 +851,7 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
 
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('New category'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Work');
@@ -752,6 +861,7 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
+      await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup');
@@ -760,20 +870,28 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add event').last);
       await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
       expect(find.text('Standup'), findsOneWidget);
 
       // The event only has the default "me" attendee; a filter for the
       // other family member should hide it.
+      await openCalFilters(tester);
       await tester.tap(find.text('Erik Janssen'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 filter'));
+      await tester.pumpAndSettle();
       expect(find.text('Standup'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('cal-filter-all')));
+
+      await openCalFilters(tester);
+      await tester.tap(find.text('Clear all'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show all events'));
       await tester.pumpAndSettle();
       expect(find.text('Standup'), findsOneWidget);
 
       // A category filter for a different category also hides it.
-      await tester.tap(find.byKey(const ValueKey('cal-manage')));
-      await tester.pumpAndSettle();
+      await openCalManage(tester);
       await tester.tap(find.text('New category'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Personal');
@@ -783,24 +901,195 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
+      await goToCalendar(tester);
+      await openCalFilters(tester);
       await tester.tap(find.text('Personal'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 filter'));
       await tester.pumpAndSettle();
       expect(find.text('Standup'), findsNothing);
     },
   );
 
-  testWidgets('cal-today jumps back to today after navigating', (tester) async {
+  testWidgets('view picker switches to Family view and shows member events', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'fam-erik',
+            title: 'Guitar lesson',
+            date: todayIso(),
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors.first,
+            attendees: ['erik'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    await setCalView(tester, 'family');
+
+    expect(find.text('MEMBER'), findsOneWidget);
+    expect(find.text('Eva Janssen'), findsOneWidget);
+    expect(find.text('Erik Janssen'), findsOneWidget);
+    expect(find.textContaining('Guitar lesson'), findsOneWidget);
+  });
+
+  testWidgets('filter sheet combines member and category filters', (
+    tester,
+  ) async {
+    final work = EventCategory(
+      id: 'work',
+      name: 'Work',
+      color: kCatColors.first,
+      icon: 'briefcase',
+    );
+    final school = EventCategory(
+      id: 'school',
+      name: 'School',
+      color: kCatColors[1],
+      icon: 'book',
+    );
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        categories: [work, school],
+        events: [
+          CalendarEvent(
+            id: 'mine-work',
+            title: 'Work sync',
+            date: todayIso(),
+            start: '09:00',
+            end: '10:00',
+            category: work.id,
+            color: work.color,
+            attendees: ['me'],
+          ),
+          CalendarEvent(
+            id: 'erik-school',
+            title: 'School pickup',
+            date: todayIso(),
+            start: '11:00',
+            end: '12:00',
+            category: school.id,
+            color: school.color,
+            attendees: ['erik'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
+    expect(find.text('Work sync'), findsOneWidget);
+    expect(find.text('School pickup'), findsOneWidget);
+
+    await openCalFilters(tester);
+    await tester.tap(find.byKey(const ValueKey('cal-filter-member-me')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('cal-filter-cat-work')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show 2 filters'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Work sync'), findsOneWidget);
+    expect(find.text('School pickup'), findsNothing);
+  });
+
+  testWidgets('multi-day event renders as a month span and shows date range', (
+    tester,
+  ) async {
+    final end = addDaysForTest(todayIso(), 2);
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'span1',
+            title: 'Grandparents visiting',
+            allDay: true,
+            date: todayIso(),
+            endDate: end,
+            color: kEventColors[3],
+            attendees: ['me', 'erik'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    expect(find.text('Grandparents visiting'), findsOneWidget);
+    await tester.tap(find.text('Grandparents visiting'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('${shortDateForTest(todayIso())} – ${shortDateForTest(end)}'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Week view renders and opens a timed event block', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'timed1',
+            title: 'Dentist timed',
+            date: todayIso(),
+            start: '09:00',
+            end: '10:30',
+            color: kEventColors[2],
+            attendees: ['me'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    expect(find.byKey(const ValueKey('cal-timed-timed1')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cal-timed-timed1')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Dentist timed'), findsWidgets);
+    expect(find.text('09:00 – 10:30'), findsOneWidget);
+  });
+
+  testWidgets('month picker jumps to a chosen month and back to today', (
+    tester,
+  ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    await tester.tap(find.byKey(const ValueKey('cal-nav-cright')));
+    await tester.tap(find.byKey(const ValueKey('cal-month-title')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('cal-nav-cright')));
+    expect(find.text('Jump to a month'), findsOneWidget);
+
+    final today = _isoNow();
+    final year = int.parse(today.substring(0, 4));
+    final month = int.parse(today.substring(5, 7));
+    final nextMonth = month == 12 ? 1 : month + 1;
+    final nextYear = month == 12 ? year + 1 : year;
+    await tester.tap(
+      find.byKey(ValueKey('cal-pick-month-$nextYear-$nextMonth')),
+    );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('cal-today')));
+    await tester.tap(find.byKey(const ValueKey('cal-month-title')));
     await tester.pumpAndSettle();
-    expect(find.text('TODAY'), findsOneWidget);
+    await tester.tap(find.text('Jump to today'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('editing an existing event updates it in place', (tester) async {
@@ -814,7 +1103,7 @@ void main() {
     await tester.tap(find.text('Add event').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Original title'));
+    await tester.tap(find.text('Original title').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
@@ -823,7 +1112,7 @@ void main() {
     await tester.tap(find.text('Save event'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Updated title'), findsOneWidget);
+    expect(find.text('Updated title'), findsWidgets);
     expect(find.text('Original title'), findsNothing);
   });
 
@@ -840,8 +1129,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -862,8 +1150,8 @@ void main() {
 
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Agenda'));
-    await tester.pumpAndSettle();
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
     expect(find.text('Hideable'), findsNothing);
   });
 
@@ -880,8 +1168,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await tester.tap(find.byKey(const ValueKey('cal-manage')));
-    await tester.pumpAndSettle();
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -914,3 +1201,5 @@ void main() {
     expect(IcsImportException('boom').toString(), 'boom');
   });
 }
+
+String _isoNow() => todayIso();

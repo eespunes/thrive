@@ -18,7 +18,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
   late final TextEditingController _location;
   late final TextEditingController _notes;
   late bool _allDay;
+  late bool _multiDay;
   late String _date;
+  late String _endDate;
   late String _start;
   late String _end;
   String? _category;
@@ -38,6 +40,8 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _notes = TextEditingController(text: e?.notes ?? '');
     _allDay = e?.allDay ?? false;
     _date = e?.date ?? widget.date;
+    _multiDay = e?.endDate.isNotEmpty == true;
+    _endDate = e?.endDate.isNotEmpty == true ? e!.endDate : _date;
     _start = e?.start.isNotEmpty == true ? e!.start : '09:00';
     _end = e?.end.isNotEmpty == true ? e!.end : '10:00';
     _category = e?.category;
@@ -62,7 +66,21 @@ class _EventEditSheetState extends State<_EventEditSheet> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
-    if (picked != null) setState(() => _date = _isoOfDate(picked));
+    if (picked == null) return;
+    setState(() {
+      _date = _isoOfDate(picked);
+      if (_endDate.compareTo(_date) < 0) _endDate = _date;
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _parseIso(_endDate),
+      firstDate: _parseIso(_date),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _endDate = _isoOfDate(picked));
   }
 
   Future<void> _pickTime(bool isStart) async {
@@ -206,6 +224,49 @@ class _EventEditSheetState extends State<_EventEditSheet> {
               ),
             ),
           ),
+          if (_recur == 'none') ...[
+            _toggleRow(
+              'Multi-day',
+              _multiDay,
+              () => setState(() {
+                _multiDay = !_multiDay;
+                if (!_multiDay) _endDate = _date;
+              }),
+              activeColor: B.primary,
+            ),
+            const SizedBox(height: 13),
+            if (_multiDay)
+              _sheetField(
+                'Ends',
+                GestureDetector(
+                  onTap: _pickEndDate,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: B.line),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        ic('cal', size: 15, sw: 2.2, color: B.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          _endDate,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
           if (!_allDay)
             Row(
               children: [
@@ -522,6 +583,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
               title: _title.text,
               allDay: _allDay,
               date: _date,
+              endDate: _multiDay ? _endDate : '',
               start: _start,
               end: _end,
               location: _location.text,
@@ -642,6 +704,11 @@ class _EventViewSheet extends StatelessWidget {
         : (state.curFamily()?.members ?? const <FamilyMember>[]).where(
             (m) => m.id == creatorId,
           );
+    final isMultiDay =
+        ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0;
+    final dateLabel = isMultiDay
+        ? '${_shortDateIso(ev.date)} – ${_shortDateIso(ev.endDate)}'
+        : _prettyDateIso(date);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -674,7 +741,7 @@ class _EventViewSheet extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _prettyDateIso(date),
+                    dateLabel,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1963,6 +2030,481 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Month picker — year nav + a 3x4 month grid, ported from the design's
+/// `monthSheet()`. Tapping a month jumps `calAnchor` there.
+class _CalMonthPickerSheet extends StatefulWidget {
+  const _CalMonthPickerSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_CalMonthPickerSheet> createState() => _CalMonthPickerSheetState();
+}
+
+class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
+  late int _year;
+
+  @override
+  void initState() {
+    super.initState();
+    _year = _parseIso(widget.state.calAnchor).year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final cur = _parseIso(s.calAnchor);
+    final todayYear = _parseIso(todayIso()).year;
+    final todayMonth = _parseIso(todayIso()).month;
+
+    Widget yearBtn(String icon, int dy) {
+      return GestureDetector(
+        key: ValueKey('cal-year-$icon'),
+        onTap: () => setState(() => _year += dy),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            border: Border.all(color: B.line),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Center(child: ic(icon, size: 17, sw: 2.4, color: B.soft2)),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHead(context, 'Jump to a month'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            children: [
+              yearBtn('cleft', -1),
+              Expanded(
+                child: Text(
+                  '$_year',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: B.ink,
+                  ),
+                ),
+              ),
+              yearBtn('cright', 1),
+            ],
+          ),
+        ),
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 9,
+          crossAxisSpacing: 9,
+          childAspectRatio: 1.9,
+          children: [
+            for (var m = 1; m <= 12; m++)
+              Builder(
+                builder: (_) {
+                  final on = m == cur.month && _year == cur.year;
+                  final isNow = m == todayMonth && _year == todayYear;
+                  return GestureDetector(
+                    key: ValueKey('cal-pick-month-$_year-$m'),
+                    onTap: () {
+                      s.update(() => s.calAnchor = _isoOf(_year, m, 1));
+                      Navigator.of(context).pop();
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: on ? B.primary : Colors.white,
+                        border: Border.all(color: on ? B.primary : B.line),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            kMonthsShort[m - 1],
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: on ? Colors.white : B.ink,
+                            ),
+                          ),
+                          if (isNow && !on)
+                            Positioned(
+                              top: 6,
+                              right: 8,
+                              child: Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: B.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _primaryBtn('Jump to today', () {
+          s.calToday();
+          Navigator.of(context).pop();
+        }),
+      ],
+    );
+  }
+}
+
+/// View-switcher sheet — Month/Week/Family/Agenda, ported from `viewSheet()`.
+class _ViewPickerSheet extends StatelessWidget {
+  const _ViewPickerSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHead(context, 'View'),
+        for (final (value, label, icon) in kCalViews)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Builder(
+              builder: (_) {
+                final on = state.calView == value;
+                return GestureDetector(
+                  key: ValueKey('cal-view-$value'),
+                  onTap: () {
+                    state.setCalView(value);
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: on ? B.soft : Colors.white,
+                      border: Border.all(color: on ? B.primary : B.line),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: on ? B.primary : B.faint,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Center(
+                            child: ic(
+                              icon,
+                              size: 17,
+                              sw: 2.2,
+                              color: on ? Colors.white : B.soft2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w800,
+                              color: on ? B.deep : B.ink,
+                            ),
+                          ),
+                        ),
+                        if (on)
+                          ic('check', size: 19, sw: 2.6, color: B.primary),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Multi-select filter sheet — family members + categories, ported from
+/// `filterSheet()`.
+class _CalFilterSheet extends StatefulWidget {
+  const _CalFilterSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_CalFilterSheet> createState() => _CalFilterSheetState();
+}
+
+class _CalFilterSheetState extends State<_CalFilterSheet> {
+  Widget _chip({
+    Key? key,
+    required Widget? leading,
+    required String label,
+    required bool on,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(leading != null ? 5 : 13, 8, 13, 8),
+        decoration: BoxDecoration(
+          color: on ? color.withValues(alpha: .12) : Colors.white,
+          border: Border.all(color: on ? color : B.line, width: on ? 1.5 : 1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[leading, const SizedBox(width: 6)],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: on ? color : B.soft2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final members = s.curFamily()?.members ?? const <FamilyMember>[];
+    final count = s.calFilterCount();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Filters',
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  color: B.ink,
+                ),
+              ),
+            ),
+            if (count > 0)
+              GestureDetector(
+                key: const ValueKey('cal-filter-clear'),
+                onTap: () => setState(s.clearCalFilters),
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: Text(
+                    'Clear all',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.primary,
+                    ),
+                  ),
+                ),
+              ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: B.faint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: ic('x', size: 17, sw: 2.2, color: B.soft2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'FAMILY MEMBERS',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .3,
+            color: B.muted,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 20),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in members)
+                _chip(
+                  key: ValueKey('cal-filter-member-${m.id}'),
+                  leading: s._memberAvatar(m.id, size: 22),
+                  label: m.name,
+                  on: s.calFilter.contains(m.id),
+                  color: m.color,
+                  onTap: () => setState(() => s.toggleCalMemberFilter(m.id)),
+                ),
+            ],
+          ),
+        ),
+        const Text(
+          'CATEGORIES',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .3,
+            color: B.muted,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 22),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in s.eventCategories)
+                _chip(
+                  key: ValueKey('cal-filter-cat-${c.id}'),
+                  leading: categoryGlyph(c, size: 15, iconColor: c.color),
+                  label: c.name,
+                  on: s.calCatFilter.contains(c.id),
+                  color: c.color,
+                  onTap: () => setState(() => s.toggleCalCategoryFilter(c.id)),
+                ),
+            ],
+          ),
+        ),
+        _primaryBtn(
+          count > 0
+              ? 'Show $count filter${count > 1 ? 's' : ''}'
+              : 'Show all events',
+          () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+}
+
+/// Full day's events, ported from `daySheet()` — replaces Month view's old
+/// inline "selected day" panel; opened by tapping a day number.
+class _DayDetailSheet extends StatelessWidget {
+  const _DayDetailSheet({required this.state, required this.iso});
+  final _ThriveHomeState state;
+  final String iso;
+
+  @override
+  Widget build(BuildContext context) {
+    final evs = state.eventOccurrences(iso, iso)
+      ..sort(
+        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+          b.ev.allDay ? '' : b.ev.start,
+        ),
+      );
+    final isToday = iso == todayIso();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _prettyDateIso(iso),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.3,
+                      color: B.ink,
+                    ),
+                  ),
+                  Text(
+                    (isToday ? 'Today · ' : '') +
+                        (evs.isEmpty
+                            ? 'No events'
+                            : '${evs.length} event${evs.length > 1 ? 's' : ''}'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: B.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: B.faint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: ic('x', size: 17, sw: 2.2, color: B.soft2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (evs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 22),
+            child: Center(
+              child: Text(
+                'Nothing scheduled for this day.',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (final o in evs) ...[
+                state._eventCard(o),
+                if (o != evs.last) const SizedBox(height: 9),
+              ],
+            ],
+          ),
+      ],
     );
   }
 }

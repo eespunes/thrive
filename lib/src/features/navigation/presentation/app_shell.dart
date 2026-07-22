@@ -165,7 +165,10 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'home':
         return ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
-        return ('Calendar', _monthTitleIso(calAnchor));
+        final subtitle = (calView == 'week' || calView == 'family')
+            ? _weekRangeIso(_startOfWeekIso(calAnchor))
+            : _monthTitleIso(calAnchor);
+        return ('Calendar', subtitle);
       case 'lists':
         final tl = openList();
         if (tl != null) {
@@ -199,9 +202,6 @@ extension _ThriveAppShell on _ThriveHomeState {
   Widget? _tabSubHeader(String t) {
     if (t == 'finsettings') {
       return _backRow('More', () => goTab('more'));
-    }
-    if (t == 'calendar') {
-      return _calSubHeader();
     }
     if (t == 'lists') {
       if (openShop() != null || openList() != null) {

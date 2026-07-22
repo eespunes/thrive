@@ -1,321 +1,318 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// The Calendar tab (#152): Month/Week/Agenda views over the shared family
-/// [_ThriveHomeState.events], ported from the design's `renderCalendar()` /
-/// `calMonth()` / `calWeek()` / `calAgenda()` / `eventCard()`.
+/// (value, label, icon) for each calendar view, in picker order.
+const List<(String, String, String)> kCalViews = [
+  ('month', 'Month', 'grid'),
+  ('week', 'Week', 'columns'),
+  ('family', 'Family', 'users'),
+  ('agenda', 'Agenda', 'list'),
+];
+
+/// The Calendar tab (#152): Month/Week/Family/Agenda views over the shared
+/// family [_ThriveHomeState.events], ported from the design's
+/// `renderCalendar()` / `monthView()` / `weekView()` / `familyView()` /
+/// `agendaView()` / `eventCard()`.
 extension _ThriveCalendarScreens on _ThriveHomeState {
-  Widget _buildCalendar() {
-    switch (calView) {
-      case 'week':
-        return _calWeek();
-      case 'agenda':
-        return _calAgenda();
-      default:
-        return _calMonth();
+  String _calViewIcon() {
+    for (final (v, _, icon) in kCalViews) {
+      if (v == calView) return icon;
     }
+    return 'grid';
   }
 
-  /// The calendar sub-header: view toggle, prev/today/next nav (hidden in
-  /// agenda), member filter chips and category filter chips + "Manage".
-  Widget _calSubHeader() {
-    final toggle = _segRow(
-      const [('month', 'Month'), ('week', 'Week'), ('agenda', 'Agenda')],
-      calView,
-      setCalView,
-    );
-
-    final nav = calView == 'agenda'
-        ? null
-        : Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Row(
-              children: [
-                _calNavBtn('cleft', () => calStep(-1)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: GestureDetector(
-                    key: const ValueKey('cal-today'),
-                    onTap: calToday,
-                    child: Container(
-                      height: 34,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: B.line),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Text(
-                        calView == 'month'
-                            ? _monthTitleIso(calAnchor)
-                            : _weekRangeIso(_startOfWeekIso(calAnchor)),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: B.ink,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _calNavBtn('cright', () => calStep(1)),
-              ],
-            ),
-          );
-
-    final members = curFamily()?.members ?? const <FamilyMember>[];
-    final memberChips = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        children: [
-          _calFilterChip(
-            key: 'cal-filter-all',
-            label: 'Everyone',
-            active: calFilter == null,
-            onTap: () => setCalFilter(null),
-          ),
-          for (final m in members) ...[
-            const SizedBox(width: 7),
-            _calFilterChip(
-              key: 'cal-filter-${m.id}',
-              label: m.name,
-              active: calFilter == m.id,
-              onTap: () => setCalFilter(m.id),
-              avatar: _memberAvatar(m.id, size: 20),
-            ),
-          ],
-        ],
-      ),
-    );
-
-    final catChips = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(top: 8, bottom: 2),
-      child: Row(
-        children: [
-          for (final c in eventCategories) ...[
-            _calCategoryChip(c),
-            const SizedBox(width: 7),
-          ],
-          GestureDetector(
-            key: const ValueKey('cal-manage'),
-            onTap: openCalendarManageSheet,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-              decoration: BoxDecoration(
-                border: Border.all(color: B.line, style: BorderStyle.solid),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ic('sliders', size: 12, sw: 2.3, color: B.primary),
-                  const SizedBox(width: 4),
-                  const Text(
-                    'Manage',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [toggle, ?nav, memberChips, catChips],
-    );
-  }
-
-  Widget _calNavBtn(String icon, VoidCallback onTap) {
-    return GestureDetector(
-      key: ValueKey('cal-nav-$icon'),
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Center(child: ic(icon, size: 17, sw: 2.4, color: B.soft2)),
-      ),
-    );
-  }
-
-  Widget _calFilterChip({
-    required String key,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-    Widget? avatar,
-  }) {
-    return GestureDetector(
-      key: ValueKey(key),
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(avatar != null ? 5 : 11, 5, 11, 5),
-        decoration: BoxDecoration(
-          color: active ? B.soft : Colors.white,
-          border: Border.all(color: active ? B.primary : B.line),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (avatar != null) ...[avatar, const SizedBox(width: 6)],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: active ? B.deep : B.soft2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _calCategoryChip(EventCategory c) {
-    final active = calCatFilter == c.id;
-    return GestureDetector(
-      key: ValueKey('cal-cat-${c.id}'),
-      onTap: () => setCalCatFilter(c.id),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? c.color : Colors.white,
-          border: Border.all(color: active ? c.color : B.line),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            categoryGlyph(
-              c,
-              size: 14,
-              iconColor: active ? Colors.white : c.color,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              c.name,
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
-                color: active ? Colors.white : B.soft2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // -------------------------------------------------------------- month
-  Widget _calMonth() {
-    final grid = monthGrid(calAnchor);
-    final curMonth = _parseIso(calAnchor).month;
-    final counts = <String, List<Color>>{};
-    for (final o in eventOccurrences(grid.first, grid.last)) {
-      final list = counts.putIfAbsent(o.date, () => []);
-      if (list.length < 3) list.add(evColor(o.ev));
-    }
-    final today = todayIso();
-
-    Widget cell(String iso) {
-      final d = _parseIso(iso);
-      final inMonth = d.month == curMonth;
-      final isToday = iso == today;
-      final sel = iso == calSel;
-      final dots = counts[iso] ?? const <Color>[];
+  /// View-switcher + filter (badge) icon buttons shown in the app header
+  /// when the Calendar tab is active.
+  Widget _calHeaderActions() {
+    final fc = calFilterCount();
+    Widget iconBtn(
+      String icon,
+      String keySuffix,
+      VoidCallback onTap, {
+      int? badge,
+    }) {
+      final active = badge != null && badge > 0;
       return GestureDetector(
-        key: ValueKey('cal-day-$iso'),
-        onTap: () => setCalSel(iso),
+        key: ValueKey('cal-header-$keySuffix'),
+        onTap: onTap,
         child: Container(
+          margin: const EdgeInsets.only(left: 8),
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: sel ? B.primary : Colors.transparent,
+            border: Border.all(color: active ? B.primary : B.line),
+            color: active ? B.soft : Colors.white,
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.all(2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Text(
-                '${d.day}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: isToday || sel
-                      ? FontWeight.w800
-                      : FontWeight.w600,
-                  color: sel
-                      ? Colors.white
-                      : (isToday
-                            ? B.primary
-                            : (inMonth ? B.ink : const Color(0xffc2cad6))),
+              Center(
+                child: ic(
+                  icon,
+                  size: 18,
+                  sw: 2.1,
+                  color: active ? B.deep : B.soft2,
                 ),
               ),
-              const SizedBox(height: 3),
-              SizedBox(
-                height: 5,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (final c in dots)
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 1),
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: sel ? Colors.white : c,
-                          shape: BoxShape.circle,
+              if (badge != null && badge > 0)
+                Positioned(
+                  top: -5,
+                  right: -5,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 17),
+                    height: 17,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: B.primary,
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: B.page, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$badge',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
                         ),
                       ),
-                  ],
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       );
     }
 
-    final dayEvents = eventOccurrences(calSel, calSel)
-      ..sort(
-        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-          b.ev.allDay ? '' : b.ev.start,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        iconBtn(_calViewIcon(), 'view', openViewPicker),
+        iconBtn('filter', 'filter', openCalFilterSheet, badge: fc),
+      ],
+    );
+  }
+
+  Widget _buildCalendar() {
+    Widget body = switch (calView) {
+      'week' => _calWeek(),
+      'family' => _calFamily(),
+      'agenda' => _calAgenda(),
+      _ => _calMonth(),
+    };
+    // Month view navigates vertically (prev/next month); Week/Family
+    // navigate horizontally (prev/next week); Agenda has no gesture nav.
+    if (calView == 'month') {
+      body = GestureDetector(
+        onVerticalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          if (v.abs() > 200) calStep(v < 0 ? 1 : -1);
+        },
+        child: body,
+      );
+    } else if (calView == 'week' || calView == 'family') {
+      body = GestureDetector(
+        onHorizontalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          if (v.abs() > 200) calStep(v < 0 ? 1 : -1);
+        },
+        child: body,
+      );
+    }
+    return body;
+  }
+
+  // -------------------------------------------------------------- month
+  Widget _calMonth() {
+    final grid = monthGrid(calAnchor);
+    final curMonth = _parseIso(calAnchor).month;
+    final today = todayIso();
+
+    Widget dayNumber(String iso) {
+      final d = _parseIso(iso);
+      final inMonth = d.month == curMonth;
+      final isToday = iso == today;
+      return GestureDetector(
+        key: ValueKey('cal-day-$iso'),
+        onTap: () {
+          setCalSel(iso);
+          openDayDetail(iso);
+        },
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(top: 2),
+          child: Container(
+            width: 19,
+            height: 19,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isToday ? B.primary : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '${d.day}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
+                color: isToday
+                    ? Colors.white
+                    : (inMonth ? B.ink : const Color(0xffc2cad6)),
+              ),
+            ),
+          ),
         ),
       );
+    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+    Widget weekRow(List<String> row, int wi) {
+      final ws = row.first;
+      final we = row.last;
+      final occ = eventOccurrences(ws, we);
+      final packed = packWeekLanes(occ, ws, we);
+
+      Widget bar(CalendarOccurrence o, int cs, int ce) {
+        final col = evColor(o.ev);
+        final left = o.date.compareTo(ws) < 0;
+        final right = o.spanEnd.compareTo(we) > 0;
+        final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
+        return GestureDetector(
+          key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
+          onTap: () => openEventView(o.ev.id, o.date),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
+            height: 14,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: cardShadow(),
+              color: o.isMultiDay ? col : col.withValues(alpha: .13),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(left ? 0 : 4),
+                bottomLeft: Radius.circular(left ? 0 : 4),
+                topRight: Radius.circular(right ? 0 : 4),
+                bottomRight: Radius.circular(right ? 0 : 4),
+              ),
             ),
-            child: Column(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    for (final w in kWeekdayLetters)
-                      Expanded(
+                if (!o.isMultiDay)
+                  Container(
+                    width: 5,
+                    height: 5,
+                    margin: const EdgeInsets.only(right: 3),
+                    decoration: BoxDecoration(
+                      color: col,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                      color: o.isMultiDay ? Colors.white : col,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final laneRows = <Widget>[];
+      for (final lane in packed.lanes) {
+        final cells = <Widget>[];
+        var c = 0;
+        while (c < 7) {
+          final o = lane[c];
+          if (o == null) {
+            cells.add(const Expanded(child: SizedBox()));
+            c++;
+            continue;
+          }
+          var span = 1;
+          while (c + span < 7 && lane[c + span] == o) {
+            span++;
+          }
+          cells.add(Expanded(flex: span, child: bar(o, c, c + span - 1)));
+          c += span;
+        }
+        laneRows.add(Row(children: cells));
+      }
+      final overflowRow = packed.overflow.isEmpty
+          ? null
+          : Row(
+              children: [
+                for (var i = 0; i < 7; i++)
+                  Expanded(
+                    child: packed.overflow[i] != null
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 3),
+                            child: Text(
+                              '+${packed.overflow[i]}',
+                              style: const TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: B.muted,
+                              ),
+                            ),
+                          )
+                        : const SizedBox(),
+                  ),
+              ],
+            );
+
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: wi == 0 ? BorderSide.none : BorderSide(color: B.faint),
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(3, 3, 3, 4),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                for (final iso in row) Expanded(child: dayNumber(iso)),
+              ],
+            ),
+            ...laneRows,
+            ?overflowRow,
+          ],
+        ),
+      );
+    }
+
+    final weeks = [for (var w = 0; w < 6; w++) grid.sublist(w * 7, w * 7 + 7)];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight - 12
+            : 640.0;
+        return Container(
+          height: height.clamp(360.0, double.infinity).toDouble(),
+          margin: const EdgeInsets.only(top: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: B.line),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: cardShadow(),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  for (final w in kWeekdayLetters)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
                         child: Text(
                           w,
                           textAlign: TextAlign.center,
@@ -326,149 +323,477 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                for (var row = 0; row < 6; row++)
-                  AspectRatio(
-                    aspectRatio: 7,
-                    child: Row(
-                      children: [
-                        for (var col = 0; col < 7; col++)
-                          Expanded(child: cell(grid[row * 7 + col])),
-                      ],
                     ),
-                  ),
-              ],
-            ),
-          ),
-          _secLabel(calSel == today ? 'Today' : _prettyDateIso(calSel)),
-          if (dayEvents.isEmpty)
-            _emptyState(
-              icon: 'cal',
-              title: 'No events',
-              sub: 'Nothing planned for this day.',
-              actionLabel: 'Add event',
-              onAction: () => openEvent(null, calSel),
-            )
-          else
-            Column(
-              children: [
-                for (final o in dayEvents) ...[
-                  _eventCard(o),
-                  if (o != dayEvents.last) const SizedBox(height: 9),
                 ],
-              ],
-            ),
-        ],
-      ),
+              ),
+              for (var wi = 0; wi < weeks.length; wi++)
+                Expanded(child: weekRow(weeks[wi], wi)),
+            ],
+          ),
+        );
+      },
     );
   }
 
   // --------------------------------------------------------------- week
   Widget _calWeek() {
+    const hStart = 7, hEnd = 23, rowH = 48.0, gutter = 42.0;
     final ws = _startOfWeekIso(calAnchor);
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
     final today = todayIso();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-          for (final iso in days) ...[
-            _calWeekDayRow(iso, today),
-            const SizedBox(height: 10),
-          ],
-        ],
-      ),
-    );
-  }
+    final now = DateTime.now();
 
-  Widget _calWeekDayRow(String iso, String today) {
-    final evs = eventOccurrences(iso, iso)
-      ..sort(
-        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-          b.ev.allDay ? '' : b.ev.start,
-        ),
-      );
-    final d = _parseIso(iso);
-    final isToday = iso == today;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final dayHead = Row(
       children: [
-        SizedBox(
-          width: 44,
-          child: Column(
-            children: [
-              Text(
-                kWeekdayLetters[d.weekday - 1],
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: isToday ? B.primary : B.muted,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isToday ? B.primary : Colors.white,
-                  border: isToday ? null : Border.all(color: B.line),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Text(
-                  '${d.day}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: isToday ? Colors.white : B.ink,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: evs.isEmpty
-                ? GestureDetector(
-                    onTap: () => openEvent(null, iso),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: B.line,
-                          style: BorderStyle.solid,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
+        SizedBox(width: gutter),
+        for (final iso in days)
+          Expanded(
+            child: Builder(
+              builder: (_) {
+                final d = _parseIso(iso);
+                final isToday = iso == today;
+                return Column(
+                  children: [
+                    Text(
+                      kWeekdayLetters[d.weekday - 1],
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: isToday ? B.primary : B.muted,
                       ),
-                      child: const Text(
-                        'No events',
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.only(top: 1),
+                      decoration: BoxDecoration(
+                        color: isToday ? B.primary : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${d.day}',
                         style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: B.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: isToday ? Colors.white : B.ink,
                         ),
                       ),
                     ),
-                  )
-                : Column(
-                    children: [
-                      for (final o in evs) ...[
-                        _eventCard(o),
-                        if (o != evs.last) const SizedBox(height: 7),
+                  ],
+                );
+              },
+            ),
+          ),
+      ],
+    );
+
+    final allDayByDay = [
+      for (final iso in days)
+        eventOccurrences(iso, iso).where((o) => o.ev.allDay).toList(),
+    ];
+    final allStrip = Row(
+      children: [
+        SizedBox(width: gutter),
+        for (final arr in allDayByDay)
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              child: Column(
+                children: [
+                  for (final o in arr.take(3))
+                    GestureDetector(
+                      key: ValueKey('cal-allday-${o.ev.id}'),
+                      onTap: () => openEventView(o.ev.id, o.date),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 2),
+                        width: double.infinity,
+                        height: 14,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: evColor(o.ev),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          o.ev.title,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final hours = [for (var h = hStart; h <= hEnd; h++) h];
+    final gridH = hours.length * rowH;
+
+    Widget dayCol(String iso) {
+      final timed =
+          eventOccurrences(iso, iso).where((o) => !o.ev.allDay).toList()..sort(
+            (a, b) => _toMinutes(a.ev.start).compareTo(_toMinutes(b.ev.start)),
+          );
+      final laid = packTimedColumns(timed);
+      final isToday = iso == today;
+      return Expanded(
+        child: Container(
+          color: isToday ? const Color(0xfff0fbfa) : Colors.transparent,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final colW = constraints.maxWidth;
+              return Stack(
+                children: [
+                  for (final item in laid)
+                    Builder(
+                      builder: (_) {
+                        final o = item.o;
+                        final col = evColor(o.ev);
+                        final top =
+                            (_toMinutes(o.ev.start) / 60 - hStart) * rowH;
+                        final endMin = _toMinutes(
+                          o.ev.end.isNotEmpty ? o.ev.end : o.ev.start,
+                        );
+                        final h =
+                            ((endMin - _toMinutes(o.ev.start)) / 60 * rowH)
+                                .clamp(20.0, gridH);
+                        final w = colW / item.cols;
+                        return Positioned(
+                          top: top,
+                          height: h,
+                          left: item.col * w,
+                          width: w,
+                          child: GestureDetector(
+                            key: ValueKey('cal-timed-${o.ev.id}'),
+                            onTap: () => openEventView(o.ev.id, o.date),
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: col.withValues(alpha: .15),
+                                border: Border(
+                                  left: BorderSide(color: col, width: 3),
+                                ),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    o.ev.title,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: col,
+                                    ),
+                                  ),
+                                  if (h > 30)
+                                    Text(
+                                      o.ev.start,
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: col.withValues(alpha: .85),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  if (isToday)
+                    Positioned(
+                      top: ((now.hour * 60 + now.minute) / 60 - hStart) * rowH,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 2,
+                        color: const Color(0xffe11d48),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        dayHead,
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: B.faint),
+              bottom: BorderSide(color: B.line),
+            ),
+          ),
+          child: allStrip,
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            child: SizedBox(
+              height: gridH,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: gutter,
+                    height: gridH,
+                    child: Stack(
+                      children: [
+                        for (var i = 0; i < hours.length; i++)
+                          Positioned(
+                            top: i * rowH - 6,
+                            right: 6,
+                            child: Text(
+                              i == 0
+                                  ? ''
+                                  : '${hours[i].toString().padLeft(2, '0')}:00',
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: B.muted,
+                              ),
+                            ),
+                          ),
                       ],
-                    ],
+                    ),
                   ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Column(
+                          children: [
+                            for (var i = 0; i < hours.length; i++)
+                              Container(
+                                height: rowH,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(color: B.faint),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        Row(children: [for (final iso in days) dayCol(iso)]),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  // ------------------------------------------------------------- family
+  Widget _calFamily() {
+    final ws = _startOfWeekIso(calAnchor);
+    final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
+    final today = todayIso();
+    final members = curFamily()?.members ?? const <FamilyMember>[];
+
+    Widget head() {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 84,
+            child: Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Text(
+                'MEMBER',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: B.muted,
+                ),
+              ),
+            ),
+          ),
+          for (final iso in days)
+            Expanded(
+              child: Builder(
+                builder: (_) {
+                  final d = _parseIso(iso);
+                  final isToday = iso == today;
+                  return Column(
+                    children: [
+                      Text(
+                        kWeekdayLetters[d.weekday - 1],
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          color: isToday ? B.primary : B.muted,
+                        ),
+                      ),
+                      Text(
+                        '${d.day}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: isToday ? B.primary : B.ink,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+        ],
+      );
+    }
+
+    Widget memberRow(FamilyMember m, bool top) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(
+            top: top ? BorderSide.none : BorderSide(color: B.line),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 84,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                child: Row(
+                  children: [
+                    _memberAvatar(m.id, size: 24),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        m.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            for (final iso in days)
+              Expanded(
+                child: Builder(
+                  builder: (_) {
+                    final evs =
+                        eventOccurrences(
+                            iso,
+                            iso,
+                          ).where((o) => o.ev.attendees.contains(m.id)).toList()
+                          ..sort(
+                            (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+                              b.ev.allDay ? '' : b.ev.start,
+                            ),
+                          );
+                    return Container(
+                      constraints: const BoxConstraints(minHeight: 52),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        border: const Border(left: BorderSide(color: B.faint)),
+                        color: iso == today ? const Color(0xfff0fbfa) : null,
+                      ),
+                      child: Column(
+                        children: [
+                          for (final o in evs.take(3))
+                            GestureDetector(
+                              key: ValueKey('cal-family-${m.id}-${o.ev.id}'),
+                              onTap: () => openEventView(o.ev.id, o.date),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 2),
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: evColor(o.ev).withValues(alpha: .13),
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: evColor(o.ev),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  o.ev.allDay
+                                      ? o.ev.title
+                                      : '${o.ev.start} ${o.ev.title}',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    color: evColor(o.ev),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (evs.length > 3)
+                            Text(
+                              '+${evs.length - 3}',
+                              style: const TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                color: B.muted,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Container(
+        color: Colors.white,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: B.line)),
+              ),
+              child: head(),
+            ),
+            for (var i = 0; i < members.length; i++)
+              memberRow(members[i], i == 0),
+          ],
+        ),
+      ),
     );
   }
 
@@ -579,12 +904,19 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ic('clock', size: 12, sw: 2.2, color: B.muted),
+                      ic(
+                        o.isMultiDay ? 'cal' : 'clock',
+                        size: 12,
+                        sw: 2.2,
+                        color: B.muted,
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        ev.allDay
-                            ? 'All day'
-                            : '${ev.start}${ev.end.isNotEmpty ? '–${ev.end}' : ''}',
+                        o.isMultiDay
+                            ? '${_shortDateIso(o.date)} – ${_shortDateIso(o.spanEnd)}'
+                            : (ev.allDay
+                                  ? 'All day'
+                                  : '${ev.start}${ev.end.isNotEmpty ? '–${ev.end}' : ''}'),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,

@@ -7,6 +7,7 @@ class CalendarEvent {
     required this.title,
     this.allDay = false,
     required this.date,
+    this.endDate = '',
     this.start = '',
     this.end = '',
     this.location = '',
@@ -27,6 +28,10 @@ class CalendarEvent {
 
   /// ISO `YYYY-MM-DD` first occurrence date.
   String date;
+
+  /// ISO `YYYY-MM-DD` last day of a multi-day span, or `''` for a
+  /// single-day event. Only meaningful when [recur] is `'none'`.
+  String endDate;
 
   /// `HH:MM`, empty when [allDay] is true.
   String start;
@@ -56,6 +61,7 @@ class CalendarEvent {
     'title': title,
     'allDay': allDay,
     'date': date,
+    if (endDate.isNotEmpty) 'endDate': endDate,
     'start': start,
     'end': end,
     'location': location,
@@ -74,6 +80,7 @@ class CalendarEvent {
     title: (j['title'] ?? 'Untitled').toString(),
     allDay: j['allDay'] == true,
     date: (j['date'] ?? todayIso()).toString(),
+    endDate: (j['endDate'] ?? '').toString(),
     start: (j['start'] ?? '').toString(),
     end: (j['end'] ?? '').toString(),
     location: (j['location'] ?? '').toString(),

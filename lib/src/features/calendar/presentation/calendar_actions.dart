@@ -7,11 +7,20 @@ class CalendarOccurrence {
   CalendarOccurrence({
     required this.ev,
     required this.date,
+    String? spanEnd,
     this.imported = false,
-  });
+  }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
+
+  /// First day of this occurrence.
   final String date;
+
+  /// Last day of this occurrence — equal to [date] unless this is a
+  /// multi-day span (`ev.endDate`).
+  final String spanEnd;
   final bool imported;
+
+  bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
 
 /// Renders a category's visual (issue: match the budget block emoji/picture
@@ -138,6 +147,14 @@ String _monthTitleIso(String iso) {
   return '${kMonthsEn[d.month - 1]} ${d.year}';
 }
 
+/// Parses `HH:MM` into minutes-since-midnight; empty/invalid → 0.
+int _toMinutes(String hhmm) {
+  if (hhmm.isEmpty) return 0;
+  final parts = hhmm.split(':');
+  if (parts.length != 2) return 0;
+  return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+}
+
 String _weekRangeIso(String weekStartIso) {
   final start = _parseIso(weekStartIso);
   final end = _parseIso(_addDaysIso(weekStartIso, 6));
@@ -198,9 +215,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   Color evColor(CalendarEvent ev) => catById(ev.category)?.color ?? ev.color;
 
-  /// Expands recurring events (minus their `exceptions`) and appends visible
-  /// imported-calendar events, within `[rangeStart, rangeEnd]` (inclusive,
-  /// ISO dates), honouring the active member/category filters. Mirrors the
+  /// Expands recurring events (minus their `exceptions`), keeps multi-day
+  /// spans as a single occurrence, and appends visible imported-calendar
+  /// events — all overlapping `[rangeStart, rangeEnd]` (inclusive, ISO
+  /// dates) and honouring the active member/category filters. Mirrors the
   /// design's `eventOccurrences()`.
   List<CalendarOccurrence> eventOccurrences(
     String rangeStart,
@@ -211,24 +229,28 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final cflt = calCatFilter;
 
     for (final ev in events) {
-      if (flt != null && !ev.attendees.contains(flt)) continue;
-      if (cflt != null && ev.category != cflt) continue;
-      void push(String d) {
-        if (d.compareTo(rangeStart) >= 0 &&
-            d.compareTo(rangeEnd) <= 0 &&
-            !ev.exceptions.contains(d)) {
-          out.add(CalendarOccurrence(ev: ev, date: d));
-        }
-      }
+      if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
+      if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
 
       if (ev.recur == 'none') {
-        push(ev.date);
+        final spanEnd =
+            ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0
+            ? ev.endDate
+            : ev.date;
+        if (spanEnd.compareTo(rangeStart) >= 0 &&
+            ev.date.compareTo(rangeEnd) <= 0 &&
+            !ev.exceptions.contains(ev.date)) {
+          out.add(CalendarOccurrence(ev: ev, date: ev.date, spanEnd: spanEnd));
+        }
         continue;
       }
+
       var d = ev.date;
       var guard = 0;
       while (d.compareTo(rangeEnd) <= 0 && guard < 900) {
-        push(d);
+        if (d.compareTo(rangeStart) >= 0 && !ev.exceptions.contains(d)) {
+          out.add(CalendarOccurrence(ev: ev, date: d));
+        }
         if (ev.recur == 'daily') {
           d = _addDaysIso(d, 1);
         } else if (ev.recur == 'weekly') {
@@ -246,10 +268,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
     // Imported calendars are read-only and hidden when a person filter is
     // active (they have no attendees), matching the design.
-    if (flt == null) {
+    if (flt.isEmpty) {
       for (final cal in importedCalendars) {
         if (!cal.visible) continue;
-        if (cflt != null && cal.category != cflt) continue;
+        if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
         for (final e in cal.events) {
           if (e.date.compareTo(rangeStart) >= 0 &&
               e.date.compareTo(rangeEnd) <= 0) {
@@ -277,7 +299,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   void calStep(int dir) {
     update(() {
-      calAnchor = calView == 'week'
+      calAnchor = (calView == 'week' || calView == 'family')
           ? _addDaysIso(calAnchor, 7 * dir)
           : _addMonthsIso(calAnchor, dir);
     });
@@ -292,9 +314,150 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   void setCalView(String v) => update(() => calView = v);
   void setCalSel(String iso) => update(() => calSel = iso);
-  void setCalFilter(String? memberId) => update(() => calFilter = memberId);
-  void setCalCatFilter(String? catId) =>
-      update(() => calCatFilter = calCatFilter == catId ? null : catId);
+
+  void toggleCalMemberFilter(String memberId) => update(() {
+    if (!calFilter.remove(memberId)) calFilter.add(memberId);
+  });
+  void toggleCalCategoryFilter(String catId) => update(() {
+    if (!calCatFilter.remove(catId)) calCatFilter.add(catId);
+  });
+  void clearCalFilters() => update(() {
+    calFilter = [];
+    calCatFilter = [];
+  });
+  int calFilterCount() => calFilter.length + calCatFilter.length;
+
+  void openCalMonthPicker() {
+    _showSheet((ctx) => _CalMonthPickerSheet(state: this));
+  }
+
+  void openViewPicker() {
+    _showSheet((ctx) => _ViewPickerSheet(state: this));
+  }
+
+  void openCalFilterSheet() {
+    _showSheet((ctx) => _CalFilterSheet(state: this));
+  }
+
+  void openDayDetail(String iso) {
+    _showSheet((ctx) => _DayDetailSheet(state: this, iso: iso));
+  }
+
+  /// Greedy lane-packing for a Month-view week row: multi-day/longest
+  /// occurrences first, capped at [maxLanes]; anything beyond that is
+  /// counted per-day into the returned overflow map (day index 0-6 → count).
+  ({List<List<CalendarOccurrence?>> lanes, Map<int, int> overflow})
+  packWeekLanes(
+    List<CalendarOccurrence> occ,
+    String weekStart,
+    String weekEnd, {
+    int maxLanes = 4,
+  }) {
+    final items = <({CalendarOccurrence o, int cs, int ce})>[];
+    for (final o in occ) {
+      final cs = o.date.compareTo(weekStart) < 0
+          ? 0
+          : _parseIso(o.date).difference(_parseIso(weekStart)).inDays;
+      final ce = o.spanEnd.compareTo(weekEnd) > 0
+          ? 6
+          : _parseIso(o.spanEnd).difference(_parseIso(weekStart)).inDays;
+      items.add((o: o, cs: cs, ce: ce));
+    }
+    items.sort((a, b) {
+      final aMulti = a.o.isMultiDay;
+      final bMulti = b.o.isMultiDay;
+      if (aMulti != bMulti) return aMulti ? -1 : 1;
+      final aSpan = a.ce - a.cs;
+      final bSpan = b.ce - b.cs;
+      if (aSpan != bSpan) return bSpan - aSpan;
+      return (a.o.ev.start).compareTo(b.o.ev.start);
+    });
+
+    final lanes = <List<CalendarOccurrence?>>[];
+    final overflow = <int, int>{};
+    for (final it in items) {
+      var placed = false;
+      for (final lane in lanes) {
+        var free = true;
+        for (var c = it.cs; c <= it.ce; c++) {
+          if (lane[c] != null) {
+            free = false;
+            break;
+          }
+        }
+        if (free) {
+          for (var c = it.cs; c <= it.ce; c++) {
+            lane[c] = it.o;
+          }
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        if (lanes.length < maxLanes) {
+          final lane = List<CalendarOccurrence?>.filled(7, null);
+          for (var c = it.cs; c <= it.ce; c++) {
+            lane[c] = it.o;
+          }
+          lanes.add(lane);
+        } else {
+          for (var c = it.cs; c <= it.ce; c++) {
+            overflow[c] = (overflow[c] ?? 0) + 1;
+          }
+        }
+      }
+    }
+    return (lanes: lanes, overflow: overflow);
+  }
+
+  /// Overlap-aware column packing for Week-view timed events on a single
+  /// day: assigns each occurrence a `col`/`cols` (total columns in its
+  /// overlap cluster) so overlapping blocks split the day column's width.
+  List<({CalendarOccurrence o, int col, int cols})> packTimedColumns(
+    List<CalendarOccurrence> timed,
+  ) {
+    final starts = [for (final o in timed) _toMinutes(o.ev.start)];
+    final ends = [
+      for (final o in timed)
+        _toMinutes(o.ev.end.isNotEmpty ? o.ev.end : o.ev.start),
+    ];
+    final cols = List<int>.filled(timed.length, 0);
+    final active = <(int col, int end)>[];
+    for (var i = 0; i < timed.length; i++) {
+      active.removeWhere((a) => a.$2 <= starts[i]);
+      var col = 0;
+      final used = active.map((a) => a.$1).toSet();
+      while (used.contains(col)) {
+        col++;
+      }
+      cols[i] = col;
+      active.add((col, ends[i]));
+    }
+    final total = List<int>.filled(timed.length, 1);
+    for (var i = 0; i < timed.length; i++) {
+      var m = cols[i] + 1;
+      for (var j = 0; j < timed.length; j++) {
+        if (starts[j] < ends[i] && ends[j] > starts[i]) {
+          m = m > cols[j] + 1 ? m : cols[j] + 1;
+        }
+      }
+      total[i] = m;
+    }
+    // Normalize each overlap cluster to the same column count.
+    for (var i = 0; i < timed.length; i++) {
+      var m = total[i];
+      for (var j = 0; j < timed.length; j++) {
+        if (starts[j] < ends[i] && ends[j] > starts[i]) {
+          m = m > total[j] ? m : total[j];
+        }
+      }
+      total[i] = m;
+    }
+    return [
+      for (var i = 0; i < timed.length; i++)
+        (o: timed[i], col: cols[i], cols: total[i]),
+    ];
+  }
 
   // -------------------------------------------------------------- events
   void openEvent(CalendarEvent? ev, [String? date]) {
@@ -335,6 +498,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required String title,
     required bool allDay,
     required String date,
+    String endDate = '',
     required String start,
     required String end,
     required String location,
@@ -354,6 +518,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         title: title.trim().isEmpty ? 'Untitled' : title.trim(),
         allDay: allDay,
         date: date,
+        endDate: recur == 'none' ? endDate : '',
         start: allDay ? '' : start,
         end: allDay ? '' : end,
         location: location.trim(),

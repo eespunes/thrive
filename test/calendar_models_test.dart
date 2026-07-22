@@ -10,6 +10,7 @@ void main() {
         title: 'Team lunch',
         allDay: true,
         date: '2026-03-01',
+        endDate: '2026-03-03',
         start: '12:00',
         end: '13:00',
         location: 'Cafe',
@@ -29,6 +30,7 @@ void main() {
       expect(restored.title, ev.title);
       expect(restored.allDay, ev.allDay);
       expect(restored.date, ev.date);
+      expect(restored.endDate, ev.endDate);
       expect(restored.start, ev.start);
       expect(restored.end, ev.end);
       expect(restored.location, ev.location);

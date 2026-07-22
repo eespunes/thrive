@@ -162,6 +162,9 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M9 8h6'],
     ['path', 'M17 16h6'],
   ],
+  'filter': [
+    ['path', 'M22 3H2l8 9.46V19l4 2v-8.54L22 3Z'],
+  ],
   'tag': [
     [
       'path',
@@ -293,6 +296,32 @@ const Map<String, List<List<Object>>> _kIcons = {
       'path',
       'm12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01Z',
     ],
+  ],
+  'cake': [
+    ['path', 'M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8'],
+    ['path', 'M4 16s.5-1 2-1 2 1 4 1 2.5-1 4-1 2 1 2 1'],
+    ['path', 'M2 21h20'],
+    ['path', 'M7 8v3'],
+    ['path', 'M12 8v3'],
+    ['path', 'M17 8v3'],
+    ['path', 'M7 4h.01'],
+    ['path', 'M12 4h.01'],
+    ['path', 'M17 4h.01'],
+  ],
+  'umbrella': [
+    ['path', 'M12 2a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9Z'],
+    ['path', 'M12 11v7a2 2 0 0 0 4 0'],
+  ],
+  'columns': [
+    ['rect', 3, 3, 7, 18, 1.4],
+    ['rect', 14, 3, 7, 18, 1.4],
+  ],
+  'today': [
+    ['rect', 3, 4, 18, 18, 2],
+    ['path', 'M16 2v4'],
+    ['path', 'M8 2v4'],
+    ['path', 'M3 10h18'],
+    ['circle', 12, 16, 2.4],
   ],
 };
 
