@@ -392,8 +392,11 @@ void main() {
       find.byKey(const ValueKey('cal-day-bg-2026-07-01')),
     );
 
-    expect(previousMonth.color, const Color(0xfff0f2f6));
-    expect(selectedMonth.color, Colors.transparent);
+    final previousDecoration = previousMonth.decoration! as BoxDecoration;
+    final selectedDecoration = selectedMonth.decoration! as BoxDecoration;
+    expect(previousDecoration.color, const Color(0xfff0f2f6));
+    expect(selectedDecoration.color, Colors.transparent);
+    expect((selectedDecoration.border! as Border).left.color, B.line);
   });
 
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
@@ -1124,6 +1127,13 @@ void main() {
     expect(find.text('Eva Janssen'), findsOneWidget);
     expect(find.text('Erik Janssen'), findsOneWidget);
     expect(find.textContaining('Guitar lesson'), findsOneWidget);
+    final familyCell = tester.widget<Container>(
+      find.byKey(ValueKey('cal-family-cell-erik-${todayIso()}')),
+    );
+    expect(
+      ((familyCell.decoration! as BoxDecoration).border! as Border).left.color,
+      B.line,
+    );
     expect(
       find.byKey(ValueKey('cal-family-pinned-fam-trip-${todayIso()}')),
       findsOneWidget,
@@ -1269,6 +1279,29 @@ void main() {
     expect(find.byKey(const ValueKey('cal-timed-week-trip')), findsNothing);
     expect(find.text('00:00'), findsOneWidget);
     expect(find.text('23:00'), findsOneWidget);
+    final firstHour = tester.widget<Container>(
+      find.byKey(const ValueKey('cal-week-hour-0')),
+    );
+    expect(
+      ((firstHour.decoration! as BoxDecoration).border! as Border).top.color,
+      B.line,
+    );
+    final dayColumns = tester.widgetList<Container>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'cal-week-day-col-',
+            ),
+      ),
+    );
+    expect(
+      ((dayColumns.elementAt(1).decoration! as BoxDecoration).border! as Border)
+          .left
+          .color,
+      B.line,
+    );
 
     final timelineFinder = find.byKey(const ValueKey('cal-timeline-week'));
     final viewportHeight = tester.getSize(timelineFinder).height;

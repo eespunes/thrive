@@ -274,7 +274,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       return Container(
         decoration: BoxDecoration(
           border: Border(
-            top: wi == 0 ? BorderSide.none : BorderSide(color: B.faint),
+            top: wi == 0 ? BorderSide.none : BorderSide(color: B.line),
           ),
         ),
         padding: const EdgeInsets.fromLTRB(3, 3, 3, 4),
@@ -283,13 +283,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           children: [
             Row(
               children: [
-                for (final iso in row)
+                for (var dayIndex = 0; dayIndex < row.length; dayIndex++)
                   Expanded(
                     child: Container(
-                      key: ValueKey('cal-day-bg-$iso'),
-                      color: _parseIso(iso).month == curMonth
-                          ? Colors.transparent
-                          : B.faint,
+                      key: ValueKey('cal-day-bg-${row[dayIndex]}'),
+                      decoration: BoxDecoration(
+                        color: _parseIso(row[dayIndex]).month == curMonth
+                            ? Colors.transparent
+                            : B.faint,
+                        border: Border(
+                          left: dayIndex == 0
+                              ? BorderSide.none
+                              : const BorderSide(color: B.line),
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -331,17 +338,30 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             children: [
               Row(
                 children: [
-                  for (final w in kWeekdayLetters)
+                  for (
+                    var dayIndex = 0;
+                    dayIndex < kWeekdayLetters.length;
+                    dayIndex++
+                  )
                     Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 7),
-                        child: Text(
-                          w,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: B.muted,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: dayIndex == 0
+                                ? BorderSide.none
+                                : const BorderSide(color: B.line),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Text(
+                            kWeekdayLetters[dayIndex],
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: B.muted,
+                            ),
                           ),
                         ),
                       ),
@@ -367,44 +387,53 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final dayHead = Row(
       children: [
         SizedBox(width: gutter),
-        for (final iso in days)
+        for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
           Expanded(
-            child: Builder(
-              builder: (_) {
-                final d = _parseIso(iso);
-                final isToday = iso == today;
-                return Column(
-                  children: [
-                    Text(
-                      kWeekdayLetters[d.weekday - 1],
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        color: isToday ? B.primary : B.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Container(
-                      width: 24,
-                      height: 24,
-                      alignment: Alignment.center,
-                      margin: const EdgeInsets.only(top: 1),
-                      decoration: BoxDecoration(
-                        color: isToday ? B.primary : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${d.day}',
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: dayIndex == 0
+                      ? BorderSide.none
+                      : const BorderSide(color: B.line),
+                ),
+              ),
+              child: Builder(
+                builder: (_) {
+                  final d = _parseIso(days[dayIndex]);
+                  final isToday = days[dayIndex] == today;
+                  return Column(
+                    children: [
+                      Text(
+                        kWeekdayLetters[d.weekday - 1],
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w800,
-                          color: isToday ? Colors.white : B.ink,
+                          color: isToday ? B.primary : B.muted,
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                      const SizedBox(height: 2),
+                      Container(
+                        width: 24,
+                        height: 24,
+                        alignment: Alignment.center,
+                        margin: const EdgeInsets.only(top: 1),
+                        decoration: BoxDecoration(
+                          color: isToday ? B.primary : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${d.day}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: isToday ? Colors.white : B.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
       ],
@@ -425,6 +454,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             child: Container(
               constraints: const BoxConstraints(minHeight: 24),
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: dayIndex == 0
+                      ? BorderSide.none
+                      : const BorderSide(color: B.line),
+                ),
+              ),
               child: Column(
                 children: [
                   for (final o in allDayByDay[dayIndex].take(3))
@@ -478,7 +514,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     final hours = [for (var h = 0; h < 24; h++) h];
 
-    Widget dayCol(String iso, double rowH, double gridH) {
+    Widget dayCol(String iso, int dayIndex, double rowH, double gridH) {
       final timed =
           eventOccurrences(
             iso,
@@ -490,7 +526,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       final isToday = iso == today;
       return Expanded(
         child: Container(
-          color: isToday ? const Color(0xfff0fbfa) : Colors.transparent,
+          key: ValueKey('cal-week-day-col-$iso'),
+          decoration: BoxDecoration(
+            color: isToday ? const Color(0xfff0fbfa) : Colors.transparent,
+            border: Border(
+              left: dayIndex == 0
+                  ? BorderSide.none
+                  : const BorderSide(color: B.line),
+            ),
+          ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final colW = constraints.maxWidth;
@@ -657,10 +701,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                               children: [
                                 for (var i = 0; i < hours.length; i++)
                                   Container(
+                                    key: ValueKey('cal-week-hour-$i'),
                                     height: rowH,
                                     decoration: const BoxDecoration(
                                       border: Border(
-                                        top: BorderSide(color: B.faint),
+                                        top: BorderSide(color: B.line),
                                       ),
                                     ),
                                   ),
@@ -668,8 +713,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                             ),
                             Row(
                               children: [
-                                for (final iso in days)
-                                  dayCol(iso, rowH, gridH),
+                                for (
+                                  var dayIndex = 0;
+                                  dayIndex < days.length;
+                                  dayIndex++
+                                )
+                                  dayCol(days[dayIndex], dayIndex, rowH, gridH),
                               ],
                             ),
                           ],
@@ -717,33 +766,38 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               ),
             ),
           ),
-          for (final iso in days)
+          for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
             Expanded(
-              child: Builder(
-                builder: (_) {
-                  final d = _parseIso(iso);
-                  final isToday = iso == today;
-                  return Column(
-                    children: [
-                      Text(
-                        kWeekdayLetters[d.weekday - 1],
-                        style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: isToday ? B.primary : B.muted,
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(left: BorderSide(color: B.line)),
+                ),
+                child: Builder(
+                  builder: (_) {
+                    final d = _parseIso(days[dayIndex]);
+                    final isToday = days[dayIndex] == today;
+                    return Column(
+                      children: [
+                        Text(
+                          kWeekdayLetters[d.weekday - 1],
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w800,
+                            color: isToday ? B.primary : B.muted,
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${d.day}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: isToday ? B.primary : B.ink,
+                        Text(
+                          '${d.day}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: isToday ? B.primary : B.ink,
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
         ],
@@ -761,7 +815,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 constraints: const BoxConstraints(minHeight: 22),
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                 decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: B.faint)),
+                  border: Border(left: BorderSide(color: B.line)),
                 ),
                 child: Column(
                   children: [
@@ -866,13 +920,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                             ),
                           );
                     return Container(
+                      key: ValueKey('cal-family-cell-${m.id}-$iso'),
                       constraints: const BoxConstraints(minHeight: 52),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 2,
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        border: const Border(left: BorderSide(color: B.faint)),
+                        border: const Border(left: BorderSide(color: B.line)),
                         color: iso == today ? const Color(0xfff0fbfa) : null,
                       ),
                       child: Column(
