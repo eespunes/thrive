@@ -278,15 +278,33 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ),
         ),
         padding: const EdgeInsets.fromLTRB(3, 3, 3, 4),
-        child: Column(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
             Row(
               children: [
-                for (final iso in row) Expanded(child: dayNumber(iso)),
+                for (final iso in row)
+                  Expanded(
+                    child: Container(
+                      key: ValueKey('cal-day-bg-$iso'),
+                      color: _parseIso(iso).month == curMonth
+                          ? Colors.transparent
+                          : B.faint,
+                    ),
+                  ),
               ],
             ),
-            ...laneRows,
-            ?overflowRow,
+            Column(
+              children: [
+                Row(
+                  children: [
+                    for (final iso in row) Expanded(child: dayNumber(iso)),
+                  ],
+                ),
+                ...laneRows,
+                ?overflowRow,
+              ],
+            ),
           ],
         ),
       );

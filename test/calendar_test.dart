@@ -379,6 +379,23 @@ void main() {
     }
   });
 
+  testWidgets('month view shades days outside the selected month', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    final previousMonth = tester.widget<Container>(
+      find.byKey(const ValueKey('cal-day-bg-2026-06-29')),
+    );
+    final selectedMonth = tester.widget<Container>(
+      find.byKey(const ValueKey('cal-day-bg-2026-07-01')),
+    );
+
+    expect(previousMonth.color, const Color(0xfff0f2f6));
+    expect(selectedMonth.color, Colors.transparent);
+  });
+
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
     tester,
   ) async {
