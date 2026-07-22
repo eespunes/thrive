@@ -303,6 +303,62 @@ void main() {
     );
   });
 
+  testWidgets('category events share its color and show its chosen icon', (
+    tester,
+  ) async {
+    const categoryColor = Color(0xff0f9d6a);
+    final category = EventCategory(
+      id: 'family',
+      name: 'Family',
+      color: categoryColor,
+      icon: 'star',
+    );
+    CalendarEvent event(String id, Color color) => CalendarEvent(
+      id: id,
+      title: 'Event $id',
+      date: todayIso(),
+      color: color,
+      category: category.id,
+      reminder: 'none',
+    );
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          event('one', const Color(0xffe11d48)),
+          event('two', const Color(0xff1684b4)),
+        ],
+        categories: [category],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    for (final id in ['one', 'two']) {
+      final bar = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('cal-bar-$id-'),
+      );
+      expect(bar, findsOneWidget);
+      expect(
+        find.descendant(of: bar, matching: find.byType(SvgPicture)),
+        findsOneWidget,
+      );
+      final usesCategoryColor = tester
+          .widgetList<Container>(
+            find.descendant(of: bar, matching: find.byType(Container)),
+          )
+          .any(
+            (container) =>
+                container.decoration is BoxDecoration &&
+                (container.decoration! as BoxDecoration).color ==
+                    categoryColor.withValues(alpha: .13),
+          );
+      expect(usesCategoryColor, isTrue);
+    }
+  });
+
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
     tester,
   ) async {

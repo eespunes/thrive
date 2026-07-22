@@ -173,6 +173,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
       Widget bar(CalendarOccurrence o, int cs, int ce) {
         final col = evColor(o.ev);
+        final category = catById(o.ev.category);
         final left = o.date.compareTo(ws) < 0;
         final right = o.spanEnd.compareTo(we) > 0;
         final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
@@ -195,7 +196,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!o.isMultiDay)
+                if (category != null) ...[
+                  categoryGlyph(
+                    category,
+                    size: 10,
+                    iconColor: o.isMultiDay ? Colors.white : col,
+                  ),
+                  const SizedBox(width: 3),
+                ] else if (!o.isMultiDay)
                   Container(
                     width: 5,
                     height: 5,
@@ -416,15 +424,30 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           color: evColor(o.ev),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text(
-                          o.ev.title,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (catById(o.ev.category) case final cat?) ...[
+                              categoryGlyph(
+                                cat,
+                                size: 9,
+                                iconColor: Colors.white,
+                              ),
+                              const SizedBox(width: 3),
+                            ],
+                            Flexible(
+                              child: Text(
+                                o.ev.title,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -492,15 +515,30 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    o.ev.title,
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: col,
-                                    ),
+                                  Row(
+                                    children: [
+                                      if (catById(o.ev.category)
+                                          case final cat?) ...[
+                                        categoryGlyph(
+                                          cat,
+                                          size: 10,
+                                          iconColor: col,
+                                        ),
+                                        const SizedBox(width: 3),
+                                      ],
+                                      Flexible(
+                                        child: Text(
+                                          o.ev.title,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: col,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   if (h > 30)
                                     Text(
@@ -743,17 +781,32 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                   ),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
-                                child: Text(
-                                  o.ev.allDay
-                                      ? o.ev.title
-                                      : '${o.ev.start} ${o.ev.title}',
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: evColor(o.ev),
-                                  ),
+                                child: Row(
+                                  children: [
+                                    if (catById(o.ev.category)
+                                        case final cat?) ...[
+                                      categoryGlyph(
+                                        cat,
+                                        size: 9,
+                                        iconColor: evColor(o.ev),
+                                      ),
+                                      const SizedBox(width: 2),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        o.ev.allDay
+                                            ? o.ev.title
+                                            : '${o.ev.start} ${o.ev.title}',
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w800,
+                                          color: evColor(o.ev),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

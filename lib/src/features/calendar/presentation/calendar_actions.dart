@@ -514,6 +514,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final wasEditing = id != null;
     CalendarEvent? saved;
     mutate(() {
+      final effectiveColor = catById(category)?.color ?? color;
       final ev = CalendarEvent(
         id: id ?? uid(),
         title: title.trim().isEmpty ? 'Untitled' : title.trim(),
@@ -525,7 +526,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         location: location.trim(),
         notes: notes.trim(),
         category: category,
-        color: color,
+        color: effectiveColor,
         attendees: attendees.isEmpty ? ['me'] : attendees,
         reminder: reminder,
         recur: recur,
@@ -598,6 +599,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         eventCategories[i] = cat;
       } else {
         eventCategories.add(cat);
+      }
+      for (final event in events) {
+        if (event.category == cat.id) event.color = cat.color;
       }
     }, () => flash(wasEditing ? 'Category updated' : 'Category added'));
   }

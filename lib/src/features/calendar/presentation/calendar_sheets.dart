@@ -504,9 +504,14 @@ class _EventEditSheetState extends State<_EventEditSheet> {
               spacing: 9,
               runSpacing: 9,
               children: [
-                for (final c in kEventColors)
+                for (final c
+                    in _category == null
+                        ? kEventColors
+                        : [s.catById(_category)?.color ?? _color])
                   GestureDetector(
-                    onTap: () => setState(() => _color = c),
+                    onTap: _category == null
+                        ? () => setState(() => _color = c)
+                        : null,
                     child: Container(
                       width: 34,
                       height: 34,
@@ -731,14 +736,28 @@ class _EventViewSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    ev.title,
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.3,
-                      color: B.ink,
-                    ),
+                  Row(
+                    children: [
+                      if (cat != null) ...[
+                        categoryGlyph(
+                          cat,
+                          size: 20,
+                          iconColor: state.evColor(ev),
+                        ),
+                        const SizedBox(width: 7),
+                      ],
+                      Expanded(
+                        child: Text(
+                          ev.title,
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -.3,
+                            color: B.ink,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   Text(
                     dateLabel,
