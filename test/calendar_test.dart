@@ -305,22 +305,29 @@ void main() {
     );
   });
 
-  testWidgets('category events share its color and show its chosen icon', (
+  testWidgets('month events use solid colors and category visuals', (
     tester,
   ) async {
     const categoryColor = Color(0xff0f9d6a);
+    const plainColor = Color(0xffd97706);
     final category = EventCategory(
       id: 'family',
       name: 'Family',
       color: categoryColor,
       icon: 'star',
     );
-    CalendarEvent event(String id, Color color) => CalendarEvent(
+    CalendarEvent event(
+      String id,
+      Color color, {
+      String? categoryId,
+      String endDate = '',
+    }) => CalendarEvent(
       id: id,
       title: 'Event $id',
       date: todayIso(),
+      endDate: endDate,
       color: color,
-      category: category.id,
+      category: categoryId ?? category.id,
       reminder: 'none',
     );
     await pumpApp(
@@ -328,7 +335,12 @@ void main() {
       prefs: calendarPrefs(
         events: [
           event('one', const Color(0xffe11d48)),
-          event('two', const Color(0xff1684b4)),
+          event(
+            'two',
+            const Color(0xff1684b4),
+            endDate: addDaysForTest(todayIso(), 1),
+          ),
+          event('plain', plainColor, categoryId: ''),
         ],
         categories: [category],
       ),
@@ -336,17 +348,24 @@ void main() {
     );
     await goToCalendar(tester);
 
-    for (final id in ['one', 'two']) {
+    for (final entry in {
+      'one': categoryColor,
+      'two': categoryColor,
+      'plain': plainColor,
+    }.entries) {
+      final id = entry.key;
       final bar = find.byWidgetPredicate(
         (widget) =>
             widget.key is ValueKey<String> &&
             (widget.key! as ValueKey<String>).value.startsWith('cal-bar-$id-'),
       );
       expect(bar, findsOneWidget);
-      expect(
-        find.descendant(of: bar, matching: find.byType(SvgPicture)),
-        findsOneWidget,
-      );
+      if (id != 'plain') {
+        expect(
+          find.descendant(of: bar, matching: find.byType(SvgPicture)),
+          findsOneWidget,
+        );
+      }
       final usesCategoryColor = tester
           .widgetList<Container>(
             find.descendant(of: bar, matching: find.byType(Container)),
@@ -354,8 +373,7 @@ void main() {
           .any(
             (container) =>
                 container.decoration is BoxDecoration &&
-                (container.decoration! as BoxDecoration).color ==
-                    categoryColor.withValues(alpha: .13),
+                (container.decoration! as BoxDecoration).color == entry.value,
           );
       expect(usesCategoryColor, isTrue);
     }

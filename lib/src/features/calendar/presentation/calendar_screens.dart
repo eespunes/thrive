@@ -185,7 +185,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             height: 14,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: o.isMultiDay ? col : col.withValues(alpha: .13),
+              color: col,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(left ? 0 : 4),
                 bottomLeft: Radius.circular(left ? 0 : 4),
@@ -197,11 +197,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (category != null) ...[
-                  categoryGlyph(
-                    category,
-                    size: 10,
-                    iconColor: o.isMultiDay ? Colors.white : col,
-                  ),
+                  categoryGlyph(category, size: 10, iconColor: Colors.white),
                   const SizedBox(width: 3),
                 ] else if (!o.isMultiDay)
                   Container(
@@ -209,7 +205,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     height: 5,
                     margin: const EdgeInsets.only(right: 3),
                     decoration: BoxDecoration(
-                      color: col,
+                      color: Colors.white,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -222,7 +218,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       height: 1,
-                      color: o.isMultiDay ? Colors.white : col,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -505,10 +501,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: col.withValues(alpha: .15),
-                                border: Border(
-                                  left: BorderSide(color: col, width: 3),
-                                ),
+                                color: col,
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Column(
@@ -522,7 +515,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                         categoryGlyph(
                                           cat,
                                           size: 10,
-                                          iconColor: col,
+                                          iconColor: Colors.white,
                                         ),
                                         const SizedBox(width: 3),
                                       ],
@@ -534,7 +527,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                           style: TextStyle(
                                             fontSize: 9.5,
                                             fontWeight: FontWeight.w800,
-                                            color: col,
+                                            color: Colors.white,
                                           ),
                                         ),
                                       ),
@@ -546,7 +539,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                       style: TextStyle(
                                         fontSize: 8.5,
                                         fontWeight: FontWeight.w700,
-                                        color: col.withValues(alpha: .85),
+                                        color: Colors.white,
                                       ),
                                     ),
                                 ],
@@ -772,13 +765,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                   horizontal: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: evColor(o.ev).withValues(alpha: .13),
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: evColor(o.ev),
-                                      width: 2,
-                                    ),
-                                  ),
+                                  color: evColor(o.ev),
                                   borderRadius: BorderRadius.circular(3),
                                 ),
                                 child: Row(
@@ -788,7 +775,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                       categoryGlyph(
                                         cat,
                                         size: 9,
-                                        iconColor: evColor(o.ev),
+                                        iconColor: Colors.white,
                                       ),
                                       const SizedBox(width: 2),
                                     ],
@@ -802,7 +789,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                         style: TextStyle(
                                           fontSize: 8,
                                           fontWeight: FontWeight.w800,
-                                          color: evColor(o.ev),
+                                          color: Colors.white,
                                         ),
                                       ),
                                     ),
