@@ -518,7 +518,9 @@ class _EventViewSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ev = state.eventById(eventId);
+    final r = state.eventOrImportedById(eventId);
+    final ev = r.ev;
+    final imported = r.imported;
     if (ev == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -601,105 +603,125 @@ class _EventViewSheet extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 4, bottom: 7),
-          child: Text(
-            'ATTENDEES',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+        if (!imported) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 7),
+            child: Text(
+              'ATTENDEES',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: .3, color: B.muted),
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final id in ev.attendees)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
-                  decoration: BoxDecoration(color: B.soft, borderRadius: BorderRadius.circular(999)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      state._memberAvatar(id, size: 22),
-                      const SizedBox(width: 6),
-                      Text(
-                        state._memberById(id)?.name ?? '?',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: B.deep),
-                      ),
-                    ],
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final id in ev.attendees)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
+                    decoration: BoxDecoration(color: B.soft, borderRadius: BorderRadius.circular(999)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        state._memberAvatar(id, size: 22),
+                        const SizedBox(width: 6),
+                        Text(
+                          state._memberById(id)?.name ?? '?',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: B.deep),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
         if (creator != null && creator.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Text(
-              'Created by ${creator.first.name}',
+              imported ? 'Imported from ${creator.first.name}' : 'Created by ${creator.first.name}',
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.muted),
             ),
           ),
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  state.openEvent(ev, date);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  decoration: BoxDecoration(border: Border.all(color: B.line), borderRadius: BorderRadius.circular(13)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ic('edit', size: 16, sw: 2.2, color: B.soft2),
-                      const SizedBox(width: 7),
-                      const Text('Edit', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink)),
-                    ],
+        if (imported)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+            decoration: BoxDecoration(color: B.faint, borderRadius: BorderRadius.circular(13)),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ic('download', size: 15, sw: 2.2, color: B.soft2),
+                const SizedBox(width: 8),
+                const Text(
+                  'Imported events are read-only',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: B.soft2),
+                ),
+              ],
+            ),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    state.openEvent(ev, date);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(border: Border.all(color: B.line), borderRadius: BorderRadius.circular(13)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ic('edit', size: 16, sw: 2.2, color: B.soft2),
+                        const SizedBox(width: 7),
+                        const Text('Edit', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.ink)),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  if (ev.recur != 'none') {
-                    state._showSheet(
-                      (ctx) => _RecurDeleteSheet(state: state, eventId: ev.id, date: date),
-                    );
-                  } else {
-                    state.askDelete(
-                      ev.title,
-                      'This event will be permanently removed.',
-                      () => state.deleteEvent(ev.id, 'all'),
-                    );
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  decoration: BoxDecoration(
-                    color: B.redSoft,
-                    border: Border.all(color: B.redLine),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ic('trash', size: 16, sw: 2.2, color: B.red),
-                      const SizedBox(width: 7),
-                      const Text('Delete', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.red)),
-                    ],
+              const SizedBox(width: 9),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    if (ev.recur != 'none') {
+                      state._showSheet(
+                        (ctx) => _RecurDeleteSheet(state: state, eventId: ev.id, date: date),
+                      );
+                    } else {
+                      state.askDelete(
+                        ev.title,
+                        'This event will be permanently removed.',
+                        () => state.deleteEvent(ev.id, 'all'),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: B.redSoft,
+                      border: Border.all(color: B.redLine),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ic('trash', size: 16, sw: 2.2, color: B.red),
+                        const SizedBox(width: 7),
+                        const Text('Delete', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: B.red)),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
@@ -777,6 +799,48 @@ class _CalendarManageSheet extends StatefulWidget {
 }
 
 class _CalendarManageSheetState extends State<_CalendarManageSheet> {
+  final Set<String> _syncing = {};
+
+  Future<void> _sync(ImportedCalendar c) async {
+    if (_syncing.contains(c.id)) return;
+    setState(() => _syncing.add(c.id));
+    final err = await widget.state.refreshImport(c.id);
+    if (!mounted) return;
+    setState(() => _syncing.remove(c.id));
+    if (err != null) widget.state.showError(err);
+  }
+
+  Widget _importFieldChip({
+    required String key,
+    required String label,
+    required bool on,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: ValueKey(key),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: on ? B.soft : Colors.white,
+          border: Border.all(color: on ? B.primary : B.line),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ic(on ? 'check' : 'x', size: 9, sw: 2.8, color: on ? B.primary : B.muted),
+            const SizedBox(width: 3),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: on ? B.primary : B.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
@@ -860,9 +924,93 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                     '$providerLabel · ${c.events.length} events',
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2),
                   ),
+                  if (c.url != null && c.url!.isNotEmpty)
+                    GestureDetector(
+                      key: ValueKey('imp-autosync-${c.id}'),
+                      onTap: () {
+                        s.toggleImportAutoSync(c.id);
+                        setState(() {});
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ic(
+                              c.autoSync ? 'check' : 'x',
+                              size: 11,
+                              sw: 2.6,
+                              color: c.autoSync ? B.primary : B.muted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              c.autoSync ? 'Auto-syncs on open' : 'Auto-sync off',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: c.autoSync ? B.primary : B.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (c.url != null && c.url!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _importFieldChip(
+                            key: 'imp-loc-${c.id}',
+                            label: 'Location',
+                            on: c.includeLocation,
+                            onTap: () {
+                              s.toggleImportField(c.id, location: true);
+                              setState(() {});
+                            },
+                          ),
+                          _importFieldChip(
+                            key: 'imp-desc-${c.id}',
+                            label: 'Description',
+                            on: c.includeDescription,
+                            onTap: () {
+                              s.toggleImportField(c.id, location: false);
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
+            if (c.url != null && c.url!.isNotEmpty) ...[
+              GestureDetector(
+                key: ValueKey('imp-sync-${c.id}'),
+                onTap: _syncing.contains(c.id) ? null : () => _sync(c),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: B.line),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: _syncing.contains(c.id)
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: B.deep),
+                          )
+                        : ic('repeat', size: 16, sw: 2.2, color: B.deep),
+                  ),
+                ),
+              ),
+            ],
             GestureDetector(
               key: ValueKey('imp-toggle-${c.id}'),
               onTap: () {
@@ -1181,87 +1329,137 @@ class _ImportCalendarSheet extends StatefulWidget {
 }
 
 class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
-  String _provider = 'google';
   late final TextEditingController _name;
+  late final TextEditingController _url;
   String? _category;
+  bool _busy = false;
+  bool _autoSync = true;
+  bool _includeLocation = true;
+  bool _includeDescription = true;
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController();
+    _url = TextEditingController();
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _url.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_busy) return;
+    final s = widget.state;
+    setState(() => _busy = true);
+    final err = await s.saveImport(
+      name: _name.text,
+      category: _category,
+      url: _url.text,
+      autoSync: _autoSync,
+      includeLocation: _includeLocation,
+      includeDescription: _includeDescription,
+    );
+    if (!mounted) return;
+    if (err == null) {
+      Navigator.of(context).pop();
+      s.openCalendarManageSheet();
+      return;
+    }
+    setState(() => _busy = false);
+    s.showError(err);
+  }
+
+  Widget _toggleRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: B.line),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: B.ink)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.soft2)),
+                ],
+              ),
+            ),
+            Switch(value: value, onChanged: onChanged, activeTrackColor: B.primary),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
     final cats = s.eventCategories;
-    final valid = _name.text.trim().isNotEmpty;
-
-    Widget provBtn(String p) {
-      final (label, color) = kImportProviders[p]!;
-      final active = _provider == p;
-      return Expanded(
-        child: GestureDetector(
-          key: ValueKey('import-prov-$p'),
-          onTap: () => setState(() => _provider = p),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-            decoration: BoxDecoration(
-              color: active ? B.soft : Colors.white,
-              border: Border.all(color: active ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
-                  child: Center(child: ic(p == 'ics' ? 'download' : 'cal', size: 17, sw: 2.1, color: Colors.white)),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: active ? B.deep : B.soft2,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+    final valid = _url.text.trim().isNotEmpty;
 
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sheetHead(context, 'Import a calendar', 'Bring in an external calendar'),
+          _sheetHead(context, 'Import a calendar', 'Bring in an external ICS calendar link'),
+          _sheetField(
+            'Calendar URL',
+            _sheetInput(
+              _url,
+              hint: 'https://…/calendar.ics',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _toggleRow(
+              title: 'Keep it updated automatically',
+              subtitle: 'Re-syncs this link whenever you open the app',
+              value: _autoSync,
+              onChanged: (v) => setState(() => _autoSync = v),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _toggleRow(
+              title: 'Import location',
+              subtitle: 'e.g. a match venue or event address',
+              value: _includeLocation,
+              onChanged: (v) => setState(() => _includeLocation = v),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(bottom: 15),
-            child: Row(
-              children: [for (final p in kImportProviders.keys) ...[provBtn(p), const SizedBox(width: 9)]]
-                ..removeLast(),
+            child: _toggleRow(
+              title: 'Import description',
+              subtitle: 'e.g. a competition name or extra feed details',
+              value: _includeDescription,
+              onChanged: (v) => setState(() => _includeDescription = v),
             ),
           ),
           _sheetField(
-            _provider == 'ics' ? 'Calendar URL' : 'Account / name',
+            'Name (optional)',
             _sheetInput(
               _name,
-              hint: _provider == 'ics' ? 'https://…/calendar.ics' : 'e.g. Erik · Work',
+              hint: 'e.g. Kids · School',
               onChanged: (_) => setState(() {}),
             ),
           ),
@@ -1326,19 +1524,14 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
           const Padding(
             padding: EdgeInsets.only(bottom: 14),
             child: Text(
-              'Imported events are read-only and shown with a download tag. '
-              'This demo adds two sample events.',
+              'Imported events are read-only and shown with a download tag.',
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: B.muted, height: 1.5),
             ),
           ),
           _primaryBtn(
-            'Import calendar',
-            () {
-              s.saveImport(provider: _provider, name: _name.text, category: _category);
-              Navigator.of(context).pop();
-              s.openCalendarManageSheet();
-            },
-            enabled: valid,
+            _busy ? 'Importing…' : 'Import calendar',
+            _busy ? null : _submit,
+            enabled: valid && !_busy,
           ),
         ],
       ),

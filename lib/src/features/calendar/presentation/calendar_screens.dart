@@ -613,15 +613,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       boxShadow: cardShadow(),
     );
 
-    if (imp) {
-      return Container(
-        key: key,
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-        decoration: decoration,
-        child: inner,
-      );
-    }
     return GestureDetector(
       key: key,
       onTap: () => openEventView(ev.id, o.date),

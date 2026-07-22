@@ -13,6 +13,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
+import 'package:http/http.dart' as http;
 
 part 'src/app/app.dart';
 part 'src/shared/theme.dart';
@@ -21,6 +22,7 @@ part 'src/shared/utils.dart';
 part 'src/features/budget/models/budget_models.dart';
 part 'src/features/lists/models/list_models.dart';
 part 'src/features/calendar/models/calendar_models.dart';
+part 'src/features/calendar/data/ics_import.dart';
 part 'src/features/account/models/account_models.dart';
 part 'src/features/account/data/family_cloud.dart';
 part 'src/features/budget/presentation/thrive_home.dart';

@@ -72,10 +72,9 @@ const List<Color> kCatColors = [
   Color(0xff475569),
 ];
 
-/// (label, colour) for each import provider — mirrors `PROVIDERS`.
+/// (label, colour) for each import provider. `google`/`apple` account sync
+/// isn't implemented (#161) — ICS/web-link is the only real import path.
 const Map<String, (String, Color)> kImportProviders = {
-  'google': ('Google Calendar', Color(0xff7c3aed)),
-  'apple': ('Apple iCloud', Color(0xff475569)),
   'ics': ('ICS / web link', Color(0xff0d9488)),
 };
 
@@ -145,6 +144,21 @@ String _weekRangeIso(String weekStartIso) {
       '${kMonthsShort[end.month - 1]} ${end.day}';
 }
 
+/// Strips location/description off imported events per an import's prefs
+/// (e.g. skip a sports feed's venue or competition/match-link text).
+List<ImportedCalendarEvent> _applyImportPrefs(
+  List<ImportedCalendarEvent> events, {
+  required bool includeLocation,
+  required bool includeDescription,
+}) {
+  if (includeLocation && includeDescription) return events;
+  for (final e in events) {
+    if (!includeLocation) e.location = '';
+    if (!includeDescription) e.notes = '';
+  }
+  return events;
+}
+
 extension _ThriveCalendarActions on _ThriveHomeState {
   EventCategory? catById(String? id) {
     if (id == null) return null;
@@ -152,6 +166,30 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       if (c.id == id) return c;
     }
     return null;
+  }
+
+  /// Builds the read-only [CalendarEvent] used to render/view an imported
+  /// occurrence, keyed by the composite `'${cal.id}_${e.id}'` id.
+  CalendarEvent importedSyntheticEvent(
+    ImportedCalendar cal,
+    ImportedCalendarEvent e,
+  ) {
+    final cat = catById(cal.category);
+    return CalendarEvent(
+      id: '${cal.id}_${e.id}',
+      title: e.title,
+      allDay: e.allDay,
+      date: e.date,
+      start: e.start,
+      end: e.end,
+      location: e.location,
+      notes: e.notes,
+      category: cal.category,
+      color: cat?.color ?? cal.color,
+      attendees: const [],
+      recur: 'none',
+      createdBy: cal.name,
+    );
   }
 
   Color evColor(CalendarEvent ev) => catById(ev.category)?.color ?? ev.color;
@@ -208,24 +246,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         for (final e in cal.events) {
           if (e.date.compareTo(rangeStart) >= 0 &&
               e.date.compareTo(rangeEnd) <= 0) {
-            final cat = catById(cal.category);
             out.add(
               CalendarOccurrence(
                 imported: true,
                 date: e.date,
-                ev: CalendarEvent(
-                  id: '${cal.id}_${e.id}',
-                  title: e.title,
-                  allDay: e.allDay,
-                  date: e.date,
-                  start: e.start,
-                  end: e.end,
-                  category: cal.category,
-                  color: cat?.color ?? cal.color,
-                  attendees: const [],
-                  recur: 'none',
-                  createdBy: cal.name,
-                ),
+                ev: importedSyntheticEvent(cal, e),
               ),
             );
           }
@@ -280,6 +305,22 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       if (e.id == id) return e;
     }
     return null;
+  }
+
+  /// Looks up an occurrence's id across both real and imported events. Real
+  /// events are mutable; imported ones are synthesized read-only and can be
+  /// viewed but never edited/deleted.
+  ({CalendarEvent? ev, bool imported}) eventOrImportedById(String id) {
+    final real = eventById(id);
+    if (real != null) return (ev: real, imported: false);
+    for (final cal in importedCalendars) {
+      for (final e in cal.events) {
+        if ('${cal.id}_${e.id}' == id) {
+          return (ev: importedSyntheticEvent(cal, e), imported: true);
+        }
+      }
+    }
+    return (ev: null, imported: false);
   }
 
   void saveEvent({
@@ -393,41 +434,51 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     _showSheet((ctx) => _ImportCalendarSheet(state: this));
   }
 
-  /// Mirrors the design's `saveImport()` — a real ICS/Google/Apple sync is
-  /// out of scope (#161); this seeds two sample read-only events exactly as
-  /// the design's prototype does.
-  void saveImport({
-    required String provider,
+  /// Imports a calendar from an ICS/web-link feed at [url] (e.g. an ecal.com
+  /// or other calendar-subscription link, RFC 5545) — the only supported
+  /// import source; Google/Apple account sync is out of scope (#161).
+  /// Returns a user-facing error message, or `null` on success.
+  Future<String?> saveImport({
     required String name,
+    required String url,
     String? category,
-  }) {
+    bool autoSync = true,
+    bool includeLocation = true,
+    bool includeDescription = true,
+  }) async {
+    final calName = name.trim().isEmpty ? kImportProviders['ics']!.$1 : name.trim();
+
+    List<ImportedCalendarEvent> events;
+    try {
+      events = await fetchIcsEvents(url);
+    } on IcsImportException catch (e) {
+      return e.message;
+    } catch (e) {
+      debugPrint('[calendar] ics import failed: $e');
+      return 'Could not import that calendar';
+    }
+
     mutate(() {
-      final label = kImportProviders[provider]?.$1 ?? provider;
       importedCalendars.add(
         ImportedCalendar(
           id: uid(),
-          name: name.trim().isEmpty ? label : name.trim(),
-          provider: provider,
-          color: kImportProviders[provider]?.$2 ?? B.soft2,
+          name: calName,
+          provider: 'ics',
+          color: kImportProviders['ics']!.$2,
           category: category,
-          events: [
-            ImportedCalendarEvent(
-              id: uid(),
-              title: 'Imported event',
-              date: todayIso(),
-              start: '10:00',
-              end: '11:00',
-            ),
-            ImportedCalendarEvent(
-              id: uid(),
-              title: 'Imported event',
-              date: _addDaysIso(todayIso(), 3),
-              allDay: true,
-            ),
-          ],
+          url: url.trim(),
+          autoSync: autoSync,
+          includeLocation: includeLocation,
+          includeDescription: includeDescription,
+          events: _applyImportPrefs(
+            events,
+            includeLocation: includeLocation,
+            includeDescription: includeDescription,
+          ),
         ),
       );
-    }, () => flash('Calendar imported'));
+    }, () => flash('Calendar imported (${events.length} event${events.length == 1 ? '' : 's'})'));
+    return null;
   }
 
   void toggleImportVisible(String id) {
@@ -438,9 +489,87 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     });
   }
 
+  void toggleImportAutoSync(String id) {
+    mutate(() {
+      for (final c in importedCalendars) {
+        if (c.id == id) c.autoSync = !c.autoSync;
+      }
+    });
+  }
+
+  /// Toggles whether a calendar's events keep their feed-provided location or
+  /// description, stripping (or, on the next sync, re-fetching) accordingly.
+  void toggleImportField(String id, {required bool location}) {
+    mutate(() {
+      for (final c in importedCalendars) {
+        if (c.id != id) continue;
+        if (location) {
+          c.includeLocation = !c.includeLocation;
+        } else {
+          c.includeDescription = !c.includeDescription;
+        }
+        c.events = _applyImportPrefs(
+          c.events,
+          includeLocation: c.includeLocation,
+          includeDescription: c.includeDescription,
+        );
+      }
+    });
+  }
+
   void deleteImport(String id) {
     mutate(() {
       importedCalendars.removeWhere((c) => c.id == id);
     }, () => flash('Calendar removed'));
+  }
+
+  /// Re-fetches an `ics` import's feed and replaces its events. Returns a
+  /// user-facing error message, or `null` on success. Pass [silent] for
+  /// background syncs that shouldn't show a toast on success.
+  Future<String?> refreshImport(String id, {bool silent = false}) async {
+    ImportedCalendar? cal;
+    for (final c in importedCalendars) {
+      if (c.id == id) cal = c;
+    }
+    final url = cal?.url;
+    if (cal == null || url == null || url.isEmpty) {
+      return 'This calendar has no link to sync';
+    }
+    final resolvedCal = cal;
+
+    List<ImportedCalendarEvent> events;
+    try {
+      events = await fetchIcsEvents(url);
+    } on IcsImportException catch (e) {
+      return e.message;
+    } catch (e) {
+      debugPrint('[calendar] ics refresh failed: $e');
+      return 'Could not sync that calendar';
+    }
+
+    mutate(() {
+      resolvedCal.events = _applyImportPrefs(
+        events,
+        includeLocation: resolvedCal.includeLocation,
+        includeDescription: resolvedCal.includeDescription,
+      );
+    }, silent ? null : () => flash('Calendar synced (${events.length} event${events.length == 1 ? '' : 's'})'));
+    return null;
+  }
+
+  /// Silently re-syncs every `ics` import with [ImportedCalendar.autoSync] on,
+  /// meant to run on app open/resume so subscribed calendars (e.g. a sports
+  /// team's schedule) stay current without the user having to remember to
+  /// tap "sync". Failures are logged, not surfaced, so one bad feed doesn't
+  /// interrupt app startup.
+  Future<void> syncDueImports() async {
+    final due = [
+      for (final c in importedCalendars)
+        if (c.provider == 'ics' && c.autoSync && (c.url ?? '').isNotEmpty) c.id,
+    ];
+    for (final id in due) {
+      final err = await refreshImport(id, silent: true);
+      if (err != null) debugPrint('[calendar] auto-sync $id failed: $err');
+    }
   }
 }

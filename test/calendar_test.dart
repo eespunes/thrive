@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
@@ -9,6 +12,38 @@ Future<void> goToCalendar(WidgetTester tester) async {
 }
 
 void main() {
+  test(
+    'parseIcsEvents reads SUMMARY/DESCRIPTION/LOCATION and ignores nested VALARM',
+    () {
+      // Shaped like fotmob's team fixture feed: a VALARM sub-component whose
+      // own SUMMARY/DESCRIPTION must not clobber the VEVENT's.
+      const ics =
+          'BEGIN:VCALENDAR\r\n'
+          'BEGIN:VEVENT\r\n'
+          'UID:4815511-8593@fotmob.com\r\n'
+          'DESCRIPTION:https://www.fotmob.com/match/4815511\\nEredivisie\r\n'
+          'DTSTART:20260425T180000Z\r\n'
+          'DTEND:20260425T200000Z\r\n'
+          'LOCATION:Rat Verlegh Stadion\\, Stadionstraat 23\\, Breda\\, NED\r\n'
+          'SUMMARY:NAC Breda - Ajax  (0-2)\r\n'
+          'BEGIN:VALARM\r\n'
+          'ACTION:DISPLAY\r\n'
+          'DESCRIPTION:NAC Breda - Ajax starting in 15 minutes\r\n'
+          'SUMMARY:NAC Breda - Ajax starting in 15 minutes\r\n'
+          'TRIGGER:-PT15M\r\n'
+          'END:VALARM\r\n'
+          'END:VEVENT\r\n'
+          'END:VCALENDAR\r\n';
+
+      final events = parseIcsEvents(ics);
+      expect(events, hasLength(1));
+      final ev = events.single;
+      expect(ev.title, 'NAC Breda - Ajax  (0-2)');
+      expect(ev.notes, 'https://www.fotmob.com/match/4815511\nEredivisie');
+      expect(ev.location, 'Rat Verlegh Stadion, Stadionstraat 23, Breda, NED');
+    },
+  );
+
   testWidgets('Calendar month view shows the empty state with no events', (
     tester,
   ) async {
@@ -172,9 +207,25 @@ void main() {
     },
   );
 
-  testWidgets('import a calendar shows its read-only sample events', (
+  testWidgets('import a calendar fetches and shows its real events', (
     tester,
   ) async {
+    final today = todayIso().replaceAll('-', '');
+    icsHttpGetOverride = (uri) async {
+      return http.Response(
+        'BEGIN:VCALENDAR\r\n'
+        'BEGIN:VEVENT\r\n'
+        'UID:1\r\n'
+        'SUMMARY:Imported event\r\n'
+        'DTSTART:${today}T100000\r\n'
+        'DTEND:${today}T110000\r\n'
+        'END:VEVENT\r\n'
+        'END:VCALENDAR\r\n',
+        200,
+      );
+    };
+    addTearDown(() => icsHttpGetOverride = null);
+
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -184,7 +235,8 @@ void main() {
 
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Erik · Work');
+    await tester.enterText(find.byType(TextField).first, 'https://example.com/team.ics');
+    await tester.enterText(find.byType(TextField).at(1), 'Erik · Work');
     await tester.pump();
     await tester.tap(find.text('Import calendar'));
     await tester.pumpAndSettle();
@@ -198,5 +250,58 @@ void main() {
     await tester.tap(find.text('Agenda'));
     await tester.pumpAndSettle();
     expect(find.text('Imported event'), findsWidgets);
+
+    // Tapping the imported event opens a read-only view: no Edit/Delete.
+    await tester.tap(find.text('Imported event').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Imported events are read-only'), findsOneWidget);
+    expect(find.text('Edit'), findsNothing);
+    expect(find.text('Delete'), findsNothing);
   });
+
+  testWidgets(
+    'turning off "Import location" excludes it while keeping the description',
+    (tester) async {
+      final today = todayIso().replaceAll('-', '');
+      icsHttpGetOverride = (uri) async {
+        return http.Response(
+          'BEGIN:VCALENDAR\r\n'
+          'BEGIN:VEVENT\r\n'
+          'UID:1\r\n'
+          'SUMMARY:Match day\r\n'
+          'DESCRIPTION:Eredivisie fixture\r\n'
+          'LOCATION:Johan Cruijff ArenA\r\n'
+          'DTSTART:${today}T100000\r\n'
+          'DTEND:${today}T110000\r\n'
+          'END:VEVENT\r\n'
+          'END:VCALENDAR\r\n',
+          200,
+        );
+      };
+      addTearDown(() => icsHttpGetOverride = null);
+
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('cal-manage')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Import a calendar'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'https://example.com/team.ics');
+      await tester.tap(find.text('Import location'));
+      await tester.pump();
+      await tester.tap(find.text('Import calendar'));
+      await tester.pumpAndSettle();
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Agenda'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Match day').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Eredivisie fixture'), findsOneWidget);
+      expect(find.text('Johan Cruijff ArenA'), findsNothing);
+    },
+  );
 }

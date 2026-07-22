@@ -124,7 +124,7 @@ class ThriveDebugController {
   String get familyId => _s.familyId;
 }
 
-class _ThriveHomeState extends State<ThriveHome> {
+class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
@@ -166,6 +166,11 @@ class _ThriveHomeState extends State<ThriveHome> {
   // user goes straight to their existing family instead of flashing it (#120).
   bool _resolvingFamilies = false;
 
+  // Guards the one-time sync-on-open kicked off once the shell is first
+  // reachable (see `build()`); auto-sync on returning to the app is then
+  // driven by `didChangeAppLifecycleState`.
+  bool _didSyncImportsOnOpen = false;
+
   // Auth + family state (ported from the design's v4 state).
   AppUser? user;
   List<Family> families = [];
@@ -176,17 +181,26 @@ class _ThriveHomeState extends State<ThriveHome> {
   void initState() {
     super.initState();
     thriveDebug._attach(this);
+    WidgetsBinding.instance.addObserver(this);
     _boot();
   }
 
   @override
   void dispose() {
     thriveDebug._detach(this);
+    WidgetsBinding.instance.removeObserver(this);
     _cloudSub?.cancel();
     _familySub?.cancel();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
     super.dispose();
+  }
+
+  /// Keeps subscribed (auto-sync) ICS imports — e.g. a sports team's
+  /// schedule — current whenever the app comes back to the foreground.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) syncDueImports();
   }
 
   // ---------------------------------------------------------------- boot
@@ -814,6 +828,10 @@ class _ThriveHomeState extends State<ThriveHome> {
     // The nav bar + FAB only make sense once the budget/family gates are
     // all clear — same condition every gate below uses.
     final shellReady = ready && !authOpen && !familyLoading && !onboardingOpen;
+    if (shellReady && !_didSyncImportsOnOpen) {
+      _didSyncImportsOnOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
+    }
     return Scaffold(
       backgroundColor: B.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is

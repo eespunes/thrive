@@ -153,6 +153,8 @@ class ImportedCalendarEvent {
     this.allDay = false,
     this.start = '',
     this.end = '',
+    this.location = '',
+    this.notes = '',
   });
 
   String id;
@@ -161,6 +163,11 @@ class ImportedCalendarEvent {
   bool allDay;
   String start;
   String end;
+  String location;
+
+  /// Feed-provided details (e.g. an ICS `DESCRIPTION`, such as a fotmob
+  /// fixture's competition name/match link).
+  String notes;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -169,6 +176,8 @@ class ImportedCalendarEvent {
     'allDay': allDay,
     'start': start,
     'end': end,
+    if (location.isNotEmpty) 'location': location,
+    if (notes.isNotEmpty) 'notes': notes,
   };
 
   factory ImportedCalendarEvent.fromJson(Map<String, dynamic> j) =>
@@ -179,6 +188,8 @@ class ImportedCalendarEvent {
         allDay: j['allDay'] == true,
         start: (j['start'] ?? '').toString(),
         end: (j['end'] ?? '').toString(),
+        location: (j['location'] ?? '').toString(),
+        notes: (j['notes'] ?? '').toString(),
       );
 }
 
@@ -191,6 +202,10 @@ class ImportedCalendar {
     required this.color,
     this.category,
     this.visible = true,
+    this.url,
+    this.autoSync = true,
+    this.includeLocation = true,
+    this.includeDescription = true,
     List<ImportedCalendarEvent>? events,
   }) : events = events ?? <ImportedCalendarEvent>[];
 
@@ -204,6 +219,19 @@ class ImportedCalendar {
   /// [EventCategory.id] this import is tagged with, or `null`.
   String? category;
   bool visible;
+
+  /// Source feed URL for `ics` imports (e.g. an ecal.com `.ics` link), used
+  /// to re-sync. `null` for `google`/`apple` account-based imports.
+  String? url;
+
+  /// Whether this import re-fetches [url] automatically on app open/resume.
+  /// Only meaningful when [url] is set.
+  bool autoSync;
+
+  /// Whether the feed's `LOCATION`/`DESCRIPTION` are kept on [events] (e.g. a
+  /// sports feed's venue and competition/match link) or stripped on import.
+  bool includeLocation;
+  bool includeDescription;
   List<ImportedCalendarEvent> events;
 
   Map<String, dynamic> toJson() => {
@@ -213,6 +241,10 @@ class ImportedCalendar {
     'color': color.toARGB32(),
     if (category != null) 'category': category,
     'visible': visible,
+    if (url != null) 'url': url,
+    'autoSync': autoSync,
+    'includeLocation': includeLocation,
+    'includeDescription': includeDescription,
     'events': events.map((e) => e.toJson()).toList(),
   };
 
@@ -224,6 +256,10 @@ class ImportedCalendar {
         color: Color((j['color'] as num?)?.toInt() ?? 0xff475569),
         category: j['category']?.toString(),
         visible: j['visible'] != false,
+        url: (j['url'] as String?)?.isNotEmpty == true ? j['url'] as String : null,
+        autoSync: j['autoSync'] != false,
+        includeLocation: j['includeLocation'] != false,
+        includeDescription: j['includeDescription'] != false,
         events: [
           for (final e in (j['events'] as List? ?? []))
             ImportedCalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),
