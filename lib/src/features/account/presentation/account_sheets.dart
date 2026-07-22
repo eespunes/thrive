@@ -610,11 +610,13 @@ class _FamilySheet extends StatefulWidget {
 class _FamilySheetState extends State<_FamilySheet> {
   String? _editId; // member being edited inline
   bool _invite = false;
+  bool _addNoEmail = false;
   late TextEditingController _rename;
   final _mName = TextEditingController();
   final _mEmail = TextEditingController();
   final _iName = TextEditingController();
   final _iEmail = TextEditingController();
+  final _aName = TextEditingController();
   final _mEmailFocus = FocusNode();
   final _iEmailFocus = FocusNode();
 
@@ -633,6 +635,7 @@ class _FamilySheetState extends State<_FamilySheet> {
     _mEmail.dispose();
     _iName.dispose();
     _iEmail.dispose();
+    _aName.dispose();
     _mEmailFocus.dispose();
     _iEmailFocus.dispose();
     super.dispose();
@@ -669,6 +672,7 @@ class _FamilySheetState extends State<_FamilySheet> {
           _membersCard(f, owner),
           if (f.username.trim().isNotEmpty) _joinCredCard(f),
           if (_invite) _inviteCard(),
+          if (_addNoEmail) _addMemberCard(),
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 2, 0, 10),
             child: owner
@@ -1000,7 +1004,7 @@ class _FamilySheetState extends State<_FamilySheet> {
             ),
           ),
           ...f.members.map((m) => _memberRow(f, m, owner)),
-          if (!_invite && owner)
+          if (!_invite && !_addNoEmail && owner) ...[
             _addRow(
               'Invite member',
               () => setState(() {
@@ -1010,6 +1014,15 @@ class _FamilySheetState extends State<_FamilySheet> {
               }),
               key: const ValueKey('family-invite'),
             ),
+            _addRow(
+              'Add family member',
+              () => setState(() {
+                _addNoEmail = true;
+                _aName.clear();
+              }),
+              key: const ValueKey('family-add-member'),
+            ),
+          ],
         ],
       ),
     );
@@ -1018,7 +1031,9 @@ class _FamilySheetState extends State<_FamilySheet> {
   Widget _memberRow(Family f, FamilyMember m, bool owner) {
     final isMe = m.id == 'me';
     if (_editId == m.id) {
-      final valid = _mName.text.trim().isNotEmpty && _validEmail(_mEmail.text);
+      final valid =
+          _mName.text.trim().isNotEmpty &&
+          (_mEmail.text.trim().isEmpty || _validEmail(_mEmail.text));
       return Container(
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
         decoration: const BoxDecoration(
@@ -1041,7 +1056,7 @@ class _FamilySheetState extends State<_FamilySheet> {
               'Email',
               _sheetInput(
                 _mEmail,
-                hint: 'email',
+                hint: 'email (optional — leave blank for no login)',
                 focusNode: _mEmailFocus,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
@@ -1188,7 +1203,7 @@ class _FamilySheetState extends State<_FamilySheet> {
                     ],
                   ),
                   Text(
-                    m.email,
+                    m.email.isNotEmpty ? m.email : 'No login',
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 11,
@@ -1353,6 +1368,115 @@ class _FamilySheetState extends State<_FamilySheet> {
                     ),
                     child: const Text(
                       'Send invite',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A member with no email/login — e.g. a kid — added straight in as
+  /// `status: 'active'`, skipping the invite step entirely.
+  Widget _addMemberCard() {
+    final valid = _aName.text.trim().isNotEmpty;
+    void submit() {
+      s.addMember(_aName.text.trim());
+      setState(() => _addNoEmail = false);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 13),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: B.soft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: B.greenLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Text(
+              'Add a family member',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text(
+              "For kids or anyone who won't sign in themselves — no email "
+              'needed.',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: B.soft2,
+              ),
+            ),
+          ),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _aName,
+              hint: 'e.g. Emma',
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (valid) submit();
+              },
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _addNoEmail = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: B.line),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.text,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: GestureDetector(
+                  key: const ValueKey('add-member-save'),
+                  onTap: valid ? submit : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: valid ? B.primary : const Color(0xffcbd3dc),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Add member',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13.5,

@@ -1,3 +1,4 @@
+import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -294,6 +295,32 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('member-save')), findsNothing);
+    });
+
+    testWidgets('owner adds a member with no email (e.g. a kid)', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Emma added'), findsOneWidget);
+      expect(find.text('Emma Bakker'), findsOneWidget);
+      expect(find.text('No login'), findsOneWidget);
+      expect(find.text('Member'), findsWidgets);
+
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Emma Bakker',
+      );
+      expect(added.uid, isNull);
+      expect(added.id, isNotEmpty);
+      expect(added.status, 'active');
     });
   });
 }
