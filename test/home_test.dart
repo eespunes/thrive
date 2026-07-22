@@ -59,11 +59,16 @@ void main() {
   testWidgets('upcoming event shows its chosen category visual', (
     tester,
   ) async {
+    const categoryColor = Color(0xff0f9d6a);
     await pumpApp(tester, prefs: homeEventPrefs(), landOnDefaultTab: true);
 
     final visual = find.byKey(const ValueKey('home-event-visual-upcoming'));
+    final accent = tester.widget<Container>(
+      find.byKey(const ValueKey('home-event-accent-upcoming')),
+    );
     expect(find.text('Family dinner'), findsOneWidget);
     expect(visual, findsOneWidget);
+    expect((accent.decoration! as BoxDecoration).color, categoryColor);
     expect(
       find.descendant(of: visual, matching: find.byType(SvgPicture)),
       findsOneWidget,

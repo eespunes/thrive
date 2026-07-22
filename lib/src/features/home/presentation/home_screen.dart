@@ -369,7 +369,13 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   Widget _miniEventRow(CalendarOccurrence o, {required bool border}) {
     final ev = o.ev;
     final category = catById(ev.category);
+    final color = evColor(ev);
     final today = todayIso();
+    final timing = o.isMultiDay
+        ? '${o.date == today ? 'Today' : _shortDateIso(o.date)} – '
+              '${_shortDateIso(o.spanEnd)}'
+        : '${o.date == today ? 'Today' : _shortDateIso(o.date)} · '
+              '${ev.allDay ? 'All day' : ev.start}';
     return GestureDetector(
       key: ValueKey('home-event-${ev.id}-${o.date}'),
       onTap: () => openEventView(ev.id, o.date),
@@ -381,54 +387,75 @@ extension _ThriveHomeScreen on _ThriveHomeState {
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
-            if (category != null)
-              Container(
-                key: ValueKey('home-event-visual-${ev.id}'),
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: category.color.withValues(alpha: .13),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: categoryGlyph(
-                  category,
-                  size: 30,
-                  iconColor: category.color,
-                ),
-              )
-            else
-              Container(
-                key: ValueKey('home-event-visual-${ev.id}'),
-                width: 4,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: evColor(ev),
-                  borderRadius: BorderRadius.circular(3),
-                ),
+            Container(
+              key: ValueKey('home-event-accent-${ev.id}'),
+              width: 4,
+              constraints: const BoxConstraints(minHeight: 34),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(3),
               ),
-            const SizedBox(width: 10),
+            ),
+            const SizedBox(width: 11),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    ev.title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: B.ink,
-                    ),
+                  Row(
+                    children: [
+                      if (category != null) ...[
+                        Container(
+                          key: ValueKey('home-event-visual-${ev.id}'),
+                          width: 18,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: categoryGlyph(
+                            category,
+                            size: 18,
+                            iconColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Flexible(
+                        child: Text(
+                          ev.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    (o.date == today ? 'Today' : _shortDateIso(o.date)) +
-                        (ev.allDay ? ' · All day' : ' · ${ev.start}'),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      ic(
+                        o.isMultiDay ? 'cal' : 'clock',
+                        size: 12,
+                        sw: 2.2,
+                        color: B.muted,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          timing,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: B.soft2,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
