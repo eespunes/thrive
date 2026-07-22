@@ -3,6 +3,7 @@ part of 'package:family_money_management_app/main.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initFirebase();
+  await NotificationService.init();
   runApp(const ThriveApp());
 }
 

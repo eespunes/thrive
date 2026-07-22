@@ -1,9 +1,9 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// "Coming soon" placeholders for modules the design specifies but that
-/// aren't built yet (Calendar #152/#153, Weekly plan #157, Calendars &
-/// categories #160/#161). Each is a thin wrapper around [_emptyState], a
-/// faithful port of the design's `emptyState()` helper.
+/// aren't built yet (Calendar #152/#153, Calendars & categories #160/#161).
+/// Each is a thin wrapper around [_emptyState], a faithful port of the
+/// design's `emptyState()` helper.
 extension _ThrivePlaceholderScreens on _ThriveHomeState {
   Widget _emptyState({
     required String icon,
@@ -95,16 +95,6 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
       sub:
           'A shared family calendar with month, week and agenda views is on '
           'the way (issues #152, #153).',
-    );
-  }
-
-  Widget _buildWeeklyPlaceholder() {
-    return _emptyState(
-      icon: 'moon',
-      title: 'Weekly plan is coming soon',
-      sub:
-          "Breakfast, lunch and dinner planning for the week is on the way "
-          '(issue #157).',
     );
   }
 

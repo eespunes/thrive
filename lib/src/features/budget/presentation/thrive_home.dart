@@ -140,9 +140,11 @@ class _ThriveHomeState extends State<ThriveHome> {
   Map<int, Map<String, MonthData>> data = {};
   List<TaskList> taskLists = [];
   List<ShoppingList> shoppingLists = [];
+  Map<String, DayPlan> weeklyPlan = {};
   String taskFilter = 'all'; // all | me
   String? openTaskList;
   String? openShopList;
+  int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   Map<String, bool> collapsed = {};
   String? swipedId;
@@ -169,16 +171,40 @@ class _ThriveHomeState extends State<ThriveHome> {
     super.initState();
     thriveDebug._attach(this);
     _boot();
+    pendingNotificationDeepLink.addListener(_handleNotificationDeepLink);
+    // A tap that launched the app cold arrives before this listener attaches.
+    _handleNotificationDeepLink();
   }
 
   @override
   void dispose() {
     thriveDebug._detach(this);
+    pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
     _familySub?.cancel();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
     super.dispose();
+  }
+
+  /// Consumes [pendingNotificationDeepLink] and jumps to the tapped task's
+  /// list (#154). Deep-links only target tasks for now — event reminders
+  /// follow once Calendar/#153 exists.
+  void _handleNotificationDeepLink() {
+    if (!ready) return; // taskLists isn't populated until boot finishes.
+    final payload = pendingNotificationDeepLink.value;
+    if (payload == null || !payload.startsWith('task:')) return;
+    final taskId = payload.substring('task:'.length);
+    for (final l in taskLists) {
+      if (l.tasks.any((t) => t.id == taskId)) {
+        pendingNotificationDeepLink.value = null;
+        goTab('lists');
+        openTaskListDetail(l.id);
+        return;
+      }
+    }
+    // Task no longer exists (deleted) — drop the stale deep link.
+    pendingNotificationDeepLink.value = null;
   }
 
   // ---------------------------------------------------------------- boot
@@ -197,6 +223,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         await bindCloudSync(uid);
         if (!mounted) return;
         setState(() => ready = true);
+    _rescheduleTaskReminders();
+    _handleNotificationDeepLink();
         return;
       }
 
@@ -213,6 +241,8 @@ class _ThriveHomeState extends State<ThriveHome> {
           }
           if (!mounted) return;
           setState(() => ready = true);
+    _rescheduleTaskReminders();
+    _handleNotificationDeepLink();
           await _persist();
           await bindCloudSync(uid);
           return;
@@ -226,6 +256,8 @@ class _ThriveHomeState extends State<ThriveHome> {
       workspaces = {};
       if (!mounted) return;
       setState(() => ready = true);
+    _rescheduleTaskReminders();
+    _handleNotificationDeepLink();
       return;
     }
     // coverage:ignore-end
@@ -247,6 +279,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
+    _rescheduleTaskReminders();
+    _handleNotificationDeepLink();
         return;
       } catch (_) {
         /* fall through to migration / seed */
@@ -261,6 +295,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         setState(() => ready = true);
+    _rescheduleTaskReminders();
+    _handleNotificationDeepLink();
         _persist();
         return;
       } catch (_) {
@@ -269,6 +305,18 @@ class _ThriveHomeState extends State<ThriveHome> {
     }
 
     await _seedFromAsset();
+  }
+
+  /// Re-derives every pending task reminder from `taskLists.due` on boot
+  /// (#154) — reminders aren't persisted separately, so this is what makes
+  /// them survive an app restart.
+  void _rescheduleTaskReminders() {
+    for (final l in taskLists) {
+      for (final t in l.tasks) {
+        if (t.done || (t.due ?? '').isEmpty) continue;
+        NotificationService.instance.scheduleTaskReminder(t);
+      }
+    }
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -331,6 +379,7 @@ class _ThriveHomeState extends State<ThriveHome> {
     data = ws.data;
     taskLists = ws.taskLists;
     shoppingLists = ws.shoppingLists;
+    weeklyPlan = ws.weeklyPlan;
   }
 
   /// Wraps the just-restored/seeded active workspace into `workspaces` and
@@ -345,6 +394,7 @@ class _ThriveHomeState extends State<ThriveHome> {
         data: data,
         taskLists: taskLists,
         shoppingLists: shoppingLists,
+        weeklyPlan: weeklyPlan,
       ),
     };
     families = user != null ? [seedFamily('fam_main', user!)] : [];
@@ -419,6 +469,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       data = ws.data;
       taskLists = ws.taskLists;
       shoppingLists = ws.shoppingLists;
+      weeklyPlan = ws.weeklyPlan;
       _seedFamiliesAndWorkspace();
       ready = true;
     });
@@ -434,6 +485,7 @@ class _ThriveHomeState extends State<ThriveHome> {
       data: data,
       taskLists: taskLists,
       shoppingLists: shoppingLists,
+      weeklyPlan: weeklyPlan,
     );
   }
 

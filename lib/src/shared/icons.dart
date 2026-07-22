@@ -213,6 +213,24 @@ const Map<String, List<List<Object>>> _kIcons = {
   'moon': [
     ['path', 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z'],
   ],
+  'coffee': [
+    ['path', 'M18 8h1a4 4 0 0 1 0 8h-1'],
+    ['path', 'M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z'],
+    ['path', 'M6 1v3'],
+    ['path', 'M10 1v3'],
+    ['path', 'M14 1v3'],
+  ],
+  'sun': [
+    ['circle', 12, 12, 5],
+    ['path', 'M12 1v2'],
+    ['path', 'M12 21v2'],
+    ['path', 'm4.22 4.22 1.42 1.42'],
+    ['path', 'm18.36 18.36 1.42 1.42'],
+    ['path', 'M1 12h2'],
+    ['path', 'M21 12h2'],
+    ['path', 'm4.22 19.78 1.42-1.42'],
+    ['path', 'm18.36 5.64 1.42-1.42'],
+  ],
   'tasklist': [
     [
       'path',
