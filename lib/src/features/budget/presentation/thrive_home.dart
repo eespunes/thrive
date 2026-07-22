@@ -223,8 +223,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         await bindCloudSync(uid);
         if (!mounted) return;
         setState(() => ready = true);
-    _rescheduleTaskReminders();
-    _handleNotificationDeepLink();
+        _rescheduleTaskReminders();
+        _handleNotificationDeepLink();
         return;
       }
 
@@ -241,8 +241,8 @@ class _ThriveHomeState extends State<ThriveHome> {
           }
           if (!mounted) return;
           setState(() => ready = true);
-    _rescheduleTaskReminders();
-    _handleNotificationDeepLink();
+          _rescheduleTaskReminders();
+          _handleNotificationDeepLink();
           await _persist();
           await bindCloudSync(uid);
           return;
@@ -256,8 +256,8 @@ class _ThriveHomeState extends State<ThriveHome> {
       workspaces = {};
       if (!mounted) return;
       setState(() => ready = true);
-    _rescheduleTaskReminders();
-    _handleNotificationDeepLink();
+      _rescheduleTaskReminders();
+      _handleNotificationDeepLink();
       return;
     }
     // coverage:ignore-end
@@ -279,8 +279,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
-    _rescheduleTaskReminders();
-    _handleNotificationDeepLink();
+        _rescheduleTaskReminders();
+        _handleNotificationDeepLink();
         return;
       } catch (_) {
         /* fall through to migration / seed */
@@ -295,8 +295,8 @@ class _ThriveHomeState extends State<ThriveHome> {
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         setState(() => ready = true);
-    _rescheduleTaskReminders();
-    _handleNotificationDeepLink();
+        _rescheduleTaskReminders();
+        _handleNotificationDeepLink();
         _persist();
         return;
       } catch (_) {

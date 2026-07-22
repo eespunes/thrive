@@ -276,8 +276,8 @@ class Workspace {
         ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
     ];
     final weeklyPlan = <String, DayPlan>{
-      for (final entry in (j['weeklyPlan'] as Map<String, dynamic>? ?? {})
-          .entries)
+      for (final entry
+          in (j['weeklyPlan'] as Map<String, dynamic>? ?? {}).entries)
         entry.key: DayPlan.fromJson(
           Map<String, dynamic>.from(entry.value as Map),
         ),

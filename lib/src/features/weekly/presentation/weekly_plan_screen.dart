@@ -264,11 +264,8 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
 
   void openNoteSheet(String dateIso, String? current) {
     _showSheet(
-      (ctx) => _DayNoteSheet(
-        state: this,
-        dateIso: dateIso,
-        initial: current ?? '',
-      ),
+      (ctx) =>
+          _DayNoteSheet(state: this, dateIso: dateIso, initial: current ?? ''),
     );
   }
 }

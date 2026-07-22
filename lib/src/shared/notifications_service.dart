@@ -111,8 +111,7 @@ class NotificationService implements NotificationScheduler {
             IOSFlutterLocalNotificationsPlugin
           >();
       if (ios != null) {
-        return await ios.requestPermissions(alert: true, sound: true) ??
-            false;
+        return await ios.requestPermissions(alert: true, sound: true) ?? false;
       }
       return true;
     } catch (e) {
@@ -125,6 +124,5 @@ class NotificationService implements NotificationScheduler {
 /// Set by [NotificationService._onTap] when a notification is tapped;
 /// consumed once by the app shell to deep-link into the relevant screen —
 /// handles both a foreground tap and a cold-start launch from a notification.
-final ValueNotifier<String?> pendingNotificationDeepLink = ValueNotifier<
-  String?
->(null);
+final ValueNotifier<String?> pendingNotificationDeepLink =
+    ValueNotifier<String?>(null);
