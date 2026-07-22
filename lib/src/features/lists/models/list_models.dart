@@ -26,16 +26,6 @@ class ListTask {
   /// Family member id who checked the task off, cleared when un-checked.
   String? completedBy;
 
-  ListTask copy() => ListTask(
-    id: id,
-    title: title,
-    done: done,
-    assignee: assignee,
-    due: due,
-    createdBy: createdBy,
-    completedBy: completedBy,
-  );
-
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -108,14 +98,6 @@ class ShopItem {
 
   /// Family member id who added this item.
   String? addedBy;
-
-  ShopItem copy() => ShopItem(
-    id: id,
-    name: name,
-    qty: qty,
-    checked: checked,
-    addedBy: addedBy,
-  );
 
   Map<String, dynamic> toJson() => {
     'id': id,

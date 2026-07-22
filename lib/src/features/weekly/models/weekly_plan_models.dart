@@ -24,14 +24,6 @@ class DayPlan {
       (dinner?.isEmpty ?? true) &&
       (note?.isEmpty ?? true);
 
-  DayPlan copy() => DayPlan(
-    dateIso: dateIso,
-    breakfast: breakfast,
-    lunch: lunch,
-    dinner: dinner,
-    note: note,
-  );
-
   Map<String, dynamic> toJson() => {
     'dateIso': dateIso,
     if (breakfast != null) 'breakfast': breakfast,

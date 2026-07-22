@@ -29,7 +29,7 @@ class NotificationService implements NotificationScheduler {
     if (_initialized) return;
     try {
       tz.initializeTimeZones();
-      tz.setLocalLocation(tz.getLocation('Etc/UTC'));
+      tz.setLocalLocation(tz.getLocation('UTC'));
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       const ios = DarwinInitializationSettings();
       await _plugin.initialize(
