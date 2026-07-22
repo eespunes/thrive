@@ -136,6 +136,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   Widget _calNavBtn(String icon, VoidCallback onTap) {
     return GestureDetector(
+      key: ValueKey('cal-nav-$icon'),
       onTap: onTap,
       child: Container(
         width: 34,
