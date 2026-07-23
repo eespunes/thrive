@@ -88,8 +88,8 @@ class NotificationService implements NotificationScheduler {
       if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
       await _plugin.zonedSchedule(
         _notificationId(task.id),
-        'Task due today',
         task.title,
+        'Due today',
         when,
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -143,7 +143,7 @@ class NotificationService implements NotificationScheduler {
             await _plugin.zonedSchedule(
               _eventNotificationId(event.id, occurrenceDate),
               event.title,
-              event.location.isEmpty ? 'Calendar event' : event.location,
+              _eventNotificationBody(event),
               when,
               const NotificationDetails(
                 android: AndroidNotificationDetails(
@@ -173,6 +173,61 @@ class NotificationService implements NotificationScheduler {
     } catch (e) {
       debugPrint('[notifications] event schedule failed: $e');
     }
+  }
+
+  /// Builds a human-readable notification body describing when the event
+  /// starts and, optionally, where. Examples:
+  /// "Starts in 1 hour · 14:30" / "Starting at 09:00 – Conference room A" /
+  /// "Starts tomorrow · 10:00 – Office".
+  String _eventNotificationBody(CalendarEvent event) {
+    final startStr =
+        (!event.allDay && event.start.isNotEmpty) ? event.start : null;
+    final reminder = event.reminder;
+
+    String timeText;
+    if (reminder == 'at') {
+      if (event.allDay) {
+        timeText = 'All day today';
+      } else if (startStr != null) {
+        timeText = 'Starting at $startStr';
+      } else {
+        timeText = 'Starting now';
+      }
+    } else if (reminder == '1h') {
+      timeText = startStr != null
+          ? 'Starts in 1 hour · $startStr'
+          : 'Starts in 1 hour';
+    } else if (reminder == '1d') {
+      timeText =
+          startStr != null ? 'Starts tomorrow · $startStr' : 'Starts tomorrow';
+    } else {
+      // Custom format: Xm, Xh, Xd — strip the unit suffix then parse the
+      // leading integer. An empty or non-numeric prefix falls to the fallback.
+      if (reminder.length <= 1) {
+        timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
+      } else {
+        final suffix = reminder[reminder.length - 1];
+        final amount = int.tryParse(reminder.substring(0, reminder.length - 1));
+        if (amount != null && suffix == 'm') {
+          timeText = amount == 1 ? 'Starts in 1 minute' : 'Starts in $amount minutes';
+        } else if (amount != null && suffix == 'h') {
+          final label =
+              amount == 1 ? 'Starts in 1 hour' : 'Starts in $amount hours';
+          timeText = startStr != null ? '$label · $startStr' : label;
+        } else if (amount != null && suffix == 'd') {
+          final label =
+              amount == 1 ? 'Starts tomorrow' : 'Starts in $amount days';
+          timeText = startStr != null ? '$label · $startStr' : label;
+        } else {
+          timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
+        }
+      }
+    }
+
+    if (event.location.isNotEmpty) {
+      return '$timeText – ${event.location}';
+    }
+    return timeText;
   }
 
   tz.TZDateTime? _eventReminderTime(CalendarEvent event, String iso) {
