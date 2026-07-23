@@ -1205,6 +1205,53 @@ void main() {
     expect(find.text('School pickup'), findsNothing);
   });
 
+  testWidgets(
+    'member filter keeps imported events when their category has that member',
+    (tester) async {
+      final school = EventCategory(
+        id: 'school',
+        name: 'School',
+        color: kCatColors.first,
+        icon: 'book',
+        members: const ['erik'],
+      );
+      final imported = ImportedCalendar(
+        id: 'school-feed',
+        name: 'School calendar',
+        provider: 'ics',
+        color: const Color(0xff475569),
+        category: school.id,
+        events: [
+          ImportedCalendarEvent(
+            id: 'parent-evening',
+            title: 'Parent evening',
+            date: todayIso(),
+          ),
+        ],
+      );
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          categories: [school],
+          importedCalendars: [imported],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+      expect(find.text('Parent evening'), findsOneWidget);
+
+      await openCalFilters(tester);
+      await tester.tap(find.byKey(const ValueKey('cal-filter-member-erik')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show 1 filter'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Parent evening'), findsOneWidget);
+    },
+  );
+
   testWidgets('multi-day event renders as a month span and shows date range', (
     tester,
   ) async {

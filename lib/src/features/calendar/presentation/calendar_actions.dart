@@ -266,23 +266,25 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       }
     }
 
-    // Imported calendars are read-only and hidden when a person filter is
-    // active (they have no attendees), matching the design.
-    if (flt.isEmpty) {
-      for (final cal in importedCalendars) {
-        if (!cal.visible) continue;
-        if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
-        for (final e in cal.events) {
-          if (e.date.compareTo(rangeStart) >= 0 &&
-              e.date.compareTo(rangeEnd) <= 0) {
-            out.add(
-              CalendarOccurrence(
-                imported: true,
-                date: e.date,
-                ev: importedSyntheticEvent(cal, e),
-              ),
-            );
-          }
+    // Imported calendars are read-only and have no direct attendees, so when
+    // member filters are active we match them via their assigned category.
+    for (final cal in importedCalendars) {
+      if (!cal.visible) continue;
+      if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
+      if (flt.isNotEmpty) {
+        final cat = catById(cal.category);
+        if (cat == null || !cat.members.any(flt.contains)) continue;
+      }
+      for (final e in cal.events) {
+        if (e.date.compareTo(rangeStart) >= 0 &&
+            e.date.compareTo(rangeEnd) <= 0) {
+          out.add(
+            CalendarOccurrence(
+              imported: true,
+              date: e.date,
+              ev: importedSyntheticEvent(cal, e),
+            ),
+          );
         }
       }
     }
