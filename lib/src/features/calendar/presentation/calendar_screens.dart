@@ -129,6 +129,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final curMonth = _parseIso(calAnchor).month;
     final today = todayIso();
     const headerBorderColor = Color(0xffd5dce8);
+    const fadedEventOpacity = .45;
 
     bool isInCurrentMonth(String iso) => _parseIso(iso).month == curMonth;
 
@@ -184,7 +185,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
           onTap: () => openEventView(o.ev.id, o.date),
           child: Opacity(
-            opacity: faded ? .45 : 1,
+            opacity: faded ? fadedEventOpacity : 1,
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
               height: 14,
