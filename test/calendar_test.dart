@@ -399,6 +399,72 @@ void main() {
     expect((selectedDecoration.border! as Border).left.color, B.line);
   });
 
+  testWidgets('month view fades event bars outside the selected month', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'outside',
+            title: 'Outside month',
+            date: '2026-06-30',
+            color: const Color(0xff1684b4),
+            reminder: 'none',
+          ),
+          CalendarEvent(
+            id: 'inside',
+            title: 'Inside month',
+            date: '2026-07-02',
+            color: const Color(0xff1684b4),
+            reminder: 'none',
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    final fadedBar = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('cal-bar-outside-'),
+    );
+    final normalBar = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('cal-bar-inside-'),
+    );
+    expect(fadedBar, findsOneWidget);
+    expect(normalBar, findsOneWidget);
+
+    final fadedOpacity = tester.widget<Opacity>(
+      find.descendant(of: fadedBar, matching: find.byType(Opacity)),
+    );
+    final normalOpacity = tester.widget<Opacity>(
+      find.descendant(of: normalBar, matching: find.byType(Opacity)),
+    );
+    expect(fadedOpacity.opacity, .45);
+    expect(normalOpacity.opacity, 1);
+  });
+
+  testWidgets('month weekday header aligns with day columns', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    final headerFirst = tester.getTopLeft(find.byKey(const ValueKey('cal-weekday-0')));
+    final dayFirst = tester.getTopLeft(
+      find.byKey(const ValueKey('cal-day-bg-2026-06-29')),
+    );
+    final headerLast = tester.getTopRight(find.byKey(const ValueKey('cal-weekday-6')));
+    final dayLast = tester.getTopRight(
+      find.byKey(const ValueKey('cal-day-bg-2026-07-05')),
+    );
+    expect(headerFirst.dx, closeTo(dayFirst.dx, 0.01));
+    expect(headerLast.dx, closeTo(dayLast.dx, 0.01));
+  });
+
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
     tester,
   ) async {
