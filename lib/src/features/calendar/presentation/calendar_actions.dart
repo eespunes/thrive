@@ -322,10 +322,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? exceptCategoryId,
     String? exceptMemberId,
   }) {
-    return !usedCalendarIdentityColorValues(
-      exceptCategoryId: exceptCategoryId,
-      exceptMemberId: exceptMemberId,
-    ).contains(color.toARGB32());
+    return true;
   }
 
   Color firstAvailableCalendarIdentityColor({
