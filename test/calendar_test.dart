@@ -1113,7 +1113,7 @@ void main() {
             start: '11:00',
             end: '12:00',
             color: kEventColors[1],
-            attendees: ['erik'],
+            attendees: ['me', 'erik'],
           ),
         ],
       ),
@@ -1135,13 +1135,55 @@ void main() {
       B.line,
     );
     expect(
-      find.byKey(ValueKey('cal-family-pinned-fam-trip-${todayIso()}')),
+      find.byKey(ValueKey('cal-family-me-fam-trip-${todayIso()}')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('cal-family-erik-fam-trip')),
-      findsNothing,
+      find.byKey(ValueKey('cal-family-erik-fam-trip-${todayIso()}')),
+      findsOneWidget,
     );
+    expect(
+      find.byKey(
+        ValueKey('cal-family-erik-fam-trip-${addDaysForTest(todayIso(), 1)}'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        ValueKey('cal-family-erik-fam-trip-${addDaysForTest(todayIso(), 2)}'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
+  });
+
+  testWidgets('family view hides pinned strip when there are no pinned events', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'fam-erik',
+            title: 'Guitar lesson',
+            date: todayIso(),
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors.first,
+            attendees: ['erik'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    await setCalView(tester, 'family');
+
+    expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
+    expect(find.text('Erik Janssen'), findsOneWidget);
+    expect(find.textContaining('Guitar lesson'), findsOneWidget);
   });
 
   testWidgets('filter sheet combines member and category filters', (
