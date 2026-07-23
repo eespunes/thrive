@@ -128,6 +128,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final grid = monthGrid(calAnchor);
     final curMonth = _parseIso(calAnchor).month;
     final today = todayIso();
+    const headerBorderColor = Color(0xffd5dce8);
+    const fadedEventOpacity = .45;
+
+    bool isInCurrentMonth(String iso) => _parseIso(iso).month == curMonth;
 
     Widget dayNumber(String iso) {
       final d = _parseIso(iso);
@@ -170,8 +174,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       final we = row.last;
       final occ = eventOccurrences(ws, we);
       final packed = packWeekLanes(occ, ws, we);
+      final inCurrentMonth = [for (final iso in row) isInCurrentMonth(iso)];
 
-      Widget bar(CalendarOccurrence o, int cs, int ce) {
+      Widget bar(CalendarOccurrence o, int cs, int ce, {bool faded = false}) {
         final col = evColor(o.ev);
         final category = catById(o.ev.category);
         final left = o.date.compareTo(ws) < 0;
@@ -180,49 +185,52 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         return GestureDetector(
           key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
           onTap: () => openEventView(o.ev.id, o.date),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
-            height: 14,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: col,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(left ? 0 : 4),
-                bottomLeft: Radius.circular(left ? 0 : 4),
-                topRight: Radius.circular(right ? 0 : 4),
-                bottomRight: Radius.circular(right ? 0 : 4),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (category != null) ...[
-                  categoryGlyph(category, size: 10, iconColor: Colors.white),
-                  const SizedBox(width: 3),
-                ] else if (!o.isMultiDay)
-                  Container(
-                    width: 5,
-                    height: 5,
-                    margin: const EdgeInsets.only(right: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                Flexible(
-                  child: Text(
-                    label,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                      color: Colors.white,
-                    ),
-                  ),
+          child: Opacity(
+            opacity: faded ? fadedEventOpacity : 1,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
+              height: 14,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: col,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(left ? 0 : 4),
+                  bottomLeft: Radius.circular(left ? 0 : 4),
+                  topRight: Radius.circular(right ? 0 : 4),
+                  bottomRight: Radius.circular(right ? 0 : 4),
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (category != null) ...[
+                    categoryGlyph(category, size: 10, iconColor: Colors.white),
+                    const SizedBox(width: 3),
+                  ] else if (!o.isMultiDay)
+                    Container(
+                      width: 5,
+                      height: 5,
+                      margin: const EdgeInsets.only(right: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -239,11 +247,24 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             c++;
             continue;
           }
+          final startInCurrentMonth = inCurrentMonth[c];
           var span = 1;
-          while (c + span < 7 && lane[c + span] == o) {
+          while (c + span < 7 &&
+              lane[c + span] == o &&
+              (inCurrentMonth[c + span] == startInCurrentMonth)) {
             span++;
           }
-          cells.add(Expanded(flex: span, child: bar(o, c, c + span - 1)));
+          cells.add(
+            Expanded(
+              flex: span,
+              child: bar(
+                o,
+                c,
+                c + span - 1,
+                faded: !startInCurrentMonth,
+              ),
+            ),
+          );
           c += span;
         }
         laneRows.add(Row(children: cells));
@@ -277,7 +298,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             top: wi == 0 ? BorderSide.none : BorderSide(color: B.line),
           ),
         ),
-        padding: const EdgeInsets.fromLTRB(3, 3, 3, 4),
+        padding: const EdgeInsets.fromLTRB(0, 3, 0, 4),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -288,7 +309,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     child: Container(
                       key: ValueKey('cal-day-bg-${row[dayIndex]}'),
                       decoration: BoxDecoration(
-                        color: _parseIso(row[dayIndex]).month == curMonth
+                        color: inCurrentMonth[dayIndex]
                             ? Colors.transparent
                             : B.faint,
                         border: Border(
@@ -345,6 +366,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                   )
                     Expanded(
                       child: Container(
+                        key: ValueKey('cal-weekday-$dayIndex'),
                         decoration: BoxDecoration(
                           border: Border(
                             left: dayIndex == 0
@@ -360,7 +382,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                             style: const TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w800,
-                              color: B.muted,
+                              color: B.soft2,
                             ),
                           ),
                         ),
