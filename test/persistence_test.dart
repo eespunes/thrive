@@ -54,15 +54,16 @@ void main() {
     await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Persisted');
-    await tester.enterText(find.byType(TextField).at(1), '50');
+    await tester.enterText(find.byType(TextField).at(1), 'Service');
+    await tester.enterText(find.byType(TextField).at(2), '50');
     await tester.pump();
     await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
-    expect(find.text('Persisted'), findsWidgets);
+    expect(find.text('Persisted - Service'), findsWidgets);
 
     await rebootApp(tester);
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('Persisted'), findsWidgets);
+    expect(find.text('Persisted - Service'), findsWidgets);
   });
 
   testWidgets('reorder accounts and blocks via arrows', (tester) async {

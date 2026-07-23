@@ -85,11 +85,12 @@ class _ProfileSheetState extends State<_ProfileSheet> {
 
   void _enterEdit() {
     final u = s.user!;
+    final identity = s.profileAvatarIdentity(u);
     setState(() {
       _edit = true;
       _name.text = u.name;
-      _photo = u.photo;
-      _color = u.color;
+      _photo = identity.photo;
+      _color = identity.color;
       _photoTouched = false;
       _colorTouched = false;
     });
@@ -129,6 +130,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
   // ----------------------------------------------------------- view mode
   Widget _buildView(AppUser u) {
     final prov = u.provider == 'google';
+    final identity = s.profileAvatarIdentity(u);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -144,13 +146,16 @@ class _ProfileSheetState extends State<_ProfileSheet> {
           ),
           child: Row(
             children: [
-              s.avatarNode(
-                photo: u.photo,
-                initials: u.initials,
-                color: u.color,
-                size: 54,
-                radius: 16,
-                fs: 19,
+              Container(
+                key: const ValueKey('profile-view-avatar'),
+                child: s.avatarNode(
+                  photo: identity.photo,
+                  initials: identity.initials,
+                  color: identity.color,
+                  size: 54,
+                  radius: 16,
+                  fs: 19,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1030,6 +1035,10 @@ class _FamilySheetState extends State<_FamilySheet> {
 
   Widget _memberRow(Family f, FamilyMember m, bool owner) {
     final isMe = m.id == 'me';
+    final editableByOwner =
+        owner &&
+        !isMe &&
+        (m.uid == null || m.status == 'invited' || m.email.trim().isEmpty);
     if (_editId == m.id) {
       final valid =
           _mName.text.trim().isNotEmpty &&
@@ -1132,7 +1141,7 @@ class _FamilySheetState extends State<_FamilySheet> {
     }
 
     final pill = s.memberPill(m.role, m.status);
-    final canEdit = owner || isMe;
+    final canEdit = isMe || editableByOwner;
     final canRemove = owner && !isMe;
     return GestureDetector(
       key: ValueKey('member-${m.id}'),

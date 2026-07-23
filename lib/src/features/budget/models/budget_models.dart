@@ -202,10 +202,16 @@ class ExpenseItem {
     required this.amount,
     required this.paid,
     required this.account,
+    this.payee = '',
     this.until,
   });
 
   String id;
+
+  /// Company/person paid to or received from.
+  String payee;
+
+  /// Subcategory or short note describing the item.
   String label;
   String marker;
   double amount;
@@ -215,6 +221,7 @@ class ExpenseItem {
 
   ExpenseItem copyWithId(String newId) => ExpenseItem(
     id: newId,
+    payee: payee,
     label: label,
     marker: marker,
     amount: amount,
@@ -225,6 +232,7 @@ class ExpenseItem {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    if (payee.isNotEmpty) 'payee': payee,
     'label': label,
     'marker': marker,
     'amount': amount,
@@ -235,6 +243,7 @@ class ExpenseItem {
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) => ExpenseItem(
     id: (j['id'] ?? uid()).toString(),
+    payee: (j['payee'] ?? '').toString(),
     label: (j['label'] ?? '').toString(),
     marker: (j['marker'] ?? '').toString(),
     amount: parseNum(j['amount']),

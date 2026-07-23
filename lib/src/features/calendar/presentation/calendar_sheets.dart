@@ -1,5 +1,46 @@
 part of 'package:family_money_management_app/main.dart';
 
+String defaultCalendarEndTimeForStart(String time) {
+  final parts = time.split(':');
+  final hour = int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 0;
+  final minute = int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0;
+  final next = (hour * 60 + minute + 60) % (24 * 60);
+  return '${(next ~/ 60).toString().padLeft(2, '0')}:'
+      '${(next % 60).toString().padLeft(2, '0')}';
+}
+
+String calendarReminderLabel(String reminder) {
+  return switch (reminder) {
+    'none' => 'No reminder',
+    'at' => 'On time',
+    '5m' => '5 minutes before',
+    '15m' => '15 minutes before',
+    '30m' => '30 minutes before',
+    '1h' => '1 hour before',
+    '2h' => '2 hours before',
+    '1d' => '1 day before',
+    '2d' => '2 days before',
+    _ => reminder,
+  };
+}
+
+String calendarRepeatLabel(CalendarEvent ev) {
+  if (ev.recur != 'custom') return ev.recur;
+  final every = ev.recurEvery < 1 ? 1 : ev.recurEvery;
+  final unit = switch (ev.recurUnit) {
+    'day' => every == 1 ? 'day' : 'days',
+    'month' => every == 1 ? 'month' : 'months',
+    'year' => every == 1 ? 'year' : 'years',
+    _ => every == 1 ? 'week' : 'weeks',
+  };
+  final base = every == 1 ? 'every $unit' : 'every $every $unit';
+  if (ev.recurUnit != 'week') return base;
+  final weekdays = _customRepeatWeekdays(
+    ev,
+  ).map((day) => kWeekdayLetters[day - 1]).join(', ');
+  return '$base on $weekdays';
+}
+
 /// "New event" / "Edit event" sheet — title, all-day, date/time, location,
 /// category, attendees, colour, reminder, repeat, notes. Ported from the
 /// design's `sheetEventEdit()`.
@@ -21,6 +62,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
   late bool _multiDay;
   late String _date;
   late String _endDate;
+  late String _repeatEndDate;
   late String _start;
   late String _end;
   String? _category;
@@ -28,6 +70,10 @@ class _EventEditSheetState extends State<_EventEditSheet> {
   late List<String> _attendees;
   late String _reminder;
   late String _recur;
+  late int _recurEvery;
+  late String _recurUnit;
+  late List<int> _recurWeekdays;
+  bool _endManuallySet = false;
 
   bool get _editing => widget.event != null;
 
@@ -40,15 +86,20 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _notes = TextEditingController(text: e?.notes ?? '');
     _allDay = e?.allDay ?? false;
     _date = e?.date ?? widget.date;
-    _multiDay = e?.endDate.isNotEmpty == true;
-    _endDate = e?.endDate.isNotEmpty == true ? e!.endDate : _date;
+    _recur = e?.recur ?? 'none';
+    _multiDay = _recur == 'none' && e?.endDate.isNotEmpty == true;
+    _endDate = _multiDay ? e!.endDate : _date;
+    _repeatEndDate = _recur != 'none' ? (e?.endDate ?? '') : '';
     _start = e?.start.isNotEmpty == true ? e!.start : '09:00';
     _end = e?.end.isNotEmpty == true ? e!.end : '10:00';
     _category = e?.category;
     _color = e?.color ?? kEventColors.first;
     _attendees = (e?.attendees ?? const ['me']).toList();
     _reminder = e?.reminder ?? '1h';
-    _recur = e?.recur ?? 'none';
+    _recurEvery = e?.recurEvery ?? 1;
+    _recurUnit = e?.recurUnit ?? 'week';
+    _recurWeekdays = (e?.recurWeekdays ?? const <int>[]).toList();
+    if (_recurWeekdays.isEmpty) _recurWeekdays = [_parseIso(_date).weekday];
   }
 
   @override
@@ -70,6 +121,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     setState(() {
       _date = _isoOfDate(picked);
       if (_endDate.compareTo(_date) < 0) _endDate = _date;
+      if (_repeatEndDate.isNotEmpty && _repeatEndDate.compareTo(_date) < 0) {
+        _repeatEndDate = _date;
+      }
     });
   }
 
@@ -83,6 +137,18 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     if (picked != null) setState(() => _endDate = _isoOfDate(picked));
   }
 
+  Future<void> _pickRepeatEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _parseIso(
+        _repeatEndDate.isNotEmpty ? _repeatEndDate : _date,
+      ),
+      firstDate: _parseIso(_date),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _repeatEndDate = _isoOfDate(picked));
+  }
+
   Future<void> _pickTime(bool isStart) async {
     final cur = isStart ? _start : _end;
     final parts = cur.split(':');
@@ -90,15 +156,23 @@ class _EventEditSheetState extends State<_EventEditSheet> {
       hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 9,
       minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0,
     );
-    final picked = await showTimePicker(context: context, initialTime: initial);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+      initialEntryMode: TimePickerEntryMode.input,
+    );
     if (picked == null) return;
     final formatted =
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
     setState(() {
       if (isStart) {
         _start = formatted;
+        if (!_editing && !_endManuallySet) {
+          _end = defaultCalendarEndTimeForStart(formatted);
+        }
       } else {
         _end = formatted;
+        _endManuallySet = true;
       }
     });
   }
@@ -107,6 +181,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     return _sheetField(
       label,
       GestureDetector(
+        key: ValueKey('event-time-${label.toLowerCase()}'),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
@@ -155,6 +230,43 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     color: value == k ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _numberChipRow(List<int> opts, int value, ValueChanged<int> onPick) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final option in opts) ...[
+            GestureDetector(
+              key: ValueKey('event-custom-every-$option'),
+              onTap: () => onPick(option),
+              child: Container(
+                width: 38,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: value == option ? B.soft : Colors.white,
+                  border: Border.all(
+                    color: value == option ? B.primary : B.line,
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$option',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == option ? B.deep : B.soft2,
                   ),
                 ),
               ),
@@ -543,10 +655,15 @@ class _EventEditSheetState extends State<_EventEditSheet> {
             padding: const EdgeInsets.only(bottom: 13),
             child: _chipRow(
               const [
-                ('none', 'None'),
-                ('at', 'At time'),
+                ('none', 'No reminder'),
+                ('at', 'On time'),
+                ('5m', '5 min before'),
+                ('15m', '15 min before'),
+                ('30m', '30 min before'),
                 ('1h', '1 hour before'),
+                ('2h', '2 hours before'),
                 ('1d', '1 day before'),
+                ('2d', '2 days before'),
               ],
               _reminder,
               (v) => setState(() => _reminder = v),
@@ -573,31 +690,217 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                 ('weekly', 'Weekly'),
                 ('monthly', 'Monthly'),
                 ('yearly', 'Yearly'),
+                ('custom', 'Custom'),
               ],
               _recur,
-              (v) => setState(() => _recur = v),
+              (v) => setState(() {
+                _recur = v;
+                if (_recur != 'none') {
+                  _multiDay = false;
+                  if (_repeatEndDate.isNotEmpty &&
+                      _repeatEndDate.compareTo(_date) < 0) {
+                    _repeatEndDate = _date;
+                  }
+                } else {
+                  _repeatEndDate = '';
+                  if (!_multiDay) _endDate = _date;
+                }
+              }),
             ),
           ),
+          if (_recur == 'custom') ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Text(
+                'EVERY',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .3,
+                  color: B.muted,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: _numberChipRow(
+                const [1, 2, 3, 4, 5, 6],
+                _recurEvery,
+                (v) => setState(() => _recurEvery = v),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: _chipRow(
+                const [
+                  ('day', 'Days'),
+                  ('week', 'Weeks'),
+                  ('month', 'Months'),
+                  ('year', 'Years'),
+                ],
+                _recurUnit,
+                (v) => setState(() => _recurUnit = v),
+              ),
+            ),
+            if (_recurUnit == 'week') ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Text(
+                  'ON DAYS',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                    color: B.muted,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 13),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var weekday = 1; weekday <= 7; weekday++) ...[
+                        GestureDetector(
+                          key: ValueKey('event-custom-weekday-$weekday'),
+                          onTap: () => setState(() {
+                            if (_recurWeekdays.contains(weekday)) {
+                              if (_recurWeekdays.length > 1) {
+                                _recurWeekdays.remove(weekday);
+                              }
+                            } else {
+                              _recurWeekdays.add(weekday);
+                              _recurWeekdays.sort();
+                            }
+                          }),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _recurWeekdays.contains(weekday)
+                                  ? B.soft
+                                  : Colors.white,
+                              border: Border.all(
+                                color: _recurWeekdays.contains(weekday)
+                                    ? B.primary
+                                    : B.line,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              kWeekdayLetters[weekday - 1],
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _recurWeekdays.contains(weekday)
+                                    ? B.deep
+                                    : B.soft2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+          if (_recur != 'none')
+            _sheetField(
+              'Repeat ends',
+              GestureDetector(
+                key: const ValueKey('event-repeat-end-date'),
+                onTap: _pickRepeatEndDate,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: B.line),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      ic('cal', size: 15, sw: 2.2, color: B.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        _repeatEndDate.isEmpty ? 'Never' : _repeatEndDate,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           _sheetField(
             'Notes',
             _sheetInput(_notes, hint: 'Optional notes', maxLines: 3),
           ),
           _primaryBtn(_editing ? 'Save event' : 'Add event', () {
-            s.saveEvent(
-              id: widget.event?.id,
-              title: _title.text,
+            final edited = CalendarEvent(
+              id: widget.event?.id ?? uid(),
+              title: _title.text.trim().isEmpty
+                  ? 'Untitled'
+                  : _title.text.trim(),
               allDay: _allDay,
               date: _date,
-              endDate: _multiDay ? _endDate : '',
-              start: _start,
-              end: _end,
-              location: _location.text,
-              notes: _notes.text,
+              endDate: _recur != 'none'
+                  ? _repeatEndDate
+                  : (_multiDay ? _endDate : ''),
+              start: _allDay ? '' : _start,
+              end: _allDay ? '' : _end,
+              location: _location.text.trim(),
+              notes: _notes.text.trim(),
               category: _category,
-              color: _color,
-              attendees: _attendees,
+              color: s.catById(_category)?.color ?? _color,
+              attendees: _attendees.isEmpty ? ['me'] : _attendees,
               reminder: _reminder,
               recur: _recur,
+              recurEvery: _recurEvery,
+              recurUnit: _recurUnit,
+              recurWeekdays: _recurWeekdays,
+              exceptions: widget.event?.exceptions,
+              createdBy: widget.event?.createdBy,
+            );
+            if (_editing && widget.event?.recur != 'none') {
+              Navigator.of(context).pop();
+              s._showSheet(
+                (ctx) => _RecurEditScopeSheet(
+                  state: s,
+                  eventId: widget.event!.id,
+                  date: widget.date,
+                  edited: edited,
+                ),
+              );
+              return;
+            }
+            s.saveEvent(
+              id: widget.event?.id,
+              title: edited.title,
+              allDay: edited.allDay,
+              date: edited.date,
+              endDate: edited.endDate,
+              start: edited.start,
+              end: edited.end,
+              location: edited.location,
+              notes: edited.notes,
+              category: edited.category,
+              color: edited.color,
+              attendees: edited.attendees,
+              reminder: edited.reminder,
+              recur: edited.recur,
+              recurEvery: edited.recurEvery,
+              recurUnit: edited.recurUnit,
+              recurWeekdays: edited.recurWeekdays,
               exceptions: widget.event?.exceptions,
               createdBy: widget.event?.createdBy,
             );
@@ -710,7 +1013,9 @@ class _EventViewSheet extends StatelessWidget {
             (m) => m.id == creatorId,
           );
     final isMultiDay =
-        ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0;
+        ev.recur == 'none' &&
+        ev.endDate.isNotEmpty &&
+        ev.endDate.compareTo(ev.date) > 0;
     final dateLabel = isMultiDay
         ? '${_shortDateIso(ev.date)} – ${_shortDateIso(ev.endDate)}'
         : _prettyDateIso(date);
@@ -823,11 +1128,17 @@ class _EventViewSheet extends StatelessWidget {
                     : '${ev.start}${ev.end.isNotEmpty ? ' – ${ev.end}' : ''}',
               ),
               if (ev.location.isNotEmpty) _metaRow('mappin', ev.location),
-              if (ev.recur != 'none') _metaRow('repeat', 'Repeats ${ev.recur}'),
+              if (ev.recur != 'none')
+                _metaRow(
+                  'repeat',
+                  ev.endDate.isEmpty
+                      ? 'Repeats ${calendarRepeatLabel(ev)}'
+                      : 'Repeats ${calendarRepeatLabel(ev)} until ${_shortDateIso(ev.endDate)}',
+                ),
               if (ev.reminder != 'none')
                 _metaRow(
                   'bell',
-                  'Reminder · ${ev.reminder == 'at' ? 'at time' : '${ev.reminder} before'}',
+                  'Reminder · ${calendarReminderLabel(ev.reminder).toLowerCase()}',
                 ),
               if (ev.notes.isNotEmpty) _metaRow('note', ev.notes),
             ],
@@ -1003,8 +1314,104 @@ class _EventViewSheet extends StatelessWidget {
   }
 }
 
-/// "Delete this event only" vs "Every occurrence in the series", ported
-/// from `sheetRecurDelete()`.
+class _RecurEditScopeSheet extends StatelessWidget {
+  const _RecurEditScopeSheet({
+    required this.state,
+    required this.eventId,
+    required this.date,
+    required this.edited,
+  });
+  final _ThriveHomeState state;
+  final String eventId;
+  final String date;
+  final CalendarEvent edited;
+
+  Widget _choice({
+    required String key,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool danger = false,
+  }) {
+    return GestureDetector(
+      key: ValueKey(key),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(15),
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: danger ? B.redSoft : Colors.white,
+          border: Border.all(color: danger ? B.redLine : B.line),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: danger ? B.red : B.ink,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: danger ? B.red : B.soft2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    void save(String scope) {
+      Navigator.of(context).pop();
+      state.saveRecurringEventScoped(
+        id: eventId,
+        scope: scope,
+        occurrenceDate: date,
+        edited: edited,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHead(context, 'Save recurring event', 'This event repeats'),
+        _choice(
+          key: 'recur-edit-one',
+          title: 'Save this event only',
+          subtitle: 'Just ${_prettyDateIso(date)}',
+          onTap: () => save('one'),
+        ),
+        _choice(
+          key: 'recur-edit-future',
+          title: 'Save this and future events',
+          subtitle: 'This occurrence and everything after it',
+          onTap: () => save('future'),
+        ),
+        _choice(
+          key: 'recur-edit-all',
+          title: 'Save the whole occurrence',
+          subtitle: 'Every occurrence in the series',
+          onTap: () => save('all'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Recurring delete scope picker.
 class _RecurDeleteSheet extends StatelessWidget {
   const _RecurDeleteSheet({
     required this.state,
@@ -1061,6 +1468,44 @@ class _RecurDeleteSheet extends StatelessWidget {
           ),
         ),
         GestureDetector(
+          key: const ValueKey('recur-delete-future'),
+          onTap: () {
+            Navigator.of(context).pop();
+            state.deleteEvent(eventId, 'future', date);
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            margin: const EdgeInsets.only(bottom: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: B.line),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Delete this and future events',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: B.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'This occurrence and everything after it',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: B.soft2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        GestureDetector(
           key: const ValueKey('recur-delete-all'),
           onTap: () {
             Navigator.of(context).pop();
@@ -1078,7 +1523,7 @@ class _RecurDeleteSheet extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Delete all events',
+                  'Delete the whole occurrence',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -1170,6 +1615,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
     final s = widget.state;
     final cats = s.eventCategories;
     final imps = s.importedCalendars;
+    final members = s.curFamily()?.members ?? const <FamilyMember>[];
 
     Widget markedRow({
       required Key key,
@@ -1279,123 +1725,136 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       final rowColor = category?.color ?? c.color;
       final eventLabel =
           '${c.events.length} event${c.events.length == 1 ? '' : 's'}';
-      final inner = markedRow(
-        key: ValueKey('imp-style-${c.id}'),
-        markerKey: ValueKey('imp-marker-${c.id}'),
-        color: rowColor,
-        child: Row(
-          children: [
-            Container(
-              key: ValueKey('imp-visual-${c.id}'),
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: rowColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: category == null
-                  ? Center(
-                      child: ic(
-                        'download',
-                        size: 16,
-                        sw: 2.2,
-                        color: Colors.white,
+      final inner = GestureDetector(
+        key: ValueKey('imp-edit-${c.id}'),
+        onTap: () {
+          Navigator.of(context).pop();
+          s.openEditImportCalendarSheet(c);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: markedRow(
+          key: ValueKey('imp-style-${c.id}'),
+          markerKey: ValueKey('imp-marker-${c.id}'),
+          color: rowColor,
+          child: Row(
+            children: [
+              Container(
+                key: ValueKey('imp-visual-${c.id}'),
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: rowColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: category == null
+                    ? Center(
+                        child: ic(
+                          'download',
+                          size: 16,
+                          sw: 2.2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : categoryGlyph(
+                        category,
+                        size: 32,
+                        iconColor: Colors.white,
                       ),
-                    )
-                  : categoryGlyph(category, size: 32, iconColor: Colors.white),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    c.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.ink,
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      c.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.ink,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${category == null ? '' : '${category.name} · '}'
-                    '$providerLabel · $eventLabel',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                    Text(
+                      '${category == null ? '' : '${category.name} · '}'
+                      '$providerLabel · $eventLabel',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: B.soft2,
+                      ),
                     ),
-                  ),
-                  if (c.url != null && c.url!.isNotEmpty)
-                    GestureDetector(
-                      key: ValueKey('imp-autosync-${c.id}'),
-                      onTap: () {
-                        s.toggleImportAutoSync(c.id);
-                        setState(() {});
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ic(
-                              c.autoSync ? 'check' : 'x',
-                              size: 11,
-                              sw: 2.6,
-                              color: c.autoSync ? B.primary : B.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              c.autoSync
-                                  ? 'Auto-syncs on open'
-                                  : 'Auto-sync off',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
+                    if (c.url != null && c.url!.isNotEmpty)
+                      GestureDetector(
+                        key: ValueKey('imp-autosync-${c.id}'),
+                        onTap: () {
+                          s.toggleImportAutoSync(c.id);
+                          setState(() {});
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ic(
+                                c.autoSync ? 'check' : 'x',
+                                size: 11,
+                                sw: 2.6,
                                 color: c.autoSync ? B.primary : B.muted,
                               ),
+                              const SizedBox(width: 4),
+                              Text(
+                                c.autoSync
+                                    ? 'Auto-syncs on open'
+                                    : 'Auto-sync off',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: c.autoSync ? B.primary : B.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (c.url != null && c.url!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _importFieldChip(
+                              key: 'imp-loc-${c.id}',
+                              label: 'Location',
+                              on: c.includeLocation,
+                              onTap: () {
+                                s.toggleImportField(c.id, location: true);
+                                setState(() {});
+                              },
+                            ),
+                            _importFieldChip(
+                              key: 'imp-desc-${c.id}',
+                              label: 'Description',
+                              on: c.includeDescription,
+                              onTap: () {
+                                s.toggleImportField(c.id, location: false);
+                                setState(() {});
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  if (c.url != null && c.url!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          _importFieldChip(
-                            key: 'imp-loc-${c.id}',
-                            label: 'Location',
-                            on: c.includeLocation,
-                            onTap: () {
-                              s.toggleImportField(c.id, location: true);
-                              setState(() {});
-                            },
-                          ),
-                          _importFieldChip(
-                            key: 'imp-desc-${c.id}',
-                            label: 'Description',
-                            on: c.includeDescription,
-                            onTap: () {
-                              s.toggleImportField(c.id, location: false);
-                              setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            if (c.url != null && c.url!.isNotEmpty) ...[
               GestureDetector(
-                key: ValueKey('imp-sync-${c.id}'),
-                onTap: _syncing.contains(c.id) ? null : () => _sync(c),
+                key: ValueKey('imp-settings-${c.id}'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  s.openEditImportCalendarSheet(c);
+                },
                 child: Container(
                   width: 34,
                   height: 34,
@@ -1406,45 +1865,64 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
-                    child: _syncing.contains(c.id)
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: B.deep,
-                            ),
-                          )
-                        : ic('repeat', size: 16, sw: 2.2, color: B.deep),
+                    child: ic('edit', size: 16, sw: 2.2, color: B.deep),
+                  ),
+                ),
+              ),
+              if (c.url != null && c.url!.isNotEmpty) ...[
+                GestureDetector(
+                  key: ValueKey('imp-sync-${c.id}'),
+                  onTap: _syncing.contains(c.id) ? null : () => _sync(c),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: B.line),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: _syncing.contains(c.id)
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: B.deep,
+                              ),
+                            )
+                          : ic('repeat', size: 16, sw: 2.2, color: B.deep),
+                    ),
+                  ),
+                ),
+              ],
+              GestureDetector(
+                key: ValueKey('imp-toggle-${c.id}'),
+                onTap: () {
+                  s.toggleImportVisible(c.id);
+                  setState(() {});
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: c.visible ? B.soft : Colors.white,
+                    border: Border.all(color: B.line),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: ic(
+                      c.visible ? 'eye' : 'eyeoff',
+                      size: 16,
+                      sw: 2.2,
+                      color: c.visible ? B.deep : B.muted,
+                    ),
                   ),
                 ),
               ),
             ],
-            GestureDetector(
-              key: ValueKey('imp-toggle-${c.id}'),
-              onTap: () {
-                s.toggleImportVisible(c.id);
-                setState(() {});
-              },
-              child: Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: c.visible ? B.soft : Colors.white,
-                  border: Border.all(color: B.line),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: ic(
-                    c.visible ? 'eye' : 'eyeoff',
-                    size: 16,
-                    sw: 2.2,
-                    color: c.visible ? B.deep : B.muted,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       );
       return _SwipeRow(
@@ -1462,6 +1940,109 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
         ),
         borderRadius: 13,
         child: inner,
+      );
+    }
+
+    Widget memberColourRow(FamilyMember m) {
+      return Container(
+        key: ValueKey('cal-member-colour-${m.id}'),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: B.line),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                s._memberAvatar(m.id, size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    m.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (
+                    var colorIndex = 0;
+                    colorIndex < kCatColors.length;
+                    colorIndex++
+                  ) ...[
+                    Builder(
+                      builder: (_) {
+                        final color = kCatColors[colorIndex];
+                        final blocked = !s.isCalendarIdentityColorAvailable(
+                          color,
+                          exceptMemberId: m.id,
+                        );
+                        return GestureDetector(
+                          key: ValueKey(
+                            'cal-member-colour-${m.id}-$colorIndex',
+                          ),
+                          onTap: blocked
+                              ? null
+                              : () {
+                                  s.setMemberColor(m.id, color);
+                                  setState(() {});
+                                },
+                          child: Opacity(
+                            opacity: blocked ? .28 : 1,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: m.color == color
+                                      ? B.ink
+                                      : Colors.white,
+                                  width: 2,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x140f172a),
+                                    blurRadius: 5,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: blocked
+                                  ? Center(
+                                      child: ic(
+                                        'x',
+                                        size: 11,
+                                        sw: 2.8,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -1511,6 +2092,32 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
               s.openCategory(null);
             }),
           ),
+          const Padding(
+            padding: EdgeInsets.only(top: 20, bottom: 9),
+            child: Text(
+              'FAMILY MEMBER COLOURS',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: Color(0xff64748b),
+              ),
+            ),
+          ),
+          if (members.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text(
+                'No members yet.',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
+            )
+          else
+            for (final m in members) memberColourRow(m),
           const Padding(
             padding: EdgeInsets.only(top: 20, bottom: 9),
             child: Text(
@@ -1630,7 +2237,11 @@ class _CategorySheetState extends State<_CategorySheet> {
     super.initState();
     final c = widget.category;
     _name = TextEditingController(text: c?.name ?? '');
-    _color = c?.color ?? kCatColors.first;
+    _color =
+        c?.color ??
+        widget.state.firstAvailableCalendarIdentityColor(
+          fallback: kCatColors.first,
+        );
     _icon = c?.icon ?? kCatIconsList.first;
     _emoji = c?.emoji;
     _picture = c?.picture;
@@ -1682,19 +2293,43 @@ class _CategorySheetState extends State<_CategorySheet> {
               runSpacing: 9,
               children: [
                 for (final c in kCatColors)
-                  GestureDetector(
-                    onTap: () => setState(() => _color = c),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: c,
-                        borderRadius: BorderRadius.circular(10),
-                        border: _color == c
-                            ? Border.all(color: B.ink, width: 2)
-                            : null,
-                      ),
-                    ),
+                  Builder(
+                    builder: (_) {
+                      final blocked = !s.isCalendarIdentityColorAvailable(
+                        c,
+                        exceptCategoryId: widget.category?.id,
+                      );
+                      return GestureDetector(
+                        key: ValueKey('cat-colour-${c.toARGB32()}'),
+                        onTap: blocked
+                            ? null
+                            : () => setState(() => _color = c),
+                        child: Opacity(
+                          opacity: blocked ? .28 : 1,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: c,
+                              borderRadius: BorderRadius.circular(10),
+                              border: _color == c
+                                  ? Border.all(color: B.ink, width: 2)
+                                  : null,
+                            ),
+                            child: blocked
+                                ? Center(
+                                    child: ic(
+                                      'x',
+                                      size: 13,
+                                      sw: 2.6,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
                   ),
               ],
             ),
@@ -1821,8 +2456,9 @@ class _CategorySheetState extends State<_CategorySheet> {
 
 /// "Import a calendar" sheet, ported from `sheetImportCal()`.
 class _ImportCalendarSheet extends StatefulWidget {
-  const _ImportCalendarSheet({required this.state});
+  const _ImportCalendarSheet({required this.state, this.calendar});
   final _ThriveHomeState state;
+  final ImportedCalendar? calendar;
 
   @override
   State<_ImportCalendarSheet> createState() => _ImportCalendarSheetState();
@@ -1832,16 +2468,27 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
   late final TextEditingController _name;
   late final TextEditingController _url;
   String? _category;
+  late Color _color;
+  late bool _visible;
   bool _busy = false;
   bool _autoSync = true;
   bool _includeLocation = true;
   bool _includeDescription = true;
 
+  bool get _editing => widget.calendar != null;
+
   @override
   void initState() {
     super.initState();
-    _name = TextEditingController();
-    _url = TextEditingController();
+    final cal = widget.calendar;
+    _name = TextEditingController(text: cal?.name ?? '');
+    _url = TextEditingController(text: cal?.url ?? '');
+    _category = cal?.category;
+    _color = cal?.color ?? kImportProviders['ics']!.$2;
+    _visible = cal?.visible ?? true;
+    _autoSync = cal?.autoSync ?? true;
+    _includeLocation = cal?.includeLocation ?? true;
+    _includeDescription = cal?.includeDescription ?? true;
   }
 
   @override
@@ -1855,14 +2502,27 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     if (_busy) return;
     final s = widget.state;
     setState(() => _busy = true);
-    final err = await s.saveImport(
-      name: _name.text,
-      category: _category,
-      url: _url.text,
-      autoSync: _autoSync,
-      includeLocation: _includeLocation,
-      includeDescription: _includeDescription,
-    );
+    final err = _editing
+        ? await s.updateImport(
+            id: widget.calendar!.id,
+            name: _name.text,
+            category: _category,
+            color: _color,
+            visible: _visible,
+            url: _url.text,
+            autoSync: _autoSync,
+            includeLocation: _includeLocation,
+            includeDescription: _includeDescription,
+          )
+        : await s.saveImport(
+            name: _name.text,
+            category: _category,
+            color: _color,
+            url: _url.text,
+            autoSync: _autoSync,
+            includeLocation: _includeLocation,
+            includeDescription: _includeDescription,
+          );
     if (!mounted) return;
     if (err == null) {
       Navigator.of(context).pop();
@@ -1931,6 +2591,8 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     final s = widget.state;
     final cats = s.eventCategories;
     final valid = _url.text.trim().isNotEmpty;
+    final category = s.catById(_category);
+    final displayColor = category?.color ?? _color;
 
     return SingleChildScrollView(
       child: Column(
@@ -1939,8 +2601,10 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
         children: [
           _sheetHead(
             context,
-            'Import a calendar',
-            'Bring in an external ICS calendar link',
+            _editing ? 'Edit imported calendar' : 'Import a calendar',
+            _editing
+                ? 'Update this calendar subscription'
+                : 'Bring in an external ICS calendar link',
           ),
           _sheetField(
             'Calendar URL',
@@ -1959,6 +2623,16 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
               onChanged: (v) => setState(() => _autoSync = v),
             ),
           ),
+          if (_editing)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _toggleRow(
+                title: 'Show this calendar',
+                subtitle: 'Display its imported events in the calendar',
+                value: _visible,
+                onChanged: (v) => setState(() => _visible = v),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: _toggleRow(
@@ -2068,6 +2742,57 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
               ],
             ),
           ),
+          if (_category == null) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Text(
+                'COLOUR',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .3,
+                  color: B.muted,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Wrap(
+                spacing: 9,
+                runSpacing: 9,
+                children: [
+                  for (final color in kCatColors)
+                    GestureDetector(
+                      key: ValueKey('imp-colour-${color.toARGB32()}'),
+                      onTap: () => setState(() => _color = color),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(10),
+                          border: displayColor == color
+                              ? Border.all(color: B.ink, width: 2)
+                              : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: Text(
+                '${category?.name ?? 'The category'} controls this calendar colour.',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                  height: 1.5,
+                ),
+              ),
+            ),
           const Padding(
             padding: EdgeInsets.only(bottom: 14),
             child: Text(
@@ -2081,7 +2806,9 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             ),
           ),
           _primaryBtn(
-            _busy ? 'Importing…' : 'Import calendar',
+            _busy
+                ? (_editing ? 'Saving…' : 'Importing…')
+                : (_editing ? 'Save calendar' : 'Import calendar'),
             _busy ? null : _submit,
             enabled: valid && !_busy,
           ),
@@ -2218,6 +2945,156 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
         const SizedBox(height: 18),
         _primaryBtn('Jump to today', () {
           s.calToday();
+          Navigator.of(context).pop();
+        }),
+      ],
+    );
+  }
+}
+
+/// Week picker used by Week/Family calendar views. It browses one month at a
+/// time and jumps `calAnchor` to the selected week's Monday.
+class _CalWeekPickerSheet extends StatefulWidget {
+  const _CalWeekPickerSheet({required this.state});
+  final _ThriveHomeState state;
+
+  @override
+  State<_CalWeekPickerSheet> createState() => _CalWeekPickerSheetState();
+}
+
+class _CalWeekPickerSheetState extends State<_CalWeekPickerSheet> {
+  late String _monthAnchor;
+
+  @override
+  void initState() {
+    super.initState();
+    final current = _parseIso(widget.state.calAnchor);
+    _monthAnchor = _isoOf(current.year, current.month, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final month = _parseIso(_monthAnchor);
+    final monthStart = _isoOf(month.year, month.month, 1);
+    final monthEnd = _isoOf(month.year, month.month + 1, 0);
+    final selectedWeek = _startOfWeekIso(s.calAnchor);
+    final thisWeek = _startOfWeekIso(todayIso());
+    final weeks = <String>[];
+    var cursor = _startOfWeekIso(monthStart);
+    while (cursor.compareTo(monthEnd) <= 0) {
+      weeks.add(cursor);
+      cursor = _addDaysIso(cursor, 7);
+    }
+
+    Widget monthBtn(String icon, int delta) {
+      return GestureDetector(
+        key: ValueKey('cal-week-month-$icon'),
+        onTap: () =>
+            setState(() => _monthAnchor = _addMonthsIso(_monthAnchor, delta)),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            border: Border.all(color: B.line),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Center(child: ic(icon, size: 17, sw: 2.4, color: B.soft2)),
+        ),
+      );
+    }
+
+    Widget weekRow(String weekStart) {
+      final weekEnd = _addDaysIso(weekStart, 6);
+      final selected = weekStart == selectedWeek;
+      final current = weekStart == thisWeek;
+      return GestureDetector(
+        key: ValueKey('cal-pick-week-$weekStart'),
+        onTap: () {
+          s.update(() {
+            s.calAnchor = weekStart;
+            s.calSel = weekStart;
+            s.calWeekTimelineCentered = false;
+          });
+          Navigator.of(context).pop();
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: selected ? B.primary : Colors.white,
+            border: Border.all(color: selected ? B.primary : B.line),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_shortDateIso(weekStart)} – ${_shortDateIso(weekEnd)}',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : B.ink,
+                  ),
+                ),
+              ),
+              if (current)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? Colors.white.withValues(alpha: .18)
+                        : B.soft,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'This week',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? Colors.white : B.deep,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHead(context, 'Jump to a week'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            children: [
+              monthBtn('cleft', -1),
+              Expanded(
+                child: Text(
+                  _monthTitleIso(_monthAnchor),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: B.ink,
+                  ),
+                ),
+              ),
+              monthBtn('cright', 1),
+            ],
+          ),
+        ),
+        for (final weekStart in weeks) weekRow(weekStart),
+        const SizedBox(height: 10),
+        _primaryBtn('Jump to this week', () {
+          s.calToday();
+          s.update(() => s.calWeekTimelineCentered = false);
           Navigator.of(context).pop();
         }),
       ],

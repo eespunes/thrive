@@ -1,9 +1,69 @@
+import 'dart:convert';
+
+import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
 void main() {
+  testWidgets('app header uses the current member profile picture', (
+    tester,
+  ) async {
+    const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+        '+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    final family = Family(
+      id: 'fam_main',
+      name: 'Janssen family',
+      username: 'janssen',
+      members: [
+        FamilyMember(
+          id: 'me',
+          name: 'Eva Janssen',
+          email: 'eva.janssen@gmail.com',
+          initials: 'EJ',
+          color: kMemberColors.first,
+          photo: png,
+          role: 'owner',
+        ),
+      ],
+    );
+    await pumpApp(
+      tester,
+      prefs: {
+        'flutter.$kStorageKeyV4': json.encode({
+          'year': 2026,
+          'monthIdx': 6,
+          'screen': 'overview',
+          'tab': 'home',
+          'familyId': family.id,
+          'families': [family.toJson()],
+          'workspaces': {family.id: Workspace.empty().toJson()},
+        }),
+      },
+      landOnDefaultTab: true,
+    );
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-view-avatar')),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('settings renders accounts, blocks, copy & delete account', (
     tester,
   ) async {

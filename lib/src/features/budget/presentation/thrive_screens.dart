@@ -634,6 +634,10 @@ extension _ThriveScreens on _ThriveHomeState {
   Widget _expenseRow(_BlockCompute b, _RowCompute r, bool locked) {
     final it = r.item;
     final acc = accByKey(it.account);
+    final payee = it.payee.trim();
+    final subcategory = it.label.trim();
+    final title = payee.isNotEmpty ? payee : subcategory;
+    final showSubcategory = payee.isNotEmpty && subcategory.isNotEmpty;
     final uStyle = <UntilState, List<Color>>{
       UntilState.soon: [B.orangeSoft, B.orangeText, const Color(0xfffed7aa)],
       UntilState.future: [B.soft, B.deep, const Color(0xffc5e8e2)],
@@ -658,8 +662,20 @@ extension _ThriveScreens on _ThriveHomeState {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    it.label,
+                  Text.rich(
+                    TextSpan(
+                      text: title,
+                      children: [
+                        if (showSubcategory)
+                          TextSpan(
+                            text: ' - $subcategory',
+                            style: const TextStyle(
+                              color: B.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 13,

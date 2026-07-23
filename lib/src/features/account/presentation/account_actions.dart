@@ -88,6 +88,29 @@ extension _ThriveAccountActions on _ThriveHomeState {
     );
   }
 
+  FamilyMember? _currentUserMember() {
+    FamilyMember? me;
+    final firebaseUid = _firebaseUid();
+    for (final m in curFamily()?.members ?? const <FamilyMember>[]) {
+      if (m.id == 'me' || (firebaseUid != null && m.uid == firebaseUid)) {
+        me = m;
+        break;
+      }
+    }
+    return me;
+  }
+
+  ({String? photo, String initials, Color? color}) profileAvatarIdentity(
+    AppUser u,
+  ) {
+    final me = _currentUserMember();
+    return (
+      photo: me?.photo ?? u.photo,
+      initials: me?.initials ?? u.initials,
+      color: me?.color ?? u.color,
+    );
+  }
+
   /// The signed-in user as an avatar identity.
   Widget _headerAvatar() {
     final u = user;
@@ -98,10 +121,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
         child: logoMark(size: 18),
       );
     }
+    final identity = profileAvatarIdentity(u);
     return avatarNode(
-      photo: u.photo,
-      initials: u.initials,
-      color: u.color,
+      photo: identity.photo,
+      initials: identity.initials,
+      color: identity.color,
       size: 34,
       radius: 11,
       fs: 13,
@@ -505,6 +529,20 @@ extension _ThriveAccountActions on _ThriveHomeState {
         }
       }
     }, 'Member updated');
+  }
+
+  void setMemberColor(String id, Color color) {
+    if (!isCalendarIdentityColorAvailable(color, exceptMemberId: id)) {
+      flash('That colour is already used');
+      return;
+    }
+    _withCurFamily((f) {
+      for (final m in f.members) {
+        if (m.id == id) {
+          m.color = color;
+        }
+      }
+    }, 'Member colour updated');
   }
 
   void switchFamily(String id) {

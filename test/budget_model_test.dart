@@ -144,6 +144,7 @@ void main() {
     test('ExpenseItem copyWithId assigns a new id', () {
       final it = ExpenseItem(
         id: 'a',
+        payee: 'Thuiswonen',
         label: 'Groceries',
         marker: '1st',
         amount: 42.5,
@@ -152,8 +153,24 @@ void main() {
       );
       final copy = it.copyWithId('b');
       expect(copy.id, 'b');
+      expect(copy.payee, it.payee);
       expect(copy.label, it.label);
       expect(copy.amount, it.amount);
+    });
+
+    test('ExpenseItem persists payee separately from label', () {
+      final it = ExpenseItem(
+        id: 'a',
+        payee: 'Thuiswonen',
+        label: 'Rent',
+        marker: '1st',
+        amount: 42.5,
+        paid: false,
+        account: 'shared',
+      );
+      final back = ExpenseItem.fromJson(it.toJson());
+      expect(back.payee, 'Thuiswonen');
+      expect(back.label, 'Rent');
     });
   });
 

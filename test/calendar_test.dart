@@ -114,6 +114,23 @@ String addDaysForTest(String iso, int n) {
       '${d.day.toString().padLeft(2, '0')}';
 }
 
+String addMonthsForTest(String iso, int n) {
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  final total = d.month - 1 + n;
+  final year = d.year + total ~/ 12;
+  final month = total % 12 + 1;
+  final lastDay = DateTime.utc(year, month + 1, 0).day;
+  final day = d.day > lastDay ? lastDay : d.day;
+  return '${year.toString().padLeft(4, '0')}-'
+      '${month.toString().padLeft(2, '0')}-'
+      '${day.toString().padLeft(2, '0')}';
+}
+
+String startOfWeekForTest(String iso) {
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  return addDaysForTest(iso, -(d.weekday - 1));
+}
+
 String shortDateForTest(String iso) {
   const months = [
     'Jan',
@@ -183,6 +200,30 @@ void main() {
 
     final events = parseIcsEvents(ics);
     expect(events.single.title, 'Long title wraps');
+  });
+
+  test('defaultCalendarEndTimeForStart returns one hour later', () {
+    expect(defaultCalendarEndTimeForStart('09:00'), '10:00');
+    expect(defaultCalendarEndTimeForStart('10:35'), '11:35');
+    expect(defaultCalendarEndTimeForStart('23:30'), '00:30');
+  });
+
+  test('calendarReminderLabel describes supported event reminders', () {
+    expect(calendarReminderLabel('none'), 'No reminder');
+    expect(calendarReminderLabel('at'), 'On time');
+    expect(calendarReminderLabel('5m'), '5 minutes before');
+    expect(calendarReminderLabel('15m'), '15 minutes before');
+    expect(calendarReminderLabel('30m'), '30 minutes before');
+    expect(calendarReminderLabel('1h'), '1 hour before');
+    expect(calendarReminderLabel('2h'), '2 hours before');
+    expect(calendarReminderLabel('1d'), '1 day before');
+    expect(calendarReminderLabel('2d'), '2 days before');
+  });
+
+  test('category palette offers a broad set of colours', () {
+    expect(kCatColors.length, greaterThanOrEqualTo(20));
+    expect(kCatColors.toSet(), hasLength(kCatColors.length));
+    expect(kEventColors, kCatColors);
   });
 
   group('fetchIcsEvents', () {
@@ -321,6 +362,7 @@ void main() {
       Color color, {
       String? categoryId,
       String endDate = '',
+      List<String>? attendees,
     }) => CalendarEvent(
       id: id,
       title: 'Event $id',
@@ -328,6 +370,7 @@ void main() {
       endDate: endDate,
       color: color,
       category: categoryId ?? category.id,
+      attendees: attendees,
       reminder: 'none',
     );
     await pumpApp(
@@ -340,7 +383,13 @@ void main() {
             const Color(0xff1684b4),
             endDate: addDaysForTest(todayIso(), 1),
           ),
-          event('plain', plainColor, categoryId: ''),
+          event('plain', plainColor, categoryId: '', attendees: const []),
+          event(
+            'member',
+            plainColor,
+            categoryId: '',
+            attendees: const ['erik'],
+          ),
         ],
         categories: [category],
       ),
@@ -352,6 +401,7 @@ void main() {
       'one': categoryColor,
       'two': categoryColor,
       'plain': plainColor,
+      'member': kMemberColors[1],
     }.entries) {
       final id = entry.key;
       final bar = find.byWidgetPredicate(
@@ -360,7 +410,7 @@ void main() {
             (widget.key! as ValueKey<String>).value.startsWith('cal-bar-$id-'),
       );
       expect(bar, findsOneWidget);
-      if (id != 'plain') {
+      if (id == 'one' || id == 'two') {
         expect(
           find.descendant(of: bar, matching: find.byType(SvgPicture)),
           findsOneWidget,
@@ -429,7 +479,9 @@ void main() {
     final fadedBar = find.byWidgetPredicate(
       (widget) =>
           widget.key is ValueKey<String> &&
-          (widget.key! as ValueKey<String>).value.startsWith('cal-bar-outside-'),
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'cal-bar-outside-',
+          ),
     );
     final normalBar = find.byWidgetPredicate(
       (widget) =>
@@ -453,16 +505,55 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    final headerFirst = tester.getTopLeft(find.byKey(const ValueKey('cal-weekday-0')));
+    final headerFirst = tester.getTopLeft(
+      find.byKey(const ValueKey('cal-weekday-0')),
+    );
     final dayFirst = tester.getTopLeft(
       find.byKey(const ValueKey('cal-day-bg-2026-06-29')),
     );
-    final headerLast = tester.getTopRight(find.byKey(const ValueKey('cal-weekday-6')));
+    final headerLast = tester.getTopRight(
+      find.byKey(const ValueKey('cal-weekday-6')),
+    );
     final dayLast = tester.getTopRight(
       find.byKey(const ValueKey('cal-day-bg-2026-07-05')),
     );
     expect(headerFirst.dx, closeTo(dayFirst.dx, 0.01));
     expect(headerLast.dx, closeTo(dayLast.dx, 0.01));
+
+    final headerCell = tester.widget<Container>(
+      find.byKey(const ValueKey('cal-weekday-1')),
+    );
+    final headerBorder =
+        (headerCell.decoration! as BoxDecoration).border! as Border;
+    expect(headerBorder.left.color, const Color(0xffd5dce8));
+    expect(headerBorder.bottom.color, const Color(0xffd5dce8));
+  });
+
+  testWidgets('month view highlights today with a cell border', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    final todayCell = tester.widget<Container>(
+      find.byKey(ValueKey('cal-day-bg-${todayIso()}')),
+    );
+    final focus = todayCell.foregroundDecoration! as BoxDecoration;
+    expect((focus.border! as Border).top.color, B.primary);
+  });
+
+  testWidgets('month view scrolls vertically between months', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    expect(find.text('July 2026'), findsOneWidget);
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-month')),
+      const Offset(0, -700),
+      1200,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('August 2026'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-day-bg-2026-08-01')), findsOneWidget);
   });
 
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
@@ -472,6 +563,17 @@ void main() {
     await goToCalendar(tester);
 
     await tester.tap(find.byKey(ValueKey('cal-day-${todayIso()}')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
+  });
+
+  testWidgets('tapping empty month day space opens its day-detail sheet', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
     await tester.pumpAndSettle();
     expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
   });
@@ -507,6 +609,87 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('09:00'), findsNothing);
     expect(find.text('10:00'), findsNothing);
+  });
+
+  testWidgets('event time picker opens in keyboard input mode', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('event-time-start')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hour'), findsOneWidget);
+    expect(find.text('Minute'), findsOneWidget);
+  });
+
+  testWidgets('event editor offers all reminder options', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No reminder'), findsOneWidget);
+    expect(find.text('On time'), findsOneWidget);
+    expect(find.text('5 min before'), findsOneWidget);
+    expect(find.text('15 min before'), findsOneWidget);
+    expect(find.text('30 min before'), findsOneWidget);
+    expect(find.text('1 hour before'), findsOneWidget);
+    expect(find.text('2 hours before'), findsOneWidget);
+    expect(find.text('1 day before'), findsOneWidget);
+    expect(find.text('2 days before'), findsOneWidget);
+  });
+
+  testWidgets(
+    'event editor shows optional repeat end date for recurring events',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      expect(find.text('REPEAT ENDS'), findsNothing);
+
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('REPEAT ENDS'), findsOneWidget);
+      final repeatEnd = find.byKey(const ValueKey('event-repeat-end-date'));
+      expect(repeatEnd, findsOneWidget);
+      expect(
+        find.descendant(of: repeatEnd, matching: find.text('Never')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('event editor shows custom repeat controls', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Custom'));
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EVERY'), findsOneWidget);
+    expect(find.text('ON DAYS'), findsOneWidget);
+    expect(find.text('Days'), findsOneWidget);
+    expect(find.text('Weeks'), findsOneWidget);
+    expect(find.text('Months'), findsOneWidget);
+    expect(find.text('Years'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('event-custom-weekday-1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('event-custom-every-2')));
+    await tester.tap(find.text('Months'));
+    await tester.pumpAndSettle();
+    expect(find.text('ON DAYS'), findsNothing);
   });
 
   testWidgets('the multi-day toggle reveals an end-date field', (tester) async {
@@ -624,6 +807,90 @@ void main() {
     expect(find.text('Family · ICS / web link · 1 event'), findsOneWidget);
   });
 
+  testWidgets('calendar settings changes family member colours', (
+    tester,
+  ) async {
+    const newColorIndex = 1;
+    final newColor = kCatColors[newColorIndex];
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await openCalManage(tester);
+    expect(find.text('FAMILY MEMBER COLOURS'), findsOneWidget);
+    final memberSwatch = find.byKey(
+      ValueKey('cal-member-colour-me-$newColorIndex'),
+    );
+    await tester.tap(memberSwatch);
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    await goToCalendar(tester);
+    await setCalView(tester, 'family');
+
+    final erikRow = find.byKey(const ValueKey('cal-sticky-family-members'));
+    final usesNewColor = tester
+        .widgetList<Container>(
+          find.descendant(of: erikRow, matching: find.byType(Container)),
+        )
+        .any((container) {
+          final decoration = container.decoration;
+          return decoration is BoxDecoration && decoration.color == newColor;
+        });
+    expect(usesNewColor, isTrue);
+  });
+
+  testWidgets('editing an imported calendar updates its settings', (
+    tester,
+  ) async {
+    final imported = ImportedCalendar(
+      id: 'training-feed',
+      name: 'Training',
+      provider: 'ics',
+      color: kCatColors.first,
+      url: 'https://example.com/training.ics',
+      autoSync: false,
+      events: [
+        ImportedCalendarEvent(
+          id: 'training-1',
+          title: 'Imported training',
+          date: todayIso(),
+        ),
+      ],
+    );
+    final newColor = kCatColors[3];
+
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
+      landOnDefaultTab: true,
+    );
+    await openCalManage(tester);
+
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit imported calendar'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(1), 'School training');
+    await tester.tap(find.text('Show this calendar'));
+    await tester.tap(find.byKey(ValueKey('imp-colour-${newColor.toARGB32()}')));
+    await tester.pump();
+    await tester.tap(find.text('Save calendar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('School training'), findsWidgets);
+    final marker = tester.widget<Container>(
+      find.byKey(const ValueKey('imp-marker-training-feed')),
+    );
+    expect(marker.color, newColor);
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
+    expect(find.text('Imported training'), findsNothing);
+  });
+
   testWidgets('assigning a category to a new event selects its chip', (
     tester,
   ) async {
@@ -677,7 +944,8 @@ void main() {
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
       expect(find.text('Delete this event only'), findsOneWidget);
-      expect(find.text('Delete all events'), findsOneWidget);
+      expect(find.text('Delete this and future events'), findsOneWidget);
+      expect(find.text('Delete the whole occurrence'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('recur-delete-one')));
       await tester.pumpAndSettle();
@@ -690,6 +958,35 @@ void main() {
       expect(find.text('Standup'), findsWidgets);
     },
   );
+
+  testWidgets('editing a recurring event asks which occurrences to save', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Practice');
+    await tester.pump();
+    await tester.tap(find.text('Weekly'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add event').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Practice').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Practice updated');
+    await tester.pump();
+    await tester.tap(find.text('Save event'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Save this event only'), findsOneWidget);
+    expect(find.text('Save this and future events'), findsOneWidget);
+    expect(find.text('Save the whole occurrence'), findsOneWidget);
+  });
 
   testWidgets('import a calendar fetches and shows its real events', (
     tester,
@@ -1069,6 +1366,56 @@ void main() {
     expect(find.text('Daily pill'), findsAtLeastNWidgets(2));
   });
 
+  testWidgets('a recurring event stops at its repeat end date', (tester) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'daily-limited',
+            title: 'Limited daily',
+            date: todayIso(),
+            endDate: addDaysForTest(todayIso(), 1),
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors.first,
+            reminder: 'none',
+            recur: 'daily',
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
+
+    expect(find.text('Limited daily'), findsNWidgets(2));
+  });
+
+  test('custom weekly recurrence expands selected weekdays by interval', () {
+    final ev = CalendarEvent(
+      id: 'custom-weekly',
+      title: 'Custom weekly',
+      date: '2026-07-20',
+      endDate: '2026-08-05',
+      start: '09:00',
+      end: '10:00',
+      color: kEventColors.first,
+      reminder: 'none',
+      recur: 'custom',
+      recurEvery: 2,
+      recurUnit: 'week',
+      recurWeekdays: const [1, 3],
+    );
+
+    expect(recurringEventDates(ev, '2026-07-20', '2026-08-10'), [
+      '2026-07-20',
+      '2026-07-22',
+      '2026-08-03',
+      '2026-08-05',
+    ]);
+  });
+
   testWidgets('a monthly recurring event expands multiple occurrences', (
     tester,
   ) async {
@@ -1200,6 +1547,8 @@ void main() {
       ((familyCell.decoration! as BoxDecoration).border! as Border).left.color,
       B.line,
     );
+    final familyFocus = familyCell.foregroundDecoration! as BoxDecoration;
+    expect((familyFocus.border! as Border).top.color, B.primary);
     expect(
       find.byKey(ValueKey('cal-family-me-fam-trip-${todayIso()}')),
       findsOneWidget,
@@ -1223,33 +1572,105 @@ void main() {
     expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
   });
 
-  testWidgets('family view hides pinned strip when there are no pinned events', (
-    tester,
-  ) async {
+  testWidgets(
+    'family view hides pinned strip when there are no pinned events',
+    (tester) async {
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'fam-erik',
+              title: 'Guitar lesson',
+              date: todayIso(),
+              start: '09:00',
+              end: '10:00',
+              color: kEventColors.first,
+              attendees: ['erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      await setCalView(tester, 'family');
+
+      expect(
+        find.byKey(const ValueKey('cal-family-pinned-strip')),
+        findsNothing,
+      );
+      expect(find.text('Erik Janssen'), findsOneWidget);
+      expect(find.textContaining('Guitar lesson'), findsOneWidget);
+    },
+  );
+
+  testWidgets('family view fades past day cells and events', (tester) async {
+    final past = addDaysForTest(todayIso(), -1);
+    final future = addDaysForTest(todayIso(), 1);
     await pumpApp(
       tester,
       prefs: calendarPrefs(
         events: [
           CalendarEvent(
-            id: 'fam-erik',
-            title: 'Guitar lesson',
-            date: todayIso(),
+            id: 'family-past',
+            title: 'Past appointment',
+            date: past,
             start: '09:00',
             end: '10:00',
             color: kEventColors.first,
-            attendees: ['erik'],
+            attendees: ['me'],
+          ),
+          CalendarEvent(
+            id: 'family-future',
+            title: 'Future appointment',
+            date: future,
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors[1],
+            attendees: ['me'],
           ),
         ],
       ),
       landOnDefaultTab: true,
     );
     await goToCalendar(tester);
-
     await setCalView(tester, 'family');
 
-    expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
-    expect(find.text('Erik Janssen'), findsOneWidget);
-    expect(find.textContaining('Guitar lesson'), findsOneWidget);
+    final pastCell = tester.widget<Container>(
+      find.byKey(ValueKey('cal-family-cell-me-$past')),
+    );
+    final todayCell = tester.widget<Container>(
+      find.byKey(ValueKey('cal-family-cell-me-${todayIso()}')),
+    );
+    expect((pastCell.decoration! as BoxDecoration).color, B.faint);
+    expect(
+      (todayCell.decoration! as BoxDecoration).color,
+      const Color(0xfff0fbfa),
+    );
+
+    final pastEvent = find.byKey(ValueKey('cal-family-me-family-past-$past'));
+    final futureEvent = find.byKey(
+      ValueKey('cal-family-me-family-future-$future'),
+    );
+    expect(pastEvent, findsOneWidget);
+    expect(futureEvent, findsOneWidget);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: pastEvent, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      .45,
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: futureEvent, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      1,
+    );
   });
 
   testWidgets('filter sheet combines member and category filters', (
@@ -1360,6 +1781,57 @@ void main() {
     },
   );
 
+  testWidgets(
+    'family view shows imported events assigned through category members',
+    (tester) async {
+      final school = EventCategory(
+        id: 'school',
+        name: 'School',
+        color: kCatColors.first,
+        icon: 'book',
+        members: const ['erik'],
+      );
+      final imported = ImportedCalendar(
+        id: 'school-feed',
+        name: 'School calendar',
+        provider: 'ics',
+        color: const Color(0xff475569),
+        category: school.id,
+        events: [
+          ImportedCalendarEvent(
+            id: 'parent-evening',
+            title: 'Parent evening',
+            date: todayIso(),
+          ),
+        ],
+      );
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          categories: [school],
+          importedCalendars: [imported],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'family');
+
+      expect(
+        find.byKey(
+          ValueKey('cal-family-erik-school-feed_parent-evening-${todayIso()}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          ValueKey('cal-family-me-school-feed_parent-evening-${todayIso()}'),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('multi-day event renders as a month span and shows date range', (
     tester,
   ) async {
@@ -1428,6 +1900,10 @@ void main() {
 
     expect(find.byKey(const ValueKey('cal-timed-timed1')), findsOneWidget);
     expect(
+      find.byKey(const ValueKey('cal-week-today-hour-lines')),
+      findsOneWidget,
+    );
+    expect(
       find.byKey(ValueKey('cal-pinned-week-week-trip-${todayIso()}')),
       findsOneWidget,
     );
@@ -1441,6 +1917,11 @@ void main() {
       ((firstHour.decoration! as BoxDecoration).border! as Border).top.color,
       B.line,
     );
+    final todayColumn = tester.widget<Container>(
+      find.byKey(ValueKey('cal-week-day-col-${todayIso()}')),
+    );
+    final todayColumnFocus = todayColumn.foregroundDecoration! as BoxDecoration;
+    expect((todayColumnFocus.border! as Border).top.color, B.primary);
     final dayColumns = tester.widgetList<Container>(
       find.byWidgetPredicate(
         (widget) =>
@@ -1469,11 +1950,22 @@ void main() {
     final rowHeight = viewportHeight / 8;
     final now = DateTime.now();
     final currentHour = now.hour + now.minute / 60;
-    final expectedOffset = ((currentHour - 4) * rowHeight).clamp(
+    final expectedOffset = (currentHour * rowHeight).clamp(
       0.0,
       gridHeight - viewportHeight,
     );
     expect(scrollView.controller!.offset, closeTo(expectedOffset, 2));
+
+    final timedEvent = find.byKey(const ValueKey('cal-timed-timed1'));
+    final eventTitle = tester.widget<Text>(
+      find.descendant(of: timedEvent, matching: find.text('Dentist timed')),
+    );
+    expect(eventTitle.maxLines, greaterThan(1));
+    expect(eventTitle.overflow, TextOverflow.clip);
+    expect(
+      find.descendant(of: timedEvent, matching: find.text('09:00')),
+      findsNothing,
+    );
 
     await tester.ensureVisible(find.byKey(const ValueKey('cal-timed-timed1')));
     await tester.pumpAndSettle();
@@ -1482,6 +1974,330 @@ void main() {
 
     expect(find.text('Dentist timed'), findsWidgets);
     expect(find.text('09:00 – 10:30'), findsOneWidget);
+  });
+
+  testWidgets('week view lets long event names fill tall cards', (
+    tester,
+  ) async {
+    const longTitle =
+        'fronrbyuhrbghrbyrrnfjjdnycidbycidjcnsdiucbsidufnhcdfbgdunfhiuechfis';
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'long-title',
+            title: longTitle,
+            date: todayIso(),
+            start: '10:00',
+            end: '17:00',
+            color: kEventColors.first,
+            attendees: ['me'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    final longEvent = find.byKey(const ValueKey('cal-timed-long-title'));
+    final longTitleText = tester.widget<Text>(
+      find.descendant(of: longEvent, matching: find.text(longTitle)),
+    );
+    expect(longTitleText.maxLines, greaterThan(12));
+    expect(longTitleText.overflow, TextOverflow.clip);
+  });
+
+  testWidgets('week view scrolls horizontally between weeks', (tester) async {
+    final nextWeekStart = addDaysForTest(startOfWeekForTest(todayIso()), 7);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-week')),
+      const Offset(-700, 0),
+      1200,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('cal-week-day-col-$nextWeekStart')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('week header opens a picker for choosing a week', (tester) async {
+    final nextMonth = addMonthsForTest(todayIso(), 1);
+    final nextMonthStart = '${nextMonth.substring(0, 8)}01';
+    final pickedWeek = startOfWeekForTest(nextMonthStart);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    await tester.tap(find.byKey(const ValueKey('cal-month-title')));
+    await tester.pumpAndSettle();
+    expect(find.text('Jump to a week'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('cal-week-month-cright')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('cal-pick-week-$pickedWeek')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('cal-week-day-col-$pickedWeek')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('week view splits same-time events into columns', (tester) async {
+    final category = EventCategory(
+      id: 'school',
+      name: 'School',
+      color: kEventColors.first,
+      icon: 'book',
+    );
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'overlap-a',
+            title: 'Overlapping A',
+            date: todayIso(),
+            start: '10:35',
+            color: kEventColors.first,
+            category: category.id,
+            attendees: ['me'],
+          ),
+          CalendarEvent(
+            id: 'overlap-b',
+            title: 'Overlapping B',
+            date: todayIso(),
+            start: '10:35',
+            color: kEventColors[1],
+            attendees: ['me'],
+          ),
+        ],
+        categories: [category],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    final dayColumn = find.byKey(ValueKey('cal-week-day-col-${todayIso()}'));
+    final firstEvent = find.byKey(const ValueKey('cal-timed-overlap-a'));
+    final secondEvent = find.byKey(const ValueKey('cal-timed-overlap-b'));
+    expect(firstEvent, findsOneWidget);
+    expect(secondEvent, findsOneWidget);
+
+    final columnWidth = tester.getSize(dayColumn).width;
+    final firstRect = tester.getRect(firstEvent);
+    final secondRect = tester.getRect(secondEvent);
+    final firstTitleFinder = find.descendant(
+      of: firstEvent,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.textSpan?.toPlainText().contains('Overlapping A') == true,
+      ),
+    );
+    final firstTitle = tester.getRect(firstTitleFinder);
+    expect(firstRect.top, closeTo(secondRect.top, 0.01));
+    expect(firstRect.width, closeTo(columnWidth / 2, 2));
+    expect(secondRect.width, closeTo(columnWidth / 2, 2));
+    expect(firstRect.right, lessThanOrEqualTo(secondRect.left + 0.01));
+    expect(firstTitle.width, greaterThan(firstRect.width * .65));
+    expect(
+      find.descendant(of: firstEvent, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('returning to week view keeps the week and focuses the hour', (
+    tester,
+  ) async {
+    final thisWeekStart = startOfWeekForTest(todayIso());
+    final nextWeekStart = addDaysForTest(thisWeekStart, 7);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-week')),
+      const Offset(-700, 0),
+      1200,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(ValueKey('cal-week-day-col-$thisWeekStart')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(ValueKey('cal-week-day-col-$nextWeekStart')),
+      findsOneWidget,
+    );
+
+    await setCalView(tester, 'agenda');
+    await setCalView(tester, 'week');
+
+    expect(
+      find.byKey(ValueKey('cal-week-day-col-$nextWeekStart')),
+      findsOneWidget,
+    );
+    final timelineFinder = find.byKey(const ValueKey('cal-timeline-week'));
+    final viewportHeight = tester.getSize(timelineFinder).height;
+    final gridHeight = tester
+        .getSize(find.byKey(const ValueKey('cal-hour-grid-week')))
+        .height;
+    final scrollView = tester.widget<SingleChildScrollView>(timelineFinder);
+    final rowHeight = viewportHeight / 8;
+    final now = DateTime.now();
+    final currentHour = now.hour + now.minute / 60;
+    final expectedOffset = (currentHour * rowHeight).clamp(
+      0.0,
+      gridHeight - viewportHeight,
+    );
+    expect(scrollView.controller!.offset, closeTo(expectedOffset, 2));
+  });
+
+  testWidgets('week view fades past days, hours and events', (tester) async {
+    final past = addDaysForTest(todayIso(), -1);
+    final future = addDaysForTest(todayIso(), 1);
+    final currentHour = DateTime.now().hour.toString().padLeft(2, '0');
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'week-past',
+            title: 'Past meeting',
+            date: past,
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors.first,
+            attendees: ['me'],
+          ),
+          CalendarEvent(
+            id: 'week-future',
+            title: 'Future meeting',
+            date: future,
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors[1],
+            attendees: ['me'],
+          ),
+          CalendarEvent(
+            id: 'week-current-hour',
+            title: 'Current hour',
+            date: todayIso(),
+            start: '$currentHour:00',
+            color: kEventColors[2],
+            attendees: ['me'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+    await setCalView(tester, 'week');
+
+    final pastColumn = tester.widget<Container>(
+      find.byKey(ValueKey('cal-week-day-col-$past')),
+    );
+    final futureColumn = tester.widget<Container>(
+      find.byKey(ValueKey('cal-week-day-col-$future')),
+    );
+    expect((pastColumn.decoration! as BoxDecoration).color, B.faint);
+    expect(
+      (futureColumn.decoration! as BoxDecoration).color,
+      Colors.transparent,
+    );
+    expect(
+      find.byKey(const ValueKey('cal-week-today-past-hours')),
+      findsOneWidget,
+    );
+
+    final pastEvent = find.byKey(const ValueKey('cal-timed-week-past'));
+    final futureEvent = find.byKey(const ValueKey('cal-timed-week-future'));
+    final currentHourEvent = find.byKey(
+      const ValueKey('cal-timed-week-current-hour'),
+    );
+    expect(pastEvent, findsOneWidget);
+    expect(futureEvent, findsOneWidget);
+    expect(currentHourEvent, findsOneWidget);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: pastEvent, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      .45,
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(of: futureEvent, matching: find.byType(Opacity)),
+          )
+          .opacity,
+      1,
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.descendant(
+              of: currentHourEvent,
+              matching: find.byType(Opacity),
+            ),
+          )
+          .opacity,
+      1,
+    );
+  });
+
+  testWidgets('family view scrolls horizontally between weeks', (tester) async {
+    final nextWeekStart = addDaysForTest(startOfWeekForTest(todayIso()), 7);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'family');
+
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-family')),
+      const Offset(-700, 0),
+      1200,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('cal-family-cell-me-$nextWeekStart')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('family header opens a picker for choosing a week', (
+    tester,
+  ) async {
+    final nextMonth = addMonthsForTest(todayIso(), 1);
+    final nextMonthStart = '${nextMonth.substring(0, 8)}01';
+    final pickedWeek = startOfWeekForTest(nextMonthStart);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'family');
+
+    await tester.tap(find.byKey(const ValueKey('cal-month-title')));
+    await tester.pumpAndSettle();
+    expect(find.text('Jump to a week'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('cal-week-month-cright')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('cal-pick-week-$pickedWeek')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(ValueKey('cal-family-cell-me-$pickedWeek')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('month picker jumps to a chosen month and back to today', (

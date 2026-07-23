@@ -154,6 +154,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<String> calCatFilter = []; // category id multi-filter
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
+  final PageController calPageController = PageController(initialPage: 10000);
   final ScrollController calWeekTimelineController = ScrollController();
   bool calWeekTimelineCentered = false;
   Map<String, bool> collapsed = {};
@@ -201,6 +202,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _familySub?.cancel();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
+    calPageController.dispose();
     calWeekTimelineController.dispose();
     super.dispose();
   }
@@ -217,7 +219,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   Future<void> _refreshReminderSchedule() async {
     await NotificationService.refreshTimeZone();
-    _rescheduleReminders();
+    await _rescheduleReminders();
   }
 
   /// Consumes [pendingNotificationDeepLink] and opens the task or calendar
@@ -272,7 +274,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         await bindCloudSync(uid);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleReminders();
+        unawaited(_rescheduleReminders());
         _handleNotificationDeepLink();
         return;
       }
@@ -290,7 +292,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           }
           if (!mounted) return;
           setState(() => ready = true);
-          _rescheduleReminders();
+          unawaited(_rescheduleReminders());
           _handleNotificationDeepLink();
           await _persist();
           await bindCloudSync(uid);
@@ -305,7 +307,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       workspaces = {};
       if (!mounted) return;
       setState(() => ready = true);
-      _rescheduleReminders();
+      unawaited(_rescheduleReminders());
       _handleNotificationDeepLink();
       return;
     }
@@ -328,7 +330,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleReminders();
+        unawaited(_rescheduleReminders());
         _handleNotificationDeepLink();
         return;
       } catch (_) {
@@ -344,7 +346,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         setState(() => ready = true);
-        _rescheduleReminders();
+        unawaited(_rescheduleReminders());
         _handleNotificationDeepLink();
         _persist();
         return;
@@ -357,14 +359,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   /// Re-derives pending reminders from persisted tasks and calendar events.
-  void _rescheduleReminders() {
+  Future<void> _rescheduleReminders() async {
     for (final l in taskLists) {
       for (final t in l.tasks) {
         if (t.done || (t.due ?? '').isEmpty) continue;
-        NotificationService.instance.scheduleTaskReminder(t);
+        await NotificationService.instance.scheduleTaskReminder(t);
       }
     }
-    NotificationService.instance.syncEventReminders(events);
+    await NotificationService.instance.syncEventReminders(events);
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -530,7 +532,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       _seedFamiliesAndWorkspace();
       ready = true;
     });
-    _rescheduleReminders();
+    unawaited(_rescheduleReminders());
     _persist();
   }
 
@@ -1079,7 +1081,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                       : null,
                   behavior: HitTestBehavior.opaque,
                   onTap: tab == 'calendar'
-                      ? openCalMonthPicker
+                      ? openCalPeriodPicker
                       : tab == 'finance'
                       ? openMonthPicker
                       : null,
