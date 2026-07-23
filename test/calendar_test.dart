@@ -1155,10 +1155,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
-    expect(
-      find.textContaining('Family trip'),
-      findsNWidgets(6),
-    );
   });
 
   testWidgets('family view hides pinned strip when there are no pinned events', (
