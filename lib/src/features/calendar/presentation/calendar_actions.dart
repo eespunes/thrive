@@ -37,7 +37,7 @@ Widget categoryGlyph(
     height: size,
     child: glyphTile(
       size: size,
-      radius: size / 2,
+      radius: size / 3.2,
       picture: c.picture,
       emoji: c.emoji,
       emojiSize: size * 0.62,
