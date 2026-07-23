@@ -246,10 +246,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             c++;
             continue;
           }
+          final startInCurrentMonth = isInCurrentMonth(row[c]);
           var span = 1;
           while (c + span < 7 &&
               lane[c + span] == o &&
-              (isInCurrentMonth(row[c + span]) == isInCurrentMonth(row[c]))) {
+              (isInCurrentMonth(row[c + span]) == startInCurrentMonth)) {
             span++;
           }
           cells.add(
@@ -259,7 +260,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 o,
                 c,
                 c + span - 1,
-                faded: !isInCurrentMonth(row[c]),
+                faded: !startInCurrentMonth,
               ),
             ),
           );
