@@ -174,6 +174,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       final we = row.last;
       final occ = eventOccurrences(ws, we);
       final packed = packWeekLanes(occ, ws, we);
+      final inCurrentMonth = [for (final iso in row) isInCurrentMonth(iso)];
 
       Widget bar(CalendarOccurrence o, int cs, int ce, {bool faded = false}) {
         final col = evColor(o.ev);
@@ -246,11 +247,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             c++;
             continue;
           }
-          final startInCurrentMonth = isInCurrentMonth(row[c]);
+          final startInCurrentMonth = inCurrentMonth[c];
           var span = 1;
           while (c + span < 7 &&
               lane[c + span] == o &&
-              (isInCurrentMonth(row[c + span]) == startInCurrentMonth)) {
+              (inCurrentMonth[c + span] == startInCurrentMonth)) {
             span++;
           }
           cells.add(
@@ -308,7 +309,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     child: Container(
                       key: ValueKey('cal-day-bg-${row[dayIndex]}'),
                       decoration: BoxDecoration(
-                        color: isInCurrentMonth(row[dayIndex])
+                        color: inCurrentMonth[dayIndex]
                             ? Colors.transparent
                             : B.faint,
                         border: Border(
