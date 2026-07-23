@@ -100,6 +100,7 @@ extension _ThriveSheets on _ThriveHomeState {
     String mode,
     String cat,
     String? id, {
+    required String payee,
     required String label,
     required double amount,
     required String marker,
@@ -116,6 +117,7 @@ extension _ThriveSheets on _ThriveHomeState {
         for (final it in arr) {
           if (it.id == id) {
             it
+              ..payee = payee
               ..label = label
               ..amount = amount
               ..marker = marker
@@ -128,6 +130,7 @@ extension _ThriveSheets on _ThriveHomeState {
         arr.add(
           ExpenseItem(
             id: uid(),
+            payee: payee,
             label: label,
             marker: marker,
             amount: amount,
@@ -1020,6 +1023,7 @@ class _ExpenseSheet extends StatefulWidget {
 }
 
 class _ExpenseSheetState extends State<_ExpenseSheet> {
+  late final TextEditingController _payee;
   late final TextEditingController _label;
   late final TextEditingController _amount;
   late final TextEditingController _marker;
@@ -1039,6 +1043,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
           .where((x) => x.id == widget.id)
           .firstOrNull;
     }
+    _payee = TextEditingController(text: it?.payee ?? '');
     _label = TextEditingController(text: it?.label ?? '');
     _amount = TextEditingController(text: it != null ? _numStr(it.amount) : '');
     _marker = TextEditingController(text: it?.marker ?? '');
@@ -1051,6 +1056,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
 
   @override
   void dispose() {
+    _payee.dispose();
     _label.dispose();
     _amount.dispose();
     _marker.dispose();
@@ -1062,7 +1068,9 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   Widget build(BuildContext context) {
     final s = widget.state;
     final cat = s.catByKey(widget.cat)!;
-    final valid = _label.text.trim().isNotEmpty && parseNum(_amount.text) >= 0;
+    final valid =
+        (_payee.text.trim().isNotEmpty || _label.text.trim().isNotEmpty) &&
+        parseNum(_amount.text) >= 0;
 
     return SingleChildScrollView(
       child: Column(
@@ -1074,10 +1082,18 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             _editing ? null : 'New item',
           ),
           _sheetField(
-            'Name',
+            cat.isIncome ? 'From' : 'Company',
+            _sheetInput(
+              _payee,
+              hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          _sheetField(
+            'Subcategory',
             _sheetInput(
               _label,
-              hint: 'e.g. Groceries Lidl',
+              hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
               onChanged: (_) => setState(() {}),
             ),
           ),
@@ -1130,6 +1146,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               widget.mode,
               widget.cat,
               widget.id,
+              payee: _payee.text.trim(),
               label: _label.text.trim(),
               amount: parseNum(_amount.text),
               marker: _marker.text.trim(),

@@ -48,15 +48,6 @@ Widget categoryGlyph(
   );
 }
 
-const List<Color> kEventColors = [
-  Color(0xff1684B4),
-  Color(0xff0E9A8D),
-  Color(0xff0f9d6a),
-  Color(0xffd97706),
-  Color(0xff7c3aed),
-  Color(0xffe11d48),
-];
-
 const List<String> kCatIconsList = [
   'briefcase',
   'book',
@@ -76,14 +67,29 @@ const List<String> kCatIconsList = [
 
 const List<Color> kCatColors = [
   Color(0xff7c3aed),
+  Color(0xff9333ea),
   Color(0xff1684B4),
+  Color(0xff2563eb),
+  Color(0xff0891b2),
   Color(0xff0f9d6a),
+  Color(0xff16a34a),
+  Color(0xff65a30d),
   Color(0xffe11d48),
+  Color(0xffdb2777),
   Color(0xffd97706),
+  Color(0xffea580c),
+  Color(0xffca8a04),
   Color(0xff0E9A8D),
   Color(0xff0d9488),
+  Color(0xff0f766e),
+  Color(0xff4f46e5),
+  Color(0xffbe123c),
+  Color(0xffb45309),
   Color(0xff475569),
+  Color(0xff334155),
 ];
+
+const List<Color> kEventColors = kCatColors;
 
 /// (label, colour) for each import provider. `google`/`apple` account sync
 /// isn't implemented (#161) — ICS/web-link is the only real import path.
@@ -155,6 +161,12 @@ int _toMinutes(String hhmm) {
   return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
 }
 
+int _timedEventEndMinutes(CalendarEvent ev) {
+  final start = _toMinutes(ev.start);
+  final explicitEnd = ev.end.isNotEmpty ? _toMinutes(ev.end) : start + 60;
+  return explicitEnd <= start ? start + 60 : explicitEnd;
+}
+
 String _weekRangeIso(String weekStartIso) {
   final start = _parseIso(weekStartIso);
   final end = _parseIso(_addDaysIso(weekStartIso, 6));
@@ -163,6 +175,76 @@ String _weekRangeIso(String weekStartIso) {
   }
   return '${kMonthsShort[start.month - 1]} ${start.day} – '
       '${kMonthsShort[end.month - 1]} ${end.day}';
+}
+
+int _customRepeatEvery(CalendarEvent ev) =>
+    ev.recurEvery < 1 ? 1 : ev.recurEvery;
+
+String _customRepeatUnit(CalendarEvent ev) {
+  return switch (ev.recurUnit) {
+    'day' || 'week' || 'month' || 'year' => ev.recurUnit,
+    _ => 'week',
+  };
+}
+
+List<int> _customRepeatWeekdays(CalendarEvent ev) {
+  final days = {
+    for (final day in ev.recurWeekdays)
+      if (day >= 1 && day <= 7) day,
+  }.toList()..sort();
+  return days.isEmpty ? [_parseIso(ev.date).weekday] : days;
+}
+
+String? _nextRecurringDate(CalendarEvent ev, String current) {
+  if (ev.recur == 'daily') return _addDaysIso(current, 1);
+  if (ev.recur == 'weekly') return _addDaysIso(current, 7);
+  if (ev.recur == 'monthly') return _addMonthsIso(current, 1);
+  if (ev.recur == 'yearly') return _addMonthsIso(current, 12);
+  if (ev.recur != 'custom') return null;
+
+  final every = _customRepeatEvery(ev);
+  final unit = _customRepeatUnit(ev);
+  if (unit == 'day') return _addDaysIso(current, every);
+  if (unit == 'month') return _addMonthsIso(current, every);
+  if (unit == 'year') return _addMonthsIso(current, 12 * every);
+
+  final weekdays = _customRepeatWeekdays(ev);
+  var cursor = current;
+  for (var guard = 0; guard < 3700; guard++) {
+    cursor = _addDaysIso(cursor, 1);
+    final cursorDate = _parseIso(cursor);
+    if (!weekdays.contains(cursorDate.weekday)) continue;
+    final originWeek = _parseIso(_startOfWeekIso(ev.date));
+    final cursorWeek = _parseIso(_startOfWeekIso(cursor));
+    final weeksSince = cursorWeek.difference(originWeek).inDays ~/ 7;
+    if (weeksSince >= 0 && weeksSince % every == 0) return cursor;
+  }
+  return null;
+}
+
+List<String> recurringEventDates(
+  CalendarEvent ev,
+  String rangeStart,
+  String rangeEnd, {
+  int maxOccurrences = 900,
+}) {
+  if (ev.recur == 'none') return const [];
+  final repeatEnd = ev.endDate.isNotEmpty ? ev.endDate : rangeEnd;
+  final dates = <String>[];
+  var d = ev.date;
+  var guard = 0;
+  while (d.compareTo(rangeEnd) <= 0 &&
+      d.compareTo(repeatEnd) <= 0 &&
+      guard < maxOccurrences) {
+    if (d.compareTo(rangeStart) >= 0 && !ev.exceptions.contains(d)) {
+      dates.add(d);
+    }
+    final next = _nextRecurringDate(ev, d);
+    if (next == null || next.compareTo(d) <= 0) break;
+    d = next;
+    guard++;
+  }
+  return dates;
 }
 
 /// Strips location/description off imported events per an import's prefs
@@ -207,13 +289,59 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       notes: e.notes,
       category: cal.category,
       color: cat?.color ?? cal.color,
-      attendees: const [],
+      attendees: cat?.members ?? const [],
       recur: 'none',
       createdBy: cal.name,
     );
   }
 
-  Color evColor(CalendarEvent ev) => catById(ev.category)?.color ?? ev.color;
+  Color evColor(CalendarEvent ev) {
+    final category = catById(ev.category);
+    if (category != null) return category.color;
+    for (final memberId in ev.attendees) {
+      final member = _memberById(memberId);
+      if (member != null) return member.color;
+    }
+    return ev.color;
+  }
+
+  Set<int> usedCalendarIdentityColorValues({
+    String? exceptCategoryId,
+    String? exceptMemberId,
+  }) {
+    return {
+      for (final c in eventCategories)
+        if (c.id != exceptCategoryId) c.color.toARGB32(),
+      for (final m in curFamily()?.members ?? const <FamilyMember>[])
+        if (m.id != exceptMemberId) m.color.toARGB32(),
+    };
+  }
+
+  bool isCalendarIdentityColorAvailable(
+    Color color, {
+    String? exceptCategoryId,
+    String? exceptMemberId,
+  }) {
+    return !usedCalendarIdentityColorValues(
+      exceptCategoryId: exceptCategoryId,
+      exceptMemberId: exceptMemberId,
+    ).contains(color.toARGB32());
+  }
+
+  Color firstAvailableCalendarIdentityColor({
+    Color? fallback,
+    String? exceptCategoryId,
+    String? exceptMemberId,
+  }) {
+    final used = usedCalendarIdentityColorValues(
+      exceptCategoryId: exceptCategoryId,
+      exceptMemberId: exceptMemberId,
+    );
+    for (final color in kCatColors) {
+      if (!used.contains(color.toARGB32())) return color;
+    }
+    return fallback ?? kCatColors.first;
+  }
 
   /// Expands recurring events (minus their `exceptions`), keeps multi-day
   /// spans as a single occurrence, and appends visible imported-calendar
@@ -245,24 +373,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         continue;
       }
 
-      var d = ev.date;
-      var guard = 0;
-      while (d.compareTo(rangeEnd) <= 0 && guard < 900) {
-        if (d.compareTo(rangeStart) >= 0 && !ev.exceptions.contains(d)) {
-          out.add(CalendarOccurrence(ev: ev, date: d));
-        }
-        if (ev.recur == 'daily') {
-          d = _addDaysIso(d, 1);
-        } else if (ev.recur == 'weekly') {
-          d = _addDaysIso(d, 7);
-        } else if (ev.recur == 'monthly') {
-          d = _addMonthsIso(d, 1);
-        } else if (ev.recur == 'yearly') {
-          d = _addMonthsIso(d, 12);
-        } else {
-          break;
-        }
-        guard++;
+      for (final d in recurringEventDates(ev, rangeStart, rangeEnd)) {
+        out.add(CalendarOccurrence(ev: ev, date: d));
       }
     }
 
@@ -299,14 +411,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return [for (var i = 0; i < 42; i++) _addDaysIso(start, i)];
   }
 
-  void calStep(int dir) {
-    update(() {
-      calAnchor = (calView == 'week' || calView == 'family')
-          ? _addDaysIso(calAnchor, 7 * dir)
-          : _addMonthsIso(calAnchor, dir);
-    });
-  }
-
   void calToday() {
     update(() {
       calAnchor = todayIso();
@@ -314,7 +418,12 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     });
   }
 
-  void setCalView(String v) => update(() => calView = v);
+  void setCalView(String v) => update(() {
+    calView = v;
+    if (v == 'week' || v == 'family') {
+      calWeekTimelineCentered = false;
+    }
+  });
   void setCalSel(String iso) => update(() => calSel = iso);
 
   void toggleCalMemberFilter(String memberId) => update(() {
@@ -331,6 +440,18 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   void openCalMonthPicker() {
     _showSheet((ctx) => _CalMonthPickerSheet(state: this));
+  }
+
+  void openCalWeekPicker() {
+    _showSheet((ctx) => _CalWeekPickerSheet(state: this));
+  }
+
+  void openCalPeriodPicker() {
+    if (calView == 'week' || calView == 'family') {
+      openCalWeekPicker();
+      return;
+    }
+    openCalMonthPicker();
   }
 
   void openViewPicker() {
@@ -419,10 +540,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<CalendarOccurrence> timed,
   ) {
     final starts = [for (final o in timed) _toMinutes(o.ev.start)];
-    final ends = [
-      for (final o in timed)
-        _toMinutes(o.ev.end.isNotEmpty ? o.ev.end : o.ev.start),
-    ];
+    final ends = [for (final o in timed) _timedEventEndMinutes(o.ev)];
     final cols = List<int>.filled(timed.length, 0);
     final active = <(int col, int end)>[];
     for (var i = 0; i < timed.length; i++) {
@@ -510,6 +628,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required List<String> attendees,
     required String reminder,
     required String recur,
+    int recurEvery = 1,
+    String recurUnit = 'week',
+    List<int> recurWeekdays = const [],
     List<String>? exceptions,
     String? createdBy,
   }) {
@@ -522,7 +643,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         title: title.trim().isEmpty ? 'Untitled' : title.trim(),
         allDay: allDay,
         date: date,
-        endDate: recur == 'none' ? endDate : '',
+        endDate: endDate,
         start: allDay ? '' : start,
         end: allDay ? '' : end,
         location: location.trim(),
@@ -532,6 +653,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         attendees: attendees.isEmpty ? ['me'] : attendees,
         reminder: reminder,
         recur: recur,
+        recurEvery: recurEvery,
+        recurUnit: recurUnit,
+        recurWeekdays: recurWeekdays,
         createdBy: createdBy ?? 'me',
         exceptions: exceptions ?? const [],
       );
@@ -548,8 +672,114 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }
   }
 
+  CalendarEvent _eventCopyWith(
+    CalendarEvent ev, {
+    String? id,
+    String? title,
+    bool? allDay,
+    String? date,
+    String? endDate,
+    String? start,
+    String? end,
+    String? location,
+    String? notes,
+    String? category,
+    Color? color,
+    List<String>? attendees,
+    String? reminder,
+    String? recur,
+    int? recurEvery,
+    String? recurUnit,
+    List<int>? recurWeekdays,
+    String? createdBy,
+    List<String>? exceptions,
+  }) {
+    return CalendarEvent(
+      id: id ?? ev.id,
+      title: title ?? ev.title,
+      allDay: allDay ?? ev.allDay,
+      date: date ?? ev.date,
+      endDate: endDate ?? ev.endDate,
+      start: start ?? ev.start,
+      end: end ?? ev.end,
+      location: location ?? ev.location,
+      notes: notes ?? ev.notes,
+      category: category ?? ev.category,
+      color: color ?? ev.color,
+      attendees: attendees ?? ev.attendees,
+      reminder: reminder ?? ev.reminder,
+      recur: recur ?? ev.recur,
+      recurEvery: recurEvery ?? ev.recurEvery,
+      recurUnit: recurUnit ?? ev.recurUnit,
+      recurWeekdays: recurWeekdays ?? ev.recurWeekdays,
+      createdBy: createdBy ?? ev.createdBy,
+      exceptions: exceptions ?? ev.exceptions,
+    );
+  }
+
+  void saveRecurringEventScoped({
+    required String id,
+    required String scope,
+    required String occurrenceDate,
+    required CalendarEvent edited,
+  }) {
+    CalendarEvent? rescheduleOriginal;
+    CalendarEvent? rescheduleNew;
+    mutate(() {
+      final i = events.indexWhere((x) => x.id == id);
+      if (i < 0) return;
+      final original = events[i];
+      if (scope == 'one') {
+        events[i] = _eventCopyWith(
+          original,
+          exceptions: {...original.exceptions, occurrenceDate}.toList(),
+        );
+        final oneOff = _eventCopyWith(
+          edited,
+          id: uid(),
+          date: occurrenceDate,
+          endDate: '',
+          recur: 'none',
+          exceptions: const [],
+          createdBy: original.createdBy,
+        );
+        events.add(oneOff);
+        rescheduleOriginal = events[i];
+        rescheduleNew = oneOff;
+      } else if (scope == 'future') {
+        if (occurrenceDate == original.date) {
+          events[i] = edited;
+          rescheduleOriginal = edited;
+          return;
+        }
+        final previousDate = _addDaysIso(occurrenceDate, -1);
+        events[i] = _eventCopyWith(original, endDate: previousDate);
+        final future = _eventCopyWith(
+          edited,
+          id: uid(),
+          date: occurrenceDate,
+          exceptions: const [],
+          createdBy: original.createdBy,
+        );
+        events.add(future);
+        rescheduleOriginal = events[i];
+        rescheduleNew = future;
+      } else {
+        events[i] = edited;
+        rescheduleOriginal = edited;
+      }
+    }, () => flash('Event updated'));
+    if (rescheduleOriginal != null) {
+      NotificationService.instance.scheduleEventReminder(rescheduleOriginal!);
+    }
+    if (rescheduleNew != null) {
+      NotificationService.instance.scheduleEventReminder(rescheduleNew!);
+    }
+  }
+
   /// `scope == 'one'` removes only the occurrence on [date] (recorded as an
-  /// exception on a recurring event); `scope == 'all'` deletes the event.
+  /// exception on a recurring event); `scope == 'future'` keeps occurrences
+  /// before [date]; `scope == 'all'` deletes the series.
   void deleteEvent(String id, String scope, [String? date]) {
     var removedSeries = false;
     CalendarEvent? updated;
@@ -557,8 +787,16 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       final ev = eventById(id);
       if (ev == null) return;
       if (scope == 'one' && ev.recur != 'none' && date != null) {
-        ev.exceptions = [...ev.exceptions, date];
+        ev.exceptions = {...ev.exceptions, date}.toList();
         updated = ev;
+      } else if (scope == 'future' && ev.recur != 'none' && date != null) {
+        if (date == ev.date) {
+          events.removeWhere((x) => x.id == id);
+          removedSeries = true;
+        } else {
+          ev.endDate = _addDaysIso(date, -1);
+          updated = ev;
+        }
       } else {
         events.removeWhere((x) => x.id == id);
         removedSeries = true;
@@ -586,6 +824,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required List<String> members,
   }) {
     final wasEditing = id != null;
+    if (!isCalendarIdentityColorAvailable(color, exceptCategoryId: id)) {
+      flash('That colour is already used');
+      return;
+    }
     mutate(() {
       final cat = EventCategory(
         id: id ?? uid(),
@@ -626,6 +868,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     _showSheet((ctx) => _ImportCalendarSheet(state: this));
   }
 
+  void openEditImportCalendarSheet(ImportedCalendar calendar) {
+    _showSheet((ctx) => _ImportCalendarSheet(state: this, calendar: calendar));
+  }
+
   /// Imports a calendar from an ICS/web-link feed at [url] (e.g. an ecal.com
   /// or other calendar-subscription link, RFC 5545) — the only supported
   /// import source; Google/Apple account sync is out of scope (#161).
@@ -634,6 +880,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required String name,
     required String url,
     String? category,
+    Color? color,
     bool autoSync = true,
     bool includeLocation = true,
     bool includeDescription = true,
@@ -659,7 +906,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
             id: uid(),
             name: calName,
             provider: 'ics',
-            color: kImportProviders['ics']!.$2,
+            color: color ?? kImportProviders['ics']!.$2,
             category: category,
             url: url.trim(),
             autoSync: autoSync,
@@ -675,6 +922,65 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       },
       () => flash(
         'Calendar imported (${events.length} event${events.length == 1 ? '' : 's'})',
+      ),
+    );
+    return null;
+  }
+
+  Future<String?> updateImport({
+    required String id,
+    required String name,
+    required String url,
+    required String? category,
+    required Color color,
+    required bool visible,
+    required bool autoSync,
+    required bool includeLocation,
+    required bool includeDescription,
+  }) async {
+    ImportedCalendar? cal;
+    for (final c in importedCalendars) {
+      if (c.id == id) cal = c;
+    }
+    if (cal == null) return 'Calendar not found';
+
+    final trimmedUrl = url.trim();
+    final urlChanged = (cal.url ?? '') != trimmedUrl;
+    List<ImportedCalendarEvent>? fetchedEvents;
+    if (urlChanged) {
+      try {
+        fetchedEvents = await fetchIcsEvents(trimmedUrl);
+      } on IcsImportException catch (e) {
+        return e.message;
+      } catch (e) {
+        debugPrint('[calendar] ics import update failed: $e');
+        return 'Could not update that calendar';
+      }
+    }
+
+    mutate(
+      () {
+        final resolvedCal = cal!;
+        resolvedCal.name = name.trim().isEmpty
+            ? kImportProviders[resolvedCal.provider]?.$1 ?? 'Imported calendar'
+            : name.trim();
+        resolvedCal.color = color;
+        resolvedCal.category = category;
+        resolvedCal.visible = visible;
+        resolvedCal.url = trimmedUrl.isEmpty ? null : trimmedUrl;
+        resolvedCal.autoSync = autoSync;
+        resolvedCal.includeLocation = includeLocation;
+        resolvedCal.includeDescription = includeDescription;
+        resolvedCal.events = _applyImportPrefs(
+          fetchedEvents ?? resolvedCal.events,
+          includeLocation: includeLocation,
+          includeDescription: includeDescription,
+        );
+      },
+      () => flash(
+        fetchedEvents == null
+            ? 'Calendar settings updated'
+            : 'Calendar updated (${fetchedEvents.length} event${fetchedEvents.length == 1 ? '' : 's'})',
       ),
     );
     return null;

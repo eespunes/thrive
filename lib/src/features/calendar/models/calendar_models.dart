@@ -17,9 +17,13 @@ class CalendarEvent {
     List<String>? attendees,
     this.reminder = '1h',
     this.recur = 'none',
+    this.recurEvery = 1,
+    this.recurUnit = 'week',
+    List<int>? recurWeekdays,
     this.createdBy,
     List<String>? exceptions,
   }) : attendees = attendees ?? <String>['me'],
+       recurWeekdays = recurWeekdays ?? <int>[],
        exceptions = exceptions ?? <String>[];
 
   String id;
@@ -29,8 +33,8 @@ class CalendarEvent {
   /// ISO `YYYY-MM-DD` first occurrence date.
   String date;
 
-  /// ISO `YYYY-MM-DD` last day of a multi-day span, or `''` for a
-  /// single-day event. Only meaningful when [recur] is `'none'`.
+  /// ISO `YYYY-MM-DD` last day of a multi-day span when [recur] is `'none'`,
+  /// or the inclusive repeat-until date for recurring events.
   String endDate;
 
   /// `HH:MM`, empty when [allDay] is true.
@@ -46,11 +50,21 @@ class CalendarEvent {
   /// Family member ids attending.
   List<String> attendees;
 
-  /// `none` | `at` | `1h` | `1d`.
+  /// `none` | `at` | `5m` | `15m` | `30m` | `1h` | `2h` | `1d` | `2d`.
   String reminder;
 
-  /// `none` | `daily` | `weekly` | `monthly` | `yearly`.
+  /// `none` | `daily` | `weekly` | `monthly` | `yearly` | `custom`.
   String recur;
+
+  /// Custom repeat interval. Meaningful when [recur] is `'custom'`.
+  int recurEvery;
+
+  /// Custom repeat unit: `day` | `week` | `month` | `year`.
+  String recurUnit;
+
+  /// ISO weekday numbers (1=Mon .. 7=Sun) for custom weekly repeats.
+  List<int> recurWeekdays;
+
   String? createdBy;
 
   /// ISO dates removed from a recurring series (single-occurrence deletes).
@@ -71,6 +85,9 @@ class CalendarEvent {
     'attendees': attendees,
     'reminder': reminder,
     'recur': recur,
+    if (recurEvery != 1) 'recurEvery': recurEvery,
+    if (recurUnit != 'week') 'recurUnit': recurUnit,
+    if (recurWeekdays.isNotEmpty) 'recurWeekdays': recurWeekdays,
     if (createdBy != null) 'createdBy': createdBy,
     'exceptions': exceptions,
   };
@@ -92,6 +109,14 @@ class CalendarEvent {
     ],
     reminder: (j['reminder'] ?? '1h').toString(),
     recur: (j['recur'] ?? 'none').toString(),
+    recurEvery: ((j['recurEvery'] as num?)?.toInt() ?? 1).clamp(1, 999),
+    recurUnit: (j['recurUnit'] ?? 'week').toString(),
+    recurWeekdays: [
+      for (final d in (j['recurWeekdays'] as List? ?? const []))
+        if ((d as num?)?.toInt() case final weekday?
+            when weekday >= 1 && weekday <= 7)
+          weekday,
+    ],
     createdBy: j['createdBy']?.toString(),
     exceptions: [
       for (final e in (j['exceptions'] as List? ?? [])) e.toString(),

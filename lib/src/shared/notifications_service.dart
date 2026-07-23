@@ -25,6 +25,8 @@ class NotificationService implements NotificationScheduler {
 
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
+  static bool? _notificationsGranted;
+  static Future<bool>? _notificationPermissionRequest;
 
   static Future<void> init() async {
     if (_initialized) {
@@ -131,12 +133,22 @@ class NotificationService implements NotificationScheduler {
       final granted = await _requestPermission();
       if (!granted) return;
       final now = tz.TZDateTime.now(tz.local);
-      var occurrenceDate = event.date;
       var scheduled = 0;
+      final occurrenceDates = event.recur == 'none'
+          ? [event.date]
+          : recurringEventDates(
+              event,
+              event.date,
+              event.endDate.isNotEmpty
+                  ? event.endDate
+                  : _addMonthsIso(event.date, 24),
+              maxOccurrences: 5000,
+            );
 
       // Keep a small rolling set for recurring events. App boot/resume rebuilds
       // the set, avoiding unbounded pending notifications on iOS and Android.
-      for (var guard = 0; guard < 5000 && scheduled < 8; guard++) {
+      for (final occurrenceDate in occurrenceDates) {
+        if (scheduled >= 8) break;
         if (!event.exceptions.contains(occurrenceDate)) {
           final when = _eventReminderTime(event, occurrenceDate);
           if (when != null && when.isAfter(now)) {
@@ -160,15 +172,6 @@ class NotificationService implements NotificationScheduler {
             scheduled++;
           }
         }
-        if (event.recur == 'none') break;
-        occurrenceDate = switch (event.recur) {
-          'daily' => _addDaysIso(occurrenceDate, 1),
-          'weekly' => _addDaysIso(occurrenceDate, 7),
-          'monthly' => _addMonthsIso(occurrenceDate, 1),
-          'yearly' => _addMonthsIso(occurrenceDate, 12),
-          _ => occurrenceDate,
-        };
-        if (occurrenceDate == event.date && event.recur != 'none') break;
       }
     } catch (e) {
       debugPrint('[notifications] event schedule failed: $e');
@@ -180,8 +183,9 @@ class NotificationService implements NotificationScheduler {
   /// "Starts in 1 hour · 14:30" / "Starting at 09:00 – Conference room A" /
   /// "Starts tomorrow · 10:00 – Office".
   String _eventNotificationBody(CalendarEvent event) {
-    final startStr =
-        (!event.allDay && event.start.isNotEmpty) ? event.start : null;
+    final startStr = (!event.allDay && event.start.isNotEmpty)
+        ? event.start
+        : null;
     final reminder = event.reminder;
 
     String timeText;
@@ -198,8 +202,9 @@ class NotificationService implements NotificationScheduler {
           ? 'Starts in 1 hour · $startStr'
           : 'Starts in 1 hour';
     } else if (reminder == '1d') {
-      timeText =
-          startStr != null ? 'Starts tomorrow · $startStr' : 'Starts tomorrow';
+      timeText = startStr != null
+          ? 'Starts tomorrow · $startStr'
+          : 'Starts tomorrow';
     } else {
       // Custom format: Xm, Xh, Xd — strip the unit suffix then parse the
       // numeric prefix. An empty or non-numeric prefix falls to the fallback.
@@ -209,18 +214,24 @@ class NotificationService implements NotificationScheduler {
         final suffix = reminder[reminder.length - 1];
         final amount = int.tryParse(reminder.substring(0, reminder.length - 1));
         if (amount != null && suffix == 'm') {
-          final label = amount == 1 ? 'Starts in 1 minute' : 'Starts in $amount minutes';
+          final label = amount == 1
+              ? 'Starts in 1 minute'
+              : 'Starts in $amount minutes';
           timeText = startStr != null ? '$label · $startStr' : label;
         } else if (amount != null && suffix == 'h') {
-          final label =
-              amount == 1 ? 'Starts in 1 hour' : 'Starts in $amount hours';
+          final label = amount == 1
+              ? 'Starts in 1 hour'
+              : 'Starts in $amount hours';
           timeText = startStr != null ? '$label · $startStr' : label;
         } else if (amount != null && suffix == 'd') {
-          final label =
-              amount == 1 ? 'Starts tomorrow' : 'Starts in $amount days';
+          final label = amount == 1
+              ? 'Starts tomorrow'
+              : 'Starts in $amount days';
           timeText = startStr != null ? '$label · $startStr' : label;
         } else {
-          timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
+          timeText = startStr != null
+              ? 'Starts at $startStr'
+              : 'Calendar event';
         }
       }
     }
@@ -300,6 +311,20 @@ class NotificationService implements NotificationScheduler {
   }
 
   Future<bool> _requestPermission() async {
+    final cached = _notificationsGranted;
+    if (cached != null) return cached;
+    final pending = _notificationPermissionRequest;
+    if (pending != null) return pending;
+
+    final request = _requestPermissionFromPlatform();
+    _notificationPermissionRequest = request;
+    final granted = await request;
+    _notificationsGranted = granted;
+    _notificationPermissionRequest = null;
+    return granted;
+  }
+
+  Future<bool> _requestPermissionFromPlatform() async {
     try {
       final android = _plugin
           .resolvePlatformSpecificImplementation<

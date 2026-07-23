@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_money_management_app/main.dart';
+
 import 'helpers.dart';
 
 void main() {
@@ -19,27 +21,32 @@ void main() {
     await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
     expect(find.text('Add income'), findsWidgets);
-    await tester.enterText(find.byType(TextField).first, 'Bonus');
+    await tester.enterText(find.byType(TextField).first, 'Employer');
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(1), '100');
+    await tester.enterText(find.byType(TextField).at(1), 'Bonus');
+    await tester.enterText(find.byType(TextField).at(2), '100');
     await tester.pump();
     await tester.tap(find.text('Received'));
     await tester.pump();
     await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
-    expect(find.text('Bonus'), findsWidgets);
+    expect(find.text('Employer - Bonus'), findsWidgets);
   });
 
   testWidgets('add expense to a block', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.text('Add to Home'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'New cost');
-    await tester.enterText(find.byType(TextField).at(1), '42');
+    await tester.enterText(find.byType(TextField).first, 'Thuiswonen');
+    await tester.enterText(find.byType(TextField).at(1), 'Rent');
+    await tester.enterText(find.byType(TextField).at(2), '42');
     await tester.pump();
     await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
-    expect(find.text('New cost'), findsWidgets);
+    expect(find.text('Thuiswonen - Rent'), findsWidgets);
+    final rowTitle = tester.widget<Text>(find.text('Thuiswonen - Rent').first);
+    final span = rowTitle.textSpan! as TextSpan;
+    expect((span.children!.single as TextSpan).style!.color, B.muted);
   });
 
   testWidgets('edit an existing income row', (tester) async {
