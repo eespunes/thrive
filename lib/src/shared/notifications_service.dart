@@ -202,14 +202,15 @@ class NotificationService implements NotificationScheduler {
           startStr != null ? 'Starts tomorrow · $startStr' : 'Starts tomorrow';
     } else {
       // Custom format: Xm, Xh, Xd — strip the unit suffix then parse the
-      // leading integer. An empty or non-numeric prefix falls to the fallback.
+      // numeric prefix. An empty or non-numeric prefix falls to the fallback.
       if (reminder.length <= 1) {
         timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
       } else {
         final suffix = reminder[reminder.length - 1];
         final amount = int.tryParse(reminder.substring(0, reminder.length - 1));
         if (amount != null && suffix == 'm') {
-          timeText = amount == 1 ? 'Starts in 1 minute' : 'Starts in $amount minutes';
+          final label = amount == 1 ? 'Starts in 1 minute' : 'Starts in $amount minutes';
+          timeText = startStr != null ? '$label · $startStr' : label;
         } else if (amount != null && suffix == 'h') {
           final label =
               amount == 1 ? 'Starts in 1 hour' : 'Starts in $amount hours';
