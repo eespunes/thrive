@@ -741,14 +741,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
     final today = todayIso();
     final members = curFamily()?.members ?? const <FamilyMember>[];
-    final pinnedByDay = [
-      for (final iso in days)
-        eventOccurrences(
-          iso,
-          iso,
-        ).where((o) => o.isMultiDay && o.ev.attendees.isNotEmpty).toList(),
-    ];
-    final hasPinnedEvents = pinnedByDay.any((evs) => evs.isNotEmpty);
 
     Widget head() {
       return Row(
@@ -805,71 +797,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       );
     }
 
-    Widget pinnedStrip() {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(width: 84),
-          for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
-            Expanded(
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 22),
-                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-                decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: B.line)),
-                ),
-                child: Column(
-                  children: [
-                    for (final o in pinnedByDay[dayIndex].take(3))
-                      GestureDetector(
-                        key: ValueKey(
-                          'cal-family-pinned-${o.ev.id}-${days[dayIndex]}',
-                        ),
-                        onTap: () => openEventView(o.ev.id, o.date),
-                        child: Container(
-                          width: double.infinity,
-                          height: 14,
-                          margin: const EdgeInsets.only(bottom: 2),
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          decoration: BoxDecoration(
-                            color: evColor(o.ev),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            children: [
-                              if (catById(o.ev.category)
-                                  case final category?) ...[
-                                categoryGlyph(
-                                  category,
-                                  size: 9,
-                                  iconColor: Colors.white,
-                                ),
-                                const SizedBox(width: 2),
-                              ],
-                              Flexible(
-                                child: Text(
-                                  o.ev.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      );
-    }
-
     Widget memberRow(FamilyMember m, bool top) {
       return Container(
         decoration: BoxDecoration(
@@ -910,9 +837,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     final evs =
                         eventOccurrences(iso, iso)
                             .where(
-                              (o) =>
-                                  !o.isMultiDay &&
-                                  o.ev.attendees.contains(m.id),
+                              (o) => o.ev.attendees.contains(m.id),
                             )
                             .toList()
                           ..sort(
@@ -935,8 +860,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         children: [
                           for (final o in evs.take(3))
                             GestureDetector(
-                              key: ValueKey('cal-family-${m.id}-${o.ev.id}'),
-                              onTap: () => openEventView(o.ev.id, o.date),
+                              key: ValueKey('cal-family-${m.id}-${o.ev.id}-$iso'),
+                              onTap: () => openEventView(o.ev.id, iso),
                               child: Container(
                                 margin: const EdgeInsets.only(bottom: 2),
                                 width: double.infinity,
@@ -1002,25 +927,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              border:
-                  hasPinnedEvents
-                      ? null
-                      : const Border(bottom: BorderSide(color: B.line)),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: B.line)),
             ),
             child: head(),
           ),
-          if (hasPinnedEvents)
-            Container(
-              key: const ValueKey('cal-family-pinned-strip'),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: B.faint),
-                  bottom: BorderSide(color: B.line),
-                ),
-              ),
-              child: pinnedStrip(),
-            ),
           Expanded(
             child: SingleChildScrollView(
               child: Column(

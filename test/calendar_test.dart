@@ -1113,7 +1113,7 @@ void main() {
             start: '11:00',
             end: '12:00',
             color: kEventColors[1],
-            attendees: ['erik'],
+            attendees: ['me', 'erik'],
           ),
         ],
       ),
@@ -1135,12 +1135,29 @@ void main() {
       B.line,
     );
     expect(
-      find.byKey(ValueKey('cal-family-pinned-fam-trip-${todayIso()}')),
+      find.byKey(ValueKey('cal-family-me-fam-trip-${todayIso()}')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('cal-family-erik-fam-trip')),
-      findsNothing,
+      find.byKey(ValueKey('cal-family-erik-fam-trip-${todayIso()}')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        ValueKey('cal-family-erik-fam-trip-${addDaysForTest(todayIso(), 1)}'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        ValueKey('cal-family-erik-fam-trip-${addDaysForTest(todayIso(), 2)}'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
+    expect(
+      find.textContaining('Family trip'),
+      findsNWidgets(6),
     );
   });
 
