@@ -748,6 +748,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           iso,
         ).where((o) => o.isMultiDay && o.ev.attendees.isNotEmpty).toList(),
     ];
+    final hasPinnedEvents = pinnedByDay.any((evs) => evs.isNotEmpty);
 
     Widget head() {
       return Row(
@@ -1001,18 +1002,25 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border:
+                  hasPinnedEvents
+                      ? null
+                      : const Border(bottom: BorderSide(color: B.line)),
+            ),
             child: head(),
           ),
-          Container(
-            key: const ValueKey('cal-family-pinned-strip'),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: B.faint),
-                bottom: BorderSide(color: B.line),
+          if (hasPinnedEvents)
+            Container(
+              key: const ValueKey('cal-family-pinned-strip'),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: B.faint),
+                  bottom: BorderSide(color: B.line),
+                ),
               ),
+              child: pinnedStrip(),
             ),
-            child: pinnedStrip(),
-          ),
           Expanded(
             child: SingleChildScrollView(
               child: Column(

@@ -1144,6 +1144,35 @@ void main() {
     );
   });
 
+  testWidgets('family view hides pinned strip when there are no pinned events', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: [
+          CalendarEvent(
+            id: 'fam-erik',
+            title: 'Guitar lesson',
+            date: todayIso(),
+            start: '09:00',
+            end: '10:00',
+            color: kEventColors.first,
+            attendees: ['erik'],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await goToCalendar(tester);
+
+    await setCalView(tester, 'family');
+
+    expect(find.byKey(const ValueKey('cal-family-pinned-strip')), findsNothing);
+    expect(find.text('Erik Janssen'), findsOneWidget);
+    expect(find.textContaining('Guitar lesson'), findsOneWidget);
+  });
+
   testWidgets('filter sheet combines member and category filters', (
     tester,
   ) async {
