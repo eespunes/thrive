@@ -1036,6 +1036,160 @@ void main() {
     expect(find.text('Save the whole occurrence'), findsOneWidget);
   });
 
+  testWidgets(
+    'saving "this event only" on a recurring event adds a one-off exception',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Standup');
+      await tester.pump();
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Standup').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Standup once');
+      await tester.pump();
+      await tester.tap(find.text('Save event'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('recur-edit-one')));
+      await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
+      expect(find.text('Standup once'), findsWidgets);
+      expect(find.text('Standup'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'saving "this and future events" reschedules the rest of the series',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Practice');
+      await tester.pump();
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Practice').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Practice v2');
+      await tester.pump();
+      await tester.tap(find.text('Save event'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('recur-edit-future')));
+      await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
+      expect(find.text('Practice v2'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'saving "the whole occurrence" updates every event in the series',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Yoga');
+      await tester.pump();
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Yoga').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Yoga renamed');
+      await tester.pump();
+      await tester.tap(find.text('Save event'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('recur-edit-all')));
+      await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
+      expect(find.text('Yoga renamed'), findsWidgets);
+      expect(find.text('Yoga'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'deleting "this and future events" of a recurring series removes them',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Book club');
+      await tester.pump();
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Book club').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('recur-delete-future')));
+      await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
+      expect(find.text('Book club'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'deleting "the whole occurrence" of a recurring series removes it entirely',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Choir');
+      await tester.pump();
+      await tester.tap(find.text('Weekly'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Choir').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('recur-delete-all')));
+      await tester.pumpAndSettle();
+
+      await setCalView(tester, 'agenda');
+      expect(find.text('Choir'), findsNothing);
+    },
+  );
+
   testWidgets('import a calendar fetches and shows its real events', (
     tester,
   ) async {

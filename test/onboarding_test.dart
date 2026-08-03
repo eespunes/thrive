@@ -85,6 +85,84 @@ void main() {
       expect(find.text('Overview'), findsOneWidget);
     });
 
+    testWidgets(
+      'suggests a username from the family name and flags a bad handle',
+      (tester) async {
+        await pumpOnboarding(tester);
+
+        // Typing a family name suggests an available username.
+        await tester.enterText(find.byType(TextField).at(0), 'The Janssens');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        final username = tester.widget<TextField>(find.byType(TextField).at(1));
+        expect(username.controller!.text, 'the-janssens');
+        expect(find.text('Suggested · available'), findsOneWidget);
+
+        // Manually editing the username to something invalid shows the hint.
+        await tester.enterText(find.byType(TextField).at(1), 'a');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(find.text('3–24 letters, numbers, - or _'), findsOneWidget);
+
+        // Clearing the username back to empty re-suggests from the name.
+        await tester.enterText(find.byType(TextField).at(1), '');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(find.text('Suggested · available'), findsOneWidget);
+      },
+    );
+
+    testWidgets('flags a taken username on the onboarding create form', (
+      tester,
+    ) async {
+      await pumpOnboarding(tester);
+      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
+      await tester.enterText(find.byType(TextField).at(1), 'vanderberg');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('That username is taken'), findsOneWidget);
+    });
+
+    testWidgets(
+      'create form fields chain focus via the keyboard submit action',
+      (tester) async {
+        await pumpOnboarding(tester);
+
+        await tester.enterText(find.byType(TextField).at(0), 'The Smiths');
+        await tester.testTextInput.receiveAction(TextInputAction.next);
+        await tester.pumpAndSettle();
+        var username = tester.widget<TextField>(find.byType(TextField).at(1));
+        expect(username.focusNode?.hasFocus, isTrue);
+
+        await tester.enterText(find.byType(TextField).at(1), 'smith-home');
+        await tester.testTextInput.receiveAction(TextInputAction.next);
+        await tester.pumpAndSettle();
+        var password = tester.widget<TextField>(find.byType(TextField).at(2));
+        expect(password.focusNode?.hasFocus, isTrue);
+      },
+    );
+
+    testWidgets('join form fields chain focus via the keyboard submit action', (
+      tester,
+    ) async {
+      await pumpOnboarding(tester);
+      await tester.tap(find.byKey(const ValueKey('onboard-tab-join')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pumpAndSettle();
+      var password = tester.widget<TextField>(find.byType(TextField).at(1));
+      expect(password.focusNode?.hasFocus, isTrue);
+
+      await tester.enterText(find.byType(TextField).at(1), 'demo');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text('One last step'), findsNothing);
+      expect(find.text('Overview'), findsOneWidget);
+    });
+
     testWidgets('join flow validates input', (tester) async {
       await pumpOnboarding(tester);
       await tester.tap(find.byKey(const ValueKey('onboard-tab-join')));
