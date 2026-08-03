@@ -284,7 +284,6 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
     final categories = s.eventCategories;
     final valid = _title.text.trim().isNotEmpty;
-    final saveLabel = _editing ? 'Save event' : 'Add event';
 
     void submit() {
       final edited = CalendarEvent(
@@ -346,13 +345,22 @@ class _EventEditSheetState extends State<_EventEditSheet> {
       Navigator.of(context).pop();
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sheetHead(context, _editing ? 'Edit event' : 'New event'),
-          _primaryBtn(saveLabel, submit, enabled: valid),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHeadWithTick(
+          context,
+          _editing ? 'Edit event' : 'New event',
+          onConfirm: submit,
+          confirmEnabled: valid,
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           _sheetField(
             'Title',
             _sheetInput(
@@ -952,8 +960,11 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                 ),
               ),
             ),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

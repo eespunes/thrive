@@ -638,7 +638,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, 'Dentist');
     await tester.pump();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     expect(find.text('Dentist'), findsWidgets);
@@ -765,7 +765,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Team lunch');
     await tester.pump();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(scheduler.scheduledEvents, hasLength(1));
     expect(scheduler.scheduledEvents.single.title, 'Team lunch');
@@ -1000,7 +1000,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Picnic');
       await tester.pump();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Picnic').first);
       await tester.pumpAndSettle();
@@ -1041,7 +1041,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Family').last);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     expect(find.text('Dinner'), findsWidgets);
@@ -1059,7 +1059,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Standup').first);
@@ -1094,7 +1094,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Weekly'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Practice').first);
@@ -1103,7 +1103,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Practice updated');
     await tester.pump();
-    await tester.tap(find.text('Save event'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     expect(find.text('Save this event only'), findsOneWidget);
@@ -1123,7 +1123,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Standup').first);
@@ -1132,7 +1132,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup once');
       await tester.pump();
-      await tester.tap(find.text('Save event'));
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('recur-edit-one')));
@@ -1156,7 +1156,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Practice').first);
@@ -1165,7 +1165,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Practice v2');
       await tester.pump();
-      await tester.tap(find.text('Save event'));
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('recur-edit-future')));
@@ -1188,7 +1188,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Yoga').first);
@@ -1197,7 +1197,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Yoga renamed');
       await tester.pump();
-      await tester.tap(find.text('Save event'));
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('recur-edit-all')));
@@ -1221,7 +1221,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Book club').first);
@@ -1249,7 +1249,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Weekly'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Choir').first);
@@ -1580,7 +1580,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Household').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await openCalManage(tester);
@@ -1607,7 +1607,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Solo task');
     await tester.pump();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     await setCalView(tester, 'agenda');
@@ -1635,7 +1635,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Daily'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     await setCalView(tester, 'agenda');
@@ -1705,7 +1705,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Monthly'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     await setCalView(tester, 'agenda');
@@ -1736,7 +1736,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Work').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add event').last);
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       await setCalView(tester, 'agenda');
@@ -2635,7 +2635,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Original title');
     await tester.pump();
-    await tester.tap(find.text('Add event').last);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Original title').first);
@@ -2644,7 +2644,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Updated title');
     await tester.pump();
-    await tester.tap(find.text('Save event'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     expect(find.text('Updated title'), findsWidgets);

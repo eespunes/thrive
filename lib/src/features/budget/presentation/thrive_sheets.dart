@@ -503,6 +503,83 @@ Widget _sheetHead(BuildContext ctx, String title, [String? sub]) {
   );
 }
 
+/// Sheet header variant with a confirm (tick) button next to the close
+/// (cross) button, used for sheets whose primary action should stay
+/// pinned at the top instead of scrolling with the content.
+Widget _sheetHeadWithTick(
+  BuildContext ctx,
+  String title, {
+  String? sub,
+  required VoidCallback onConfirm,
+  bool confirmEnabled = true,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                ),
+              ),
+              if (sub != null)
+                Text(
+                  sub,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        GestureDetector(
+          key: const ValueKey('sheet-confirm'),
+          onTap: confirmEnabled ? onConfirm : null,
+          child: Container(
+            width: 34,
+            height: 34,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: confirmEnabled ? B.primary : const Color(0xffcbd3dc),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: ic(
+                'check',
+                size: 17,
+                sw: 2.6,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.of(ctx).pop(),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: B.faint,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(child: ic('x', size: 17, sw: 2.4, color: B.soft2)),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 Widget _sheetField(String label, Widget child) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 13),
