@@ -701,6 +701,15 @@ class _EventEditSheetState extends State<_EventEditSheet> {
               ],
             ),
           ),
+          if (_category == null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: _MoreColorsToggle(
+                quickColors: kEventColors,
+                selected: _color,
+                onChanged: (c) => setState(() => _color = c),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
             child: Text(
@@ -2044,6 +2053,21 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 ],
               ),
             ),
+            const SizedBox(height: 9),
+            _MoreColorsToggle(
+              quickColors: kCatColors,
+              selected: m.color,
+              onChanged: (color) {
+                if (!s.isCalendarIdentityColorAvailable(
+                  color,
+                  exceptMemberId: m.id,
+                )) {
+                  return;
+                }
+                s.setMemberColor(m.id, color);
+                setState(() {});
+              },
+            ),
           ],
         ),
       );
@@ -2335,6 +2359,14 @@ class _CategorySheetState extends State<_CategorySheet> {
                     },
                   ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _MoreColorsToggle(
+              quickColors: kCatColors,
+              selected: _color,
+              onChanged: (c) => setState(() => _color = c),
             ),
           ),
           _sheetField(
@@ -2781,6 +2813,14 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
                       ),
                     ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: _MoreColorsToggle(
+                quickColors: kCatColors,
+                selected: displayColor,
+                onChanged: (color) => setState(() => _color = color),
               ),
             ),
           ] else

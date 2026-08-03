@@ -123,7 +123,7 @@ class _GradientColorPicker extends StatelessWidget {
   }
 }
 
-class _BudgetColorPicker extends StatefulWidget {
+class _BudgetColorPicker extends StatelessWidget {
   const _BudgetColorPicker({
     required this.quickColors,
     required this.selected,
@@ -135,10 +135,54 @@ class _BudgetColorPicker extends StatefulWidget {
   final ValueChanged<Color> onChanged;
 
   @override
-  State<_BudgetColorPicker> createState() => _BudgetColorPickerState();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 9,
+          runSpacing: 9,
+          children: [
+            for (final col in quickColors)
+              _ColorSwatchTile(
+                color: col,
+                selected: selected.toARGB32() == col.toARGB32(),
+                onTap: () => onChanged(col),
+              ),
+          ],
+        ),
+        const SizedBox(height: 11),
+        _MoreColorsToggle(
+          quickColors: quickColors,
+          selected: selected,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
 }
 
-class _BudgetColorPickerState extends State<_BudgetColorPicker> {
+/// A reveal button that expands into a full-spectrum [_GradientColorPicker],
+/// used to offer colours beyond a feature's curated quick palette (e.g. for
+/// calendar events, categories, and family members, in addition to budget
+/// accounts/blocks). Starts expanded if [selected] isn't one of
+/// [quickColors].
+class _MoreColorsToggle extends StatefulWidget {
+  const _MoreColorsToggle({
+    required this.quickColors,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<Color> quickColors;
+  final Color selected;
+  final ValueChanged<Color> onChanged;
+
+  @override
+  State<_MoreColorsToggle> createState() => _MoreColorsToggleState();
+}
+
+class _MoreColorsToggleState extends State<_MoreColorsToggle> {
   late bool _expanded;
 
   @override
@@ -150,7 +194,7 @@ class _BudgetColorPickerState extends State<_BudgetColorPicker> {
   }
 
   @override
-  void didUpdateWidget(covariant _BudgetColorPicker oldWidget) {
+  void didUpdateWidget(covariant _MoreColorsToggle oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!widget.quickColors.any(
       (c) => c.toARGB32() == widget.selected.toARGB32(),
@@ -164,19 +208,6 @@ class _BudgetColorPickerState extends State<_BudgetColorPicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 9,
-          runSpacing: 9,
-          children: [
-            for (final col in widget.quickColors)
-              _ColorSwatchTile(
-                color: col,
-                selected: widget.selected.toARGB32() == col.toARGB32(),
-                onTap: () => widget.onChanged(col),
-              ),
-          ],
-        ),
-        const SizedBox(height: 11),
         GestureDetector(
           onTap: () => setState(() => _expanded = !_expanded),
           child: Container(

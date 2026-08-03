@@ -939,6 +939,81 @@ void main() {
     expect(find.text('Imported training'), findsNothing);
   });
 
+  testWidgets(
+    'category, event, member colour and imported-calendar pickers all expose more colors',
+    (tester) async {
+      final imported = ImportedCalendar(
+        id: 'training-feed',
+        name: 'Training',
+        provider: 'ics',
+        color: kCatColors.first,
+        url: 'https://example.com/training.ics',
+        autoSync: false,
+        events: const [],
+      );
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      // Category sheet.
+      await openCalManage(tester);
+      await tester.tap(find.text('New category'));
+      await tester.pumpAndSettle();
+      expect(find.text('More colors'), findsOneWidget);
+      await tester.tap(find.text('More colors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedContainer).last);
+      await tester.pump();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      // Family member colours.
+      await goToCalendar(tester);
+      await openCalManage(tester);
+      expect(find.text('More colors'), findsWidgets);
+
+      // Imported calendar sheet.
+      await tester.tap(
+        find.byKey(const ValueKey('imp-settings-training-feed')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('More colors'), findsOneWidget);
+      await tester.tap(find.text('More colors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedContainer).last);
+      await tester.pump();
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      // Event editor.
+      await goToCalendar(tester);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Picnic');
+      await tester.pump();
+      await tester.tap(find.text('Add event').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Picnic').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      expect(find.text('More colors'), findsOneWidget);
+      await tester.tap(find.text('More colors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedContainer).last);
+      await tester.pump();
+    },
+  );
+
   testWidgets('assigning a category to a new event selects its chip', (
     tester,
   ) async {
