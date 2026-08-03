@@ -55,8 +55,8 @@ void main() {
     await goToTab(tester, 'settings');
     await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
     await tester.pumpAndSettle();
-    expect(find.text('More colors'), findsOneWidget);
-    await tester.tap(find.text('More colors'));
+    expect(find.text('Colors'), findsOneWidget);
+    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
     // Pick a swatch from the expanded gradient grid.
     await tester.tap(find.byType(AnimatedContainer).last);

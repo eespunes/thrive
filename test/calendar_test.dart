@@ -858,17 +858,18 @@ void main() {
   testWidgets('calendar settings changes family member colours', (
     tester,
   ) async {
-    const newColorIndex = 1;
-    final newColor = kCatColors[newColorIndex];
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
     await openCalManage(tester);
     expect(find.text('FAMILY MEMBER COLOURS'), findsOneWidget);
-    final memberSwatch = find.byKey(
-      ValueKey('cal-member-colour-me-$newColorIndex'),
-    );
-    await tester.tap(memberSwatch);
+    await tester.tap(find.text('Colors').first);
+    await tester.pumpAndSettle();
+    final swatch = find.byType(AnimatedContainer).last;
+    final newColor =
+        (tester.widget<AnimatedContainer>(swatch).decoration as BoxDecoration)
+            .color!;
+    await tester.tap(swatch);
     await tester.pumpAndSettle();
 
     await tester.tapAt(const Offset(10, 10));
@@ -906,7 +907,6 @@ void main() {
         ),
       ],
     );
-    final newColor = kCatColors[3];
 
     await pumpApp(
       tester,
@@ -921,7 +921,13 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(1), 'School training');
     await tester.tap(find.text('Show this calendar'));
-    await tester.tap(find.byKey(ValueKey('imp-colour-${newColor.toARGB32()}')));
+    await tester.tap(find.text('Colors'));
+    await tester.pumpAndSettle();
+    final swatch = find.byType(AnimatedContainer).last;
+    final newColor =
+        (tester.widget<AnimatedContainer>(swatch).decoration as BoxDecoration)
+            .color!;
+    await tester.tap(swatch);
     await tester.pump();
     await tester.tap(find.text('Save calendar'));
     await tester.pumpAndSettle();
@@ -962,8 +968,8 @@ void main() {
       await openCalManage(tester);
       await tester.tap(find.text('New category'));
       await tester.pumpAndSettle();
-      expect(find.text('More colors'), findsOneWidget);
-      await tester.tap(find.text('More colors'));
+      expect(find.text('Colors'), findsOneWidget);
+      await tester.tap(find.text('Colors'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
@@ -976,15 +982,15 @@ void main() {
       // Family member colours.
       await goToCalendar(tester);
       await openCalManage(tester);
-      expect(find.text('More colors'), findsWidgets);
+      expect(find.text('Colors'), findsWidgets);
 
       // Imported calendar sheet.
       await tester.tap(
         find.byKey(const ValueKey('imp-settings-training-feed')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('More colors'), findsOneWidget);
-      await tester.tap(find.text('More colors'));
+      expect(find.text('Colors'), findsOneWidget);
+      await tester.tap(find.text('Colors'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
@@ -1006,8 +1012,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
-      expect(find.text('More colors'), findsOneWidget);
-      await tester.tap(find.text('More colors'));
+      expect(find.text('Colors'), findsOneWidget);
+      await tester.tap(find.text('Colors'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();

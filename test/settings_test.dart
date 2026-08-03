@@ -133,8 +133,8 @@ void main() {
     await goToTab(tester, 'settings');
     await tester.tap(find.text('Add account'));
     await tester.pumpAndSettle();
-    expect(find.text('More colors'), findsOneWidget);
-    await tester.tap(find.text('More colors'));
+    expect(find.text('Colors'), findsOneWidget);
+    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(AnimatedContainer).last);
     await tester.pump();

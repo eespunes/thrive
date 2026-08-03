@@ -134,8 +134,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-edit')));
       await tester.pumpAndSettle();
-      expect(find.text('More colors'), findsOneWidget);
-      await tester.tap(find.text('More colors'));
+      expect(find.text('Colors'), findsOneWidget);
+      await tester.tap(find.text('Colors'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();

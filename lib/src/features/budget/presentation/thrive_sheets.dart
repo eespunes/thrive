@@ -554,12 +554,7 @@ Widget _sheetHeadWithTick(
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
-              child: ic(
-                'check',
-                size: 17,
-                sw: 2.6,
-                color: Colors.white,
-              ),
+              child: ic('check', size: 17, sw: 2.6, color: Colors.white),
             ),
           ),
         ),
