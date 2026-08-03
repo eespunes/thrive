@@ -118,6 +118,7 @@ class ThriveDebugController {
         .firstOrNull
         ?.id;
   }
+
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
   void askDelete(
     String name,

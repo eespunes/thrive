@@ -61,10 +61,7 @@ void main() {
           blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
         ).toJson(),
     };
-    final data = <String, dynamic>{
-      '2026': yearData(),
-      '2027': yearData(),
-    };
+    final data = <String, dynamic>{'2026': yearData(), '2027': yearData()};
     (data['2026'] as Map<String, dynamic>)['Juni'] = MonthData(
       blocks: {
         for (final c in cats) c.key: <ExpenseItem>[],

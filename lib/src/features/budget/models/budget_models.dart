@@ -265,7 +265,9 @@ class ExpenseItem {
     // before this field existed have no `recurring` key at all — migrate
     // those to `true`. Items saved after this change always carry an
     // explicit `true`/`false`, so an intentional opt-out is preserved.
-    final recurring = j.containsKey('recurring') ? j['recurring'] == true : true;
+    final recurring = j.containsKey('recurring')
+        ? j['recurring'] == true
+        : true;
     final rawSeriesId = (j['seriesId'] as String?)?.trim();
     final recurEndDate = normalizeRecurringEndDate(
       j['recurEndDate'] ?? j['until'],
@@ -371,8 +373,7 @@ class MonthData {
                 Account.fromJson(Map<String, dynamic>.from(a as Map)),
             ],
       seriesStops: [
-        for (final id in (j['seriesStops'] as List? ?? const []))
-          id.toString(),
+        for (final id in (j['seriesStops'] as List? ?? const [])) id.toString(),
       ],
     );
   }

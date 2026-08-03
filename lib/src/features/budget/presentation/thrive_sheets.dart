@@ -136,10 +136,7 @@ extension _ThriveSheets on _ThriveHomeState {
   }) {
     mutate(() {
       final month = data[year]![kMonthKeys[monthIdx]]!;
-      final arr = month.blocks.putIfAbsent(
-        cat,
-        () => <ExpenseItem>[],
-      );
+      final arr = month.blocks.putIfAbsent(cat, () => <ExpenseItem>[]);
       final normalizedEnd = normalizeRecurringEndDate(recurEndDate ?? until);
       if (mode == 'edit' && id != null) {
         final it = arr.where((x) => x.id == id).firstOrNull;
@@ -161,7 +158,9 @@ extension _ThriveSheets on _ThriveHomeState {
             ..seriesId = seriesId
             ..recurring = recurring
             ..recurEndDate = normalizedEnd
-            ..until = normalizedEnd ?? ((until == null || until.isEmpty) ? null : until)
+            ..until =
+                normalizedEnd ??
+                ((until == null || until.isEmpty) ? null : until)
             ..generated = false;
           arr.add(it);
         }
@@ -176,7 +175,9 @@ extension _ThriveSheets on _ThriveHomeState {
             amount: amount,
             paid: paid,
             account: account,
-            until: normalizedEnd ?? ((until == null || until.isEmpty) ? null : until),
+            until:
+                normalizedEnd ??
+                ((until == null || until.isEmpty) ? null : until),
             recurring: recurring,
             seriesId: seriesId,
             recurEndDate: normalizedEnd,
@@ -190,9 +191,7 @@ extension _ThriveSheets on _ThriveHomeState {
   void deleteExpense(String cat, String id) {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
-      final item = m.blocks[cat]
-          ?.where((x) => x.id == id)
-          .firstOrNull;
+      final item = m.blocks[cat]?.where((x) => x.id == id).firstOrNull;
       final seriesId = item == null ? null : _seriesIdFor(item);
       if (seriesId != null && item?.recurring == true) {
         m.seriesStops.removeWhere((x) => x == seriesId);
@@ -421,7 +420,6 @@ extension _ThriveSheets on _ThriveHomeState {
       },
     );
   }
-
 }
 
 // ============================================================ sheet shell
@@ -1270,8 +1268,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
 
   // coverage:ignore-start
   Future<void> _pickEndDate(BuildContext context) async {
-    final initial =
-        _endDate == null ? null : DateTime.tryParse(_endDate!);
+    final initial = _endDate == null ? null : DateTime.tryParse(_endDate!);
     final picked = await showDatePicker(
       context: context,
       initialDate:
