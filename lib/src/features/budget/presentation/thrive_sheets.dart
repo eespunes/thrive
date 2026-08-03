@@ -78,8 +78,21 @@ extension _ThriveSheets on _ThriveHomeState {
     _showSheet((ctx) => _BlockSheet(state: this, mode: mode, blockKey: key));
   }
 
-  void openCopySheet() {
-    _showSheet((ctx) => _CopySheet(state: this));
+  void _clearSeriesStop(String? seriesId, int yr, int mIdx) {
+    if (seriesId == null || seriesId.isEmpty) return;
+    data[yr]?[kMonthKeys[mIdx]]?.seriesStops.removeWhere((x) => x == seriesId);
+  }
+
+  void _removeRecurringFromCurrentForward(String seriesId, String catKey) {
+    final startOrd = _monthOrd(year, monthIdx);
+    for (final yr in data.keys) {
+      for (int mIdx = 0; mIdx < kMonthKeys.length; mIdx++) {
+        if (_monthOrd(yr, mIdx) < startOrd) continue;
+        final month = data[yr]?[kMonthKeys[mIdx]];
+        if (month == null || month.closed) continue;
+        month.blocks[catKey]?.removeWhere((it) => _seriesIdFor(it) == seriesId);
+      }
+    }
   }
 
   // ========================================================== mutations
@@ -89,8 +102,19 @@ extension _ThriveSheets on _ThriveHomeState {
       // Income lives in income-direction blocks now (issue #137), so every
       // item is reached through its block regardless of [kind].
       if (catKey != null) {
-        for (final it in (m.blocks[catKey] ?? <ExpenseItem>[])) {
-          if (it.id == id) it.account = accKey;
+        final arr = m.blocks[catKey] ?? <ExpenseItem>[];
+        final it = arr.where((x) => x.id == id).firstOrNull;
+        if (it != null) {
+          final seriesId = _seriesIdFor(it);
+          it
+            ..account = accKey
+            ..generated = false;
+          if (seriesId != null && it.recurring) {
+            _clearSeriesStop(seriesId, year, monthIdx);
+            _removeRecurringFromCurrentForward(seriesId, catKey);
+            arr.add(it);
+            _syncRecurringSeries();
+          }
         }
       }
     });
@@ -107,26 +131,42 @@ extension _ThriveSheets on _ThriveHomeState {
     required bool paid,
     required String account,
     String? until,
+    required bool recurring,
+    String? recurEndDate,
   }) {
     mutate(() {
-      final arr = data[year]![kMonthKeys[monthIdx]]!.blocks.putIfAbsent(
+      final month = data[year]![kMonthKeys[monthIdx]]!;
+      final arr = month.blocks.putIfAbsent(
         cat,
         () => <ExpenseItem>[],
       );
+      final normalizedEnd = normalizeRecurringEndDate(recurEndDate ?? until);
       if (mode == 'edit' && id != null) {
-        for (final it in arr) {
-          if (it.id == id) {
-            it
-              ..payee = payee
-              ..label = label
-              ..amount = amount
-              ..marker = marker
-              ..paid = paid
-              ..account = account
-              ..until = (until == null || until.isEmpty) ? null : until;
+        final it = arr.where((x) => x.id == id).firstOrNull;
+        if (it != null) {
+          final seriesId = _seriesIdFor(it) ?? (recurring ? uid() : null);
+          _clearSeriesStop(seriesId, year, monthIdx);
+          if (seriesId != null) {
+            _removeRecurringFromCurrentForward(seriesId, cat);
+          } else {
+            arr.removeWhere((x) => x.id == id);
           }
+          it
+            ..payee = payee
+            ..label = label
+            ..amount = amount
+            ..marker = marker
+            ..paid = paid
+            ..account = account
+            ..seriesId = seriesId
+            ..recurring = recurring
+            ..recurEndDate = normalizedEnd
+            ..until = normalizedEnd ?? ((until == null || until.isEmpty) ? null : until)
+            ..generated = false;
+          arr.add(it);
         }
       } else {
+        final seriesId = recurring ? uid() : null;
         arr.add(
           ExpenseItem(
             id: uid(),
@@ -136,17 +176,31 @@ extension _ThriveSheets on _ThriveHomeState {
             amount: amount,
             paid: paid,
             account: account,
-            until: (until == null || until.isEmpty) ? null : until,
+            until: normalizedEnd ?? ((until == null || until.isEmpty) ? null : until),
+            recurring: recurring,
+            seriesId: seriesId,
+            recurEndDate: normalizedEnd,
           ),
         );
       }
+      _syncRecurringSeries();
     }, () => flash(mode == 'edit' ? 'Saved' : 'Added ${eur(amount)}'));
   }
 
   void deleteExpense(String cat, String id) {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
-      m.blocks[cat]?.removeWhere((x) => x.id == id);
+      final item = m.blocks[cat]
+          ?.where((x) => x.id == id)
+          .firstOrNull;
+      final seriesId = item == null ? null : _seriesIdFor(item);
+      if (seriesId != null && item?.recurring == true) {
+        m.seriesStops.removeWhere((x) => x == seriesId);
+        m.seriesStops.add(seriesId);
+        _removeRecurringFromCurrentForward(seriesId, cat);
+      } else {
+        m.blocks[cat]?.removeWhere((x) => x.id == id);
+      }
       swipedId = null;
     }, () => flash('Deleted'));
   }
@@ -368,51 +422,6 @@ extension _ThriveSheets on _ThriveHomeState {
     );
   }
 
-  void doCopy(int fromYear, int from, int toYear, int to) {
-    if (fromYear == toYear && from == to) return;
-    if (isClosed(to, toYear)) {
-      showError('Destination is closed');
-      return;
-    }
-    ensureYear(fromYear);
-    ensureYear(toYear);
-    final srcCats = catsForMonth(from, fromYear);
-    final newCats = cats.map((c) => c.copy()).toList();
-    mutate(
-      () {
-        final src = data[fromYear]?[kMonthKeys[from]];
-        if (src == null) return;
-        final dst = MonthData();
-        for (final c in srcCats) {
-          final items = (src.blocks[c.key] ?? const <ExpenseItem>[])
-              .map((it) => it.copyWithId(uid()))
-              .toList();
-          var tgtKey = c.key;
-          if (c.temporary) {
-            tgtKey =
-                '${c.key.replaceAll(RegExp(r'_[a-z0-9]+$'), '')}_${uid().substring(1, 5)}';
-            newCats.add(
-              c.copy()
-                ..key = tgtKey
-                ..temporary = true
-                ..ownerYear = toYear
-                ..ownerMonthIdx = to,
-            );
-          }
-          dst.blocks[tgtKey] = items;
-          if (src.caps[c.key] != null) dst.caps[tgtKey] = src.caps[c.key]!;
-        }
-        for (final c in newCats.where((c) => !c.temporary)) {
-          dst.blocks.putIfAbsent(c.key, () => <ExpenseItem>[]);
-        }
-        data[toYear]![kMonthKeys[to]] = dst;
-        cats = newCats;
-      },
-      () => flash(
-        '${kMonthsShort[from]} $fromYear copied to ${kMonthsShort[to]} $toYear',
-      ),
-    );
-  }
 }
 
 // ============================================================ sheet shell
@@ -1027,9 +1036,10 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   late final TextEditingController _label;
   late final TextEditingController _amount;
   late final TextEditingController _marker;
-  late final TextEditingController _until;
   String _account = 'shared';
   bool _paid = false;
+  bool _recurring = false;
+  String? _endDate;
 
   bool get _editing => widget.mode == 'edit';
 
@@ -1047,11 +1057,10 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _label = TextEditingController(text: it?.label ?? '');
     _amount = TextEditingController(text: it != null ? _numStr(it.amount) : '');
     _marker = TextEditingController(text: it?.marker ?? '');
-    _until = TextEditingController(
-      text: it != null ? (untilLabel(it.until) ?? '') : '',
-    );
     _account = it?.account ?? 'shared';
     _paid = it?.paid ?? false;
+    _recurring = it?.recurring ?? false;
+    _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
   }
 
   @override
@@ -1060,7 +1069,6 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _label.dispose();
     _amount.dispose();
     _marker.dispose();
-    _until.dispose();
     super.dispose();
   }
 
@@ -1123,8 +1131,22 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               ),
             ],
           ),
-          if (cat.hasUntil)
-            _sheetField('Until (MM-YY)', _sheetInput(_until, hint: '12-28')),
+          _sheetField(
+            '',
+            _toggleRow(
+              'Repeat every month',
+              _recurring,
+              () => setState(() => _recurring = !_recurring),
+              subtitle:
+                  'Saves edits from this month forward without changing history',
+              activeColor: B.primary,
+            ),
+          ),
+          if (cat.hasUntil || _recurring)
+            _sheetField(
+              _recurring ? 'Repeat until' : 'End date',
+              _endDateField(context),
+            ),
           _sheetField(
             cat.isIncome
                 ? 'Received into'
@@ -1152,7 +1174,9 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               marker: _marker.text.trim(),
               paid: _paid,
               account: _account,
-              until: _until.text.trim(),
+              until: _endDate,
+              recurring: _recurring,
+              recurEndDate: _endDate,
             );
             Navigator.of(context).pop();
           }, enabled: valid),
@@ -1241,6 +1265,82 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  // coverage:ignore-start
+  Future<void> _pickEndDate(BuildContext context) async {
+    final initial =
+        _endDate == null ? null : DateTime.tryParse(_endDate!);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate:
+          initial ?? DateTime(widget.state.year, widget.state.monthIdx + 1, 1),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked == null || !mounted) return;
+    setState(
+      () => _endDate =
+          '${picked.year.toString().padLeft(4, '0')}-'
+          '${picked.month.toString().padLeft(2, '0')}-'
+          '${picked.day.toString().padLeft(2, '0')}',
+    );
+  }
+  // coverage:ignore-end
+
+  Widget _endDateField(BuildContext context) {
+    final label = _endDate == null
+        ? 'Choose date'
+        : '${untilLabel(_endDate)} · ${_endDate!}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          key: const ValueKey('expense-end-date'),
+          onTap: () => _pickEndDate(context),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: B.line),
+            ),
+            child: Row(
+              children: [
+                ic('cal', size: 15, sw: 2.2, color: B.soft2),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _endDate == null ? B.muted : B.text,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_endDate != null)
+          GestureDetector(
+            onTap: () => setState(() => _endDate = null),
+            child: const Padding(
+              padding: EdgeInsets.only(top: 8, left: 2),
+              child: Text(
+                'Clear end date',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: B.red,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1615,34 +1715,10 @@ class _AccountSheetState extends State<_AccountSheet> {
   }
 
   Widget _swatches() {
-    return Wrap(
-      spacing: 9,
-      runSpacing: 9,
-      children: [
-        for (final col in kAccPalette)
-          GestureDetector(
-            onTap: () => setState(() => _color = col),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: col,
-                borderRadius: BorderRadius.circular(10),
-                border: _color == col
-                    ? Border.all(color: Colors.white, width: 3)
-                    : null,
-                boxShadow: _color == col
-                    ? [BoxShadow(color: col, blurRadius: 0, spreadRadius: 2)]
-                    : null,
-              ),
-              child: _color == col
-                  ? Center(
-                      child: ic('check', size: 16, sw: 3, color: Colors.white),
-                    )
-                  : null,
-            ),
-          ),
-      ],
+    return _BudgetColorPicker(
+      quickColors: kAccPalette,
+      selected: _color,
+      onChanged: (col) => setState(() => _color = col),
     );
   }
 }
@@ -1743,7 +1819,7 @@ class _BlockSheetState extends State<_BlockSheet> {
                 border: Border.all(color: B.amberLine),
               ),
               child: Text(
-                'Only appears in ${kMonthsEn[s.monthIdx]} ${s.year}. Use \u201CCopy a month\u201D in Settings to carry it forward.',
+                'Only appears in ${kMonthsEn[s.monthIdx]} ${s.year}. Add recurring items inside the block when costs should continue into later months.',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -1762,7 +1838,7 @@ class _BlockSheetState extends State<_BlockSheet> {
             _sheetField(
               '',
               _toggleRow(
-                'Track end date (Until MM-YY)',
+                'Track end date',
                 _hasUntil,
                 () => setState(() => _hasUntil = !_hasUntil),
                 subtitle: 'For loans & debts with a payoff date',
@@ -1803,34 +1879,10 @@ class _BlockSheetState extends State<_BlockSheet> {
   }
 
   Widget _swatches() {
-    return Wrap(
-      spacing: 9,
-      runSpacing: 9,
-      children: [
-        for (final col in kCatPalette)
-          GestureDetector(
-            onTap: () => setState(() => _tone = col),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: col,
-                borderRadius: BorderRadius.circular(10),
-                border: _tone == col
-                    ? Border.all(color: Colors.white, width: 3)
-                    : null,
-                boxShadow: _tone == col
-                    ? [BoxShadow(color: col, blurRadius: 0, spreadRadius: 2)]
-                    : null,
-              ),
-              child: _tone == col
-                  ? Center(
-                      child: ic('check', size: 15, sw: 3, color: Colors.white),
-                    )
-                  : null,
-            ),
-          ),
-      ],
+    return _BudgetColorPicker(
+      quickColors: kCatPalette,
+      selected: _tone,
+      onChanged: (col) => setState(() => _tone = col),
     );
   }
 
@@ -1928,173 +1980,6 @@ class _BlockSheetState extends State<_BlockSheet> {
           'This month only',
           () => setState(() => _temporary = true),
         ),
-      ],
-    );
-  }
-}
-
-// ============================================================= copy sheet
-class _CopySheet extends StatefulWidget {
-  const _CopySheet({required this.state});
-  final _ThriveHomeState state;
-
-  @override
-  State<_CopySheet> createState() => _CopySheetState();
-}
-
-class _CopySheetState extends State<_CopySheet> {
-  late int _fromYear = widget.state.year;
-  late int _from = widget.state.monthIdx;
-  late int _toYear = widget.state.year;
-  late int _to = (widget.state.monthIdx + 1) % 12;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.state;
-    final targetClosed = s.isClosed(_to, _toYear);
-    final same = _fromYear == _toYear && _from == _to;
-
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sheetHead(context, 'Copy a month', 'Source \u2192 destination'),
-          _sheetField(
-            'Copy from',
-            Column(
-              children: [
-                _yearStep(_fromYear, (y) => setState(() => _fromYear = y)),
-                const SizedBox(height: 9),
-                _grid(s, _fromYear, _from, (i) => setState(() => _from = i)),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2, bottom: 10),
-            child: ic('down', size: 18, sw: 2.4, color: B.muted),
-          ),
-          _sheetField(
-            'Into',
-            Column(
-              children: [
-                _yearStep(_toYear, (y) => setState(() => _toYear = y)),
-                const SizedBox(height: 9),
-                _grid(s, _toYear, _to, (i) => setState(() => _to = i)),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 13),
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-            decoration: BoxDecoration(
-              color: targetClosed ? B.redSoft : B.amberSoft,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: targetClosed ? B.redLine : B.amberLine),
-            ),
-            child: Text(
-              targetClosed
-                  ? '${kMonthsEn[_to]} $_toYear is closed. Reopen it before overwriting.'
-                  : 'This replaces every block, item and limit in ${kMonthsEn[_to]} $_toYear with a copy of ${kMonthsEn[_from]} $_fromYear. Income blocks are copied too.',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: targetClosed ? FontWeight.w700 : FontWeight.w600,
-                color: targetClosed ? B.red : B.amberText,
-                height: 1.5,
-              ),
-            ),
-          ),
-          _primaryBtn(
-            'Copy ${kMonthsShort[_from]} $_fromYear \u2192 ${kMonthsShort[_to]} $_toYear',
-            () {
-              s.doCopy(_fromYear, _from, _toYear, _to);
-              Navigator.of(context).pop();
-            },
-            enabled: !same && !targetClosed,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _yearStep(int val, ValueChanged<int> onCh) {
-    Widget btn(String icon, VoidCallback onTap) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: B.line),
-        ),
-        child: Center(child: ic(icon, size: 15, sw: 2.4, color: B.soft2)),
-      ),
-    );
-    return Row(
-      children: [
-        btn('cleft', () => onCh(val - 1)),
-        Expanded(
-          child: Text(
-            '$val',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-              color: B.ink,
-            ),
-          ),
-        ),
-        btn('cright', () => onCh(val + 1)),
-      ],
-    );
-  }
-
-  Widget _grid(
-    _ThriveHomeState s,
-    int selYear,
-    int selected,
-    ValueChanged<int> onPick,
-  ) {
-    return GridView.count(
-      crossAxisCount: 4,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 7,
-      crossAxisSpacing: 7,
-      childAspectRatio: 2.0,
-      children: [
-        for (int i = 0; i < 12; i++)
-          GestureDetector(
-            onTap: () => onPick(i),
-            child: Container(
-              decoration: BoxDecoration(
-                color: i == selected ? B.soft : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: i == selected ? B.primary : B.line),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Text(
-                      kMonthsShort[i],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: i == selected ? B.deep : B.text,
-                      ),
-                    ),
-                  ),
-                  if (s.isClosed(i, selYear))
-                    Positioned(
-                      top: 4,
-                      right: 5,
-                      child: ic('lock', size: 9, sw: 2.6, color: B.muted),
-                    ),
-                ],
-              ),
-            ),
-          ),
       ],
     );
   }

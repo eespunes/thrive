@@ -135,7 +135,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       key: ValueKey('cal-pager-$calView'),
       controller: calPageController,
       scrollDirection: axis,
-      physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
+      pageSnapping: true,
+      physics: const PageScrollPhysics(),
       onPageChanged: (page) {
         final offset = page - _calendarPageCenter;
         if (offset == 0) return;

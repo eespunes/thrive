@@ -709,7 +709,7 @@ extension _ThriveScreens on _ThriveHomeState {
                             color: B.muted,
                           ),
                         ),
-                      if (b.hasUntil && r.untilLabel != null)
+                      if (r.untilLabel != null)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -784,7 +784,9 @@ extension _ThriveScreens on _ThriveHomeState {
       onOpenChanged: (open) => update(() => swipedId = open ? it.id : null),
       onDelete: () => askDelete(
         it.label,
-        'This item will be removed from ${b.title} this month.',
+        it.recurring
+            ? 'This recurring item will be removed from ${b.title} this month and all future open months.'
+            : 'This item will be removed from ${b.title} this month.',
         () => deleteExpense(b.key, it.id),
       ),
       topBorder: true,
@@ -1674,79 +1676,6 @@ extension _ThriveScreens on _ThriveHomeState {
       ),
     );
 
-    final copyCard = Container(
-      margin: const EdgeInsets.only(bottom: 13),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: B.line),
-        boxShadow: cardShadow(),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: B.soft,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Center(
-                  child: ic('copy', size: 16, sw: 2.2, color: B.primary),
-                ),
-              ),
-              const SizedBox(width: 9),
-              const Text(
-                'Copy a month',
-                style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Duplicate every block, item & limit from one month into another \u2014 across years too. A block in one month doesn\u2019t have to exist in the next, so copy carries a layout forward when you want it.',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: B.soft2,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: openCopySheet,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: B.primary,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ic('copy', size: 16, sw: 2.4, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Copy month\u2026',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
     final deleteAccountBtn = GestureDetector(
       key: const ValueKey('settings-delete-account'),
       onTap: () => askDelete(
@@ -1780,7 +1709,6 @@ extension _ThriveScreens on _ThriveHomeState {
       children: [
         card('Accounts', 'users', Column(children: accRows)),
         card('Budget blocks', 'grid', Column(children: blockRows)),
-        copyCard,
         deleteAccountBtn,
         const SizedBox(height: 14),
         Text(

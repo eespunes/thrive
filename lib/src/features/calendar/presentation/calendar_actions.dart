@@ -138,14 +138,19 @@ String _startOfWeekIso(String iso) {
 
 const List<String> kWeekdayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-String _prettyDateIso(String iso) {
+String _displayDateIso(String iso) {
   final d = _parseIso(iso);
-  return '${kMonthsEn[d.month - 1]} ${d.day}, ${d.year}';
+  return '${d.day.toString().padLeft(2, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.year.toString().padLeft(4, '0')}';
+}
+
+String _prettyDateIso(String iso) {
+  return _displayDateIso(iso);
 }
 
 String _shortDateIso(String iso) {
-  final d = _parseIso(iso);
-  return '${kMonthsShort[d.month - 1]} ${d.day}';
+  return _displayDateIso(iso);
 }
 
 String _monthTitleIso(String iso) {
@@ -168,13 +173,8 @@ int _timedEventEndMinutes(CalendarEvent ev) {
 }
 
 String _weekRangeIso(String weekStartIso) {
-  final start = _parseIso(weekStartIso);
-  final end = _parseIso(_addDaysIso(weekStartIso, 6));
-  if (start.month == end.month) {
-    return '${kMonthsShort[start.month - 1]} ${start.day}–${end.day}';
-  }
-  return '${kMonthsShort[start.month - 1]} ${start.day} – '
-      '${kMonthsShort[end.month - 1]} ${end.day}';
+  final weekEndIso = _addDaysIso(weekStartIso, 6);
+  return '${_displayDateIso(weekStartIso)} – ${_displayDateIso(weekEndIso)}';
 }
 
 int _customRepeatEvery(CalendarEvent ev) =>

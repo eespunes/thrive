@@ -103,6 +103,22 @@ class ThriveDebugController {
       _s.cur()?.blocks[catKey]?.isNotEmpty == true
       ? _s.cur()!.blocks[catKey]!.first.id
       : null;
+  String? findExpenseId(
+    String catKey,
+    String payee,
+    String label, [
+    int? mIdx,
+    int? yr,
+  ]) {
+    yr ??= _s.year;
+    mIdx ??= _s.monthIdx;
+    final items = _s.data[yr]?[kMonthKeys[mIdx]]?.blocks[catKey] ?? const [];
+    return items
+        .where((it) => it.payee == payee && it.label == label)
+        .firstOrNull
+        ?.id;
+  }
+  void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
   void askDelete(
     String name,
     String message,
@@ -433,6 +449,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     eventCategories = ws.eventCategories;
     importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
+    _syncRecurringSeries();
   }
 
   /// Wraps the just-restored/seeded active workspace into `workspaces` and
@@ -487,6 +504,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       data[yKey] = map;
     });
     ensureIncomeCategory(cats, data);
+    _syncRecurringSeries();
   }
 
   /// Resolves `screen` (Finance tab's overview/stats sub-view) and `tab`
@@ -529,6 +547,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       eventCategories = ws.eventCategories;
       importedCalendars = ws.importedCalendars;
       weeklyPlan = ws.weeklyPlan;
+      _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
       ready = true;
     });
@@ -645,6 +664,181 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       }
       data[yr] = map;
     }
+    _syncRecurringSeries();
+  }
+
+  int _monthOrd(int yr, int mIdx) => yr * 12 + mIdx;
+
+  String? _seriesIdFor(ExpenseItem it) {
+    final raw = it.seriesId?.trim();
+    if (raw != null && raw.isNotEmpty) return raw;
+    return it.recurring ? it.id : null;
+  }
+
+  bool _monthAllowedByEnd(int yr, int mIdx, String? recurEndDate) {
+    final end = normalizeRecurringEndDate(recurEndDate);
+    if (end == null) return true;
+    final parts = end.split('-');
+    if (parts.length != 3) return true;
+    final endYear = int.tryParse(parts[0]);
+    final endMonth = int.tryParse(parts[1]);
+    if (endYear == null || endMonth == null) return true;
+    return _monthOrd(yr, mIdx) <= _monthOrd(endYear, endMonth - 1);
+  }
+
+  Iterable<
+    ({int year, int monthIdx, String catKey, MonthData month, ExpenseItem item})
+  >
+  _seriesOccurrences(String seriesId) sync* {
+    final years = data.keys.toList()..sort();
+    for (final yr in years) {
+      final months = data[yr];
+      if (months == null) continue;
+      for (int mIdx = 0; mIdx < kMonthKeys.length; mIdx++) {
+        final month = months[kMonthKeys[mIdx]];
+        if (month == null) continue;
+        for (final entry in month.blocks.entries) {
+          for (final it in entry.value) {
+            if (_seriesIdFor(it) == seriesId) {
+              yield (
+                year: yr,
+                monthIdx: mIdx,
+                catKey: entry.key,
+                month: month,
+                item: it,
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void _syncRecurringSeries() {
+    if (data.isEmpty) return;
+    final years = data.keys.toList()..sort();
+    final maxOrd = _monthOrd(years.last, kMonthKeys.length - 1);
+    final seriesIds = <String>{};
+    for (final yr in years) {
+      final months = data[yr];
+      if (months == null) continue;
+      for (final month in months.values) {
+        seriesIds.addAll(month.seriesStops);
+        for (final items in month.blocks.values) {
+          for (final it in items) {
+            final seriesId = _seriesIdFor(it);
+            if (seriesId != null) seriesIds.add(seriesId);
+          }
+        }
+      }
+    }
+    for (final seriesId in seriesIds) {
+      final occurrences = _seriesOccurrences(seriesId).toList()
+        ..sort(
+          (a, b) => _monthOrd(
+            a.year,
+            a.monthIdx,
+          ).compareTo(_monthOrd(b.year, b.monthIdx)),
+        );
+      if (occurrences.isEmpty) continue;
+      final explicit = occurrences.where((o) => !o.item.generated).toList();
+      final anchors = explicit.isNotEmpty ? explicit : [occurrences.first];
+      final stopOrds = <int>{
+        for (final yr in years)
+          for (int mIdx = 0; mIdx < kMonthKeys.length; mIdx++)
+            if ((data[yr]?[kMonthKeys[mIdx]]?.seriesStops ?? const <String>[])
+                .contains(seriesId))
+              _monthOrd(yr, mIdx),
+      }.toList()..sort();
+      final anchorOrds =
+          anchors.map((o) => _monthOrd(o.year, o.monthIdx)).toList()..sort();
+      final allowedGenerated = <int>{};
+
+      for (final anchor in anchors) {
+        final anchorOrd = _monthOrd(anchor.year, anchor.monthIdx);
+        final nextAnchorOrd = anchorOrds.firstWhere(
+          (ord) => ord > anchorOrd,
+          orElse: () => maxOrd + 1,
+        );
+        final stopOrd = stopOrds.firstWhere(
+          (ord) => ord >= anchorOrd,
+          orElse: () => maxOrd + 1,
+        );
+        var endExclusive = math.min(nextAnchorOrd, stopOrd);
+        if (anchor.item.recurring && anchor.item.recurEndDate != null) {
+          final endIso = normalizeRecurringEndDate(anchor.item.recurEndDate);
+          if (endIso != null) {
+            final p = endIso.split('-');
+            if (p.length == 3) {
+              final endYear = int.tryParse(p[0]);
+              final endMonth = int.tryParse(p[1]);
+              if (endYear != null && endMonth != null) {
+                endExclusive = math.min(
+                  endExclusive,
+                  _monthOrd(endYear, endMonth - 1) + 1,
+                );
+              }
+            }
+          }
+        }
+        if (!anchor.item.recurring) continue;
+        for (var ord = anchorOrd + 1; ord < endExclusive; ord++) {
+          final yr = ord ~/ 12;
+          final mIdx = ord % 12;
+          if (!data.containsKey(yr)) continue;
+          final month = data[yr]?[kMonthKeys[mIdx]];
+          if (month == null) continue;
+          if (month.closed) continue;
+          final existing = occurrences
+              .where((o) => o.year == yr && o.monthIdx == mIdx)
+              .firstOrNull;
+          if (existing == null) {
+            month.blocks.putIfAbsent(anchor.catKey, () => <ExpenseItem>[]);
+            final nextItem = anchor.item.copyWithId(uid(), generated: true)
+              ..paid = false
+              ..until = anchor.item.recurEndDate ?? anchor.item.until;
+            month.blocks[anchor.catKey]!.add(nextItem);
+            occurrences.add((
+              year: yr,
+              monthIdx: mIdx,
+              catKey: anchor.catKey,
+              month: month,
+              item: nextItem,
+            ));
+          } else if (existing.item.generated) {
+            existing.item
+              ..payee = anchor.item.payee
+              ..label = anchor.item.label
+              ..marker = anchor.item.marker
+              ..amount = anchor.item.amount
+              ..account = anchor.item.account
+              ..recurring = anchor.item.recurring
+              ..seriesId = _seriesIdFor(anchor.item)
+              ..recurEndDate = anchor.item.recurEndDate
+              ..until = anchor.item.recurEndDate ?? anchor.item.until;
+          }
+          allowedGenerated.add(ord);
+        }
+      }
+
+      for (final occ in occurrences) {
+        if (!occ.item.generated || occ.month.closed) continue;
+        final ord = _monthOrd(occ.year, occ.monthIdx);
+        final manualInMonth = occ.month.blocks.values.any(
+          (items) =>
+              items.any((it) => _seriesIdFor(it) == seriesId && !it.generated),
+        );
+        final allowed =
+            allowedGenerated.contains(ord) &&
+            !manualInMonth &&
+            _monthAllowedByEnd(occ.year, occ.monthIdx, occ.item.recurEndDate);
+        if (!allowed) {
+          occ.month.blocks[occ.catKey]?.removeWhere(
+            (it) => identical(it, occ.item),
+          );
+        }
+      }
+    }
   }
 
   Account accByKey(String k) => accounts.firstWhere(
@@ -752,6 +946,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       monthIdx = (monthIdx + d + 12) % 12;
       swipedId = null;
     });
+    _syncRecurringSeries();
     _persist();
   }
 
@@ -760,6 +955,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       monthIdx = i;
       swipedId = null;
     });
+    _syncRecurringSeries();
     _persist();
   }
 
@@ -840,7 +1036,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           // Income blocks never feed the "still to pay from" account totals.
           acctTotals[it.account] = (acctTotals[it.account] ?? 0) + amt;
         }
-        final ul = c.hasUntil ? untilLabel(it.until) : null;
+        final ul = (c.hasUntil || it.recurring || it.recurEndDate != null)
+            ? untilLabel(it.recurEndDate ?? it.until)
+            : null;
         rows.add(
           _RowCompute(
             item: it,

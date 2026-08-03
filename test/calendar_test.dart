@@ -126,28 +126,46 @@ String addMonthsForTest(String iso, int n) {
       '${day.toString().padLeft(2, '0')}';
 }
 
+String monthStartForTest(String iso) {
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  return '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-01';
+}
+
 String startOfWeekForTest(String iso) {
   final d = DateTime.parse('${iso}T00:00:00Z');
   return addDaysForTest(iso, -(d.weekday - 1));
 }
 
-String shortDateForTest(String iso) {
+List<String> monthGridForTest(String anchor) {
+  final start = startOfWeekForTest(monthStartForTest(anchor));
+  return [for (var i = 0; i < 42; i++) addDaysForTest(start, i)];
+}
+
+String monthTitleForTest(String iso) {
   const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
+    'January',
+    'February',
+    'March',
+    'April',
     'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   final d = DateTime.parse('${iso}T00:00:00Z');
-  return '${months[d.month - 1]} ${d.day}';
+  return '${months[d.month - 1]} ${d.year}';
+}
+
+String shortDateForTest(String iso) {
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  return '${d.day.toString().padLeft(2, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.year.toString().padLeft(4, '0')}';
 }
 
 void main() {
@@ -432,14 +450,24 @@ void main() {
   testWidgets('month view shades days outside the selected month', (
     tester,
   ) async {
+    final today = todayIso();
+    final grid = monthGridForTest(today);
+    final currentMonth = DateTime.parse('${today}T00:00:00Z').month;
+    final previousMonthDay = grid.firstWhere(
+      (iso) => DateTime.parse('${iso}T00:00:00Z').month != currentMonth,
+    );
+    final selectedMonthDay = grid.firstWhere(
+      (iso) => DateTime.parse('${iso}T00:00:00Z').month == currentMonth,
+    );
+
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
     final previousMonth = tester.widget<Container>(
-      find.byKey(const ValueKey('cal-day-bg-2026-06-29')),
+      find.byKey(ValueKey('cal-day-bg-$previousMonthDay')),
     );
     final selectedMonth = tester.widget<Container>(
-      find.byKey(const ValueKey('cal-day-bg-2026-07-01')),
+      find.byKey(ValueKey('cal-day-bg-$selectedMonthDay')),
     );
 
     final previousDecoration = previousMonth.decoration! as BoxDecoration;
@@ -452,6 +480,16 @@ void main() {
   testWidgets('month view fades event bars outside the selected month', (
     tester,
   ) async {
+    final today = todayIso();
+    final grid = monthGridForTest(today);
+    final currentMonth = DateTime.parse('${today}T00:00:00Z').month;
+    final outsideDate = grid.firstWhere(
+      (iso) => DateTime.parse('${iso}T00:00:00Z').month != currentMonth,
+    );
+    final insideDate = grid.firstWhere(
+      (iso) => DateTime.parse('${iso}T00:00:00Z').month == currentMonth,
+    );
+
     await pumpApp(
       tester,
       prefs: calendarPrefs(
@@ -459,14 +497,14 @@ void main() {
           CalendarEvent(
             id: 'outside',
             title: 'Outside month',
-            date: '2026-06-30',
+            date: outsideDate,
             color: const Color(0xff1684b4),
             reminder: 'none',
           ),
           CalendarEvent(
             id: 'inside',
             title: 'Inside month',
-            date: '2026-07-02',
+            date: insideDate,
             color: const Color(0xff1684b4),
             reminder: 'none',
           ),
@@ -502,6 +540,7 @@ void main() {
   });
 
   testWidgets('month weekday header aligns with day columns', (tester) async {
+    final grid = monthGridForTest(todayIso());
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -509,13 +548,13 @@ void main() {
       find.byKey(const ValueKey('cal-weekday-0')),
     );
     final dayFirst = tester.getTopLeft(
-      find.byKey(const ValueKey('cal-day-bg-2026-06-29')),
+      find.byKey(ValueKey('cal-day-bg-${grid.first}')),
     );
     final headerLast = tester.getTopRight(
       find.byKey(const ValueKey('cal-weekday-6')),
     );
     final dayLast = tester.getTopRight(
-      find.byKey(const ValueKey('cal-day-bg-2026-07-05')),
+      find.byKey(ValueKey('cal-day-bg-${grid[6]}')),
     );
     expect(headerFirst.dx, closeTo(dayFirst.dx, 0.01));
     expect(headerLast.dx, closeTo(dayLast.dx, 0.01));
@@ -541,10 +580,13 @@ void main() {
   });
 
   testWidgets('month view scrolls vertically between months', (tester) async {
+    final today = todayIso();
+    final nextMonth = addMonthsForTest(today, 1);
+    final nextMonthStart = monthStartForTest(nextMonth);
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    expect(find.text('July 2026'), findsOneWidget);
+    expect(find.text(monthTitleForTest(today)), findsOneWidget);
     await tester.fling(
       find.byKey(const ValueKey('cal-pager-month')),
       const Offset(0, -700),
@@ -552,8 +594,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('August 2026'), findsOneWidget);
-    expect(find.byKey(const ValueKey('cal-day-bg-2026-08-01')), findsOneWidget);
+    expect(find.text(monthTitleForTest(nextMonth)), findsOneWidget);
+    expect(find.byKey(ValueKey('cal-day-bg-$nextMonthStart')), findsOneWidget);
   });
 
   testWidgets('tapping a day in Month view opens its day-detail sheet', (
@@ -565,18 +607,24 @@ void main() {
     await tester.tap(find.byKey(ValueKey('cal-day-${todayIso()}')));
     await tester.pumpAndSettle();
     expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
+    expect(find.text('Add event for this day'), findsOneWidget);
   });
 
-  testWidgets('tapping empty month day space opens its day-detail sheet', (
-    tester,
-  ) async {
-    await pumpApp(tester, landOnDefaultTab: true);
-    await goToCalendar(tester);
+  testWidgets(
+    'tapping empty month day space offers adding an event for that day',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
 
-    await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
-    await tester.pumpAndSettle();
-    expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
-  });
+      await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
+      await tester.pumpAndSettle();
+      expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
+      await tester.tap(find.text('Add event for this day'));
+      await tester.pumpAndSettle();
+      expect(find.text('New event'), findsOneWidget);
+      expect(find.text(shortDateForTest(todayIso())), findsOneWidget);
+    },
+  );
 
   testWidgets('add an event via the FAB and see it in month view', (
     tester,
@@ -1606,21 +1654,26 @@ void main() {
   );
 
   testWidgets('family view fades past day cells and events', (tester) async {
-    final past = addDaysForTest(todayIso(), -1);
-    final future = addDaysForTest(todayIso(), 1);
+    final today = todayIso();
+    final weekday = DateTime.parse('${today}T00:00:00Z').weekday;
+    final past = weekday == DateTime.monday ? null : addDaysForTest(today, -1);
+    final future = weekday == DateTime.sunday
+        ? today
+        : addDaysForTest(today, 1);
     await pumpApp(
       tester,
       prefs: calendarPrefs(
         events: [
-          CalendarEvent(
-            id: 'family-past',
-            title: 'Past appointment',
-            date: past,
-            start: '09:00',
-            end: '10:00',
-            color: kEventColors.first,
-            attendees: ['me'],
-          ),
+          if (past != null)
+            CalendarEvent(
+              id: 'family-past',
+              title: 'Past appointment',
+              date: past,
+              start: '09:00',
+              end: '10:00',
+              color: kEventColors.first,
+              attendees: ['me'],
+            ),
           CalendarEvent(
             id: 'family-future',
             title: 'Future appointment',
@@ -1638,31 +1691,37 @@ void main() {
     await setCalView(tester, 'family');
 
     final pastCell = tester.widget<Container>(
-      find.byKey(ValueKey('cal-family-cell-me-$past')),
+      find.byKey(ValueKey('cal-family-cell-me-${past ?? today}')),
     );
     final todayCell = tester.widget<Container>(
-      find.byKey(ValueKey('cal-family-cell-me-${todayIso()}')),
+      find.byKey(ValueKey('cal-family-cell-me-$today')),
     );
-    expect((pastCell.decoration! as BoxDecoration).color, B.faint);
+    if (past != null) {
+      expect((pastCell.decoration! as BoxDecoration).color, B.faint);
+    }
     expect(
       (todayCell.decoration! as BoxDecoration).color,
       const Color(0xfff0fbfa),
     );
 
-    final pastEvent = find.byKey(ValueKey('cal-family-me-family-past-$past'));
+    final pastEvent = past == null
+        ? find.byType(Never)
+        : find.byKey(ValueKey('cal-family-me-family-past-$past'));
     final futureEvent = find.byKey(
       ValueKey('cal-family-me-family-future-$future'),
     );
-    expect(pastEvent, findsOneWidget);
+    if (past != null) expect(pastEvent, findsOneWidget);
     expect(futureEvent, findsOneWidget);
-    expect(
-      tester
-          .widget<Opacity>(
-            find.descendant(of: pastEvent, matching: find.byType(Opacity)),
-          )
-          .opacity,
-      .45,
-    );
+    if (past != null) {
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(of: pastEvent, matching: find.byType(Opacity)),
+            )
+            .opacity,
+        .45,
+      );
+    }
     expect(
       tester
           .widget<Opacity>(
@@ -2163,22 +2222,27 @@ void main() {
   });
 
   testWidgets('week view fades past days, hours and events', (tester) async {
-    final past = addDaysForTest(todayIso(), -1);
-    final future = addDaysForTest(todayIso(), 1);
+    final today = todayIso();
+    final weekday = DateTime.parse('${today}T00:00:00Z').weekday;
+    final past = weekday == DateTime.monday ? null : addDaysForTest(today, -1);
+    final future = weekday == DateTime.sunday
+        ? today
+        : addDaysForTest(today, 1);
     final currentHour = DateTime.now().hour.toString().padLeft(2, '0');
     await pumpApp(
       tester,
       prefs: calendarPrefs(
         events: [
-          CalendarEvent(
-            id: 'week-past',
-            title: 'Past meeting',
-            date: past,
-            start: '09:00',
-            end: '10:00',
-            color: kEventColors.first,
-            attendees: ['me'],
-          ),
+          if (past != null)
+            CalendarEvent(
+              id: 'week-past',
+              title: 'Past meeting',
+              date: past,
+              start: '09:00',
+              end: '10:00',
+              color: kEventColors.first,
+              attendees: ['me'],
+            ),
           CalendarEvent(
             id: 'week-future',
             title: 'Future meeting',
@@ -2203,38 +2267,46 @@ void main() {
     await goToCalendar(tester);
     await setCalView(tester, 'week');
 
-    final pastColumn = tester.widget<Container>(
-      find.byKey(ValueKey('cal-week-day-col-$past')),
-    );
+    final pastColumn = past == null
+        ? null
+        : tester.widget<Container>(
+            find.byKey(ValueKey('cal-week-day-col-$past')),
+          );
     final futureColumn = tester.widget<Container>(
       find.byKey(ValueKey('cal-week-day-col-$future')),
     );
-    expect((pastColumn.decoration! as BoxDecoration).color, B.faint);
+    if (pastColumn != null) {
+      expect((pastColumn.decoration! as BoxDecoration).color, B.faint);
+    }
     expect(
       (futureColumn.decoration! as BoxDecoration).color,
-      Colors.transparent,
+      future == today ? const Color(0xfff0fbfa) : Colors.transparent,
     );
     expect(
       find.byKey(const ValueKey('cal-week-today-past-hours')),
       findsOneWidget,
     );
 
-    final pastEvent = find.byKey(const ValueKey('cal-timed-week-past'));
+    final pastEvent = past == null
+        ? find.byType(Never)
+        : find.byKey(const ValueKey('cal-timed-week-past'));
     final futureEvent = find.byKey(const ValueKey('cal-timed-week-future'));
     final currentHourEvent = find.byKey(
       const ValueKey('cal-timed-week-current-hour'),
     );
-    expect(pastEvent, findsOneWidget);
+    if (past != null) expect(pastEvent, findsOneWidget);
     expect(futureEvent, findsOneWidget);
     expect(currentHourEvent, findsOneWidget);
-    expect(
-      tester
-          .widget<Opacity>(
-            find.descendant(of: pastEvent, matching: find.byType(Opacity)),
-          )
-          .opacity,
-      .45,
-    );
+    if (past != null) {
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(of: pastEvent, matching: find.byType(Opacity)),
+            )
+            .opacity,
+        .45,
+      );
+    }
     expect(
       tester
           .widget<Opacity>(

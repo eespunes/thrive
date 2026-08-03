@@ -36,6 +36,195 @@ Widget glyphTile({
   return fallback;
 }
 
+class _ColorSwatchTile extends StatelessWidget {
+  const _ColorSwatchTile({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+    this.size = 38,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(11),
+          border: selected ? Border.all(color: Colors.white, width: 3) : null,
+          boxShadow: selected
+              ? [BoxShadow(color: color, blurRadius: 0, spreadRadius: 2)]
+              : null,
+        ),
+        child: selected
+            ? Center(
+                child: ic('check', size: 16, sw: 3, color: Colors.white),
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+class _GradientColorPicker extends StatelessWidget {
+  const _GradientColorPicker({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final Color selected;
+  final ValueChanged<Color> onChanged;
+
+  List<List<Color>> _rows() => List.generate(5, (row) {
+    final lightness = 0.38 + row * 0.09;
+    final saturation = 0.9 - row * 0.07;
+    return List.generate(8, (col) {
+      final hue = ((360 / 8) * col + (row.isOdd ? 22.5 : 0)) % 360;
+      return HSLColor.fromAHSL(
+        1,
+        hue,
+        saturation.clamp(0.55, 0.92),
+        lightness.clamp(0.34, 0.78),
+      ).toColor();
+    });
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _rows();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < rows.length; i++) ...[
+          Padding(
+            padding: EdgeInsets.only(left: i.isOdd ? 22 : 0),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final color in rows[i])
+                  _ColorSwatchTile(
+                    color: color,
+                    selected: selected.toARGB32() == color.toARGB32(),
+                    onTap: () => onChanged(color),
+                    size: 40,
+                  ),
+              ],
+            ),
+          ),
+          if (i != rows.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _BudgetColorPicker extends StatefulWidget {
+  const _BudgetColorPicker({
+    required this.quickColors,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<Color> quickColors;
+  final Color selected;
+  final ValueChanged<Color> onChanged;
+
+  @override
+  State<_BudgetColorPicker> createState() => _BudgetColorPickerState();
+}
+
+class _BudgetColorPickerState extends State<_BudgetColorPicker> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = !widget.quickColors.any(
+      (c) => c.toARGB32() == widget.selected.toARGB32(),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _BudgetColorPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.quickColors.any(
+      (c) => c.toARGB32() == widget.selected.toARGB32(),
+    )) {
+      _expanded = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 9,
+          runSpacing: 9,
+          children: [
+            for (final col in widget.quickColors)
+              _ColorSwatchTile(
+                color: col,
+                selected: widget.selected.toARGB32() == col.toARGB32(),
+                onTap: () => widget.onChanged(col),
+              ),
+          ],
+        ),
+        const SizedBox(height: 11),
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: B.faint,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: B.line),
+            ),
+            child: Row(
+              children: [
+                ic('sliders', size: 15, sw: 2.2, color: B.deep),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'More colors',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.deep,
+                    ),
+                  ),
+                ),
+                Transform.rotate(
+                  angle: _expanded ? math.pi : 0,
+                  child: ic('down', size: 14, sw: 2.2, color: B.soft2),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 12),
+          _GradientColorPicker(
+            selected: widget.selected,
+            onChanged: widget.onChanged,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// A row that reveals a red "Delete" action when swiped right-to-left,
 /// mirroring the design's `swipeWrap`. Tapping the action triggers [onDelete].
 class _SwipeRow extends StatefulWidget {

@@ -284,6 +284,67 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
     final categories = s.eventCategories;
     final valid = _title.text.trim().isNotEmpty;
+    final saveLabel = _editing ? 'Save event' : 'Add event';
+
+    void submit() {
+      final edited = CalendarEvent(
+        id: widget.event?.id ?? uid(),
+        title: _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim(),
+        allDay: _allDay,
+        date: _date,
+        endDate: _recur != 'none'
+            ? _repeatEndDate
+            : (_multiDay ? _endDate : ''),
+        start: _allDay ? '' : _start,
+        end: _allDay ? '' : _end,
+        location: _location.text.trim(),
+        notes: _notes.text.trim(),
+        category: _category,
+        color: s.catById(_category)?.color ?? _color,
+        attendees: _attendees.isEmpty ? ['me'] : _attendees,
+        reminder: _reminder,
+        recur: _recur,
+        recurEvery: _recurEvery,
+        recurUnit: _recurUnit,
+        recurWeekdays: _recurWeekdays,
+        exceptions: widget.event?.exceptions,
+        createdBy: widget.event?.createdBy,
+      );
+      if (_editing && widget.event?.recur != 'none') {
+        Navigator.of(context).pop();
+        s._showSheet(
+          (ctx) => _RecurEditScopeSheet(
+            state: s,
+            eventId: widget.event!.id,
+            date: widget.date,
+            edited: edited,
+          ),
+        );
+        return;
+      }
+      s.saveEvent(
+        id: widget.event?.id,
+        title: edited.title,
+        allDay: edited.allDay,
+        date: edited.date,
+        endDate: edited.endDate,
+        start: edited.start,
+        end: edited.end,
+        location: edited.location,
+        notes: edited.notes,
+        category: edited.category,
+        color: edited.color,
+        attendees: edited.attendees,
+        reminder: edited.reminder,
+        recur: edited.recur,
+        recurEvery: edited.recurEvery,
+        recurUnit: edited.recurUnit,
+        recurWeekdays: edited.recurWeekdays,
+        exceptions: widget.event?.exceptions,
+        createdBy: widget.event?.createdBy,
+      );
+      Navigator.of(context).pop();
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -291,6 +352,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sheetHead(context, _editing ? 'Edit event' : 'New event'),
+          _primaryBtn(saveLabel, submit, enabled: valid),
           _sheetField(
             'Title',
             _sheetInput(
@@ -324,7 +386,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                     ic('cal', size: 15, sw: 2.2, color: B.primary),
                     const SizedBox(width: 8),
                     Text(
-                      _date,
+                      _displayDateIso(_date),
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
@@ -366,7 +428,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                         ic('cal', size: 15, sw: 2.2, color: B.primary),
                         const SizedBox(width: 8),
                         Text(
-                          _endDate,
+                          _displayDateIso(_endDate),
                           style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
@@ -829,7 +891,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                       ic('cal', size: 15, sw: 2.2, color: B.primary),
                       const SizedBox(width: 8),
                       Text(
-                        _repeatEndDate.isEmpty ? 'Never' : _repeatEndDate,
+                        _repeatEndDate.isEmpty
+                            ? 'Never'
+                            : _displayDateIso(_repeatEndDate),
                         style: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
@@ -845,67 +909,6 @@ class _EventEditSheetState extends State<_EventEditSheet> {
             'Notes',
             _sheetInput(_notes, hint: 'Optional notes', maxLines: 3),
           ),
-          _primaryBtn(_editing ? 'Save event' : 'Add event', () {
-            final edited = CalendarEvent(
-              id: widget.event?.id ?? uid(),
-              title: _title.text.trim().isEmpty
-                  ? 'Untitled'
-                  : _title.text.trim(),
-              allDay: _allDay,
-              date: _date,
-              endDate: _recur != 'none'
-                  ? _repeatEndDate
-                  : (_multiDay ? _endDate : ''),
-              start: _allDay ? '' : _start,
-              end: _allDay ? '' : _end,
-              location: _location.text.trim(),
-              notes: _notes.text.trim(),
-              category: _category,
-              color: s.catById(_category)?.color ?? _color,
-              attendees: _attendees.isEmpty ? ['me'] : _attendees,
-              reminder: _reminder,
-              recur: _recur,
-              recurEvery: _recurEvery,
-              recurUnit: _recurUnit,
-              recurWeekdays: _recurWeekdays,
-              exceptions: widget.event?.exceptions,
-              createdBy: widget.event?.createdBy,
-            );
-            if (_editing && widget.event?.recur != 'none') {
-              Navigator.of(context).pop();
-              s._showSheet(
-                (ctx) => _RecurEditScopeSheet(
-                  state: s,
-                  eventId: widget.event!.id,
-                  date: widget.date,
-                  edited: edited,
-                ),
-              );
-              return;
-            }
-            s.saveEvent(
-              id: widget.event?.id,
-              title: edited.title,
-              allDay: edited.allDay,
-              date: edited.date,
-              endDate: edited.endDate,
-              start: edited.start,
-              end: edited.end,
-              location: edited.location,
-              notes: edited.notes,
-              category: edited.category,
-              color: edited.color,
-              attendees: edited.attendees,
-              reminder: edited.reminder,
-              recur: edited.recur,
-              recurEvery: edited.recurEvery,
-              recurUnit: edited.recurUnit,
-              recurWeekdays: edited.recurWeekdays,
-              exceptions: widget.event?.exceptions,
-              createdBy: widget.event?.createdBy,
-            );
-            Navigator.of(context).pop();
-          }, enabled: valid),
           if (_editing)
             GestureDetector(
               onTap: () {
@@ -3438,6 +3441,11 @@ class _DayDetailSheet extends StatelessWidget {
               ],
             ],
           ),
+        const SizedBox(height: 14),
+        _primaryBtn('Add event for this day', () {
+          Navigator.of(context).pop();
+          state.openEvent(null, iso);
+        }),
       ],
     );
   }

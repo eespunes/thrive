@@ -42,6 +42,9 @@ class ThriveApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Thrive',
+      locale: const Locale('en', 'GB'),
+      supportedLocales: const [Locale('en', 'GB')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: B.page,

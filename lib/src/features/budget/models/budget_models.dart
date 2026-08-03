@@ -204,6 +204,10 @@ class ExpenseItem {
     required this.account,
     this.payee = '',
     this.until,
+    this.recurring = false,
+    this.seriesId,
+    this.recurEndDate,
+    this.generated = false,
   });
 
   String id;
@@ -218,8 +222,12 @@ class ExpenseItem {
   bool paid;
   String account;
   Object? until;
+  bool recurring;
+  String? seriesId;
+  String? recurEndDate;
+  bool generated;
 
-  ExpenseItem copyWithId(String newId) => ExpenseItem(
+  ExpenseItem copyWithId(String newId, {bool? generated}) => ExpenseItem(
     id: newId,
     payee: payee,
     label: label,
@@ -228,6 +236,10 @@ class ExpenseItem {
     paid: paid,
     account: account,
     until: until,
+    recurring: recurring,
+    seriesId: seriesId,
+    recurEndDate: recurEndDate,
+    generated: generated ?? this.generated,
   );
 
   Map<String, dynamic> toJson() => {
@@ -239,18 +251,35 @@ class ExpenseItem {
     'paid': paid,
     'account': account,
     if (until != null) 'until': until,
+    if (recurring) 'recurring': true,
+    if (seriesId != null && seriesId!.isNotEmpty) 'seriesId': seriesId,
+    if (recurEndDate != null) 'recurEndDate': recurEndDate,
+    if (generated) 'generated': true,
   };
 
-  factory ExpenseItem.fromJson(Map<String, dynamic> j) => ExpenseItem(
-    id: (j['id'] ?? uid()).toString(),
-    payee: (j['payee'] ?? '').toString(),
-    label: (j['label'] ?? '').toString(),
-    marker: (j['marker'] ?? '').toString(),
-    amount: parseNum(j['amount']),
-    paid: j['paid'] == true,
-    account: (j['account'] ?? kDefaultAccountKey).toString(),
-    until: j['until'],
-  );
+  factory ExpenseItem.fromJson(Map<String, dynamic> j) {
+    final recurring = j['recurring'] == true;
+    final rawSeriesId = (j['seriesId'] as String?)?.trim();
+    final recurEndDate = normalizeRecurringEndDate(
+      j['recurEndDate'] ?? j['until'],
+    );
+    return ExpenseItem(
+      id: (j['id'] ?? uid()).toString(),
+      payee: (j['payee'] ?? '').toString(),
+      label: (j['label'] ?? '').toString(),
+      marker: (j['marker'] ?? '').toString(),
+      amount: parseNum(j['amount']),
+      paid: j['paid'] == true,
+      account: (j['account'] ?? kDefaultAccountKey).toString(),
+      until: j['until'] ?? recurEndDate,
+      recurring: recurring,
+      seriesId: rawSeriesId?.isNotEmpty == true
+          ? rawSeriesId
+          : (recurring ? (j['id'] ?? uid()).toString() : null),
+      recurEndDate: recurEndDate,
+      generated: j['generated'] == true,
+    );
+  }
 }
 
 class MonthData {
@@ -260,14 +289,17 @@ class MonthData {
     this.closed = false,
     this.catsSnapshot,
     this.accountsSnapshot,
+    List<String>? seriesStops,
   }) : blocks = blocks ?? {},
-       caps = caps ?? {};
+       caps = caps ?? {},
+       seriesStops = seriesStops ?? <String>[];
 
   Map<String, List<ExpenseItem>> blocks;
   Map<String, double> caps;
   bool closed;
   List<Category>? catsSnapshot;
   List<Account>? accountsSnapshot;
+  List<String> seriesStops;
 
   Map<String, dynamic> toJson() => {
     'blocks': blocks.map(
@@ -279,6 +311,7 @@ class MonthData {
       'catsSnapshot': catsSnapshot!.map((c) => c.toJson()).toList(),
     if (accountsSnapshot != null)
       'accountsSnapshot': accountsSnapshot!.map((a) => a.toJson()).toList(),
+    if (seriesStops.isNotEmpty) 'seriesStops': seriesStops,
   };
 
   factory MonthData.fromJson(Map<String, dynamic> j) {
@@ -330,6 +363,10 @@ class MonthData {
               for (final a in (j['accountsSnapshot'] as List))
                 Account.fromJson(Map<String, dynamic>.from(a as Map)),
             ],
+      seriesStops: [
+        for (final id in (j['seriesStops'] as List? ?? const []))
+          id.toString(),
+      ],
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -47,6 +49,98 @@ void main() {
     final rowTitle = tester.widget<Text>(find.text('Thuiswonen - Rent').first);
     final span = rowTitle.textSpan! as TextSpan;
     expect((span.children!.single as TextSpan).style!.color, B.muted);
+  });
+
+  testWidgets('a recurring expense propagates until its end month', (
+    tester,
+  ) async {
+    final cats = defaultCats();
+    Map<String, dynamic> yearData() => {
+      for (final mk in kMonthKeys)
+        mk: MonthData(
+          blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
+        ).toJson(),
+    };
+    final data = <String, dynamic>{
+      '2026': yearData(),
+      '2027': yearData(),
+    };
+    (data['2026'] as Map<String, dynamic>)['Juni'] = MonthData(
+      blocks: {
+        for (final c in cats) c.key: <ExpenseItem>[],
+        'home': [
+          ExpenseItem(
+            id: 'rent-june',
+            payee: 'Recurring',
+            label: 'Loan',
+            marker: '1st',
+            amount: 120,
+            paid: false,
+            account: 'shared',
+            recurring: true,
+            seriesId: 'loan-series',
+            recurEndDate: '2026-07-15',
+            until: '2026-07-15',
+          ),
+        ],
+      },
+    ).toJson();
+
+    await pumpApp(
+      tester,
+      prefs: {
+        'flutter.$kStorageKey': json.encode({
+          'year': 2026,
+          'monthIdx': 5,
+          'screen': 'overview',
+          'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
+          'cats': cats.map((c) => c.toJson()).toList(),
+          'data': data,
+        }),
+      },
+    );
+
+    expect(find.text('Recurring - Loan'), findsWidgets);
+    thriveDebug.pickMonth(6);
+    await tester.pumpAndSettle();
+    expect(find.text('Recurring - Loan'), findsWidgets);
+
+    thriveDebug.pickMonth(7);
+    await tester.pumpAndSettle();
+    expect(find.text('Recurring - Loan'), findsNothing);
+  });
+
+  testWidgets('deleting a recurring expense keeps past months intact', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('Add to Home'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Gym');
+    await tester.enterText(find.byType(TextField).at(1), 'Membership');
+    await tester.enterText(find.byType(TextField).at(2), '20');
+    await tester.pump();
+    await tester.tap(find.text('Repeat every month'));
+    await tester.pump();
+    await tester.tap(find.text('Add item'));
+    await tester.pumpAndSettle();
+
+    thriveDebug.pickMonth(6);
+    await tester.pumpAndSettle();
+    expect(find.text('Gym - Membership'), findsWidgets);
+
+    final julyId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
+    expect(julyId, isNotNull);
+    thriveDebug.deleteExpense('home', julyId!);
+    await tester.pumpAndSettle();
+
+    thriveDebug.pickMonth(7);
+    await tester.pumpAndSettle();
+    expect(find.text('Gym - Membership'), findsNothing);
+
+    thriveDebug.pickMonth(5);
+    await tester.pumpAndSettle();
+    expect(find.text('Gym - Membership'), findsWidgets);
   });
 
   testWidgets('edit an existing income row', (tester) async {

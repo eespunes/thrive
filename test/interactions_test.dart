@@ -50,19 +50,14 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('copy a month by selecting grid cells', (tester) async {
+  testWidgets('block editor exposes more colors', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.text('Copy month…'));
+    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
     await tester.pumpAndSettle();
-    // Two month grids (from + into). Tap a cell in each.
-    await tester.tap(find.text('Jan').first);
+    expect(find.text('More colors'), findsOneWidget);
+    await tester.tap(find.text('More colors'));
     await tester.pump();
-    await tester.tap(find.text('Feb').last);
-    await tester.pump();
-    final primary = find.textContaining('\u2192').last;
-    await tester.tap(primary);
-    await tester.pumpAndSettle();
   });
 
   testWidgets('remove a limit via cap sheet', (tester) async {
