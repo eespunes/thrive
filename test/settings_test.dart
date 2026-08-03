@@ -64,14 +64,14 @@ void main() {
     );
   });
 
-  testWidgets('settings renders accounts, blocks, copy & delete account', (
+  testWidgets('settings renders accounts, blocks and delete account', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
     expect(find.text('Accounts'), findsWidgets);
     expect(find.text('Budget blocks'), findsWidgets);
-    expect(find.text('Copy a month'), findsWidgets);
+    expect(find.text('Copy a month'), findsNothing);
     expect(find.text('Add account'), findsOneWidget);
     expect(find.text('Add budget block'), findsOneWidget);
     expect(find.text('Delete account'), findsOneWidget);
@@ -121,23 +121,23 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('This month only'));
     await tester.pump();
-    await tester.tap(find.text('Track end date (Until MM-YY)'));
+    await tester.tap(find.text('Track end date'));
     await tester.pump();
     await tester.tap(find.text('Create block'));
     await tester.pumpAndSettle();
     expect(find.text('Kids'), findsWidgets);
   });
 
-  testWidgets('open copy sheet and copy current month forward', (tester) async {
+  testWidgets('account color picker exposes more colors', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.text('Copy month…'));
+    await tester.tap(find.text('Add account'));
     await tester.pumpAndSettle();
-    expect(find.text('Copy a month'), findsWidgets);
-    // primary button label starts with 'Copy '
-    final copyBtn = find.textContaining('Copy ').last;
-    await tester.tap(copyBtn);
+    expect(find.text('Colors'), findsOneWidget);
+    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(AnimatedContainer).last);
+    await tester.pump();
   });
 
   testWidgets('delete account confirms then signs out', (tester) async {

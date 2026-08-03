@@ -540,34 +540,32 @@ class _ProfileSheetState extends State<_ProfileSheet> {
             ),
           ),
           const SizedBox(height: 9),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final col in <Color?>[null, ...kMemberColors])
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _color = col;
-                    _colorTouched = true;
-                  }),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      gradient: col == null ? B.grad : null,
-                      color: col,
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(
-                        color: (color == col || (col == null && color == null))
-                            ? B.ink
-                            : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                  ),
+          GestureDetector(
+            onTap: () => setState(() {
+              _color = null;
+              _colorTouched = true;
+            }),
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                gradient: B.grad,
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: color == null ? B.ink : Colors.transparent,
+                  width: 2,
                 ),
-            ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 11),
+          _MoreColorsToggle(
+            quickColors: kMemberColors,
+            selected: color ?? kMemberColors.first,
+            onChanged: (col) => setState(() {
+              _color = col;
+              _colorTouched = true;
+            }),
           ),
         ],
         const SizedBox(height: 16),

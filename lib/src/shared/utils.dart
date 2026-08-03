@@ -19,6 +19,42 @@ String todayIso() {
       '${now.day.toString().padLeft(2, '0')}';
 }
 
+String _isoDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+DateTime? _dateFromUntil(Object? v) {
+  if (v == null) return null;
+  if (v is String) {
+    final t = v.trim();
+    if (t.isEmpty || t == '-') return null;
+    final iso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(t);
+    if (iso != null) {
+      final yy = int.parse(iso.group(1)!);
+      final mm = int.parse(iso.group(2)!);
+      final dd = int.parse(iso.group(3)!);
+      return DateTime(yy, mm, dd);
+    }
+    final mmYy = RegExp(r'^(\d{2})-(\d{2})$').firstMatch(t);
+    if (mmYy != null) {
+      final mm = int.parse(mmYy.group(1)!);
+      final yy = 2000 + int.parse(mmYy.group(2)!);
+      return DateTime(yy, mm + 1, 0);
+    }
+    return null;
+  }
+  final serial = parseNum(v);
+  if (serial <= 0) return null;
+  return DateTime.utc(1899, 12, 30).add(Duration(days: serial.round()));
+}
+
+/// Normalizes a recurring end date to an ISO `YYYY-MM-DD` string.
+String? normalizeRecurringEndDate(Object? v) {
+  final d = _dateFromUntil(v);
+  return d == null ? null : _isoDate(d);
+}
+
 /// Mirrors `num(v)` — tolerant number parsing.
 double parseNum(Object? v) {
   if (v is num) return v.isNaN ? 0 : v.toDouble();
@@ -61,14 +97,8 @@ String markerShow(Object? v) {
 
 /// Mirrors `untilLabel(v)` — normalizes an "until" value to MM-YY.
 String? untilLabel(Object? v) {
-  if (v == null) return null;
-  if (v is String) {
-    final t = v.trim();
-    return (t.isEmpty || t == '-') ? null : t;
-  }
-  final serial = parseNum(v);
-  if (serial <= 0) return null;
-  final d = DateTime.utc(1899, 12, 30).add(Duration(days: serial.round()));
+  final d = _dateFromUntil(v);
+  if (d == null) return null;
   return '${d.month.toString().padLeft(2, '0')}-'
       '${(d.year % 100).toString().padLeft(2, '0')}';
 }

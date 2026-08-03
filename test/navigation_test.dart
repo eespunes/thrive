@@ -191,4 +191,135 @@ void main() {
       expect(find.text('New list'), findsWidgets);
     },
   );
+
+  testWidgets(
+    'Quick-Add chooser → Task goes straight to the single to-do list',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-lists')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('nav-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
+      await tester.pumpAndSettle();
+
+      // Lands directly on the "Household" list's task sheet, skipping any
+      // picker since it's the only to-do list.
+      expect(find.text('Household'), findsWidgets);
+      expect(find.text('Add task'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'Quick-Add chooser → Task shows a picker when multiple to-do lists exist',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-lists')));
+      await tester.pumpAndSettle();
+
+      for (final name in ['Household', 'Errands']) {
+        await tester.tap(find.text('New list'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, name);
+        await tester.pump();
+        await tester.tap(find.text('Create list'));
+        await tester.pumpAndSettle();
+      }
+
+      await tester.tap(find.byKey(const ValueKey('nav-home')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add a task'), findsOneWidget);
+      expect(find.text('Which list should it go on?'), findsOneWidget);
+      await tester.tap(
+        find
+            .byWidgetPredicate(
+              (w) =>
+                  w is GestureDetector &&
+                  w.key is ValueKey<String> &&
+                  (w.key as ValueKey<String>).value.startsWith('pick-list-'),
+            )
+            .last,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Errands'), findsWidgets);
+    },
+  );
+
+  testWidgets('Quick-Add chooser → Shopping item goes straight to the single '
+      'shopping list', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-lists')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Supermarket');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('nav-home')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Supermarket'), findsWidgets);
+  });
+
+  testWidgets('Quick-Add chooser → Shopping item shows a picker when multiple '
+      'shopping lists exist', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-lists')));
+    await tester.pumpAndSettle();
+
+    for (final name in ['Supermarket', 'Pharmacy']) {
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Shopping'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, name);
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.byKey(const ValueKey('nav-home')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add a shopping item'), findsOneWidget);
+    expect(find.text('Which list should it go on?'), findsOneWidget);
+    await tester.tap(
+      find
+          .byWidgetPredicate(
+            (w) =>
+                w is GestureDetector &&
+                w.key is ValueKey<String> &&
+                (w.key as ValueKey<String>).value.startsWith('pick-list-'),
+          )
+          .last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Pharmacy'), findsWidgets);
+  });
 }

@@ -76,6 +76,12 @@ Future<Workspace> buildSampleWorkspace() async {
                 amount: expected != 0 ? expected : parseNum(map['actual']),
                 paid: map['received'] == true,
                 account: accForLabel(map['label']?.toString()),
+                // The bundled sample already itemizes every month
+                // individually (issue #185's default-on recurring is meant
+                // for real user items going forward, not this static demo
+                // data), so auto-propagation must stay off here or the
+                // sample would duplicate itself across future months.
+                recurring: false,
               ),
             );
           } else {
@@ -88,6 +94,7 @@ Future<Workspace> buildSampleWorkspace() async {
                 paid: map['paid'] == true,
                 account: accForLabel(map['label']?.toString()),
                 until: map['until'],
+                recurring: false,
               ),
             );
           }

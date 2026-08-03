@@ -135,10 +135,12 @@ void main() {
       final m = MonthData(closed: true);
       m.catsSnapshot = defaultCats();
       m.accountsSnapshot = defaultAccounts();
+      m.seriesStops.add('rent-series');
       final back = MonthData.fromJson(m.toJson());
       expect(back.closed, isTrue);
       expect(back.catsSnapshot, isNotNull);
       expect(back.accountsSnapshot, isNotNull);
+      expect(back.seriesStops, ['rent-series']);
     });
 
     test('ExpenseItem copyWithId assigns a new id', () {
@@ -172,6 +174,75 @@ void main() {
       expect(back.payee, 'Thuiswonen');
       expect(back.label, 'Rent');
     });
+
+    test('ExpenseItem round-trips recurring metadata', () {
+      final it = ExpenseItem(
+        id: 'a',
+        payee: 'Bank',
+        label: 'Loan',
+        marker: '1st',
+        amount: 120,
+        paid: false,
+        account: 'shared',
+        recurring: true,
+        seriesId: 'loan-series',
+        recurEndDate: '2026-07-15',
+        until: '2026-07-15',
+        generated: true,
+      );
+      final back = ExpenseItem.fromJson(it.toJson());
+      expect(back.recurring, isTrue);
+      expect(back.seriesId, 'loan-series');
+      expect(back.recurEndDate, '2026-07-15');
+      expect(back.generated, isTrue);
+    });
+
+    test('ExpenseItem defaults to recurring for new items (issue #185)', () {
+      final it = ExpenseItem(
+        id: 'a',
+        label: 'Rent',
+        marker: '1st',
+        amount: 100,
+        paid: false,
+        account: 'shared',
+      );
+      expect(it.recurring, isTrue);
+      // The default is saved explicitly, so it survives a round-trip.
+      expect(ExpenseItem.fromJson(it.toJson()).recurring, isTrue);
+    });
+
+    test(
+      'ExpenseItem migrates pre-#185 data (no recurring key) to recurring',
+      () {
+        final legacy = ExpenseItem.fromJson({
+          'id': 'legacy-1',
+          'label': 'Old subscription',
+          'marker': '',
+          'amount': 9.99,
+          'paid': true,
+          'account': 'shared',
+        });
+        expect(legacy.recurring, isTrue);
+      },
+    );
+
+    test(
+      'ExpenseItem preserves an explicit opt-out of recurring on round-trip',
+      () {
+        final it = ExpenseItem(
+          id: 'a',
+          label: 'One-off gift',
+          marker: '',
+          amount: 30,
+          paid: false,
+          account: 'shared',
+          recurring: false,
+        );
+        final json = it.toJson();
+        expect(json['recurring'], isFalse);
+        expect(ExpenseItem.fromJson(json).recurring, isFalse);
+      },
+    );
   });
 
   group('utils', () {
@@ -188,6 +259,7 @@ void main() {
 
     test('untilLabel normalizes to MM-YY', () {
       expect(untilLabel('12-28'), '12-28');
+      expect(untilLabel('2028-12-31'), '12-28');
     });
   });
 }

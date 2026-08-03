@@ -128,6 +128,19 @@ void main() {
       expect(find.text('Profile updated'), findsOneWidget);
     });
 
+    testWidgets('profile colour picker exposes more colors', (tester) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('profile-edit')));
+      await tester.pumpAndSettle();
+      expect(find.text('Colors'), findsOneWidget);
+      await tester.tap(find.text('Colors'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedContainer).last);
+      await tester.pump();
+    });
+
     testWidgets('sign out returns to the auth screen', (tester) async {
       await pumpApp(tester);
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));

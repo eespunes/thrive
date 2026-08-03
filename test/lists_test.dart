@@ -180,6 +180,50 @@ void main() {
   );
 
   testWidgets(
+    'assign a task to a member and pick its due date via the native picker',
+    (tester) async {
+      await pumpApp(tester);
+      await goToLists(tester);
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Household'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Take out bins');
+      await tester.pump();
+
+      // Assign to the signed-in member (the only one seeded by default).
+      await tester.tap(find.text('Eva Janssen'));
+      await tester.pump();
+
+      // Open the native date picker instead of relying on the toggle's
+      // "defaults to today" shortcut.
+      await tester.tap(find.text('Due date'));
+      await tester.pumpAndSettle();
+      final now = DateTime.now();
+      final todayIsoText =
+          '${now.year.toString().padLeft(4, '0')}-'
+          '${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+      await tester.tap(find.text(todayIsoText));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Take out bins'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'add a task with a due date, edit it, un-complete it, then delete it',
     (tester) async {
       await pumpApp(tester);

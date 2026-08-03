@@ -285,663 +285,686 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     final categories = s.eventCategories;
     final valid = _title.text.trim().isNotEmpty;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sheetHead(context, _editing ? 'Edit event' : 'New event'),
-          _sheetField(
-            'Title',
-            _sheetInput(
-              _title,
-              hint: 'e.g. Dentist appointment',
-              onChanged: (_) => setState(() {}),
-            ),
+    void submit() {
+      final edited = CalendarEvent(
+        id: widget.event?.id ?? uid(),
+        title: _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim(),
+        allDay: _allDay,
+        date: _date,
+        endDate: _recur != 'none'
+            ? _repeatEndDate
+            : (_multiDay ? _endDate : ''),
+        start: _allDay ? '' : _start,
+        end: _allDay ? '' : _end,
+        location: _location.text.trim(),
+        notes: _notes.text.trim(),
+        category: _category,
+        color: s.catById(_category)?.color ?? _color,
+        attendees: _attendees.isEmpty ? ['me'] : _attendees,
+        reminder: _reminder,
+        recur: _recur,
+        recurEvery: _recurEvery,
+        recurUnit: _recurUnit,
+        recurWeekdays: _recurWeekdays,
+        exceptions: widget.event?.exceptions,
+        createdBy: widget.event?.createdBy,
+      );
+      if (_editing && widget.event?.recur != 'none') {
+        Navigator.of(context).pop();
+        s._showSheet(
+          (ctx) => _RecurEditScopeSheet(
+            state: s,
+            eventId: widget.event!.id,
+            date: widget.date,
+            edited: edited,
           ),
-          _toggleRow(
-            'All-day',
-            _allDay,
-            () => setState(() => _allDay = !_allDay),
-            activeColor: B.primary,
-          ),
-          const SizedBox(height: 13),
-          _sheetField(
-            'Date',
-            GestureDetector(
-              onTap: _pickDate,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 12,
+        );
+        return;
+      }
+      s.saveEvent(
+        id: widget.event?.id,
+        title: edited.title,
+        allDay: edited.allDay,
+        date: edited.date,
+        endDate: edited.endDate,
+        start: edited.start,
+        end: edited.end,
+        location: edited.location,
+        notes: edited.notes,
+        category: edited.category,
+        color: edited.color,
+        attendees: edited.attendees,
+        reminder: edited.reminder,
+        recur: edited.recur,
+        recurEvery: edited.recurEvery,
+        recurUnit: edited.recurUnit,
+        recurWeekdays: edited.recurWeekdays,
+        exceptions: widget.event?.exceptions,
+        createdBy: widget.event?.createdBy,
+      );
+      Navigator.of(context).pop();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHeadWithTick(
+          context,
+          _editing ? 'Edit event' : 'New event',
+          onConfirm: submit,
+          confirmEnabled: valid,
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetField(
+                  'Title',
+                  _sheetInput(
+                    _title,
+                    hint: 'e.g. Dentist appointment',
+                    onChanged: (_) => setState(() {}),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: B.line),
-                  borderRadius: BorderRadius.circular(12),
+                _toggleRow(
+                  'All-day',
+                  _allDay,
+                  () => setState(() => _allDay = !_allDay),
+                  activeColor: B.primary,
                 ),
-                child: Row(
-                  children: [
-                    ic('cal', size: 15, sw: 2.2, color: B.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      _date,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
+                const SizedBox(height: 13),
+                _sheetField(
+                  'Date',
+                  GestureDetector(
+                    onTap: _pickDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 13,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: B.line),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          ic('cal', size: 15, sw: 2.2, color: B.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            _displayDateIso(_date),
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: B.ink,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          if (_recur == 'none') ...[
-            _toggleRow(
-              'Multi-day',
-              _multiDay,
-              () => setState(() {
-                _multiDay = !_multiDay;
-                if (!_multiDay) _endDate = _date;
-              }),
-              activeColor: B.primary,
-            ),
-            const SizedBox(height: 13),
-            if (_multiDay)
-              _sheetField(
-                'Ends',
-                GestureDetector(
-                  onTap: _pickEndDate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 12,
+                if (_recur == 'none') ...[
+                  _toggleRow(
+                    'Multi-day',
+                    _multiDay,
+                    () => setState(() {
+                      _multiDay = !_multiDay;
+                      if (!_multiDay) _endDate = _date;
+                    }),
+                    activeColor: B.primary,
+                  ),
+                  const SizedBox(height: 13),
+                  if (_multiDay)
+                    _sheetField(
+                      'Ends',
+                      GestureDetector(
+                        onTap: _pickEndDate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: B.line),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              ic('cal', size: 15, sw: 2.2, color: B.primary),
+                              const SizedBox(width: 8),
+                              Text(
+                                _displayDateIso(_endDate),
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: B.ink,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: B.line),
-                      borderRadius: BorderRadius.circular(12),
+                ],
+                if (!_allDay)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _timeField(
+                          'Start',
+                          _start,
+                          () => _pickTime(true),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _timeField('End', _end, () => _pickTime(false)),
+                      ),
+                    ],
+                  ),
+                _sheetField(
+                  'Location',
+                  _sheetInput(
+                    _location,
+                    hint: 'Optional',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    'CATEGORY',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
                     ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        ic('cal', size: 15, sw: 2.2, color: B.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          _endDate,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: B.ink,
+                        GestureDetector(
+                          onTap: () => setState(() => _category = null),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 13,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _category == null ? B.soft : Colors.white,
+                              border: Border.all(
+                                color: _category == null ? B.primary : B.line,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'None',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _category == null ? B.deep : B.soft2,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        for (final c in categories) ...[
+                          GestureDetector(
+                            key: ValueKey('event-cat-${c.id}'),
+                            onTap: () => setState(() {
+                              _category = c.id;
+                              _color = c.color;
+                              for (final mid in c.members) {
+                                if (!_attendees.contains(mid)) {
+                                  _attendees.add(mid);
+                                }
+                              }
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 13,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _category == c.id
+                                    ? c.color
+                                    : Colors.white,
+                                border: Border.all(
+                                  color: _category == c.id ? c.color : B.line,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  categoryGlyph(
+                                    c,
+                                    size: 14,
+                                    iconColor: _category == c.id
+                                        ? Colors.white
+                                        : c.color,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    c.name,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: _category == c.id
+                                          ? Colors.white
+                                          : B.soft2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                        ],
+                        GestureDetector(
+                          key: const ValueKey('event-new-category'),
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            s.openCategory(null);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: B.line,
+                                style: BorderStyle.solid,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ic('plus', size: 13, sw: 2.5, color: B.primary),
+                                const SizedBox(width: 3),
+                                const Text(
+                                  'New',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: B.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-          ],
-          if (!_allDay)
-            Row(
-              children: [
-                Expanded(
-                  child: _timeField('Start', _start, () => _pickTime(true)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    'ATTENDEES',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _timeField('End', _end, () => _pickTime(false)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final m in members)
+                        GestureDetector(
+                          key: ValueKey('event-att-${m.id}'),
+                          onTap: () => setState(() {
+                            if (_attendees.contains(m.id)) {
+                              _attendees.remove(m.id);
+                            } else {
+                              _attendees.add(m.id);
+                            }
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
+                            decoration: BoxDecoration(
+                              color: _attendees.contains(m.id)
+                                  ? B.soft
+                                  : Colors.white,
+                              border: Border.all(
+                                color: _attendees.contains(m.id)
+                                    ? B.primary
+                                    : B.line,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                s.avatarNode(
+                                  photo: m.photo,
+                                  initials: m.initials,
+                                  color: m.color,
+                                  size: 22,
+                                  radius: 11,
+                                  fs: 10,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  m.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: _attendees.contains(m.id)
+                                        ? B.deep
+                                        : B.soft2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          _sheetField(
-            'Location',
-            _sheetInput(
-              _location,
-              hint: 'Optional',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Text(
-              'CATEGORY',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: B.muted,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 13),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _category = null),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 13,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _category == null ? B.soft : Colors.white,
-                        border: Border.all(
-                          color: _category == null ? B.primary : B.line,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        'None',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: _category == null ? B.deep : B.soft2,
-                        ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    _category != null ? 'COLOUR (FROM CATEGORY)' : 'COLOUR',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: _category != null
+                      ? Wrap(
+                          spacing: 9,
+                          runSpacing: 9,
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: s.catById(_category)?.color ?? _color,
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                if (_category == null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 13),
+                    child: _MoreColorsToggle(
+                      quickColors: kEventColors,
+                      selected: _color,
+                      onChanged: (c) => setState(() => _color = c),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    'REMINDER',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: _chipRow(
+                    const [
+                      ('none', 'No reminder'),
+                      ('at', 'On time'),
+                      ('5m', '5 min before'),
+                      ('15m', '15 min before'),
+                      ('30m', '30 min before'),
+                      ('1h', '1 hour before'),
+                      ('2h', '2 hours before'),
+                      ('1d', '1 day before'),
+                      ('2d', '2 days before'),
+                    ],
+                    _reminder,
+                    (v) => setState(() => _reminder = v),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    'REPEAT',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: _chipRow(
+                    const [
+                      ('none', 'Never'),
+                      ('daily', 'Daily'),
+                      ('weekly', 'Weekly'),
+                      ('monthly', 'Monthly'),
+                      ('yearly', 'Yearly'),
+                      ('custom', 'Custom'),
+                    ],
+                    _recur,
+                    (v) => setState(() {
+                      _recur = v;
+                      if (_recur != 'none') {
+                        _multiDay = false;
+                        if (_repeatEndDate.isNotEmpty &&
+                            _repeatEndDate.compareTo(_date) < 0) {
+                          _repeatEndDate = _date;
+                        }
+                      } else {
+                        _repeatEndDate = '';
+                        if (!_multiDay) _endDate = _date;
+                      }
+                    }),
+                  ),
+                ),
+                if (_recur == 'custom') ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Text(
+                      'EVERY',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .3,
+                        color: B.muted,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 7),
-                  for (final c in categories) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 13),
+                    child: _numberChipRow(
+                      const [1, 2, 3, 4, 5, 6],
+                      _recurEvery,
+                      (v) => setState(() => _recurEvery = v),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 13),
+                    child: _chipRow(
+                      const [
+                        ('day', 'Days'),
+                        ('week', 'Weeks'),
+                        ('month', 'Months'),
+                        ('year', 'Years'),
+                      ],
+                      _recurUnit,
+                      (v) => setState(() => _recurUnit = v),
+                    ),
+                  ),
+                  if (_recurUnit == 'week') ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 7),
+                      child: Text(
+                        'ON DAYS',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .3,
+                          color: B.muted,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 13),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (var weekday = 1; weekday <= 7; weekday++) ...[
+                              GestureDetector(
+                                key: ValueKey('event-custom-weekday-$weekday'),
+                                onTap: () => setState(() {
+                                  if (_recurWeekdays.contains(weekday)) {
+                                    if (_recurWeekdays.length > 1) {
+                                      _recurWeekdays.remove(weekday);
+                                    }
+                                  } else {
+                                    _recurWeekdays.add(weekday);
+                                    _recurWeekdays.sort();
+                                  }
+                                }),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: _recurWeekdays.contains(weekday)
+                                        ? B.soft
+                                        : Colors.white,
+                                    border: Border.all(
+                                      color: _recurWeekdays.contains(weekday)
+                                          ? B.primary
+                                          : B.line,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    kWeekdayLetters[weekday - 1],
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: _recurWeekdays.contains(weekday)
+                                          ? B.deep
+                                          : B.soft2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+                if (_recur != 'none')
+                  _sheetField(
+                    'Repeat ends',
                     GestureDetector(
-                      key: ValueKey('event-cat-${c.id}'),
-                      onTap: () => setState(() {
-                        _category = c.id;
-                        _color = c.color;
-                        for (final mid in c.members) {
-                          if (!_attendees.contains(mid)) _attendees.add(mid);
-                        }
-                      }),
+                      key: const ValueKey('event-repeat-end-date'),
+                      onTap: _pickRepeatEndDate,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 13,
-                          vertical: 7,
+                          vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: _category == c.id ? c.color : Colors.white,
-                          border: Border.all(
-                            color: _category == c.id ? c.color : B.line,
-                          ),
-                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: B.line),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            categoryGlyph(
-                              c,
-                              size: 14,
-                              iconColor: _category == c.id
-                                  ? Colors.white
-                                  : c.color,
-                            ),
-                            const SizedBox(width: 5),
+                            ic('cal', size: 15, sw: 2.2, color: B.primary),
+                            const SizedBox(width: 8),
                             Text(
-                              c.name,
-                              style: TextStyle(
-                                fontSize: 12.5,
+                              _repeatEndDate.isEmpty
+                                  ? 'Never'
+                                  : _displayDateIso(_repeatEndDate),
+                              style: const TextStyle(
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
-                                color: _category == c.id
-                                    ? Colors.white
-                                    : B.soft2,
+                                color: B.ink,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 7),
-                  ],
+                  ),
+                _sheetField(
+                  'Notes',
+                  _sheetInput(_notes, hint: 'Optional notes', maxLines: 3),
+                ),
+                if (_editing)
                   GestureDetector(
-                    key: const ValueKey('event-new-category'),
                     onTap: () {
+                      final ev = s.eventById(widget.event!.id);
                       Navigator.of(context).pop();
-                      s.openCategory(null);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: B.line,
-                          style: BorderStyle.solid,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ic('plus', size: 13, sw: 2.5, color: B.primary),
-                          const SizedBox(width: 3),
-                          const Text(
-                            'New',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: B.primary,
-                            ),
+                      if (ev != null && ev.recur != 'none') {
+                        s._showSheet(
+                          (ctx) => _RecurDeleteSheet(
+                            state: s,
+                            eventId: ev.id,
+                            date: _date,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Text(
-              'ATTENDEES',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: B.muted,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 13),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final m in members)
-                  GestureDetector(
-                    key: ValueKey('event-att-${m.id}'),
-                    onTap: () => setState(() {
-                      if (_attendees.contains(m.id)) {
-                        _attendees.remove(m.id);
+                        );
                       } else {
-                        _attendees.add(m.id);
+                        s.askDelete(
+                          _title.text,
+                          'This event will be permanently removed.',
+                          () => s.deleteEvent(widget.event!.id, 'all'),
+                        );
                       }
-                    }),
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
-                      decoration: BoxDecoration(
-                        color: _attendees.contains(m.id)
-                            ? B.soft
-                            : Colors.white,
-                        border: Border.all(
-                          color: _attendees.contains(m.id) ? B.primary : B.line,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          s.avatarNode(
-                            photo: m.photo,
-                            initials: m.initials,
-                            color: m.color,
-                            size: 22,
-                            radius: 11,
-                            fs: 10,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            m.name,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: _attendees.contains(m.id)
-                                  ? B.deep
-                                  : B.soft2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Text(
-              _category != null ? 'COLOUR (FROM CATEGORY)' : 'COLOUR',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: B.muted,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 13),
-            child: Wrap(
-              spacing: 9,
-              runSpacing: 9,
-              children: [
-                for (final c
-                    in _category == null
-                        ? kEventColors
-                        : [s.catById(_category)?.color ?? _color])
-                  GestureDetector(
-                    onTap: _category == null
-                        ? () => setState(() => _color = c)
-                        : null,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: c,
-                        borderRadius: BorderRadius.circular(11),
-                        border: _color == c
-                            ? Border.all(color: B.ink, width: 2)
-                            : null,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Text(
-              'REMINDER',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: B.muted,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 13),
-            child: _chipRow(
-              const [
-                ('none', 'No reminder'),
-                ('at', 'On time'),
-                ('5m', '5 min before'),
-                ('15m', '15 min before'),
-                ('30m', '30 min before'),
-                ('1h', '1 hour before'),
-                ('2h', '2 hours before'),
-                ('1d', '1 day before'),
-                ('2d', '2 days before'),
-              ],
-              _reminder,
-              (v) => setState(() => _reminder = v),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 7),
-            child: Text(
-              'REPEAT',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: B.muted,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 13),
-            child: _chipRow(
-              const [
-                ('none', 'Never'),
-                ('daily', 'Daily'),
-                ('weekly', 'Weekly'),
-                ('monthly', 'Monthly'),
-                ('yearly', 'Yearly'),
-                ('custom', 'Custom'),
-              ],
-              _recur,
-              (v) => setState(() {
-                _recur = v;
-                if (_recur != 'none') {
-                  _multiDay = false;
-                  if (_repeatEndDate.isNotEmpty &&
-                      _repeatEndDate.compareTo(_date) < 0) {
-                    _repeatEndDate = _date;
-                  }
-                } else {
-                  _repeatEndDate = '';
-                  if (!_multiDay) _endDate = _date;
-                }
-              }),
-            ),
-          ),
-          if (_recur == 'custom') ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: Text(
-                'EVERY',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .3,
-                  color: B.muted,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 13),
-              child: _numberChipRow(
-                const [1, 2, 3, 4, 5, 6],
-                _recurEvery,
-                (v) => setState(() => _recurEvery = v),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 13),
-              child: _chipRow(
-                const [
-                  ('day', 'Days'),
-                  ('week', 'Weeks'),
-                  ('month', 'Months'),
-                  ('year', 'Years'),
-                ],
-                _recurUnit,
-                (v) => setState(() => _recurUnit = v),
-              ),
-            ),
-            if (_recurUnit == 'week') ...[
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Text(
-                  'ON DAYS',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.muted,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 13),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var weekday = 1; weekday <= 7; weekday++) ...[
-                        GestureDetector(
-                          key: ValueKey('event-custom-weekday-$weekday'),
-                          onTap: () => setState(() {
-                            if (_recurWeekdays.contains(weekday)) {
-                              if (_recurWeekdays.length > 1) {
-                                _recurWeekdays.remove(weekday);
-                              }
-                            } else {
-                              _recurWeekdays.add(weekday);
-                              _recurWeekdays.sort();
-                            }
-                          }),
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: _recurWeekdays.contains(weekday)
-                                  ? B.soft
-                                  : Colors.white,
-                              border: Border.all(
-                                color: _recurWeekdays.contains(weekday)
-                                    ? B.primary
-                                    : B.line,
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              kWeekdayLetters[weekday - 1],
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: _recurWeekdays.contains(weekday)
-                                    ? B.deep
-                                    : B.soft2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-          if (_recur != 'none')
-            _sheetField(
-              'Repeat ends',
-              GestureDetector(
-                key: const ValueKey('event-repeat-end-date'),
-                onTap: _pickRepeatEndDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: B.line),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      ic('cal', size: 15, sw: 2.2, color: B.primary),
-                      const SizedBox(width: 8),
-                      Text(
-                        _repeatEndDate.isEmpty ? 'Never' : _repeatEndDate,
-                        style: const TextStyle(
-                          fontSize: 13.5,
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
+                      child: Text(
+                        'Delete event',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: B.ink,
+                          color: B.red,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          _sheetField(
-            'Notes',
-            _sheetInput(_notes, hint: 'Optional notes', maxLines: 3),
-          ),
-          _primaryBtn(_editing ? 'Save event' : 'Add event', () {
-            final edited = CalendarEvent(
-              id: widget.event?.id ?? uid(),
-              title: _title.text.trim().isEmpty
-                  ? 'Untitled'
-                  : _title.text.trim(),
-              allDay: _allDay,
-              date: _date,
-              endDate: _recur != 'none'
-                  ? _repeatEndDate
-                  : (_multiDay ? _endDate : ''),
-              start: _allDay ? '' : _start,
-              end: _allDay ? '' : _end,
-              location: _location.text.trim(),
-              notes: _notes.text.trim(),
-              category: _category,
-              color: s.catById(_category)?.color ?? _color,
-              attendees: _attendees.isEmpty ? ['me'] : _attendees,
-              reminder: _reminder,
-              recur: _recur,
-              recurEvery: _recurEvery,
-              recurUnit: _recurUnit,
-              recurWeekdays: _recurWeekdays,
-              exceptions: widget.event?.exceptions,
-              createdBy: widget.event?.createdBy,
-            );
-            if (_editing && widget.event?.recur != 'none') {
-              Navigator.of(context).pop();
-              s._showSheet(
-                (ctx) => _RecurEditScopeSheet(
-                  state: s,
-                  eventId: widget.event!.id,
-                  date: widget.date,
-                  edited: edited,
-                ),
-              );
-              return;
-            }
-            s.saveEvent(
-              id: widget.event?.id,
-              title: edited.title,
-              allDay: edited.allDay,
-              date: edited.date,
-              endDate: edited.endDate,
-              start: edited.start,
-              end: edited.end,
-              location: edited.location,
-              notes: edited.notes,
-              category: edited.category,
-              color: edited.color,
-              attendees: edited.attendees,
-              reminder: edited.reminder,
-              recur: edited.recur,
-              recurEvery: edited.recurEvery,
-              recurUnit: edited.recurUnit,
-              recurWeekdays: edited.recurWeekdays,
-              exceptions: widget.event?.exceptions,
-              createdBy: widget.event?.createdBy,
-            );
-            Navigator.of(context).pop();
-          }, enabled: valid),
-          if (_editing)
-            GestureDetector(
-              onTap: () {
-                final ev = s.eventById(widget.event!.id);
-                Navigator.of(context).pop();
-                if (ev != null && ev.recur != 'none') {
-                  s._showSheet(
-                    (ctx) => _RecurDeleteSheet(
-                      state: s,
-                      eventId: ev.id,
-                      date: _date,
                     ),
-                  );
-                } else {
-                  s.askDelete(
-                    _title.text,
-                    'This event will be permanently removed.',
-                    () => s.deleteEvent(widget.event!.id, 'all'),
-                  );
-                }
-              },
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
-                child: Text(
-                  'Delete event',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
                   ),
-                ),
-              ),
+              ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1973,73 +1996,19 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
               ],
             ),
             const SizedBox(height: 9),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (
-                    var colorIndex = 0;
-                    colorIndex < kCatColors.length;
-                    colorIndex++
-                  ) ...[
-                    Builder(
-                      builder: (_) {
-                        final color = kCatColors[colorIndex];
-                        final blocked = !s.isCalendarIdentityColorAvailable(
-                          color,
-                          exceptMemberId: m.id,
-                        );
-                        return GestureDetector(
-                          key: ValueKey(
-                            'cal-member-colour-${m.id}-$colorIndex',
-                          ),
-                          onTap: blocked
-                              ? null
-                              : () {
-                                  s.setMemberColor(m.id, color);
-                                  setState(() {});
-                                },
-                          child: Opacity(
-                            opacity: blocked ? .28 : 1,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: m.color == color
-                                      ? B.ink
-                                      : Colors.white,
-                                  width: 2,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x140f172a),
-                                    blurRadius: 5,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: blocked
-                                  ? Center(
-                                      child: ic(
-                                        'x',
-                                        size: 11,
-                                        sw: 2.8,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ],
-              ),
+            _MoreColorsToggle(
+              quickColors: kCatColors,
+              selected: m.color,
+              onChanged: (color) {
+                if (!s.isCalendarIdentityColorAvailable(
+                  color,
+                  exceptMemberId: m.id,
+                )) {
+                  return;
+                }
+                s.setMemberColor(m.id, color);
+                setState(() {});
+              },
             ),
           ],
         ),
@@ -2288,50 +2257,10 @@ class _CategorySheetState extends State<_CategorySheet> {
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: Wrap(
-              spacing: 9,
-              runSpacing: 9,
-              children: [
-                for (final c in kCatColors)
-                  Builder(
-                    builder: (_) {
-                      final blocked = !s.isCalendarIdentityColorAvailable(
-                        c,
-                        exceptCategoryId: widget.category?.id,
-                      );
-                      return GestureDetector(
-                        key: ValueKey('cat-colour-${c.toARGB32()}'),
-                        onTap: blocked
-                            ? null
-                            : () => setState(() => _color = c),
-                        child: Opacity(
-                          opacity: blocked ? .28 : 1,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: c,
-                              borderRadius: BorderRadius.circular(10),
-                              border: _color == c
-                                  ? Border.all(color: B.ink, width: 2)
-                                  : null,
-                            ),
-                            child: blocked
-                                ? Center(
-                                    child: ic(
-                                      'x',
-                                      size: 13,
-                                      sw: 2.6,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
+            child: _MoreColorsToggle(
+              quickColors: kCatColors,
+              selected: _color,
+              onChanged: (c) => setState(() => _color = c),
             ),
           ),
           _sheetField(
@@ -2757,27 +2686,10 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: Wrap(
-                spacing: 9,
-                runSpacing: 9,
-                children: [
-                  for (final color in kCatColors)
-                    GestureDetector(
-                      key: ValueKey('imp-colour-${color.toARGB32()}'),
-                      onTap: () => setState(() => _color = color),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(10),
-                          border: displayColor == color
-                              ? Border.all(color: B.ink, width: 2)
-                              : null,
-                        ),
-                      ),
-                    ),
-                ],
+              child: _MoreColorsToggle(
+                quickColors: kCatColors,
+                selected: displayColor,
+                onChanged: (color) => setState(() => _color = color),
               ),
             ),
           ] else
@@ -3438,6 +3350,11 @@ class _DayDetailSheet extends StatelessWidget {
               ],
             ],
           ),
+        const SizedBox(height: 14),
+        _primaryBtn('Add event for this day', () {
+          Navigator.of(context).pop();
+          state.openEvent(null, iso);
+        }),
       ],
     );
   }

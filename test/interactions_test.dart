@@ -50,19 +50,67 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('copy a month by selecting grid cells', (tester) async {
+  testWidgets('block editor exposes more colors', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.text('Copy month…'));
+    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
     await tester.pumpAndSettle();
-    // Two month grids (from + into). Tap a cell in each.
-    await tester.tap(find.text('Jan').first);
-    await tester.pump();
-    await tester.tap(find.text('Feb').last);
-    await tester.pump();
-    final primary = find.textContaining('\u2192').last;
-    await tester.tap(primary);
+    expect(find.text('Colors'), findsOneWidget);
+    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
+    // Pick a swatch from the expanded gradient grid.
+    await tester.tap(find.byType(AnimatedContainer).last);
+    await tester.pump();
+  });
+
+  testWidgets('RGB/Hex tab lets typing channel values and hex update color', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToTab(tester, 'settings');
+    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Colors'));
+    await tester.pumpAndSettle();
+    // Switch to the RGB / Hex tab.
+    await tester.tap(find.text('RGB / Hex'));
+    await tester.pumpAndSettle();
+
+    // Type a value directly into each channel field via the OS keyboard.
+    await tester.enterText(
+      find.byKey(const ValueKey('red-channel-input')),
+      '10',
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('green-channel-input')),
+      '20',
+    );
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('blue-channel-input')),
+      '30',
+    );
+    await tester.pump();
+
+    // Type a hex value directly.
+    await tester.enterText(
+      find.byKey(const ValueKey('hex-color-input')),
+      'ABCDEF',
+    );
+    await tester.pump();
+
+    // Drag the opacity slider.
+    final opacitySlider = find.byType(GestureDetector).last;
+    await tester.drag(opacitySlider, const Offset(20, 0));
+    await tester.pump();
+
+    // Go back to the Palette tab and pick a swatch to ensure both tabs work
+    // together within the same panel session.
+    await tester.tap(find.text('Palette'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AnimatedContainer).last);
+    await tester.pump();
   });
 
   testWidgets('remove a limit via cap sheet', (tester) async {
