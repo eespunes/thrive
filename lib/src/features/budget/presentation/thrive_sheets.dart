@@ -1038,7 +1038,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   late final TextEditingController _marker;
   String _account = 'shared';
   bool _paid = false;
-  bool _recurring = false;
+  bool _recurring = true;
   String? _endDate;
 
   bool get _editing => widget.mode == 'edit';
@@ -1059,7 +1059,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _marker = TextEditingController(text: it?.marker ?? '');
     _account = it?.account ?? 'shared';
     _paid = it?.paid ?? false;
-    _recurring = it?.recurring ?? false;
+    _recurring = it?.recurring ?? true;
     _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
   }
 

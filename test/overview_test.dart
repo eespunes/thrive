@@ -120,8 +120,8 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), 'Membership');
     await tester.enterText(find.byType(TextField).at(2), '20');
     await tester.pump();
-    await tester.tap(find.text('Repeat every month'));
-    await tester.pump();
+    // Recurring is on by default (issue #185), so no extra tap is needed to
+    // enable it here.
     await tester.tap(find.text('Add item'));
     await tester.pumpAndSettle();
 

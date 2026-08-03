@@ -204,7 +204,7 @@ class ExpenseItem {
     required this.account,
     this.payee = '',
     this.until,
-    this.recurring = false,
+    this.recurring = true,
     this.seriesId,
     this.recurEndDate,
     this.generated = false,
@@ -251,14 +251,21 @@ class ExpenseItem {
     'paid': paid,
     'account': account,
     if (until != null) 'until': until,
-    if (recurring) 'recurring': true,
+    // Always written explicitly (rather than only when true) so a
+    // user-chosen `false` round-trips distinctly from legacy data saved
+    // before this field existed, which is migrated to `true` on load below.
+    'recurring': recurring,
     if (seriesId != null && seriesId!.isNotEmpty) 'seriesId': seriesId,
     if (recurEndDate != null) 'recurEndDate': recurEndDate,
     if (generated) 'generated': true,
   };
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) {
-    final recurring = j['recurring'] == true;
+    // Issue #185: recurring propagation is now the default. Items saved
+    // before this field existed have no `recurring` key at all — migrate
+    // those to `true`. Items saved after this change always carry an
+    // explicit `true`/`false`, so an intentional opt-out is preserved.
+    final recurring = j.containsKey('recurring') ? j['recurring'] == true : true;
     final rawSeriesId = (j['seriesId'] as String?)?.trim();
     final recurEndDate = normalizeRecurringEndDate(
       j['recurEndDate'] ?? j['until'],

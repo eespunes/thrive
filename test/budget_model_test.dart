@@ -196,6 +196,56 @@ void main() {
       expect(back.recurEndDate, '2026-07-15');
       expect(back.generated, isTrue);
     });
+
+    test(
+      'ExpenseItem defaults to recurring for new items (issue #185)',
+      () {
+        final it = ExpenseItem(
+          id: 'a',
+          label: 'Rent',
+          marker: '1st',
+          amount: 100,
+          paid: false,
+          account: 'shared',
+        );
+        expect(it.recurring, isTrue);
+        // The default is saved explicitly, so it survives a round-trip.
+        expect(ExpenseItem.fromJson(it.toJson()).recurring, isTrue);
+      },
+    );
+
+    test(
+      'ExpenseItem migrates pre-#185 data (no recurring key) to recurring',
+      () {
+        final legacy = ExpenseItem.fromJson({
+          'id': 'legacy-1',
+          'label': 'Old subscription',
+          'marker': '',
+          'amount': 9.99,
+          'paid': true,
+          'account': 'shared',
+        });
+        expect(legacy.recurring, isTrue);
+      },
+    );
+
+    test(
+      'ExpenseItem preserves an explicit opt-out of recurring on round-trip',
+      () {
+        final it = ExpenseItem(
+          id: 'a',
+          label: 'One-off gift',
+          marker: '',
+          amount: 30,
+          paid: false,
+          account: 'shared',
+          recurring: false,
+        );
+        final json = it.toJson();
+        expect(json['recurring'], isFalse);
+        expect(ExpenseItem.fromJson(json).recurring, isFalse);
+      },
+    );
   });
 
   group('utils', () {
