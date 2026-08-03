@@ -523,8 +523,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                               _category = c.id;
                               _color = c.color;
                               for (final mid in c.members) {
-                                if (!_attendees.contains(mid))
+                                if (!_attendees.contains(mid)) {
                                   _attendees.add(mid);
+                                }
                               }
                             }),
                             child: Container(
