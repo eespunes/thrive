@@ -1202,100 +1202,100 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-          _sheetField(
-            cat.isIncome ? 'From' : 'Company',
-            _sheetInput(
-              _payee,
-              hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          _sheetField(
-            'Subcategory',
-            _sheetInput(
-              _label,
-              hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _sheetField(
-                  'Amount (\u20ac)',
+                _sheetField(
+                  cat.isIncome ? 'From' : 'Company',
                   _sheetInput(
-                    _amount,
-                    hint: '0,00',
-                    number: true,
+                    _payee,
+                    hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: _sheetField(
-                  cat.marker == 'day' ? 'Pay day' : 'Date',
+                _sheetField(
+                  'Subcategory',
                   _sheetInput(
-                    _marker,
-                    hint: cat.marker == 'day' ? '1st' : '\u2014',
+                    _label,
+                    hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
-              ),
-            ],
-          ),
-          _sheetField(
-            '',
-            _toggleRow(
-              'Repeat',
-              _recurring,
-              () => setState(() => _recurring = !_recurring),
-              subtitle:
-                  'Saves edits from this month forward without changing history',
-              activeColor: B.primary,
-            ),
-          ),
-          if (_recurring) _sheetField('Repeat every', _recurEveryRow()),
-          if (cat.hasUntil || _recurring)
-            _sheetField(
-              _recurring ? 'Repeat until' : 'End date',
-              _endDateField(context),
-            ),
-          _sheetField(
-            cat.isIncome
-                ? 'Received into'
-                : (cat.isSavings ? 'Save from' : 'Pay from'),
-            _accChips(),
-          ),
-          _sheetField(
-            'Status',
-            _toggleRow(
-              cat.isIncome
-                  ? 'Received'
-                  : (cat.isSavings ? 'Saved this month' : 'Paid'),
-              _paid,
-              () => setState(() => _paid = !_paid),
-            ),
-          ),
-          if (_editing)
-            Padding(
-              padding: const EdgeInsets.only(top: 13, bottom: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ic('cleft', size: 13, sw: 2.4, color: B.muted),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Swipe the row left to delete',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _sheetField(
+                        'Amount (\u20ac)',
+                        _sheetInput(
+                          _amount,
+                          hint: '0,00',
+                          number: true,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: _sheetField(
+                        cat.marker == 'day' ? 'Pay day' : 'Date',
+                        _sheetInput(
+                          _marker,
+                          hint: cat.marker == 'day' ? '1st' : '\u2014',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _sheetField(
+                  '',
+                  _toggleRow(
+                    'Repeat',
+                    _recurring,
+                    () => setState(() => _recurring = !_recurring),
+                    subtitle:
+                        'Saves edits from this month forward without changing history',
+                    activeColor: B.primary,
+                  ),
+                ),
+                if (_recurring) _sheetField('Repeat every', _recurEveryRow()),
+                if (cat.hasUntil || _recurring)
+                  _sheetField(
+                    _recurring ? 'Repeat until' : 'End date',
+                    _endDateField(context),
+                  ),
+                _sheetField(
+                  cat.isIncome
+                      ? 'Received into'
+                      : (cat.isSavings ? 'Save from' : 'Pay from'),
+                  _accChips(),
+                ),
+                _sheetField(
+                  'Status',
+                  _toggleRow(
+                    cat.isIncome
+                        ? 'Received'
+                        : (cat.isSavings ? 'Saved this month' : 'Paid'),
+                    _paid,
+                    () => setState(() => _paid = !_paid),
+                  ),
+                ),
+                if (_editing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 13, bottom: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ic('cleft', size: 13, sw: 2.4, color: B.muted),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Swipe the row left to delete',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: B.muted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
               ],
             ),
           ),
