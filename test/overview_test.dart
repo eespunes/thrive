@@ -107,6 +107,95 @@ void main() {
     expect(find.text('Recurring - Loan'), findsNothing);
   });
 
+  testWidgets(
+    'picking a custom "every N months" interval in the sheet persists it (issue #191)',
+    (tester) async {
+      await pumpApp(tester);
+      await tester.tap(find.text('Add to Home'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Insurer');
+      await tester.enterText(find.byType(TextField).at(1), 'Insurance');
+      await tester.enterText(find.byType(TextField).at(2), '90');
+      await tester.pump();
+      // Recurring is on by default; pick the quarterly preset chip.
+      await tester.tap(find.text('Every 3 months'));
+      await tester.pump();
+      await tester.tap(find.text('Add item'));
+      await tester.pumpAndSettle();
+      expect(find.text('Insurer - Insurance'), findsWidgets);
+
+      // Re-open the item and confirm the interval round-tripped.
+      await tester.tap(find.text('Insurer - Insurance').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Every 3 months'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'a recurring expense with a custom interval only propagates every N months (issue #191)',
+    (tester) async {
+      final cats = defaultCats();
+      Map<String, dynamic> yearData() => {
+        for (final mk in kMonthKeys)
+          mk: MonthData(
+            blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
+          ).toJson(),
+      };
+      final data = <String, dynamic>{'2026': yearData()};
+      (data['2026'] as Map<String, dynamic>)['Januari'] = MonthData(
+        blocks: {
+          for (final c in cats) c.key: <ExpenseItem>[],
+          'home': [
+            ExpenseItem(
+              id: 'quarterly-loan',
+              payee: 'Quarterly',
+              label: 'Insurance',
+              marker: '1st',
+              amount: 90,
+              paid: false,
+              account: 'shared',
+              recurring: true,
+              recurEvery: 3,
+              seriesId: 'quarterly-series',
+            ),
+          ],
+        },
+      ).toJson();
+
+      await pumpApp(
+        tester,
+        prefs: {
+          'flutter.$kStorageKey': json.encode({
+            'year': 2026,
+            'monthIdx': 0,
+            'screen': 'overview',
+            'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
+            'cats': cats.map((c) => c.toJson()).toList(),
+            'data': data,
+          }),
+        },
+      );
+
+      expect(find.text('Quarterly - Insurance'), findsWidgets);
+
+      // Skipped months (Feb, Mar) should not carry the generated item.
+      thriveDebug.pickMonth(1);
+      await tester.pumpAndSettle();
+      expect(find.text('Quarterly - Insurance'), findsNothing);
+      thriveDebug.pickMonth(2);
+      await tester.pumpAndSettle();
+      expect(find.text('Quarterly - Insurance'), findsNothing);
+
+      // Every 3rd month (April, July) carries the propagated item.
+      thriveDebug.pickMonth(3);
+      await tester.pumpAndSettle();
+      expect(find.text('Quarterly - Insurance'), findsWidgets);
+      thriveDebug.pickMonth(6);
+      await tester.pumpAndSettle();
+      expect(find.text('Quarterly - Insurance'), findsWidgets);
+    },
+  );
+
   testWidgets('deleting a recurring expense keeps past months intact', (
     tester,
   ) async {

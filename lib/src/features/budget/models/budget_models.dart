@@ -205,6 +205,7 @@ class ExpenseItem {
     this.payee = '',
     this.until,
     this.recurring = true,
+    this.recurEvery = 1,
     this.seriesId,
     this.recurEndDate,
     this.generated = false,
@@ -223,6 +224,11 @@ class ExpenseItem {
   String account;
   Object? until;
   bool recurring;
+
+  /// Repeat interval in months when [recurring] is true (issue #191). `1`
+  /// means every month (the historical/default behaviour); `3` means every
+  /// three months, etc.
+  int recurEvery;
   String? seriesId;
   String? recurEndDate;
   bool generated;
@@ -237,6 +243,7 @@ class ExpenseItem {
     account: account,
     until: until,
     recurring: recurring,
+    recurEvery: recurEvery,
     seriesId: seriesId,
     recurEndDate: recurEndDate,
     generated: generated ?? this.generated,
@@ -255,6 +262,7 @@ class ExpenseItem {
     // user-chosen `false` round-trips distinctly from legacy data saved
     // before this field existed, which is migrated to `true` on load below.
     'recurring': recurring,
+    if (recurEvery != 1) 'recurEvery': recurEvery,
     if (seriesId != null && seriesId!.isNotEmpty) 'seriesId': seriesId,
     if (recurEndDate != null) 'recurEndDate': recurEndDate,
     if (generated) 'generated': true,
@@ -282,6 +290,7 @@ class ExpenseItem {
       account: (j['account'] ?? kDefaultAccountKey).toString(),
       until: j['until'] ?? recurEndDate,
       recurring: recurring,
+      recurEvery: ((j['recurEvery'] as num?)?.toInt() ?? 1).clamp(1, 60),
       seriesId: rawSeriesId?.isNotEmpty == true
           ? rawSeriesId
           : (recurring ? (j['id'] ?? uid()).toString() : null),

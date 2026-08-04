@@ -132,8 +132,10 @@ extension _ThriveSheets on _ThriveHomeState {
     required String account,
     String? until,
     required bool recurring,
+    int recurEvery = 1,
     String? recurEndDate,
   }) {
+    final every = recurEvery < 1 ? 1 : recurEvery;
     mutate(() {
       final month = data[year]![kMonthKeys[monthIdx]]!;
       final arr = month.blocks.putIfAbsent(cat, () => <ExpenseItem>[]);
@@ -157,6 +159,7 @@ extension _ThriveSheets on _ThriveHomeState {
             ..account = account
             ..seriesId = seriesId
             ..recurring = recurring
+            ..recurEvery = every
             ..recurEndDate = normalizedEnd
             ..until =
                 normalizedEnd ??
@@ -179,6 +182,7 @@ extension _ThriveSheets on _ThriveHomeState {
                 normalizedEnd ??
                 ((until == null || until.isEmpty) ? null : until),
             recurring: recurring,
+            recurEvery: every,
             seriesId: seriesId,
             recurEndDate: normalizedEnd,
           ),
@@ -1109,6 +1113,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   String _account = 'shared';
   bool _paid = false;
   bool _recurring = true;
+  int _recurEvery = 1;
   String? _endDate;
 
   bool get _editing => widget.mode == 'edit';
@@ -1130,6 +1135,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _account = it?.account ?? 'shared';
     _paid = it?.paid ?? false;
     _recurring = it?.recurring ?? true;
+    _recurEvery = it?.recurEvery ?? 1;
     _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
   }
 
@@ -1204,7 +1210,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
           _sheetField(
             '',
             _toggleRow(
-              'Repeat every month',
+              'Repeat',
               _recurring,
               () => setState(() => _recurring = !_recurring),
               subtitle:
@@ -1212,6 +1218,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               activeColor: B.primary,
             ),
           ),
+          if (_recurring) _sheetField('Repeat every', _recurEveryRow()),
           if (cat.hasUntil || _recurring)
             _sheetField(
               _recurring ? 'Repeat until' : 'End date',
@@ -1246,6 +1253,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               account: _account,
               until: _endDate,
               recurring: _recurring,
+              recurEvery: _recurEvery,
               recurEndDate: _endDate,
             );
             Navigator.of(context).pop();
@@ -1409,6 +1417,92 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  /// Interval picker for the custom "repeat every N months" setting
+  /// (issue #191). Common presets cover the typical cases (monthly,
+  /// quarterly, yearly...) while the stepper lets any interval be dialled in.
+  Widget _recurEveryRow() {
+    const presets = [1, 2, 3, 6, 12];
+    Widget stepBtn(String icon, VoidCallback onTap) => GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: B.line),
+        ),
+        child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final option in presets) ...[
+                GestureDetector(
+                  key: ValueKey('expense-recur-every-$option'),
+                  onTap: () => setState(() => _recurEvery = option),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _recurEvery == option ? B.soft : Colors.white,
+                      border: Border.all(
+                        color: _recurEvery == option ? B.primary : B.line,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      option == 1 ? 'Monthly' : 'Every $option months',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: _recurEvery == option ? B.deep : B.soft2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            stepBtn(
+              'cleft',
+              () =>
+                  setState(() => _recurEvery = (_recurEvery - 1).clamp(1, 60)),
+            ),
+            Expanded(
+              child: Text(
+                _recurEvery == 1 ? 'Every month' : 'Every $_recurEvery months',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: B.ink,
+                ),
+              ),
+            ),
+            stepBtn(
+              'cright',
+              () =>
+                  setState(() => _recurEvery = (_recurEvery + 1).clamp(1, 60)),
+            ),
+          ],
+        ),
       ],
     );
   }

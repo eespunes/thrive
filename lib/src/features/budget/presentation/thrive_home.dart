@@ -783,7 +783,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           }
         }
         if (!anchor.item.recurring) continue;
+        // Issue #191: a custom `recurEvery` skips months in between so the
+        // series only lands on multiples of the interval away from the
+        // anchor (e.g. every 3 months), instead of every single month.
+        final every = anchor.item.recurEvery < 1 ? 1 : anchor.item.recurEvery;
         for (var ord = anchorOrd + 1; ord < endExclusive; ord++) {
+          if ((ord - anchorOrd) % every != 0) continue;
           final yr = ord ~/ 12;
           final mIdx = ord % 12;
           if (!data.containsKey(yr)) continue;
@@ -814,6 +819,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ..amount = anchor.item.amount
               ..account = anchor.item.account
               ..recurring = anchor.item.recurring
+              ..recurEvery = anchor.item.recurEvery
               ..seriesId = _seriesIdFor(anchor.item)
               ..recurEndDate = anchor.item.recurEndDate
               ..until = anchor.item.recurEndDate ?? anchor.item.until;
