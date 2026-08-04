@@ -16,6 +16,7 @@ class _StatsMonth {
     required this.income,
     required this.expenses,
     required this.fixed,
+    required this.savings,
     required this.cats,
   });
 
@@ -27,6 +28,10 @@ class _StatsMonth {
   /// Sum of `recurring` (issue #191) expense items for this month — used as
   /// a proxy for "fixed" monthly costs vs one-off/flexible spending.
   final double fixed;
+
+  /// Sum of items in blocks flagged [Category.isSavings] for this month —
+  /// the actual amount set aside, as opposed to merely unspent income.
+  final double savings;
   final Map<String, double> cats;
 
   double get net => income - expenses;
@@ -41,6 +46,7 @@ class _StatsAgg {
     required this.income,
     required this.expenses,
     required this.fixed,
+    required this.savings,
     required this.cats,
   });
 
@@ -48,6 +54,7 @@ class _StatsAgg {
   final double income;
   final double expenses;
   final double fixed;
+  final double savings;
   final Map<String, double> cats;
 
   _StatsAgg? prev;
@@ -59,7 +66,10 @@ class _StatsAgg {
   int? yearLabel;
 
   double get net => income - expenses;
-  double get rate => income > 0 ? net / income * 100 : 0;
+
+  /// Share of income actually set aside in savings blocks (issue #192 fix —
+  /// previously this was leftover `net/income`, not real savings).
+  double get rate => income > 0 ? savings / income * 100 : 0;
 }
 
 class _StatsCatRow {
@@ -108,7 +118,7 @@ extension _ThriveStats on _ThriveHomeState {
       for (int mi = 0; mi < kMonthKeys.length; mi++) {
         final m = months[kMonthKeys[mi]];
         if (m == null) continue;
-        double income = 0, expenses = 0, fixed = 0;
+        double income = 0, expenses = 0, fixed = 0, savings = 0;
         final catTotals = <String, double>{};
         for (final c in catsForMonth(mi, y)) {
           final items = m.blocks[c.key];
@@ -122,6 +132,7 @@ extension _ThriveStats on _ThriveHomeState {
             income += total;
           } else {
             expenses += total;
+            if (c.isSavings) savings += total;
             catTotals[c.key] = (catTotals[c.key] ?? 0) + total;
           }
         }
@@ -132,6 +143,7 @@ extension _ThriveStats on _ThriveHomeState {
             income: income,
             expenses: expenses,
             fixed: fixed,
+            savings: savings,
             cats: catTotals,
           ),
         );
@@ -141,12 +153,13 @@ extension _ThriveStats on _ThriveHomeState {
   }
 
   _StatsAgg _aggStats(List<_StatsMonth> months) {
-    double income = 0, expenses = 0, fixed = 0;
+    double income = 0, expenses = 0, fixed = 0, savings = 0;
     final cats = <String, double>{};
     for (final m in months) {
       income += m.income;
       expenses += m.expenses;
       fixed += m.fixed;
+      savings += m.savings;
       m.cats.forEach((k, v) => cats[k] = (cats[k] ?? 0) + v);
     }
     return _StatsAgg(
@@ -154,8 +167,25 @@ extension _ThriveStats on _ThriveHomeState {
       income: income,
       expenses: expenses,
       fixed: fixed,
+      savings: savings,
       cats: cats,
     );
+  }
+
+  /// All-time series, trimmed to the real, meaningful window: starts at the
+  /// first month with any recorded activity (so pre-created empty years
+  /// don't count) and ends at the current calendar month (so empty
+  /// pre-created future months don't inflate the range either).
+  List<_StatsMonth> _statsAllTimeSeries() {
+    final full = _statsSeries();
+    final now = DateTime.now();
+    final capOrd = _monthOrd(now.year, now.month - 1);
+    var trimmed = full
+        .where((m) => _monthOrd(m.year, m.monthIdx) <= capOrd)
+        .toList();
+    final firstIdx = trimmed.indexWhere((m) => m.income > 0 || m.expenses > 0);
+    if (firstIdx > 0) trimmed = trimmed.sublist(firstIdx);
+    return trimmed;
   }
 
   double? _statsChangePct(double cur, double? prev) {
@@ -165,9 +195,8 @@ extension _ThriveStats on _ThriveHomeState {
 
   /// Builds the aggregate for the currently selected [statsMode] scope.
   _StatsAgg _statsPeriod() {
-    final series = _statsSeries();
-
     if (statsMode == 'year') {
+      final series = _statsSeries();
       final cur = series.where((m) => m.year == year).toList();
       final prevList = series.where((m) => m.year == year - 1).toList();
       final p = _aggStats(cur)
@@ -180,8 +209,9 @@ extension _ThriveStats on _ThriveHomeState {
     }
 
     if (statsMode == 'all') {
-      final years = data.keys.toList()..sort();
-      final p = _aggStats(series)
+      final trimmed = _statsAllTimeSeries();
+      final years = trimmed.map((m) => m.year).toSet().toList()..sort();
+      final p = _aggStats(trimmed)
         ..prev = null
         ..label = years.isEmpty
             ? 'All time'
@@ -189,11 +219,11 @@ extension _ThriveStats on _ThriveHomeState {
                   ? '${years.first}'
                   : '${years.first} \u2013 ${years.last}')
         ..unit = 'all'
-        ..trail = series
+        ..trail = trimmed
         ..byYear = years
             .map(
               (yy) =>
-                  _aggStats(series.where((m) => m.year == yy).toList())
+                  _aggStats(trimmed.where((m) => m.year == yy).toList())
                     ..yearLabel = yy,
             )
             .toList();
@@ -201,6 +231,7 @@ extension _ThriveStats on _ThriveHomeState {
     }
 
     // month (default)
+    final series = _statsSeries();
     final cur = series
         .where((m) => m.year == year && m.monthIdx == monthIdx)
         .toList();
@@ -447,18 +478,55 @@ extension _ThriveStats on _ThriveHomeState {
                   for (int i = 0; i < trail.length; i++) ...[
                     if (i > 0) const SizedBox(width: 4),
                     Expanded(
-                      child: Container(
-                        height: math.max(3, trail[i].net.abs() / tMax * 36),
-                        decoration: BoxDecoration(
-                          color: trail[i].net >= 0
-                              ? Colors.white.withValues(
-                                  alpha: i == trail.length - 1 ? 1 : .45,
-                                )
-                              : const Color(0xffff9fb0).withValues(
-                                  alpha: i == trail.length - 1 ? 1 : .45,
+                      child: Builder(
+                        builder: (context) {
+                          final barH = math.max(
+                            3.0,
+                            trail[i].net.abs() / tMax * 36,
+                          );
+                          final selected =
+                              statsHeroSelIdx == i && statsHeroSelFor == p.unit;
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => update(() {
+                              if (selected) {
+                                statsHeroSelIdx = null;
+                                statsHeroSelFor = null;
+                              } else {
+                                statsHeroSelIdx = i;
+                                statsHeroSelFor = p.unit;
+                              }
+                            }),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.bottomCenter,
+                              children: [
+                                Container(
+                                  height: barH,
+                                  decoration: BoxDecoration(
+                                    color: trail[i].net >= 0
+                                        ? Colors.white.withValues(
+                                            alpha: i == trail.length - 1
+                                                ? 1
+                                                : .45,
+                                          )
+                                        : const Color(0xffff9fb0).withValues(
+                                            alpha: i == trail.length - 1
+                                                ? 1
+                                                : .45,
+                                          ),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                 ),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                                if (selected)
+                                  Positioned(
+                                    bottom: barH + 6,
+                                    child: _statsHeroBubble(trail[i]),
+                                  ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -476,6 +544,47 @@ extension _ThriveStats on _ThriveHomeState {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// Small tooltip-style bubble shown above a tapped hero sparkline bar,
+  /// with that month's label and net result (issue #192 follow-up).
+  Widget _statsHeroBubble(_StatsMonth m) {
+    final label = '${kMonthsShort[m.monthIdx]} ${m.year}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: B.ink,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Color(0xffcbd5e1),
+            ),
+          ),
+          Text(
+            eur(m.net, cents: false),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -763,7 +872,7 @@ extension _ThriveStats on _ThriveHomeState {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${c.share.round()}% of out',
+                '${c.share.round()}% of spending',
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,

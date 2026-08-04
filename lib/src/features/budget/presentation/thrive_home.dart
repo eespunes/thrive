@@ -149,6 +149,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String statsMode = 'month'; // month | year | all
+  int? statsHeroSelIdx;
+  String? statsHeroSelFor;
 
   // Active workspace (the currently-selected family's budget). Kept in sync
   // with `workspaces[familyId]` — mirrors the design holding both.
@@ -911,7 +913,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   void setYear(int y) {
     ensureYear(y);
-    setState(() => year = y);
+    setState(() {
+      year = y;
+      statsHeroSelIdx = null;
+    });
     _persist();
   }
 
@@ -952,6 +957,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(() {
       monthIdx = (monthIdx + d + 12) % 12;
       swipedId = null;
+      statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
     _persist();
@@ -961,6 +967,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(() {
       monthIdx = i;
       swipedId = null;
+      statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
     _persist();
@@ -1404,7 +1411,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       return Expanded(
         child: GestureDetector(
           key: ValueKey('stats-$val'),
-          onTap: () => setState(() => statsMode = val),
+          onTap: () => setState(() {
+            statsMode = val;
+            statsHeroSelIdx = null;
+          }),
           child: Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 7),
