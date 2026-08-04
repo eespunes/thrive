@@ -148,7 +148,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String screen = 'overview'; // overview | stats — Finance tab's own sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
-  String statsMode = 'month'; // month | year
+  String statsMode = 'month'; // month | year | all
 
   // Active workspace (the currently-selected family's budget). Kept in sync
   // with `workspaces[familyId]` — mirrors the design holding both.
@@ -1225,12 +1225,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (tab == 'finance') {
         final titles = <String, List<String>>{
           'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
-          'stats': [
-            'Statistics',
-            statsMode == 'month'
-                ? '${kMonthsEn[monthIdx]} $year'
-                : 'Full year $year',
-          ],
+          'stats': ['Statistics', _statsPeriod().label],
         };
         final t = titles[screen] ?? titles['overview']!;
         title = t[0];
@@ -1406,49 +1401,54 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Widget _buildStatsModeSwitcher() {
     Widget seg(String label, String val) {
       final active = statsMode == val;
-      return GestureDetector(
-        key: ValueKey('stats-$val'),
-        onTap: () => setState(() => statsMode = val),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .12),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: active ? B.primary : const Color(0xff8995a6),
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey('stats-$val'),
+          onTap: () => setState(() => statsMode = val),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            decoration: BoxDecoration(
+              color: active ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .12),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: active ? B.primary : const Color(0xff8995a6),
+              ),
             ),
           ),
         ),
       );
     }
 
-    final toggle = Container(
+    return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xffe8ecf2),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [seg('Month', 'month'), seg('Year', 'year')],
+        children: [
+          seg('Month', 'month'),
+          seg('Year', 'year'),
+          seg('All time', 'all'),
+        ],
       ),
     );
-
-    return Align(alignment: Alignment.centerRight, child: toggle);
   }
 }
 
