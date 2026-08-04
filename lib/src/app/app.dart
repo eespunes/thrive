@@ -10,6 +10,19 @@ Future<void> main() async {
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
+    // The family document (one big `workspace` blob covering every month)
+    // can grow past a few MB for long-lived families. Android's SQLite-backed
+    // offline cache stores each document as a single row and crashes the
+    // whole app with a fatal `SQLiteBlobTooBigException` ("Row too big to fit
+    // into CursorWindow") once that row exceeds the OS's ~2MB CursorWindow
+    // limit. Disabling local persistence avoids ever hitting that ceiling —
+    // reads/writes just always go straight to the network instead of being
+    // cached on-device, which is an acceptable trade-off for a document this
+    // size (offline support was never reliable for it regardless, since the
+    // very first sync after being offline would already have failed).
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: false,
+    );
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
   } on PlatformException catch (e) {
