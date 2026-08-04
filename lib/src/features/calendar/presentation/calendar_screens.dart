@@ -16,6 +16,23 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   static const double _calendarFadedOpacity = .45;
   static const Color _calendarTodayFill = Color(0xfff0fbfa);
   static const Color _calendarHeaderBorderColor = Color(0xffd5dce8);
+
+  // Week view's day-head (weekday letter + date circle) is always the same
+  // fixed content, so its rendered height is constant; the all-day strip's
+  // height is fixed (not min-) so it never grows past this regardless of
+  // event count. Both `_calWeek` and `_withStickyWeekHours` reference these
+  // so the sticky hour-number gutter always lines up with the real grid
+  // (issue #190).
+  static const double _calWeekDayHeadHeight = 58;
+  static const double _calWeekAllDayStripHeight = 54;
+
+  // Family view's day-head height (weekday letter + date circle, same fixed
+  // content as week view) and each member row's fixed cell height, shared by
+  // `_calFamily` and `_withStickyFamilyMembers` so the member gutter always
+  // lines up with the real per-day grid rows (issue #190).
+  static const double _calFamilyDayHeadHeight = 58;
+  static const double _calFamilyRowHeight = 58;
+
   static const int _calendarPageCenter = 10000;
 
   String _calViewIcon() {
@@ -156,201 +173,55 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
+  /// Wraps the month pager in the calendar's card chrome, with a single
+  /// weekday-letter header row genuinely fixed above the swipeable page
+  /// content — as a true `Column` sibling rather than a `Stack`/`Positioned`
+  /// overlay on top of it. Each month page (`_calMonth`) only renders its
+  /// week rows, so there is no second, non-sticky copy of the header able to
+  /// surface (crossed by event bars) while paging vertically between months
+  /// (issue #190).
   Widget _withStickyMonthWeekdays(Widget child) {
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          key: const ValueKey('cal-sticky-month-weekdays'),
-          top: 12,
-          left: 0,
-          right: 0,
-          child: IgnorePointer(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-                border: Border(
-                  left: BorderSide(color: B.line),
-                  top: BorderSide(color: B.line),
-                  right: BorderSide(color: B.line),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Row(
-                children: [
-                  for (
-                    var dayIndex = 0;
-                    dayIndex < kWeekdayLetters.length;
-                    dayIndex++
-                  )
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: const BorderSide(
-                              color: _calendarHeaderBorderColor,
-                            ),
-                            left: dayIndex == 0
-                                ? BorderSide.none
-                                : const BorderSide(
-                                    color: _calendarHeaderBorderColor,
-                                  ),
-                          ),
+    return Container(
+      key: const ValueKey('cal-sticky-month-weekdays'),
+      margin: const EdgeInsets.only(top: 12),
+      constraints: const BoxConstraints(minHeight: 360),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: cardShadow(),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              for (
+                var dayIndex = 0;
+                dayIndex < kWeekdayLetters.length;
+                dayIndex++
+              )
+                Expanded(
+                  child: Container(
+                    key: ValueKey('cal-weekday-$dayIndex'),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: const BorderSide(
+                          color: _calendarHeaderBorderColor,
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              text: kWeekdayLetters[dayIndex],
-                              style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: B.soft2,
+                        left: dayIndex == 0
+                            ? BorderSide.none
+                            : const BorderSide(
+                                color: _calendarHeaderBorderColor,
                               ),
-                            ),
-                          ),
-                        ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _withStickyWeekHours(Widget child) {
-    const gutter = 42.0;
-    const visibleHours = 8.0;
-    const headerHeight = 47.0;
-    const pinnedHeight = 29.0;
-    final controller = calWeekTimelineController;
-    final hours = [for (var h = 0; h < 24; h++) h];
-
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          key: const ValueKey('cal-sticky-week-hours'),
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: gutter,
-          child: IgnorePointer(
-            child: Container(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Container(
-                    height: headerHeight,
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: _calendarHeaderBorderColor),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    height: pinnedHeight,
-                    decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: B.line)),
-                    ),
-                  ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final viewportHeight = constraints.maxHeight;
-                        final rowH = viewportHeight / visibleHours;
-                        final gridH = hours.length * rowH;
-                        final maxScroll = (gridH - viewportHeight).clamp(
-                          0.0,
-                          double.infinity,
-                        );
-                        return ClipRect(
-                          child: AnimatedBuilder(
-                            animation: controller,
-                            builder: (context, _) {
-                              final rawOffset = controller.positions.length == 1
-                                  ? controller.offset
-                                  : 0.0;
-                              final offset = rawOffset
-                                  .clamp(0.0, maxScroll)
-                                  .toDouble();
-                              return Transform.translate(
-                                offset: Offset(0, -offset),
-                                child: SizedBox(
-                                  height: gridH,
-                                  child: Stack(
-                                    children: [
-                                      for (final hour in hours)
-                                        Positioned(
-                                          top: hour * rowH + 2,
-                                          right: 6,
-                                          child: RichText(
-                                            text: TextSpan(
-                                              text:
-                                                  '${hour.toString().padLeft(2, '0')}:00',
-                                              style: const TextStyle(
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w700,
-                                                color: B.muted,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _withStickyFamilyMembers(Widget child) {
-    const gutter = 84.0;
-    final members = curFamily()?.members ?? const <FamilyMember>[];
-
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          key: const ValueKey('cal-sticky-family-members'),
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: gutter,
-          child: IgnorePointer(
-            child: Container(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Container(
-                    height: 63,
-                    alignment: Alignment.centerLeft,
-                    padding: const EdgeInsets.only(left: 4),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: _calendarHeaderBorderColor),
-                      ),
-                    ),
-                    child: RichText(
-                      text: const TextSpan(
-                        text: 'MEMBER',
-                        style: TextStyle(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Text(
+                        kWeekdayLetters[dayIndex],
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: B.soft2,
@@ -358,55 +229,243 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < members.length; i++)
-                            Container(
-                              height: 52,
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  top: i == 0
-                                      ? BorderSide.none
-                                      : const BorderSide(color: B.line),
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 6,
-                                horizontal: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  _memberAvatar(members[i].id, size: 24),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: RichText(
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                      text: TextSpan(
-                                        text: members[i].name,
-                                        style: const TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: B.ink,
+                ),
+            ],
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _withStickyWeekHours(Widget child) {
+    const gutter = 42.0;
+    const visibleHours = 8.0;
+    const headerHeight = _calWeekDayHeadHeight;
+    const pinnedHeight = _calWeekAllDayStripHeight;
+    final hours = [for (var h = 0; h < 24; h++) h];
+
+    // True `Row` sibling (gutter column + the swipeable pager), matching
+    // `_withStickyFamilyMembers`'s pattern, rather than a `Stack`/`Positioned`
+    // overlay on top of the pager. `_calWeek`'s pages no longer reserve
+    // their own leading gutter-width space, so this is now the ONLY place
+    // that space is reserved — with a `Stack`/`Positioned` overlay, each
+    // week page still had to bake in its own blank gutter placeholder to
+    // keep its day columns aligned with the overlay, which showed up as a
+    // stray blank strip mid-screen while horizontally swiping between two
+    // partially-visible weeks (issue #190).
+    return Row(
+      children: [
+        Container(
+          key: const ValueKey('cal-sticky-week-hours'),
+          width: gutter,
+          color: Colors.white,
+          child: Column(
+            children: [
+              Container(
+                height: headerHeight,
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: _calendarHeaderBorderColor),
+                  ),
+                ),
+              ),
+              Container(
+                height: pinnedHeight,
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: B.line)),
+                ),
+              ),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final viewportHeight = constraints.maxHeight;
+                    final rowH = viewportHeight / visibleHours;
+                    final gridH = hours.length * rowH;
+                    final maxScroll = (gridH - viewportHeight).clamp(
+                      0.0,
+                      double.infinity,
+                    );
+                    final offset = calWeekHourOffset
+                        .clamp(0.0, maxScroll)
+                        .toDouble();
+                    // `gridH` is taller than the viewport (24 hours vs.
+                    // `visibleHours`), but `Expanded` gives this
+                    // LayoutBuilder a TIGHT height constraint, so a
+                    // plain `SizedBox(height: gridH)` would get clamped
+                    // back down to `viewportHeight` (its child's real
+                    // height is capped to the incoming tight
+                    // constraint), silently discarding every hour
+                    // beyond the first sliver. `OverflowBox` lets the
+                    // inner content lay out at its true `gridH` height
+                    // regardless of the tight parent constraint, while
+                    // the outer `ClipRect` still clips it back down to
+                    // the visible viewport.
+                    return ClipRect(
+                      child: OverflowBox(
+                        minHeight: gridH,
+                        maxHeight: gridH,
+                        alignment: Alignment.topCenter,
+                        child: Transform.translate(
+                          offset: Offset(0, -offset),
+                          child: SizedBox(
+                            height: gridH,
+                            child: Stack(
+                              children: [
+                                // Row divider lines matching the real
+                                // hour-grid's `Container(height: rowH,
+                                // border: Border(top: B.line))` column
+                                // (see the `cal-week-hour-$i` grid
+                                // below), so the gutter reads as part
+                                // of the same grid instead of floating
+                                // text with no row separation (#190).
+                                Column(
+                                  children: [
+                                    for (var i = 0; i < hours.length; i++)
+                                      Container(
+                                        height: rowH,
+                                        decoration: const BoxDecoration(
+                                          border: Border(
+                                            top: BorderSide(color: B.line),
+                                          ),
                                         ),
+                                      ),
+                                  ],
+                                ),
+                                for (final hour in hours)
+                                  Positioned(
+                                    top: hour * rowH + 2,
+                                    right: 6,
+                                    child: Text(
+                                      '${hour.toString().padLeft(2, '0')}:00',
+                                      style: const TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: B.muted,
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
+                              ],
                             ),
-                        ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
           ),
         ),
+        Expanded(
+          // Mirrors the real hour-grid's vertical scroll offset into
+          // `calWeekHourOffset` via notification bubbling rather than
+          // reading `calWeekTimelineController.offset` directly — the
+          // controller is shared across every week page's scroll view (so
+          // `PageView.builder` keeping neighboring pages mounted means more
+          // than one position is usually attached, making `.offset`
+          // unusable/undefined). Filtering on `Axis.vertical` also excludes
+          // the pager's own horizontal scroll notifications, which
+          // otherwise bubble through here too (issue #190).
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification.metrics.axis == Axis.vertical) {
+                final next = notification.metrics.pixels;
+                if (next != calWeekHourOffset) {
+                  update(() => calWeekHourOffset = next);
+                }
+              }
+              return false;
+            },
+            child: child,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Wraps the family pager with the member list fixed to the left, as a
+  /// true `Row` sibling rather than a `Stack`/`Positioned` overlay drawn on
+  /// top of it. Each family page (`_calFamily`) only renders the per-day
+  /// columns (no leading member-name cell), so there is no second, non-sticky
+  /// copy of the member column able to surface while paging horizontally
+  /// between weeks (issue #190).
+  Widget _withStickyFamilyMembers(Widget child) {
+    const gutter = 84.0;
+    final members = curFamily()?.members ?? const <FamilyMember>[];
+
+    return Row(
+      children: [
+        Container(
+          key: const ValueKey('cal-sticky-family-members'),
+          width: gutter,
+          color: Colors.white,
+          child: Column(
+            children: [
+              Container(
+                height: _calFamilyDayHeadHeight,
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(left: 4),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: _calendarHeaderBorderColor),
+                  ),
+                ),
+                child: const Text(
+                  'MEMBER',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: B.soft2,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < members.length; i++)
+                        Container(
+                          height: _calFamilyRowHeight,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: i == 0
+                                  ? BorderSide.none
+                                  : const BorderSide(color: B.line),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 4,
+                          ),
+                          child: Row(
+                            children: [
+                              _memberAvatar(members[i].id, size: 24),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  members[i].name,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: B.ink,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: child),
       ],
     );
   }
@@ -636,73 +695,26 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     final weeks = [for (var w = 0; w < 6; w++) grid.sublist(w * 7, w * 7 + 7)];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final height = constraints.maxHeight.isFinite
-            ? constraints.maxHeight - 12
-            : 640.0;
-        return Container(
-          height: height.clamp(360.0, double.infinity).toDouble(),
-          margin: const EdgeInsets.only(top: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: cardShadow(),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  for (
-                    var dayIndex = 0;
-                    dayIndex < kWeekdayLetters.length;
-                    dayIndex++
-                  )
-                    Expanded(
-                      child: Container(
-                        key: ValueKey('cal-weekday-$dayIndex'),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: const BorderSide(
-                              color: _calendarHeaderBorderColor,
-                            ),
-                            left: dayIndex == 0
-                                ? BorderSide.none
-                                : const BorderSide(
-                                    color: _calendarHeaderBorderColor,
-                                  ),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          child: Text(
-                            kWeekdayLetters[dayIndex],
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: B.soft2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              for (var wi = 0; wi < weeks.length; wi++)
-                Expanded(child: weekRow(weeks[wi], wi)),
-            ],
-          ),
-        );
-      },
+    // No card chrome or weekday header here: `_withStickyMonthWeekdays`
+    // (the caller) already renders the single genuinely-sticky weekday
+    // header and the card's border/shadow/rounded corners exactly once,
+    // outside the swipeable month pager. Previously this page ALSO built
+    // its own weekday-letter row (`cal-weekday-N`) and its own copy of the
+    // card chrome, so every month page showed a second, non-sticky header
+    // stacked directly below the real sticky one while scrolling (issue
+    // #190).
+    return Column(
+      children: [
+        for (var wi = 0; wi < weeks.length; wi++)
+          Expanded(child: weekRow(weeks[wi], wi)),
+      ],
     );
   }
 
   // --------------------------------------------------------------- week
+  // --------------------------------------------------------------- week
   Widget _calWeek(String anchor) {
-    const visibleHours = 8.0, gutter = 42.0;
+    const visibleHours = 8.0;
     final ws = _startOfWeekIso(anchor);
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
     final today = todayIso();
@@ -721,11 +733,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     final dayHead = Row(
       children: [
-        SizedBox(width: gutter),
         for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
           Expanded(
             child: Container(
               key: ValueKey('cal-week-day-head-${days[dayIndex]}'),
+              // Fixed height matching `_calWeekDayHeadHeight` used by the
+              // sticky hour gutter (issue #190).
+              height: _calWeekDayHeadHeight,
+              clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
                 color: isPastDay(days[dayIndex]) ? B.faint : Colors.white,
                 border: Border(
@@ -800,11 +815,16 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     ];
     final allStrip = Row(
       children: [
-        SizedBox(width: gutter),
         for (var dayIndex = 0; dayIndex < allDayByDay.length; dayIndex++)
           Expanded(
             child: Container(
-              constraints: const BoxConstraints(minHeight: 24),
+              // Fixed (not min-) height so this strip's rendered height
+              // always matches `_withStickyWeekHours`'s pinnedHeight
+              // constant exactly, regardless of how many all-day events a
+              // given week has — otherwise the sticky hour-number gutter
+              // drifts out of alignment with the real hour rows (#190).
+              height: _calWeekAllDayStripHeight,
+              clipBehavior: Clip.hardEdge,
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
                 border: Border(
@@ -916,10 +936,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         ),
                       ),
                     ),
-                  if (isToday)
+                  // Hour-line dividers must be redrawn on top of any
+                  // OPAQUE per-day fill (today's tint or a past day's
+                  // `B.faint` background), since both fully occlude the
+                  // shared hour-line grid painted behind the day columns.
+                  // Previously only `isToday` did this, so past days'
+                  // opaque fill silently hid the grid lines entirely.
+                  if (isToday || isPast)
                     IgnorePointer(
                       child: Column(
-                        key: const ValueKey('cal-week-today-hour-lines'),
+                        key: ValueKey(
+                          isToday
+                              ? 'cal-week-today-hour-lines'
+                              : 'cal-week-past-hour-lines-$iso',
+                        ),
                         children: [
                           for (var i = 0; i < hours.length; i++)
                             Container(
@@ -1070,64 +1100,40 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                   child: SizedBox(
                     key: const ValueKey('cal-hour-grid-week'),
                     height: gridH,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // No leading gutter-width placeholder here: this page's
+                    // day-column grid now spans the full pager width, with
+                    // the hour gutter reserved once by `_withStickyWeekHours`
+                    // as a true sibling column outside the `PageView`. A
+                    // per-page blank gutter used to be baked into every
+                    // week's `Row`, which showed up as a stray blank strip
+                    // mid-screen while horizontally swiping between weeks,
+                    // since two pages are partially visible at once during
+                    // the transition (issue #190).
+                    child: Stack(
                       children: [
-                        SizedBox(
-                          width: gutter,
-                          height: gridH,
-                          child: Stack(
-                            children: [
-                              for (var i = 0; i < hours.length; i++)
-                                Positioned(
-                                  top: i * rowH + 2,
-                                  right: 6,
-                                  child: Text(
-                                    '${hours[i].toString().padLeft(2, '0')}:00',
-                                    style: const TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      color: B.muted,
-                                    ),
+                        Column(
+                          children: [
+                            for (var i = 0; i < hours.length; i++)
+                              Container(
+                                key: ValueKey('cal-week-hour-$i'),
+                                height: rowH,
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(color: B.line),
                                   ),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              Column(
-                                children: [
-                                  for (var i = 0; i < hours.length; i++)
-                                    Container(
-                                      key: ValueKey('cal-week-hour-$i'),
-                                      height: rowH,
-                                      decoration: const BoxDecoration(
-                                        border: Border(
-                                          top: BorderSide(color: B.line),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  for (
-                                    var dayIndex = 0;
-                                    dayIndex < days.length;
-                                    dayIndex++
-                                  )
-                                    dayCol(
-                                      days[dayIndex],
-                                      dayIndex,
-                                      rowH,
-                                      gridH,
-                                    ),
-                                ],
-                              ),
-                            ],
-                          ),
+                        Row(
+                          children: [
+                            for (
+                              var dayIndex = 0;
+                              dayIndex < days.length;
+                              dayIndex++
+                            )
+                              dayCol(days[dayIndex], dayIndex, rowH, gridH),
+                          ],
                         ),
                       ],
                     ),
@@ -1150,33 +1156,21 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
     bool isPastDay(String iso) => iso.compareTo(today) < 0;
 
+    // The "MEMBER" label lives once in the fixed gutter built by
+    // `_withStickyFamilyMembers` — this per-page header only renders the
+    // day-of-week cells so it can't surface a second, non-sticky copy while
+    // paging horizontally between weeks (issue #190).
     Widget head() {
       return Row(
         children: [
-          Container(
-            width: 84,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: _calendarHeaderBorderColor),
-              ),
-            ),
-            child: const Padding(
-              padding: EdgeInsets.only(left: 4, top: 7, bottom: 7),
-              child: Text(
-                'MEMBER',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.soft2,
-                ),
-              ),
-            ),
-          ),
           for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
             Expanded(
               child: Container(
                 key: ValueKey('cal-family-day-head-${days[dayIndex]}'),
+                // Fixed height matching `_calFamilyDayHeadHeight` used by
+                // the sticky member gutter's header cell (issue #190).
+                height: _calFamilyDayHeadHeight,
+                clipBehavior: Clip.hardEdge,
                 decoration: BoxDecoration(
                   color: isPastDay(days[dayIndex]) ? B.faint : Colors.white,
                   border: const Border(
@@ -1251,29 +1245,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 84,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                child: Row(
-                  children: [
-                    _memberAvatar(m.id, size: 24),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        m.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: B.ink,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
             for (final iso in days)
               Expanded(
                 child: Builder(
@@ -1291,7 +1262,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           );
                     return Container(
                       key: ValueKey('cal-family-cell-${m.id}-$iso'),
-                      constraints: const BoxConstraints(minHeight: 52),
+                      // Fixed (not min-) height matching `_calFamilyRowHeight`
+                      // used by the sticky member gutter's row, so the two
+                      // never drift out of sync as event counts vary
+                      // (issue #190). Content is capped at 3 events + an
+                      // overflow label, which always fits within this
+                      // height; `clipBehavior` guards edge cases.
+                      height: _calFamilyRowHeight,
+                      clipBehavior: Clip.hardEdge,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 2,
                         vertical: 3,
@@ -1381,13 +1359,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       color: Colors.white,
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: B.line)),
-            ),
-            child: head(),
-          ),
+          // No extra padding/border here: each day-head cell built by
+          // `head()` already has a fixed height (`_calFamilyDayHeadHeight`)
+          // and its own bottom border, matching the sticky member gutter's
+          // header cell exactly. Wrapping padding previously added 16px on
+          // top of that fixed height (plus a second border), which the
+          // gutter didn't have — throwing the whole grid out of alignment
+          // with the member rows below (issue #190).
+          head(),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
