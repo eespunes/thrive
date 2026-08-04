@@ -30,7 +30,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Received'));
     await tester.pump();
-    await tester.tap(find.text('Add item'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(find.text('Employer - Bonus'), findsWidgets);
   });
@@ -43,7 +43,7 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), 'Rent');
     await tester.enterText(find.byType(TextField).at(2), '42');
     await tester.pump();
-    await tester.tap(find.text('Add item'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(find.text('Thuiswonen - Rent'), findsWidgets);
     final rowTitle = tester.widget<Text>(find.text('Thuiswonen - Rent').first);
@@ -120,7 +120,7 @@ void main() {
       // Recurring is on by default; pick the quarterly preset chip.
       await tester.tap(find.text('Every 3 months'));
       await tester.pump();
-      await tester.tap(find.text('Add item'));
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
       expect(find.text('Insurer - Insurance'), findsWidgets);
 
@@ -250,7 +250,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Repeat'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Save changes'));
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
       // March itself keeps the (now non-recurring) item…
@@ -283,7 +283,7 @@ void main() {
     await tester.pump();
     // Recurring is on by default (issue #185), so no extra tap is needed to
     // enable it here.
-    await tester.tap(find.text('Add item'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     thriveDebug.pickMonth(6);
@@ -310,7 +310,7 @@ void main() {
     await tester.tap(find.text(income).first);
     await tester.pumpAndSettle();
     expect(find.text('Edit income'), findsOneWidget);
-    await tester.tap(find.text('Save changes'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
   });
 

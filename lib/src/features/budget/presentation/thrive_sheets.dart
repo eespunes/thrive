@@ -1167,15 +1167,41 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
         (_payee.text.trim().isNotEmpty || _label.text.trim().isNotEmpty) &&
         parseNum(_amount.text) >= 0;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sheetHead(
-            context,
-            '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
-            _editing ? null : 'New item',
-          ),
+    void submit() {
+      s.saveExpense(
+        widget.mode,
+        widget.cat,
+        widget.id,
+        payee: _payee.text.trim(),
+        label: _label.text.trim(),
+        amount: parseNum(_amount.text),
+        marker: _marker.text.trim(),
+        paid: _paid,
+        account: _account,
+        until: _endDate,
+        recurring: _recurring,
+        recurEvery: _recurEvery,
+        recurEndDate: _endDate,
+      );
+      Navigator.of(context).pop();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHeadWithTick(
+          context,
+          '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
+          sub: _editing ? null : 'New item',
+          onConfirm: submit,
+          confirmEnabled: valid,
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
           _sheetField(
             cat.isIncome ? 'From' : 'Company',
             _sheetInput(
@@ -1251,24 +1277,6 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               () => setState(() => _paid = !_paid),
             ),
           ),
-          _primaryBtn(_editing ? 'Save changes' : 'Add item', () {
-            s.saveExpense(
-              widget.mode,
-              widget.cat,
-              widget.id,
-              payee: _payee.text.trim(),
-              label: _label.text.trim(),
-              amount: parseNum(_amount.text),
-              marker: _marker.text.trim(),
-              paid: _paid,
-              account: _account,
-              until: _endDate,
-              recurring: _recurring,
-              recurEvery: _recurEvery,
-              recurEndDate: _endDate,
-            );
-            Navigator.of(context).pop();
-          }, enabled: valid),
           if (_editing)
             Padding(
               padding: const EdgeInsets.only(top: 13, bottom: 2),
@@ -1288,8 +1296,11 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                 ],
               ),
             ),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
