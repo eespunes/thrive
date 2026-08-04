@@ -196,6 +196,81 @@ void main() {
     },
   );
 
+  testWidgets(
+    'toggling recurring off stops future propagation but keeps the past (issue #195)',
+    (tester) async {
+      final cats = defaultCats();
+      Map<String, dynamic> yearData() => {
+        for (final mk in kMonthKeys)
+          mk: MonthData(
+            blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
+          ).toJson(),
+      };
+      final data = <String, dynamic>{'2026': yearData()};
+      (data['2026'] as Map<String, dynamic>)['Januari'] = MonthData(
+        blocks: {
+          for (final c in cats) c.key: <ExpenseItem>[],
+          'home': [
+            ExpenseItem(
+              id: 'gym-jan',
+              payee: 'Gym',
+              label: 'Membership',
+              marker: '1st',
+              amount: 20,
+              paid: false,
+              account: 'shared',
+              recurring: true,
+              seriesId: 'gym-series',
+            ),
+          ],
+        },
+      ).toJson();
+
+      await pumpApp(
+        tester,
+        prefs: {
+          'flutter.$kStorageKey': json.encode({
+            'year': 2026,
+            'monthIdx': 0,
+            'screen': 'overview',
+            'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
+            'cats': cats.map((c) => c.toJson()).toList(),
+            'data': data,
+          }),
+        },
+      );
+
+      // Confirm it propagated forward before we stop it.
+      thriveDebug.pickMonth(2);
+      await tester.pumpAndSettle();
+      expect(find.text('Gym - Membership'), findsWidgets);
+
+      // Edit the March occurrence and toggle "Repeat" off.
+      await tester.tap(find.text('Gym - Membership').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Repeat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+
+      // March itself keeps the (now non-recurring) item…
+      expect(find.text('Gym - Membership'), findsWidgets);
+
+      // …but it must no longer generate into April onward.
+      thriveDebug.pickMonth(3);
+      await tester.pumpAndSettle();
+      expect(find.text('Gym - Membership'), findsNothing);
+
+      // Past months (January, February) remain untouched.
+      thriveDebug.pickMonth(0);
+      await tester.pumpAndSettle();
+      expect(find.text('Gym - Membership'), findsWidgets);
+      thriveDebug.pickMonth(1);
+      await tester.pumpAndSettle();
+      expect(find.text('Gym - Membership'), findsWidgets);
+    },
+  );
+
   testWidgets('deleting a recurring expense keeps past months intact', (
     tester,
   ) async {
