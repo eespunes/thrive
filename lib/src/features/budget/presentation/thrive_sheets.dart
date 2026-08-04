@@ -143,13 +143,20 @@ extension _ThriveSheets on _ThriveHomeState {
       if (mode == 'edit' && id != null) {
         final it = arr.where((x) => x.id == id).firstOrNull;
         if (it != null) {
-          final seriesId = _seriesIdFor(it) ?? (recurring ? uid() : null);
+          // Issue #195: every item — recurring or not — always carries a
+          // stable `seriesId` from now on, so future months' copies (or a
+          // future edit) can always be linked back to this one instead of
+          // silently becoming an orphaned, unlinked duplicate.
+          final seriesId = _seriesIdFor(it) ?? uid();
           _clearSeriesStop(seriesId, year, monthIdx);
-          if (seriesId != null) {
-            _removeRecurringFromCurrentForward(seriesId, cat);
-          } else {
-            arr.removeWhere((x) => x.id == id);
-          }
+          // Always strip this item (and any future/generated copies sharing
+          // its series) before re-adding the freshly edited one below — this
+          // both applies the edit forward and, if `recurring` is now false,
+          // stops future generation. Remove this item explicitly by id too,
+          // since it may not yet carry `seriesId` (e.g. a legacy row being
+          // edited for the first time under the new always-tagged model).
+          _removeRecurringFromCurrentForward(seriesId, cat);
+          arr.removeWhere((x) => identical(x, it));
           it
             ..payee = payee
             ..label = label
@@ -168,7 +175,11 @@ extension _ThriveSheets on _ThriveHomeState {
           arr.add(it);
         }
       } else {
-        final seriesId = recurring ? uid() : null;
+        // Issue #195: give every newly created item — recurring or not — a
+        // stable `seriesId` right away, so it can never end up as an
+        // unlinked/orphaned duplicate later (the root cause of the legacy
+        // production-data bug).
+        final seriesId = uid();
         arr.add(
           ExpenseItem(
             id: uid(),
