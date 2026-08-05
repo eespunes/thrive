@@ -57,7 +57,7 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), 'Service');
     await tester.enterText(find.byType(TextField).at(2), '50');
     await tester.pump();
-    await tester.tap(find.text('Add item'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(find.text('Persisted - Service'), findsWidgets);
 

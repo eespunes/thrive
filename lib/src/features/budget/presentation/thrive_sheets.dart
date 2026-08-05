@@ -132,8 +132,10 @@ extension _ThriveSheets on _ThriveHomeState {
     required String account,
     String? until,
     required bool recurring,
+    int recurEvery = 1,
     String? recurEndDate,
   }) {
+    final every = recurEvery < 1 ? 1 : recurEvery;
     mutate(() {
       final month = data[year]![kMonthKeys[monthIdx]]!;
       final arr = month.blocks.putIfAbsent(cat, () => <ExpenseItem>[]);
@@ -141,13 +143,20 @@ extension _ThriveSheets on _ThriveHomeState {
       if (mode == 'edit' && id != null) {
         final it = arr.where((x) => x.id == id).firstOrNull;
         if (it != null) {
-          final seriesId = _seriesIdFor(it) ?? (recurring ? uid() : null);
+          // Issue #195: every item — recurring or not — always carries a
+          // stable `seriesId` from now on, so future months' copies (or a
+          // future edit) can always be linked back to this one instead of
+          // silently becoming an orphaned, unlinked duplicate.
+          final seriesId = _seriesIdFor(it) ?? uid();
           _clearSeriesStop(seriesId, year, monthIdx);
-          if (seriesId != null) {
-            _removeRecurringFromCurrentForward(seriesId, cat);
-          } else {
-            arr.removeWhere((x) => x.id == id);
-          }
+          // Always strip this item (and any future/generated copies sharing
+          // its series) before re-adding the freshly edited one below — this
+          // both applies the edit forward and, if `recurring` is now false,
+          // stops future generation. Remove this item explicitly by id too,
+          // since it may not yet carry `seriesId` (e.g. a legacy row being
+          // edited for the first time under the new always-tagged model).
+          _removeRecurringFromCurrentForward(seriesId, cat);
+          arr.removeWhere((x) => identical(x, it));
           it
             ..payee = payee
             ..label = label
@@ -157,6 +166,7 @@ extension _ThriveSheets on _ThriveHomeState {
             ..account = account
             ..seriesId = seriesId
             ..recurring = recurring
+            ..recurEvery = every
             ..recurEndDate = normalizedEnd
             ..until =
                 normalizedEnd ??
@@ -165,7 +175,11 @@ extension _ThriveSheets on _ThriveHomeState {
           arr.add(it);
         }
       } else {
-        final seriesId = recurring ? uid() : null;
+        // Issue #195: give every newly created item — recurring or not — a
+        // stable `seriesId` right away, so it can never end up as an
+        // unlinked/orphaned duplicate later (the root cause of the legacy
+        // production-data bug).
+        final seriesId = uid();
         arr.add(
           ExpenseItem(
             id: uid(),
@@ -179,6 +193,7 @@ extension _ThriveSheets on _ThriveHomeState {
                 normalizedEnd ??
                 ((until == null || until.isEmpty) ? null : until),
             recurring: recurring,
+            recurEvery: every,
             seriesId: seriesId,
             recurEndDate: normalizedEnd,
           ),
@@ -1109,6 +1124,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   String _account = 'shared';
   bool _paid = false;
   bool _recurring = true;
+  int _recurEvery = 1;
   String? _endDate;
 
   bool get _editing => widget.mode == 'edit';
@@ -1130,6 +1146,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _account = it?.account ?? 'shared';
     _paid = it?.paid ?? false;
     _recurring = it?.recurring ?? true;
+    _recurEvery = it?.recurEvery ?? 1;
     _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
   }
 
@@ -1150,127 +1167,140 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
         (_payee.text.trim().isNotEmpty || _label.text.trim().isNotEmpty) &&
         parseNum(_amount.text) >= 0;
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sheetHead(
-            context,
-            '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
-            _editing ? null : 'New item',
-          ),
-          _sheetField(
-            cat.isIncome ? 'From' : 'Company',
-            _sheetInput(
-              _payee,
-              hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          _sheetField(
-            'Subcategory',
-            _sheetInput(
-              _label,
-              hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _sheetField(
-                  'Amount (\u20ac)',
+    void submit() {
+      s.saveExpense(
+        widget.mode,
+        widget.cat,
+        widget.id,
+        payee: _payee.text.trim(),
+        label: _label.text.trim(),
+        amount: parseNum(_amount.text),
+        marker: _marker.text.trim(),
+        paid: _paid,
+        account: _account,
+        until: _endDate,
+        recurring: _recurring,
+        recurEvery: _recurEvery,
+        recurEndDate: _endDate,
+      );
+      Navigator.of(context).pop();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHeadWithTick(
+          context,
+          '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
+          sub: _editing ? null : 'New item',
+          onConfirm: submit,
+          confirmEnabled: valid,
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sheetField(
+                  cat.isIncome ? 'From' : 'Company',
                   _sheetInput(
-                    _amount,
-                    hint: '0,00',
-                    number: true,
+                    _payee,
+                    hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: _sheetField(
-                  cat.marker == 'day' ? 'Pay day' : 'Date',
+                _sheetField(
+                  'Subcategory',
                   _sheetInput(
-                    _marker,
-                    hint: cat.marker == 'day' ? '1st' : '\u2014',
+                    _label,
+                    hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
-              ),
-            ],
-          ),
-          _sheetField(
-            '',
-            _toggleRow(
-              'Repeat every month',
-              _recurring,
-              () => setState(() => _recurring = !_recurring),
-              subtitle:
-                  'Saves edits from this month forward without changing history',
-              activeColor: B.primary,
-            ),
-          ),
-          if (cat.hasUntil || _recurring)
-            _sheetField(
-              _recurring ? 'Repeat until' : 'End date',
-              _endDateField(context),
-            ),
-          _sheetField(
-            cat.isIncome
-                ? 'Received into'
-                : (cat.isSavings ? 'Save from' : 'Pay from'),
-            _accChips(),
-          ),
-          _sheetField(
-            'Status',
-            _toggleRow(
-              cat.isIncome
-                  ? 'Received'
-                  : (cat.isSavings ? 'Saved this month' : 'Paid'),
-              _paid,
-              () => setState(() => _paid = !_paid),
-            ),
-          ),
-          _primaryBtn(_editing ? 'Save changes' : 'Add item', () {
-            s.saveExpense(
-              widget.mode,
-              widget.cat,
-              widget.id,
-              payee: _payee.text.trim(),
-              label: _label.text.trim(),
-              amount: parseNum(_amount.text),
-              marker: _marker.text.trim(),
-              paid: _paid,
-              account: _account,
-              until: _endDate,
-              recurring: _recurring,
-              recurEndDate: _endDate,
-            );
-            Navigator.of(context).pop();
-          }, enabled: valid),
-          if (_editing)
-            Padding(
-              padding: const EdgeInsets.only(top: 13, bottom: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ic('cleft', size: 13, sw: 2.4, color: B.muted),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Swipe the row left to delete',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: B.muted,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _sheetField(
+                        'Amount (\u20ac)',
+                        _sheetInput(
+                          _amount,
+                          hint: '0,00',
+                          number: true,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: _sheetField(
+                        cat.marker == 'day' ? 'Pay day' : 'Date',
+                        _sheetInput(
+                          _marker,
+                          hint: cat.marker == 'day' ? '1st' : '\u2014',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _sheetField(
+                  '',
+                  _toggleRow(
+                    'Repeat',
+                    _recurring,
+                    () => setState(() => _recurring = !_recurring),
+                    subtitle:
+                        'Saves edits from this month forward without changing history',
+                    activeColor: B.primary,
+                  ),
+                ),
+                if (_recurring) _sheetField('Repeat every', _recurEveryRow()),
+                if (cat.hasUntil || _recurring)
+                  _sheetField(
+                    _recurring ? 'Repeat until' : 'End date',
+                    _endDateField(context),
+                  ),
+                _sheetField(
+                  cat.isIncome
+                      ? 'Received into'
+                      : (cat.isSavings ? 'Save from' : 'Pay from'),
+                  _accChips(),
+                ),
+                _sheetField(
+                  'Status',
+                  _toggleRow(
+                    cat.isIncome
+                        ? 'Received'
+                        : (cat.isSavings ? 'Saved this month' : 'Paid'),
+                    _paid,
+                    () => setState(() => _paid = !_paid),
+                  ),
+                ),
+                if (_editing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 13, bottom: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ic('cleft', size: 13, sw: 2.4, color: B.muted),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'Swipe the row left to delete',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: B.muted,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1409,6 +1439,92 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  /// Interval picker for the custom "repeat every N months" setting
+  /// (issue #191). Common presets cover the typical cases (monthly,
+  /// quarterly, yearly...) while the stepper lets any interval be dialled in.
+  Widget _recurEveryRow() {
+    const presets = [1, 2, 3, 6, 12];
+    Widget stepBtn(String icon, VoidCallback onTap) => GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: B.line),
+        ),
+        child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final option in presets) ...[
+                GestureDetector(
+                  key: ValueKey('expense-recur-every-$option'),
+                  onTap: () => setState(() => _recurEvery = option),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 13,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _recurEvery == option ? B.soft : Colors.white,
+                      border: Border.all(
+                        color: _recurEvery == option ? B.primary : B.line,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      option == 1 ? 'Monthly' : 'Every $option months',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: _recurEvery == option ? B.deep : B.soft2,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 7),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 9),
+        Row(
+          children: [
+            stepBtn(
+              'cleft',
+              () =>
+                  setState(() => _recurEvery = (_recurEvery - 1).clamp(1, 60)),
+            ),
+            Expanded(
+              child: Text(
+                _recurEvery == 1 ? 'Every month' : 'Every $_recurEvery months',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: B.ink,
+                ),
+              ),
+            ),
+            stepBtn(
+              'cright',
+              () =>
+                  setState(() => _recurEvery = (_recurEvery + 1).clamp(1, 60)),
+            ),
+          ],
+        ),
       ],
     );
   }

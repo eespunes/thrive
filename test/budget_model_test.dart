@@ -197,6 +197,62 @@ void main() {
       expect(back.generated, isTrue);
     });
 
+    test('ExpenseItem defaults recurEvery to 1 month (issue #191)', () {
+      final it = ExpenseItem(
+        id: 'a',
+        label: 'Rent',
+        marker: '1st',
+        amount: 100,
+        paid: false,
+        account: 'shared',
+      );
+      expect(it.recurEvery, 1);
+      expect(it.toJson().containsKey('recurEvery'), isFalse);
+      final back = ExpenseItem.fromJson(it.toJson());
+      expect(back.recurEvery, 1);
+    });
+
+    test(
+      'ExpenseItem round-trips a custom recurEvery interval (issue #191)',
+      () {
+        final it = ExpenseItem(
+          id: 'a',
+          payee: 'Insurer',
+          label: 'Insurance',
+          marker: '1st',
+          amount: 90,
+          paid: false,
+          account: 'shared',
+          recurring: true,
+          recurEvery: 3,
+          seriesId: 'quarterly-series',
+        );
+        final json = it.toJson();
+        expect(json['recurEvery'], 3);
+        final back = ExpenseItem.fromJson(json);
+        expect(back.recurEvery, 3);
+      },
+    );
+
+    test('ExpenseItem clamps out-of-range recurEvery values on load', () {
+      final back = ExpenseItem.fromJson({
+        'id': 'a',
+        'label': 'Rent',
+        'amount': 100,
+        'account': 'shared',
+        'recurEvery': 0,
+      });
+      expect(back.recurEvery, 1);
+      final back2 = ExpenseItem.fromJson({
+        'id': 'b',
+        'label': 'Rent',
+        'amount': 100,
+        'account': 'shared',
+        'recurEvery': 999,
+      });
+      expect(back2.recurEvery, 60);
+    });
+
     test('ExpenseItem defaults to recurring for new items (issue #185)', () {
       final it = ExpenseItem(
         id: 'a',

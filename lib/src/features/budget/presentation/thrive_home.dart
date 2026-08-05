@@ -148,7 +148,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String screen = 'overview'; // overview | stats — Finance tab's own sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
-  String statsMode = 'month'; // month | year
+  String statsMode = 'month'; // month | year | all
+  int? statsHeroSelIdx;
+  String? statsHeroSelFor;
 
   // Active workspace (the currently-selected family's budget). Kept in sync
   // with `workspaces[familyId]` — mirrors the design holding both.
@@ -174,6 +176,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   final PageController calPageController = PageController(initialPage: 10000);
   final ScrollController calWeekTimelineController = ScrollController();
   bool calWeekTimelineCentered = false;
+  // Tracks the week view's vertical hour-grid scroll offset so the sticky
+  // hour-number gutter (`_withStickyWeekHours`) can mirror it via a
+  // `NotificationListener` instead of reading `calWeekTimelineController`
+  // directly — the latter throws/falls back to 0 once more than one page's
+  // scroll view is attached to the shared controller, which happens
+  // routinely since `PageView.builder` keeps neighboring week pages mounted
+  // (issue #190).
+  double calWeekHourOffset = 0;
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -783,7 +793,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           }
         }
         if (!anchor.item.recurring) continue;
+        // Issue #191: a custom `recurEvery` skips months in between so the
+        // series only lands on multiples of the interval away from the
+        // anchor (e.g. every 3 months), instead of every single month.
+        final every = anchor.item.recurEvery < 1 ? 1 : anchor.item.recurEvery;
         for (var ord = anchorOrd + 1; ord < endExclusive; ord++) {
+          if ((ord - anchorOrd) % every != 0) continue;
           final yr = ord ~/ 12;
           final mIdx = ord % 12;
           if (!data.containsKey(yr)) continue;
@@ -814,6 +829,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ..amount = anchor.item.amount
               ..account = anchor.item.account
               ..recurring = anchor.item.recurring
+              ..recurEvery = anchor.item.recurEvery
               ..seriesId = _seriesIdFor(anchor.item)
               ..recurEndDate = anchor.item.recurEndDate
               ..until = anchor.item.recurEndDate ?? anchor.item.until;
@@ -905,7 +921,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   void setYear(int y) {
     ensureYear(y);
-    setState(() => year = y);
+    setState(() {
+      year = y;
+      statsHeroSelIdx = null;
+    });
     _persist();
   }
 
@@ -946,6 +965,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(() {
       monthIdx = (monthIdx + d + 12) % 12;
       swipedId = null;
+      statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
     _persist();
@@ -955,6 +975,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(() {
       monthIdx = i;
       swipedId = null;
+      statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
     _persist();
@@ -1219,12 +1240,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (tab == 'finance') {
         final titles = <String, List<String>>{
           'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
-          'stats': [
-            'Statistics',
-            statsMode == 'month'
-                ? '${kMonthsEn[monthIdx]} $year'
-                : 'Full year $year',
-          ],
+          'stats': ['Statistics', _statsPeriod().label],
         };
         final t = titles[screen] ?? titles['overview']!;
         title = t[0];
@@ -1400,49 +1416,57 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Widget _buildStatsModeSwitcher() {
     Widget seg(String label, String val) {
       final active = statsMode == val;
-      return GestureDetector(
-        key: ValueKey('stats-$val'),
-        onTap: () => setState(() => statsMode = val),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .12),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: active ? B.primary : const Color(0xff8995a6),
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey('stats-$val'),
+          onTap: () => setState(() {
+            statsMode = val;
+            statsHeroSelIdx = null;
+          }),
+          child: Container(
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            decoration: BoxDecoration(
+              color: active ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .12),
+                        blurRadius: 3,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: active ? B.primary : const Color(0xff8995a6),
+              ),
             ),
           ),
         ),
       );
     }
 
-    final toggle = Container(
+    return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xffe8ecf2),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [seg('Month', 'month'), seg('Year', 'year')],
+        children: [
+          seg('Month', 'month'),
+          seg('Year', 'year'),
+          seg('All time', 'all'),
+        ],
       ),
     );
-
-    return Align(alignment: Alignment.centerRight, child: toggle);
   }
 }
 

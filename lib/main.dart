@@ -47,6 +47,7 @@ part 'src/features/weekly/presentation/weekly_plan_screen.dart';
 part 'src/features/weekly/presentation/weekly_plan_sheets.dart';
 part 'src/features/home/presentation/home_screen.dart';
 part 'src/features/budget/presentation/thrive_screens.dart';
+part 'src/features/budget/presentation/thrive_stats.dart';
 part 'src/features/budget/presentation/thrive_widgets.dart';
 part 'src/features/budget/presentation/thrive_sheets.dart';
 part 'src/features/account/presentation/account_actions.dart';
