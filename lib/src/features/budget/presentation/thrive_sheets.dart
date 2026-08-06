@@ -134,6 +134,7 @@ extension _ThriveSheets on _ThriveHomeState {
     required bool recurring,
     int recurEvery = 1,
     String? recurEndDate,
+    String shift = 'none',
   }) {
     final every = recurEvery < 1 ? 1 : recurEvery;
     mutate(() {
@@ -168,6 +169,7 @@ extension _ThriveSheets on _ThriveHomeState {
             ..recurring = recurring
             ..recurEvery = every
             ..recurEndDate = normalizedEnd
+            ..shift = shift
             ..until =
                 normalizedEnd ??
                 ((until == null || until.isEmpty) ? null : until)
@@ -196,6 +198,7 @@ extension _ThriveSheets on _ThriveHomeState {
             recurEvery: every,
             seriesId: seriesId,
             recurEndDate: normalizedEnd,
+            shift: shift,
           ),
         );
       }
@@ -1126,6 +1129,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   bool _recurring = true;
   int _recurEvery = 1;
   String? _endDate;
+  String _shift = 'none';
 
   bool get _editing => widget.mode == 'edit';
 
@@ -1148,6 +1152,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _recurring = it?.recurring ?? true;
     _recurEvery = it?.recurEvery ?? 1;
     _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
+    _shift = it?.shift ?? 'none';
   }
 
   @override
@@ -1182,6 +1187,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
         recurring: _recurring,
         recurEvery: _recurEvery,
         recurEndDate: _endDate,
+        shift: _shift,
       );
       Navigator.of(context).pop();
     }
@@ -1235,15 +1241,20 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                     const SizedBox(width: 11),
                     Expanded(
                       child: _sheetField(
-                        cat.marker == 'day' ? 'Pay day' : 'Date',
+                        cat.isIncome || cat.marker == 'day'
+                            ? 'Pay day'
+                            : 'Date',
                         _sheetInput(
                           _marker,
-                          hint: cat.marker == 'day' ? '1st' : '\u2014',
+                          hint: cat.isIncome || cat.marker == 'day'
+                              ? '1st'
+                              : '\u2014',
                         ),
                       ),
                     ),
                   ],
                 ),
+                _shiftField(cat.isIncome ? 'in' : 'out'),
                 _sheetField(
                   '',
                   _toggleRow(
@@ -1440,6 +1451,84 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             ),
           ),
       ],
+    );
+  }
+
+  /// The weekend rule field (issue #199 — Money calendar): 'none' keeps the
+  /// marker's exact day, 'before' moves it to the last working day before a
+  /// Saturday/Sunday (typical for salary), 'after' to the first working day
+  /// after. Shared by expense and income items alike since income is just an
+  /// income-direction block.
+  Widget _shiftField(String kind) {
+    const opts = [
+      ('none', 'Keep the date', 'pin'),
+      ('before', 'Friday before', 'cleft'),
+      ('after', 'Monday after', 'cright'),
+    ];
+    Widget btn((String, String, String) o) {
+      final on = _shift == o.$1;
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey('expense-shift-${o.$1}'),
+          onTap: () => setState(() => _shift = o.$1),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            decoration: BoxDecoration(
+              color: on ? B.soft : Colors.white,
+              border: Border.all(color: on ? B.primary : B.line),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ic(o.$3, size: 15, sw: 2.3, color: on ? B.deep : B.muted),
+                const SizedBox(height: 5),
+                Text(
+                  o.$2,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: on ? B.deep : B.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final helper = _shift == 'none'
+        ? 'The calendar keeps this exact day, weekend or not.'
+        : _shift == 'before'
+        ? 'Typical for salary \u2014 ${kind == 'in' ? 'paid' : 'taken'} on the last working day before the weekend.'
+        : 'Moves to the first working day after the weekend.';
+    return _sheetField(
+      'If it lands on a weekend',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (final o in opts) ...[
+                if (o != opts.first) const SizedBox(width: 8),
+                btn(o),
+              ],
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            helper,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

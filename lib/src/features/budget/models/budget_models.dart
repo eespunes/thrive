@@ -209,6 +209,7 @@ class ExpenseItem {
     this.seriesId,
     this.recurEndDate,
     this.generated = false,
+    this.shift = 'none',
   });
 
   String id;
@@ -233,6 +234,14 @@ class ExpenseItem {
   String? recurEndDate;
   bool generated;
 
+  /// Weekend rule for the Money calendar's projection (issue #199): whether
+  /// this item's resolved day moves off a Saturday/Sunday, and which way.
+  /// `'none'` keeps the marker's day as-is, `'before'` moves to the last
+  /// working day before the weekend (typical for salary), `'after'` moves to
+  /// the first working day after. Derived at render time — the stored
+  /// [marker] always stays the day the user actually meant (e.g. "24th").
+  String shift;
+
   ExpenseItem copyWithId(String newId, {bool? generated}) => ExpenseItem(
     id: newId,
     payee: payee,
@@ -247,6 +256,7 @@ class ExpenseItem {
     seriesId: seriesId,
     recurEndDate: recurEndDate,
     generated: generated ?? this.generated,
+    shift: shift,
   );
 
   Map<String, dynamic> toJson() => {
@@ -266,6 +276,7 @@ class ExpenseItem {
     if (seriesId != null && seriesId!.isNotEmpty) 'seriesId': seriesId,
     if (recurEndDate != null) 'recurEndDate': recurEndDate,
     if (generated) 'generated': true,
+    if (shift != 'none') 'shift': shift,
   };
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) {
@@ -296,6 +307,9 @@ class ExpenseItem {
           : (recurring ? (j['id'] ?? uid()).toString() : null),
       recurEndDate: recurEndDate,
       generated: j['generated'] == true,
+      shift: const {'none', 'before', 'after'}.contains(j['shift'])
+          ? (j['shift'] as String)
+          : 'none',
     );
   }
 }
@@ -308,6 +322,7 @@ class MonthData {
     this.catsSnapshot,
     this.accountsSnapshot,
     List<String>? seriesStops,
+    this.open = 0,
   }) : blocks = blocks ?? {},
        caps = caps ?? {},
        seriesStops = seriesStops ?? <String>[];
@@ -318,6 +333,11 @@ class MonthData {
   List<Category>? catsSnapshot;
   List<Account>? accountsSnapshot;
   List<String> seriesStops;
+
+  /// Start balance on the 1st of this month (issue #199 — Money calendar).
+  /// The running-balance projection and its lowest point are counted from
+  /// here.
+  double open;
 
   Map<String, dynamic> toJson() => {
     'blocks': blocks.map(
@@ -330,6 +350,7 @@ class MonthData {
     if (accountsSnapshot != null)
       'accountsSnapshot': accountsSnapshot!.map((a) => a.toJson()).toList(),
     if (seriesStops.isNotEmpty) 'seriesStops': seriesStops,
+    if (open != 0) 'open': open,
   };
 
   factory MonthData.fromJson(Map<String, dynamic> j) {
@@ -384,6 +405,7 @@ class MonthData {
       seriesStops: [
         for (final id in (j['seriesStops'] as List? ?? const [])) id.toString(),
       ],
+      open: parseNum(j['open']),
     );
   }
 }

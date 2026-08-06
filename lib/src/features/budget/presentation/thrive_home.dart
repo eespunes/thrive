@@ -145,9 +145,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
-  String screen = 'overview'; // overview | stats — Finance tab's own sub-view
+  String screen = 'overview'; // overview | flow | stats — Finance tab's own sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
+  String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -532,7 +533,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       tab = 'finsettings';
       return;
     }
-    screen = const {'overview', 'stats'}.contains(legacyScreen)
+    screen = const {'overview', 'stats', 'flow'}.contains(legacyScreen)
         ? legacyScreen
         : 'overview';
     if (rawTab == null) {
@@ -832,6 +833,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ..recurEvery = anchor.item.recurEvery
               ..seriesId = _seriesIdFor(anchor.item)
               ..recurEndDate = anchor.item.recurEndDate
+              ..shift = anchor.item.shift
               ..until = anchor.item.recurEndDate ?? anchor.item.until;
           }
           allowedGenerated.add(ord);
@@ -1227,6 +1229,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     switch (screen) {
       case 'stats':
         return _buildStats();
+      case 'flow':
+        return _buildFlow();
       default:
         return _buildOverview();
     }
@@ -1240,6 +1244,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (tab == 'finance') {
         final titles = <String, List<String>>{
           'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
+          'flow': ['Money calendar', '${kMonthsEn[monthIdx]} $year'],
           'stats': ['Statistics', _statsPeriod().label],
         };
         final t = titles[screen] ?? titles['overview']!;
@@ -1254,6 +1259,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final subHeader = ready
         ? (tab == 'finance' && screen == 'stats'
               ? _buildStatsModeSwitcher()
+              : tab == 'finance' && screen == 'flow'
+              ? _buildFlowSubHeader()
               : _tabSubHeader(tab))
         : null;
     final dateInHeader = tab == 'calendar' || tab == 'finance';
@@ -1378,7 +1385,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [seg('overview', 'grid'), seg('stats', 'chart')],
+      children: [
+        seg('overview', 'grid'),
+        seg('flow', 'cal'),
+        seg('stats', 'chart'),
+      ],
     );
   }
 
