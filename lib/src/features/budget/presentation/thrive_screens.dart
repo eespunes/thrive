@@ -930,7 +930,9 @@ extension _ThriveScreens on _ThriveHomeState {
   }
 
   // ============================================================ SETTINGS
-  Widget _buildSettings() {
+  /// [embed] drops the tab body's own side padding for when this is reused
+  /// inside a bottom sheet (which already has its own horizontal inset).
+  Widget _buildSettings({bool embed = false}) {
     Widget card(String title, String iconName, Widget child, [Widget? action]) {
       return Container(
         margin: const EdgeInsets.only(bottom: 13),
@@ -1238,7 +1240,7 @@ extension _ThriveScreens on _ThriveHomeState {
     );
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
+      padding: EdgeInsets.fromLTRB(embed ? 0 : 14, 4, embed ? 0 : 14, 28),
       children: [
         card('Accounts', 'users', Column(children: accRows)),
         card('Budget blocks', 'grid', Column(children: blockRows)),

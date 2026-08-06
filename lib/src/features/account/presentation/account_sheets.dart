@@ -673,7 +673,6 @@ class _FamilySheetState extends State<_FamilySheet> {
               ),
             ),
           _membersCard(f, owner),
-          if (f.username.trim().isNotEmpty) _joinCredCard(f),
           if (_invite) _inviteCard(),
           if (_addNoEmail) _addMemberCard(),
           Padding(
@@ -802,88 +801,6 @@ class _FamilySheetState extends State<_FamilySheet> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _joinCredCard(Family f) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 13),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: B.soft,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: B.greenLine),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              ic('users', size: 14, sw: 2.2, color: B.deep),
-              const SizedBox(width: 7),
-              const Text(
-                'Invite relatives',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.deep,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Share this username and the family password so they can join from '
-            'their own account.',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: B.soft2,
-            ),
-          ),
-          const SizedBox(height: 11),
-          GestureDetector(
-            key: const ValueKey('family-copy-username'),
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: f.username));
-              s.flash('Username copied');
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: B.line),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Username',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: B.muted,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      f.username,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
-                      ),
-                    ),
-                  ),
-                  ic('copy', size: 15, sw: 2.2, color: B.deep),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

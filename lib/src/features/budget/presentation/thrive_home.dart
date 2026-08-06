@@ -145,7 +145,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
-  String screen = 'overview'; // overview | flow | stats — Finance tab's own sub-view
+  String screen =
+      'overview'; // overview | flow | stats — Finance tab's own sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
@@ -209,6 +210,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<Family> families = [];
   String familyId = 'fam_main';
   Map<String, Workspace> workspaces = {};
+
+  // In-memory-only cache of a family join password, kept only for the
+  // session that just typed it (create/join). Never persisted — cloud
+  // families store only a salted hash server-side, and this avoids adding a
+  // new persistent field just to remember a plaintext password. Keyed by
+  // family id so switching families doesn't leak the wrong one.
+  final Map<String, String> _sessionFamilyPasswords = {};
+
+  /// Bumped on every `update()`/`mutate()` call so widgets embedded in
+  /// bottom sheets (e.g. the Weekly plan / Finance settings sheets, which
+  /// render their content outside the main `build()` subtree) can listen
+  /// and rebuild when state changes underneath them.
+  final ValueNotifier<int> _rev = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -638,10 +652,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   // ------------------------------------------------------------- helpers
-  void update(VoidCallback fn) => setState(fn);
+  void update(VoidCallback fn) {
+    setState(fn);
+    _rev.value++;
+  }
 
   void mutate(VoidCallback fn, [VoidCallback? cb]) {
     setState(fn);
+    _rev.value++;
     _persist();
     cb?.call();
   }

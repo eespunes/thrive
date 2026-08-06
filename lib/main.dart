@@ -55,3 +55,4 @@ part 'src/features/account/presentation/account_actions.dart';
 part 'src/features/account/presentation/auth_screen.dart';
 part 'src/features/account/presentation/onboarding_screen.dart';
 part 'src/features/account/presentation/account_sheets.dart';
+part 'src/features/navigation/presentation/more_screen.dart';

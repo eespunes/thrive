@@ -77,11 +77,15 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     );
   }
 
-  Widget _buildWeeklyPlan() {
+  /// [embed] drops the tab body's own side padding for when this is reused
+  /// inside a bottom sheet (which already has its own horizontal inset), so
+  /// the content doesn't get double-padded or overflow the sheet width.
+  Widget _buildWeeklyPlan({bool embed = false}) {
     final start = _weekStart();
     final today = todayIso();
+    final hPad = embed ? 0.0 : 14.0;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
       children: [
         for (int i = 0; i < 7; i++)
           Padding(

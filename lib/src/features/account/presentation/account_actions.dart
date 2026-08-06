@@ -594,25 +594,53 @@ extension _ThriveAccountActions on _ThriveHomeState {
       final uid = _firebaseUid();
       // coverage:ignore-start
       if (uid != null) {
-        return cloudCreateFamily(
+        final err = await cloudCreateFamily(
           meUid: uid,
           name: trimmedName,
           username: slug,
           password: password,
           picture: picture,
         );
+        if (err == null) _cacheSessionFamilyPassword(slug, password);
+        return err;
       }
       // coverage:ignore-end
-      return localCreateFamily(
+      final err = await localCreateFamily(
         name: trimmedName,
         username: slug,
         password: password,
         picture: picture,
       );
+      if (err == null) _cacheSessionFamilyPassword(slug, password);
+      return err;
     }
     _createFamilyInMemory(trimmedName);
     return null;
   }
+
+  /// Remembers [password] in memory for the family whose handle is [slug],
+  /// once it's been resolved to a [Family.id] on the next families reload.
+  /// Cached by username since the id isn't known until the family list is
+  /// refreshed after create/join.
+  void _cacheSessionFamilyPassword(String slug, String password) {
+    for (final f in families) {
+      if (f.username == slug) {
+        _sessionFamilyPasswords[f.id] = password;
+        return;
+      }
+    }
+    // Not resolved yet (list not refreshed) — cache by username as a
+    // fallback key too, so `sessionFamilyPassword` can still find it.
+    _sessionFamilyPasswords[slug] = password;
+  }
+
+  /// The join password for [family], but only if it was typed in this app
+  /// session (during create or join) — never read back from storage, since
+  /// cloud families only keep a salted hash server-side. Returns null
+  /// otherwise (UI should show "Not set").
+  String? sessionFamilyPassword(Family family) =>
+      _sessionFamilyPasswords[family.id] ??
+      _sessionFamilyPasswords[family.username];
 
   /// True when [slug] is a valid handle that no family has claimed yet. Checks
   /// the families already loaded, then the cloud handle registry (signed-in) or
@@ -700,14 +728,22 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final uid = _firebaseUid();
     // coverage:ignore-start
     if (uid != null) {
-      return cloudJoinFamily(
+      final err = await cloudJoinFamily(
         meUid: uid,
         username: username,
         password: password,
       );
+      if (err == null) {
+        _cacheSessionFamilyPassword(familySlug(username), password);
+      }
+      return err;
     }
     // coverage:ignore-end
-    return localJoinFamily(username: username, password: password);
+    final err = await localJoinFamily(username: username, password: password);
+    if (err == null) {
+      _cacheSessionFamilyPassword(familySlug(username), password);
+    }
+    return err;
   }
 
   void _createFamilyInMemory(String name) {
