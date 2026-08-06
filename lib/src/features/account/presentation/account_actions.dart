@@ -666,13 +666,28 @@ extension _ThriveAccountActions on _ThriveHomeState {
   /// The join password for [family]. In local/demo mode (no Firebase user)
   /// the plaintext password lives in the on-device registry, so it can
   /// always be looked up there — no need to have typed it this session. In
-  /// cloud mode only a salted hash is stored server-side, so it's only
-  /// available if it was typed in this app session (during create or join);
-  /// otherwise this returns null and the UI should show "Not set".
+  /// cloud mode the plaintext also lives on the shared family document (as
+  /// `joinPassword`, protected by the same members-only read rule as the rest
+  /// of the family's data — see firestore.rules), so it's fetched straight
+  /// from Firestore when it isn't already cached in this session.
   Future<String?> fetchFamilyPassword(Family family) async {
     final cached = sessionFamilyPassword(family);
     if (cached != null) return cached;
-    if (_firebaseUid() != null) return null;
+    if (_firebaseUid() != null) {
+      try {
+        final snap = await _familyDocRef(
+          family.id,
+        ).get().timeout(kCloudOpTimeout);
+        final pw = snap.data()?['joinPassword'];
+        if (pw is String && pw.isNotEmpty) {
+          _sessionFamilyPasswords[family.id] = pw;
+          return pw;
+        }
+      } catch (e) {
+        debugPrint('[cloud] fetchFamilyPassword failed: $e');
+      }
+      return null;
+    }
     final reg = await loadRegistry();
     final entry = reg[family.username];
     if (entry is Map) {
