@@ -1069,7 +1069,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dinner'), findsWidgets);
+
+    // The new category has no members assigned, so the event should have
+    // no attendees either — it must not fall back to "me".
+    await tester.tap(find.text('Dinner').first);
+    await tester.pumpAndSettle();
+    expect(find.text('ATTENDEES'), findsOneWidget);
+    final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
+    expect(attendeesWrap.children, isEmpty);
   });
+
+  testWidgets(
+    'creating a new event with no category selected has no attendees',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Solo errand');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Solo errand').first);
+      await tester.pumpAndSettle();
+      expect(find.text('ATTENDEES'), findsOneWidget);
+      final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
+      expect(attendeesWrap.children, isEmpty);
+    },
+  );
 
   testWidgets(
     'a weekly recurring event: delete "this event only" keeps the series',

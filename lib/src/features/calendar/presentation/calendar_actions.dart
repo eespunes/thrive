@@ -647,7 +647,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         notes: notes.trim(),
         category: category,
         color: effectiveColor,
-        attendees: attendees.isEmpty ? ['me'] : attendees,
+        attendees: attendees,
         reminder: reminder,
         recur: recur,
         recurEvery: recurEvery,

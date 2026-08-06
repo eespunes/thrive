@@ -94,7 +94,13 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _end = e?.end.isNotEmpty == true ? e!.end : '10:00';
     _category = e?.category;
     _color = e?.color ?? kEventColors.first;
-    _attendees = (e?.attendees ?? const ['me']).toList();
+    // New events with no category default to no assignees ('me' is only
+    // a stored fallback so legacy events always render an avatar — it's not
+    // implied as "selected" in the editor). Editing an event keeps its
+    // stored attendees as-is (which may be the synthetic ['me']).
+    _attendees = widget.event == null
+        ? <String>[]
+        : (e?.attendees ?? const <String>[]).toList();
     _reminder = e?.reminder ?? '1h';
     _recurEvery = e?.recurEvery ?? 1;
     _recurUnit = e?.recurUnit ?? 'week';
@@ -300,7 +306,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         notes: _notes.text.trim(),
         category: _category,
         color: s.catById(_category)?.color ?? _color,
-        attendees: _attendees.isEmpty ? ['me'] : _attendees,
+        attendees: _attendees,
         reminder: _reminder,
         recur: _recur,
         recurEvery: _recurEvery,
@@ -522,11 +528,10 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                             onTap: () => setState(() {
                               _category = c.id;
                               _color = c.color;
-                              for (final mid in c.members) {
-                                if (!_attendees.contains(mid)) {
-                                  _attendees.add(mid);
-                                }
-                              }
+                              // Selecting a category sets assignees to match
+                              // it exactly (including nobody, if the category
+                              // has no members assigned).
+                              _attendees = c.members.toList();
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
