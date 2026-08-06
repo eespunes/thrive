@@ -554,7 +554,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                                     c,
                                     size: 14,
                                     iconColor: _category == c.id
-                                        ? Colors.white
+                                        ? contrastOn(c.color)
                                         : c.color,
                                   ),
                                   const SizedBox(width: 5),
@@ -564,7 +564,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w800,
                                       color: _category == c.id
-                                          ? Colors.white
+                                          ? contrastOn(c.color)
                                           : B.soft2,
                                     ),
                                   ),
@@ -1122,27 +1122,35 @@ class _EventViewSheet extends StatelessWidget {
         if (cat != null)
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 2),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: cat.color,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  categoryGlyph(cat, size: 15, iconColor: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    cat.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
+            child: Builder(
+              builder: (context) {
+                final fg = contrastOn(cat.color);
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
                   ),
-                ],
-              ),
+                  decoration: BoxDecoration(
+                    color: cat.color,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      categoryGlyph(cat, size: 15, iconColor: fg),
+                      const SizedBox(width: 6),
+                      Text(
+                        cat.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         Padding(
@@ -1706,7 +1714,11 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                   color: c.color,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: categoryGlyph(c, size: 32, iconColor: Colors.white),
+                child: categoryGlyph(
+                  c,
+                  size: 32,
+                  iconColor: contrastOn(c.color),
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -1761,6 +1773,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       final providerLabel = kImportProviders[c.provider]?.$1 ?? c.provider;
       final category = s.catById(c.category);
       final rowColor = category?.color ?? c.color;
+      final rowFg = contrastOn(rowColor);
       final eventLabel =
           '${c.events.length} event${c.events.length == 1 ? '' : 's'}';
       final inner = GestureDetector(
@@ -1786,18 +1799,9 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 ),
                 child: category == null
                     ? Center(
-                        child: ic(
-                          'download',
-                          size: 16,
-                          sw: 2.2,
-                          color: Colors.white,
-                        ),
+                        child: ic('download', size: 16, sw: 2.2, color: rowFg),
                       )
-                    : categoryGlyph(
-                        category,
-                        size: 32,
-                        iconColor: Colors.white,
-                      ),
+                    : categoryGlyph(category, size: 32, iconColor: rowFg),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -2726,7 +2730,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
                             c,
                             size: 14,
                             iconColor: _category == c.id
-                                ? Colors.white
+                                ? contrastOn(c.color)
                                 : c.color,
                           ),
                           const SizedBox(width: 5),
@@ -2735,7 +2739,9 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: _category == c.id ? Colors.white : B.soft2,
+                              color: _category == c.id
+                                  ? contrastOn(c.color)
+                                  : B.soft2,
                             ),
                           ),
                         ],

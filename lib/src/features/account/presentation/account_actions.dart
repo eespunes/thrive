@@ -80,7 +80,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       child: Text(
         initials.isEmpty ? '?' : initials,
         style: TextStyle(
-          color: Colors.white,
+          color: color == null ? Colors.white : contrastOn(color),
           fontWeight: FontWeight.w800,
           fontSize: fs,
         ),

@@ -523,6 +523,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
       Widget bar(CalendarOccurrence o, int cs, int ce, {bool faded = false}) {
         final col = evColor(o.ev);
+        final barFg = contrastOn(col);
         final category = catById(o.ev.category);
         final left = o.date.compareTo(ws) < 0;
         final right = o.spanEnd.compareTo(we) > 0;
@@ -549,7 +550,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (category != null) ...[
-                    categoryGlyph(category, size: 10, iconColor: Colors.white),
+                    categoryGlyph(category, size: 10, iconColor: barFg),
                     const SizedBox(width: 3),
                   ] else if (!o.isMultiDay)
                     Container(
@@ -557,7 +558,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       height: 5,
                       margin: const EdgeInsets.only(right: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: barFg,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -570,7 +571,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         height: 1,
-                        color: Colors.white,
+                        color: barFg,
                       ),
                     ),
                   ),
@@ -861,7 +862,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                 categoryGlyph(
                                   cat,
                                   size: 9,
-                                  iconColor: Colors.white,
+                                  iconColor: contrastOn(evColor(o.ev)),
                                 ),
                                 const SizedBox(width: 3),
                               ],
@@ -870,10 +871,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                   o.ev.title,
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w800,
-                                    color: Colors.white,
+                                    color: contrastOn(evColor(o.ev)),
                                   ),
                                 ),
                               ),
@@ -966,6 +967,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       builder: (_) {
                         final o = item.o;
                         final col = evColor(o.ev);
+                        final fg = contrastOn(col);
                         final top = _toMinutes(o.ev.start) / 60 * rowH;
                         final endMin = _timedEventEndMinutes(o.ev);
                         final h =
@@ -1009,7 +1011,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.w800,
                                           height: 1.05,
-                                          color: Colors.white,
+                                          color: fg,
                                         ),
                                       )
                                     : Text.rich(
@@ -1021,7 +1023,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                               child: categoryGlyph(
                                                 category,
                                                 size: 9,
-                                                iconColor: Colors.white,
+                                                iconColor: fg,
                                               ),
                                             ),
                                             TextSpan(text: ' ${o.ev.title}'),
@@ -1034,7 +1036,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                           fontSize: 9.5,
                                           fontWeight: FontWeight.w800,
                                           height: 1.05,
-                                          color: Colors.white,
+                                          color: fg,
                                         ),
                                       ),
                               ),
@@ -1312,7 +1314,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                         categoryGlyph(
                                           cat,
                                           size: 9,
-                                          iconColor: Colors.white,
+                                          iconColor: contrastOn(evColor(o.ev)),
                                         ),
                                         const SizedBox(width: 2),
                                       ],
@@ -1326,7 +1328,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                                           style: TextStyle(
                                             fontSize: 8,
                                             fontWeight: FontWeight.w800,
-                                            color: Colors.white,
+                                            color: contrastOn(evColor(o.ev)),
                                           ),
                                         ),
                                       ),
@@ -1462,7 +1464,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       child: categoryGlyph(
                         cat,
                         size: 18,
-                        iconColor: Colors.white,
+                        iconColor: contrastOn(col),
                       ),
                     ),
                     const SizedBox(width: 6),

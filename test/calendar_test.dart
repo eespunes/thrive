@@ -2842,6 +2842,17 @@ void main() {
   test('IcsImportException.toString() returns its message', () {
     expect(IcsImportException('boom').toString(), 'boom');
   });
+
+  test(
+    'contrastOn picks dark text for light colours, white for dark colours',
+    () {
+      // Pale yellow: light enough that white text would be unreadable.
+      expect(contrastOn(const Color(0xfffde047)), B.ink);
+      // Deep teal/navy: dark enough that white text stays readable.
+      expect(contrastOn(const Color(0xff0f172a)), Colors.white);
+      expect(contrastOn(const Color(0xff0E9A8D)), Colors.white);
+    },
+  );
 }
 
 String _isoNow() => todayIso();
