@@ -245,31 +245,6 @@ extension _ThriveFlow on _ThriveHomeState {
 
   // ------------------------------------------------------------- sub-header
   Widget _buildFlowSubHeader() {
-    final now = DateTime.now();
-    final onNow = year == now.year && monthIdx == now.month - 1;
-    final todayBtn = onNow
-        ? null
-        : GestureDetector(
-            key: const ValueKey('flow-today-btn'),
-            onTap: () => update(() {
-              year = now.year;
-              monthIdx = now.month - 1;
-              swipedId = null;
-            }),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: B.soft,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: B.primary),
-              ),
-              child: Center(
-                child: ic('cal', size: 16, sw: 2.3, color: B.deep),
-              ),
-            ),
-          );
-
     Widget vseg(String icon, String val) {
       final active = flowView == val;
       return GestureDetector(
@@ -307,7 +282,6 @@ extension _ThriveFlow on _ThriveHomeState {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        if (todayBtn != null) ...[todayBtn, const SizedBox(width: 8)],
         Container(
           decoration: BoxDecoration(
             color: const Color(0xffe8ecf2),
