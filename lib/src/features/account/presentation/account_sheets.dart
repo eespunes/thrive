@@ -959,6 +959,10 @@ class _FamilySheetState extends State<_FamilySheet> {
 
   Widget _memberRow(Family f, FamilyMember m, bool owner) {
     final isMe = m.id == 'me';
+    // Members with no login (uid == null, added via "Add family member")
+    // can't edit their own name/avatar, so anyone in the family — not just
+    // the owner — should be able to on their behalf.
+    final isLoginLess = m.uid == null && m.status != 'invited';
     final editableByOwner =
         owner &&
         !isMe &&
@@ -1091,8 +1095,10 @@ class _FamilySheetState extends State<_FamilySheet> {
     }
 
     final pill = s.memberPill(m.role, m.status);
-    final canEdit = isMe || editableByOwner;
-    final canRemove = owner && !isMe;
+    final canEdit = isMe || editableByOwner || isLoginLess;
+    // Anyone can remove a login-less member on their behalf (they can't
+    // remove themselves), same reasoning as editing them above.
+    final canRemove = !isMe && (owner || isLoginLess);
     return GestureDetector(
       key: ValueKey('member-${m.id}'),
       onTap: canEdit

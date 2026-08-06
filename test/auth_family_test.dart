@@ -384,6 +384,60 @@ void main() {
       expect(find.text('😀'), findsWidgets);
     });
 
+    testWidgets('a non-owner member can edit and remove a login-less member', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.pumpAndSettle();
+
+      // Demote 'me' to a plain member.
+      final me = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == 'me',
+      );
+      me.role = 'member';
+      expect(thriveDebug.amOwner(), isFalse);
+
+      // A non-owner can still open the inline edit for a login-less member...
+      await tester.tap(find.text('Emma Bakker'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
+      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.pumpAndSettle();
+      expect(
+        thriveDebug
+            .curFamily()!
+            .members
+            .firstWhere((m) => m.name == 'Emma B.')
+            .name,
+        'Emma B.',
+      );
+
+      // ...and remove them too.
+      final emmaId = thriveDebug
+          .curFamily()!
+          .members
+          .firstWhere((m) => m.name == 'Emma B.')
+          .id;
+      await tester.tap(find.byKey(ValueKey('member-remove-$emmaId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Member removed'), findsOneWidget);
+      expect(
+        thriveDebug.curFamily()!.members.any((m) => m.name == 'Emma B.'),
+        isFalse,
+      );
+    });
+
     testWidgets('a login-less member can be given an emoji avatar', (
       tester,
     ) async {
