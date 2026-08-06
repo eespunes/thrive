@@ -336,6 +336,54 @@ void main() {
       expect(added.status, 'active');
     });
 
+    testWidgets('owner edits a login-less member\'s name, emoji and picture', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.pumpAndSettle();
+
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Emma Bakker',
+      );
+
+      // Tap the row to enter inline edit mode.
+      await tester.tap(find.text('Emma Bakker'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
+
+      // Pick an emoji through the in-app picker (issue precedent from
+      // family_emoji_features_test.dart: hop to the Smileys tab and tap
+      // the first emoji since Recents starts empty).
+      await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Tab).at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('😀').first);
+      await tester.pumpAndSettle();
+
+      // Change the name too.
+      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.pumpAndSettle();
+
+      final updated = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(updated.name, 'Emma B.');
+      expect(updated.emoji, '😀');
+      expect(updated.photo, isNull);
+      expect(find.text('😀'), findsWidgets);
+    });
+
     testWidgets('a login-less member can be given an emoji avatar', (
       tester,
     ) async {
