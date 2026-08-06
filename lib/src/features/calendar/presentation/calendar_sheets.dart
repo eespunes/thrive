@@ -1574,12 +1574,22 @@ class _RecurDeleteSheet extends StatelessWidget {
 /// "Calendars & categories" — categories + imported calendars management,
 /// ported from `sheetCalManage()`. Replaces the #160/#161 placeholder.
 class _CalendarManageSheet extends StatefulWidget {
-  const _CalendarManageSheet({required this.state});
+  const _CalendarManageSheet({
+    required this.state,
+    this.mode = _CalManageMode.categories,
+  });
   final _ThriveHomeState state;
+
+  /// Which section(s) this sheet instance shows — split into two separate
+  /// More-screen rows/sheets (categories+colours vs imports) per issue
+  /// request, while keeping all the row-building logic in one place.
+  final _CalManageMode mode;
 
   @override
   State<_CalendarManageSheet> createState() => _CalendarManageSheetState();
 }
+
+enum _CalManageMode { categories, imports }
 
 class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   final Set<String> _syncing = {};
@@ -2015,115 +2025,101 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       );
     }
 
+    final showCats = widget.mode == _CalManageMode.categories;
+    final showImports = widget.mode == _CalManageMode.imports;
+
+    Widget sectionLabel(String text) => Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 9),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+          color: Color(0xff64748b),
+        ),
+      ),
+    );
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sheetHead(
             context,
-            'Calendars & categories',
-            'Colours, icons & imports',
+            showCats ? 'Categories' : 'Imported calendars',
+            showCats ? 'Colours, icons & member colours' : 'Feeds & sync',
           ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 9),
-            child: Text(
-              'CATEGORIES',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
-            ),
-          ),
-          if (cats.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'No categories yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+          if (showCats) ...[
+            sectionLabel('CATEGORIES'),
+            if (cats.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'No categories yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final c in cats)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: catRow(c),
-              ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _addButtonForSheet('New category', () {
-              Navigator.of(context).pop();
-              s.openCategory(null);
-            }),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 20, bottom: 9),
-            child: Text(
-              'FAMILY MEMBER COLOURS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
-            ),
-          ),
-          if (members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'No members yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+              )
+            else
+              for (final c in cats)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: catRow(c),
                 ),
-              ),
-            )
-          else
-            for (final m in members) memberColourRow(m),
-          const Padding(
-            padding: EdgeInsets.only(top: 20, bottom: 9),
-            child: Text(
-              'IMPORTED CALENDARS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('New category', () {
+                Navigator.of(context).pop();
+                s.openCategory(null);
+              }),
             ),
-          ),
-          if (imps.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'Nothing imported yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+            sectionLabel('FAMILY MEMBER COLOURS'),
+            if (members.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'No members yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final c in imps)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: impRow(c),
-              ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _addButtonForSheet('Import a calendar', () {
-              Navigator.of(context).pop();
-              s.openImportCalendarSheet();
-            }, icon: 'download'),
-          ),
+              )
+            else
+              for (final m in members) memberColourRow(m),
+          ],
+          if (showImports) ...[
+            if (imps.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Nothing imported yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
+                ),
+              )
+            else
+              for (final c in imps)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: impRow(c),
+                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('Import a calendar', () {
+                Navigator.of(context).pop();
+                s.openImportCalendarSheet();
+              }, icon: 'download'),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Row(
@@ -2349,7 +2345,7 @@ class _CategorySheetState extends State<_CategorySheet> {
               members: _members,
             );
             Navigator.of(context).pop();
-            s.openCalendarManageSheet();
+            s.openCalendarManageSheet(mode: _CalManageMode.categories);
           }, enabled: valid),
           if (_editing)
             GestureDetector(
@@ -2360,7 +2356,7 @@ class _CategorySheetState extends State<_CategorySheet> {
                   'Events keep their times but lose this category.',
                   () {
                     s.deleteCategory(widget.category!.id);
-                    s.openCalendarManageSheet();
+                    s.openCalendarManageSheet(mode: _CalManageMode.categories);
                   },
                 );
               },
@@ -2455,7 +2451,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     if (!mounted) return;
     if (err == null) {
       Navigator.of(context).pop();
-      s.openCalendarManageSheet();
+      s.openCalendarManageSheet(mode: _CalManageMode.imports);
       return;
     }
     setState(() => _busy = false);

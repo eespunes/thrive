@@ -10,6 +10,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       for (final m in f?.members ?? const <FamilyMember>[]) m.id,
     ];
     final catCount = eventCategories.length;
+    final impCount = importedCalendars.length;
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
       children: [
@@ -28,10 +29,19 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           _moreRow(
             key: 'more-calmanage',
             icon: 'cal',
-            title: 'Calendars & categories',
-            sub: 'Imports, colours & icons',
-            onTap: openCalendarManageSheet,
+            title: 'Categories',
+            sub: 'Colours, icons & member colours',
+            onTap: () =>
+                openCalendarManageSheet(mode: _CalManageMode.categories),
             trail: _moreMeta('$catCount cat${catCount == 1 ? '' : 's'}'),
+          ),
+          _moreRow(
+            key: 'more-calimports',
+            icon: 'download',
+            title: 'Imported calendars',
+            sub: 'Feeds & sync',
+            onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
+            trail: _moreMeta('$impCount cal${impCount == 1 ? '' : 's'}'),
           ),
         ]),
         const SizedBox(height: 18),

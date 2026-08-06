@@ -857,8 +857,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- imports
-  void openCalendarManageSheet() {
-    _showSheet((ctx) => _CalendarManageSheet(state: this));
+  void openCalendarManageSheet({
+    _CalManageMode mode = _CalManageMode.categories,
+  }) {
+    _showSheet((ctx) => _CalendarManageSheet(state: this, mode: mode));
   }
 
   void openImportCalendarSheet() {

@@ -50,6 +50,7 @@ void main() {
       'more-profile',
       'more-weekly',
       'more-calmanage',
+      'more-calimports',
       'more-finsettings',
       'more-family',
       'more-invite',
@@ -120,7 +121,7 @@ void main() {
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
-  testWidgets('More → Calendars & categories opens the management sheet', (
+  testWidgets('More → Categories opens the category management sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -129,8 +130,20 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('more-calmanage')));
     await tester.pumpAndSettle();
-    expect(find.text('Calendars & categories'), findsWidgets);
+    expect(find.text('Categories'), findsWidgets);
     expect(find.text('No categories yet.'), findsOneWidget);
+  });
+
+  testWidgets('More → Imported calendars opens the imports management sheet', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('more-calimports')));
+    await tester.pumpAndSettle();
+    expect(find.text('Imported calendars'), findsWidgets);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
 

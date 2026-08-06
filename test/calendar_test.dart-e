@@ -43,12 +43,10 @@ Future<void> goToCalendar(WidgetTester tester) async {
 
 /// Calendar management (categories/imports) moved behind the More hub once
 /// the new header replaced the old inline sub-header's "Manage" button.
-Future<void> openCalManage(WidgetTester tester, {bool imports = false}) async {
+Future<void> openCalManage(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
-  await tester.tap(
-    find.byKey(ValueKey(imports ? 'more-calimports' : 'more-calmanage')),
-  );
+  await tester.tap(find.byKey(const ValueKey('more-calmanage')));
   await tester.pumpAndSettle();
 }
 
@@ -787,8 +785,8 @@ void main() {
     expect(scheduler.cancelledEvents, [eventId]);
   });
 
-  testWidgets('creating a category from the event editor lands on '
-      'Categories with it listed', (tester) async {
+  testWidgets('creating a category from the event editor lands on Calendars & '
+      'categories with it listed', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -803,9 +801,9 @@ void main() {
     await tester.tap(find.text('Add category'));
     await tester.pumpAndSettle();
 
-    // Saving routes to "Categories" with the new category listed (matches
-    // the design's `saveCategory()`).
-    expect(find.text('Categories'), findsWidgets);
+    // Saving routes to "Calendars & categories" with the new category
+    // listed (matches the design's `saveCategory()`).
+    expect(find.text('Calendars & categories'), findsWidgets);
     expect(find.text('Work'), findsWidgets);
   });
 
@@ -844,22 +842,11 @@ void main() {
     );
     await openCalManage(tester);
 
-    final catMarker = tester.widget<Container>(
-      find.byKey(const ValueKey('cat-marker-family')),
-    );
-    expect(catMarker.color, categoryColor);
-    expect(catMarker.constraints?.maxWidth, 4);
-
-    // Close the categories sheet before opening the imports sheet.
-    await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
-
-    await openCalManage(tester, imports: true);
-    final impMarker = tester.widget<Container>(
-      find.byKey(const ValueKey('imp-marker-school-feed')),
-    );
-    expect(impMarker.color, categoryColor);
-    expect(impMarker.constraints?.maxWidth, 4);
+    for (final key in ['cat-marker-family', 'imp-marker-school-feed']) {
+      final marker = tester.widget<Container>(find.byKey(ValueKey(key)));
+      expect(marker.color, categoryColor);
+      expect(marker.constraints?.maxWidth, 4);
+    }
     final importVisual = find.byKey(const ValueKey('imp-visual-school-feed'));
     expect(
       find.descendant(of: importVisual, matching: find.byType(SvgPicture)),
@@ -926,7 +913,7 @@ void main() {
       prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
       landOnDefaultTab: true,
     );
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
 
     await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
     await tester.pumpAndSettle();
@@ -997,12 +984,7 @@ void main() {
       await openCalManage(tester);
       expect(find.text('Colors'), findsWidgets);
 
-      // Close the categories sheet before opening the imports sheet.
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-
       // Imported calendar sheet.
-      await openCalManage(tester, imports: true);
       await tester.tap(
         find.byKey(const ValueKey('imp-settings-training-feed')),
       );
@@ -1311,7 +1293,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
 
     await tester.tap(find.text('Import a calendar'));
@@ -1367,7 +1349,7 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
 
-      await openCalManage(tester, imports: true);
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1407,7 +1389,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await openCalManage(tester, imports: true);
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1430,7 +1412,7 @@ void main() {
       // pick up the new title this time.
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-calimports')));
+      await tester.tap(find.byKey(const ValueKey('more-calmanage')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Auto-syncs on open'));
       await tester.pumpAndSettle();
@@ -1458,7 +1440,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1499,7 +1481,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await openCalManage(tester, imports: true);
+      await openCalManage(tester);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1541,7 +1523,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2688,7 +2670,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2727,7 +2709,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester, imports: true);
+    await openCalManage(tester);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
