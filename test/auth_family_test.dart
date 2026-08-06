@@ -368,5 +368,45 @@ void main() {
       );
       expect(untouched.emoji, '🐼');
     });
+
+    testWidgets(
+      'a local family password survives a reboot (session cache lost)',
+      (tester) async {
+        await pumpApp(tester);
+
+        final err = await thriveDebug.createFamily(
+          'Bakker family',
+          username: 'bakkerfam',
+          password: 'sunshine',
+        );
+        expect(err, isNull);
+        await tester.pumpAndSettle();
+
+        // Immediately after creation the password is served from the
+        // in-memory session cache.
+        final fam = thriveDebug.curFamily()!;
+        expect(await thriveDebug.fetchFamilyPassword(fam), 'sunshine');
+
+        // Simulate a fresh app session: the in-memory cache is gone, but the
+        // password must still be recoverable from the on-device registry in
+        // local/demo mode.
+        await rebootApp(tester);
+        final famAfterReboot = thriveDebug.curFamily()!;
+        expect(
+          await thriveDebug.fetchFamilyPassword(famAfterReboot),
+          'sunshine',
+        );
+
+        // Also verify the "Invite someone" sheet itself now shows it.
+        await tester.tap(find.byKey(const ValueKey('nav-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('more-invite')));
+        await tester.pumpAndSettle();
+        expect(find.text('•' * 'sunshine'.length), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
+        await tester.pumpAndSettle();
+        expect(find.text('sunshine'), findsOneWidget);
+      },
+    );
   });
 }

@@ -84,7 +84,19 @@ class ThriveDebugController {
   void addMember(String name, {String? photo, String? emoji}) =>
       _s.addMember(name, photo: photo, emoji: emoji);
   void switchFamily(String id) => _s.switchFamily(id);
-  void createFamily(String name) => _s.createFamily(name);
+  Future<String?> createFamily(
+    String name, {
+    String? username,
+    String? password,
+    String? picture,
+  }) => _s.createFamily(
+    name,
+    username: username,
+    password: password,
+    picture: picture,
+  );
+  Future<String?> fetchFamilyPassword(Family family) =>
+      _s.fetchFamilyPassword(family);
   void deleteFamily(String id) => _s.deleteFamily(id);
   void leaveFamily(String id) => _s.leaveFamily(id);
   void setYear(int y) => _s.setYear(y);

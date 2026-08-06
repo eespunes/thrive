@@ -663,10 +663,34 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _sessionFamilyPasswords[slug] = password;
   }
 
+  /// The join password for [family]. In local/demo mode (no Firebase user)
+  /// the plaintext password lives in the on-device registry, so it can
+  /// always be looked up there — no need to have typed it this session. In
+  /// cloud mode only a salted hash is stored server-side, so it's only
+  /// available if it was typed in this app session (during create or join);
+  /// otherwise this returns null and the UI should show "Not set".
+  Future<String?> fetchFamilyPassword(Family family) async {
+    final cached = sessionFamilyPassword(family);
+    if (cached != null) return cached;
+    if (_firebaseUid() != null) return null;
+    final reg = await loadRegistry();
+    final entry = reg[family.username];
+    if (entry is Map) {
+      final pw = entry['password'];
+      if (pw is String && pw.isNotEmpty) {
+        _sessionFamilyPasswords[family.id] = pw;
+        return pw;
+      }
+    }
+    return null;
+  }
+
   /// The join password for [family], but only if it was typed in this app
   /// session (during create or join) — never read back from storage, since
   /// cloud families only keep a salted hash server-side. Returns null
-  /// otherwise (UI should show "Not set").
+  /// otherwise (UI should show "Not set"). Prefer [fetchFamilyPassword] when
+  /// the caller can await, since it also recovers local/demo passwords that
+  /// were set in a previous session.
   String? sessionFamilyPassword(Family family) =>
       _sessionFamilyPasswords[family.id] ??
       _sessionFamilyPasswords[family.username];

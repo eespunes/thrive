@@ -437,11 +437,30 @@ class _InviteSheet extends StatefulWidget {
 
 class _InviteSheetState extends State<_InviteSheet> {
   bool _showPw = false;
+  String? _pw;
+  bool _pwLoaded = false;
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _emailFocus = FocusNode();
 
   _ThriveHomeState get s => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPassword();
+  }
+
+  Future<void> _loadPassword() async {
+    final f = s.curFamily();
+    if (f == null) return;
+    final pw = await s.fetchFamilyPassword(f);
+    if (!mounted) return;
+    setState(() {
+      _pw = pw;
+      _pwLoaded = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -471,7 +490,7 @@ class _InviteSheetState extends State<_InviteSheet> {
   Widget build(BuildContext context) {
     final f = s.curFamily();
     if (f == null) return const SizedBox.shrink();
-    final pw = s.sessionFamilyPassword(f);
+    final pw = _pw;
     final valid = _name.text.trim().isNotEmpty && _validEmail(_email.text);
     return SingleChildScrollView(
       child: Column(
@@ -511,8 +530,18 @@ class _InviteSheetState extends State<_InviteSheet> {
                     'Family password',
                     _showPw ? pw : '•' * pw.length,
                     icon: _showPw ? 'eyeoff' : 'eye',
+                    iconKey: const ValueKey('invite-password-toggle'),
                     onIcon: () => setState(() => _showPw = !_showPw),
                     onCopy: () => _copy('Password', pw),
+                  )
+                else if (!_pwLoaded)
+                  const Text(
+                    'Loading…',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: B.soft2,
+                    ),
                   )
                 else
                   const Text(
@@ -592,6 +621,7 @@ class _InviteSheetState extends State<_InviteSheet> {
     String? icon,
     VoidCallback? onIcon,
     required VoidCallback onCopy,
+    Key? iconKey,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
@@ -628,6 +658,7 @@ class _InviteSheetState extends State<_InviteSheet> {
           ),
           if (icon != null)
             GestureDetector(
+              key: iconKey,
               onTap: onIcon,
               child: Padding(
                 padding: const EdgeInsets.only(left: 8),
