@@ -64,8 +64,25 @@ class ThriveDebugController {
   void inviteMember(String name, String email) => _s.inviteMember(name, email);
   void removeMember(String id) => _s.removeMember(id);
   void toggleMemberRole(String id) => _s.toggleMemberRole(id);
-  void editMember(String id, String name, String email) =>
-      _s.editMember(id, name, email);
+  void editMember(
+    String id,
+    String name,
+    String email, {
+    String? photo,
+    String? emoji,
+    bool photoTouched = false,
+    bool emojiTouched = false,
+  }) => _s.editMember(
+    id,
+    name,
+    email,
+    photo: photo,
+    emoji: emoji,
+    photoTouched: photoTouched,
+    emojiTouched: emojiTouched,
+  );
+  void addMember(String name, {String? photo, String? emoji}) =>
+      _s.addMember(name, photo: photo, emoji: emoji);
   void switchFamily(String id) => _s.switchFamily(id);
   void createFamily(String name) => _s.createFamily(name);
   void deleteFamily(String id) => _s.deleteFamily(id);

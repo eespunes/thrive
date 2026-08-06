@@ -335,5 +335,38 @@ void main() {
       expect(added.id, isNotEmpty);
       expect(added.status, 'active');
     });
+
+    testWidgets('a login-less member can be given an emoji avatar', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      thriveDebug.addMember('Kid One', emoji: '🦄');
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Kid One',
+      );
+      expect(added.emoji, '🦄');
+      expect(added.photo, isNull);
+
+      thriveDebug.editMember(
+        added.id,
+        'Kid One',
+        '',
+        emoji: '🐼',
+        emojiTouched: true,
+      );
+      final updated = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(updated.emoji, '🐼');
+
+      // Without the touched flag, an existing emoji/photo is left alone.
+      thriveDebug.editMember(added.id, 'Kid One', '');
+      final untouched = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(untouched.emoji, '🐼');
+    });
   });
 }

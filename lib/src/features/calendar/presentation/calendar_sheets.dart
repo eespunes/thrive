@@ -659,6 +659,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                               children: [
                                 s.avatarNode(
                                   photo: m.photo,
+                                  emoji: m.emoji,
                                   initials: m.initials,
                                   color: m.color,
                                   size: 22,
@@ -2321,6 +2322,7 @@ class _CategorySheetState extends State<_CategorySheet> {
                         children: [
                           s.avatarNode(
                             photo: m.photo,
+                            emoji: m.emoji,
                             initials: m.initials,
                             color: m.color,
                             size: 22,

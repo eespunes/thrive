@@ -230,6 +230,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   final mem = m.first;
                   return avatarNode(
                     photo: mem.photo,
+                    emoji: mem.emoji,
                     initials: mem.initials,
                     color: mem.color,
                     size: size,
