@@ -510,5 +510,35 @@ void main() {
         expect(find.text('sunshine'), findsOneWidget);
       },
     );
+
+    testWidgets('a non-owner member can reveal the family password', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      final err = await thriveDebug.createFamily(
+        'Bakker family',
+        username: 'bakkerfam2',
+        password: 'sunshine2',
+      );
+      expect(err, isNull);
+      await tester.pumpAndSettle();
+
+      // Demote 'me' to a plain member.
+      final me = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == 'me',
+      );
+      me.role = 'member';
+      expect(thriveDebug.amOwner(), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-invite')));
+      await tester.pumpAndSettle();
+      expect(find.text('•' * 'sunshine2'.length), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('sunshine2'), findsOneWidget);
+    });
   });
 }
