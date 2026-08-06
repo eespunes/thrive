@@ -312,7 +312,7 @@ extension _ThriveScreens on _ThriveHomeState {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'PROJECTED BALANCE',
+                  'EXPECTED BALANCE',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
@@ -322,22 +322,13 @@ extension _ThriveScreens on _ThriveHomeState {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  eur(c.balance),
+                  eur(c.expectedBalance),
                   style: const TextStyle(
                     fontSize: 29,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.6,
                     color: Colors.white,
                     fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  'Expected ${eur(c.expectedBalance)}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: .92),
                   ),
                 ),
               ],
