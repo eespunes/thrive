@@ -425,8 +425,8 @@ extension _ThriveMoreScreen on _ThriveHomeState {
 }
 
 /// "Invite someone" sheet: family join details (username + optional
-/// password, masked with a reveal toggle) and an invite-by-email form.
-/// Mirrors the design's `sheetInvite()`.
+/// password, masked with a reveal toggle) so anyone can join by entering
+/// them. Mirrors the design's `sheetInvite()`.
 class _InviteSheet extends StatefulWidget {
   const _InviteSheet({required this.state});
   final _ThriveHomeState state;
@@ -439,9 +439,6 @@ class _InviteSheetState extends State<_InviteSheet> {
   bool _showPw = false;
   String? _pw;
   bool _pwLoaded = false;
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _emailFocus = FocusNode();
 
   _ThriveHomeState get s => widget.state;
 
@@ -462,28 +459,10 @@ class _InviteSheetState extends State<_InviteSheet> {
     });
   }
 
-  @override
-  void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _emailFocus.dispose();
-    super.dispose();
-  }
-
-  bool _validEmail(String v) => _kEmailRe.hasMatch(v.trim());
-
   void _copy(String label, String value) {
     if (value.isEmpty) return;
     Clipboard.setData(ClipboardData(text: value));
     s.flash('$label copied');
-  }
-
-  void _send() {
-    final name = _name.text.trim();
-    final email = _email.text.trim();
-    if (name.isEmpty || !_validEmail(email)) return;
-    s.inviteMember(name, email);
-    Navigator.of(context).maybePop();
   }
 
   @override
@@ -491,7 +470,6 @@ class _InviteSheetState extends State<_InviteSheet> {
     final f = s.curFamily();
     if (f == null) return const SizedBox.shrink();
     final pw = _pw;
-    final valid = _name.text.trim().isNotEmpty && _validEmail(_email.text);
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -553,61 +531,6 @@ class _InviteSheetState extends State<_InviteSheet> {
                     ),
                   ),
               ],
-            ),
-          ),
-          const Text(
-            'OR INVITE BY EMAIL',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .3,
-              color: B.muted,
-            ),
-          ),
-          const SizedBox(height: 10),
-          _sheetField(
-            'Name',
-            _sheetInput(
-              _name,
-              hint: 'Lisa Janssen',
-              textInputAction: TextInputAction.next,
-              onSubmitted: (_) => _emailFocus.requestFocus(),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          _sheetField(
-            'Email',
-            _sheetInput(
-              _email,
-              hint: 'lisa@email.com',
-              focusNode: _emailFocus,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (valid) _send();
-              },
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(height: 4),
-          GestureDetector(
-            key: const ValueKey('invite-send'),
-            onTap: valid ? _send : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: valid ? B.primary : B.line,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Center(
-                child: Text(
-                  'Send invite',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: valid ? Colors.white : B.muted,
-                  ),
-                ),
-              ),
             ),
           ),
         ],
