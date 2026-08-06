@@ -33,7 +33,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             sub: 'Colours, icons & member colours',
             onTap: () =>
                 openCalendarManageSheet(mode: _CalManageMode.categories),
-            trail: _moreMeta('$catCount cat${catCount == 1 ? '' : 's'}'),
+            trail: _moreMeta('$catCount categor${catCount == 1 ? 'y' : 'ies'}'),
           ),
           _moreRow(
             key: 'more-calimports',
@@ -41,7 +41,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             title: 'Imported calendars',
             sub: 'Feeds & sync',
             onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
-            trail: _moreMeta('$impCount cal${impCount == 1 ? '' : 's'}'),
+            trail: _moreMeta('$impCount calendar${impCount == 1 ? '' : 's'}'),
           ),
         ]),
         const SizedBox(height: 18),
