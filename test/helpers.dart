@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A signed-in user blob so the auth gate is bypassed in tests. The mock
@@ -78,6 +79,13 @@ Future<void> pumpApp(
   addTearDown(tester.view.resetDevicePixelRatio);
   dismissAppError();
   addTearDown(dismissAppError);
+  PackageInfo.setMockInitialValues(
+    appName: 'Thrive',
+    packageName: 'com.thrive.app',
+    version: '2.7.1',
+    buildNumber: '46',
+    buildSignature: '',
+  );
   SharedPreferences.setMockInitialValues({
     if (signedIn) ..._signedInUser,
     ...prefs,

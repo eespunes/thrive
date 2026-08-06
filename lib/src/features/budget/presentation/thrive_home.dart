@@ -253,12 +253,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// and rebuild when state changes underneath them.
   final ValueNotifier<int> _rev = ValueNotifier<int>(0);
 
+  /// App version from pubspec (e.g. "2.7.1"), without the build number
+  /// suffix. Populated asynchronously in [initState]; empty until then.
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
     thriveDebug._attach(this);
     WidgetsBinding.instance.addObserver(this);
     _boot();
+    _loadAppVersion();
     pendingNotificationDeepLink.addListener(_handleNotificationDeepLink);
     // A tap that launched the app cold arrives before this listener attaches.
     _handleNotificationDeepLink();
@@ -330,6 +335,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   // ---------------------------------------------------------------- boot
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _appVersion = info.version);
+  }
+
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();

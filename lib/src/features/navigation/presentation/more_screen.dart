@@ -88,10 +88,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           ),
         ]),
         const SizedBox(height: 18),
-        const Center(
+        Center(
           child: Text(
-            'Thrive · v2.6',
-            style: TextStyle(
+            _appVersion.isEmpty ? 'Thrive' : 'Thrive · v$_appVersion',
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: B.muted,

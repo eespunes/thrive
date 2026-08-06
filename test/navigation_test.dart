@@ -66,6 +66,10 @@ void main() {
         .getTopLeft(find.byKey(const ValueKey('more-signout')))
         .dy;
     expect(firstTop, lessThan(lastTop));
+
+    // Version label reads the pubspec version, without the build-number
+    // "+N" suffix (mocked to 2.7.1+46 in tests).
+    expect(find.text('Thrive · v2.7.1'), findsOneWidget);
   });
 
   testWidgets(
