@@ -238,6 +238,7 @@ class ImportedCalendar {
     this.autoSync = true,
     this.includeLocation = true,
     this.includeDescription = true,
+    this.reminder = '1h',
     List<ImportedCalendarEvent>? events,
   }) : events = events ?? <ImportedCalendarEvent>[];
 
@@ -264,6 +265,11 @@ class ImportedCalendar {
   /// sports feed's venue and competition/match link) or stripped on import.
   bool includeLocation;
   bool includeDescription;
+
+  /// `none` | `at` | `5m` | `15m` | `30m` | `1h` | `2h` | `1d` | `2d` — applied
+  /// to every occurrence from this feed, since imported events don't have
+  /// their own per-event reminder field.
+  String reminder;
   List<ImportedCalendarEvent> events;
 
   Map<String, dynamic> toJson() => {
@@ -277,6 +283,7 @@ class ImportedCalendar {
     'autoSync': autoSync,
     'includeLocation': includeLocation,
     'includeDescription': includeDescription,
+    'reminder': reminder,
     'events': events.map((e) => e.toJson()).toList(),
   };
 
@@ -291,6 +298,7 @@ class ImportedCalendar {
     autoSync: j['autoSync'] != false,
     includeLocation: j['includeLocation'] != false,
     includeDescription: j['includeDescription'] != false,
+    reminder: (j['reminder'] ?? '1h').toString(),
     events: [
       for (final e in (j['events'] as List? ?? []))
         ImportedCalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),

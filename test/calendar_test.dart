@@ -958,6 +958,60 @@ void main() {
     expect(find.text('Imported training'), findsNothing);
   });
 
+  testWidgets('changing an imported calendar reminder persists it', (
+    tester,
+  ) async {
+    final imported = ImportedCalendar(
+      id: 'training-feed',
+      name: 'Training',
+      provider: 'ics',
+      color: kCatColors.first,
+      url: 'https://example.com/training.ics',
+      autoSync: false,
+      events: [
+        ImportedCalendarEvent(
+          id: 'training-1',
+          title: 'Imported training',
+          date: todayIso(),
+        ),
+      ],
+    );
+
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
+      landOnDefaultTab: true,
+    );
+    await openCalManage(tester, imports: true);
+
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    expect(find.text('REMINDER'), findsOneWidget);
+
+    await tester.dragUntilVisible(
+      find.text('1 day before'),
+      find.byType(SingleChildScrollView).last,
+      const Offset(-50, 0),
+    );
+    await tester.tap(find.text('1 day before'));
+    await tester.pump();
+    await tester.tap(find.text('Save calendar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    final chip = tester
+        .widgetList<Container>(
+          find.ancestor(
+            of: find.text('1 day before'),
+            matching: find.byType(Container),
+          ),
+        )
+        .first;
+    final decoration = chip.decoration as BoxDecoration;
+    expect(decoration.color, B.soft);
+  });
+
   testWidgets(
     'category, event, member colour and imported-calendar pickers all expose more colors',
     (tester) async {

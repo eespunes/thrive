@@ -408,7 +408,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         await NotificationService.instance.scheduleTaskReminder(t);
       }
     }
-    await NotificationService.instance.syncEventReminders(events);
+    final importedEvents = [
+      for (final cal in importedCalendars)
+        if (cal.visible && cal.reminder != 'none')
+          for (final e in cal.events) importedSyntheticEvent(cal, e),
+    ];
+    await NotificationService.instance.syncEventReminders([
+      ...events,
+      ...importedEvents,
+    ]);
   }
 
   void _syncUserFromFirebaseAuth() {

@@ -327,7 +327,9 @@ extension _ThriveFlow on _ThriveHomeState {
     const tightTone = Color(0xfffcd34d);
     const okTone = Color(0xff6ee7b7);
     final tone = bad ? badTone : (tight ? tightTone : okTone);
-    final label = bad ? 'Goes negative' : (tight ? 'Gets tight' : 'Stays positive');
+    final label = bad
+        ? 'Goes negative'
+        : (tight ? 'Gets tight' : 'Stays positive');
 
     Widget stat(String lab, String val, Color col) => Expanded(
       child: Column(
@@ -452,7 +454,11 @@ extension _ThriveFlow on _ThriveHomeState {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               stat('Money in', '+${eur(f.inSum, cents: false)}', okTone),
-              stat('Money out', '\u2212${eur(f.outSum, cents: false)}', badTone),
+              stat(
+                'Money out',
+                '\u2212${eur(f.outSum, cents: false)}',
+                badTone,
+              ),
               GestureDetector(
                 key: const ValueKey('flow-start-btn'),
                 onTap: openOpenBalSheet,
@@ -493,7 +499,12 @@ extension _ThriveFlow on _ThriveHomeState {
                             ),
                           ),
                           const SizedBox(width: 5),
-                          ic('edit', size: 11, sw: 2.4, color: const Color(0x99ffffff)),
+                          ic(
+                            'edit',
+                            size: 11,
+                            sw: 2.4,
+                            color: const Color(0x99ffffff),
+                          ),
                         ],
                       ),
                     ],
@@ -726,7 +737,12 @@ extension _ThriveFlow on _ThriveHomeState {
                 ),
                 child: r.done
                     ? Center(
-                        child: ic('check', size: 14, sw: 3, color: Colors.white),
+                        child: ic(
+                          'check',
+                          size: 14,
+                          sw: 3,
+                          color: Colors.white,
+                        ),
                       )
                     : null,
               ),
@@ -1094,8 +1110,9 @@ extension _ThriveFlow on _ThriveHomeState {
                           fontSize: 8,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .4,
-                          color: (isToday ? Colors.white : B.ink)
-                              .withValues(alpha: .72),
+                          color: (isToday ? Colors.white : B.ink).withValues(
+                            alpha: .72,
+                          ),
                         ),
                       ),
                     ],
@@ -1252,11 +1269,9 @@ class _FlowDaySheet extends StatelessWidget {
     final d = f.days[math.min(day, f.dim) - 1];
     final locked = f.closed;
     final rows = [...d.inRows, ...d.outRows];
-    final wd = kWeekdaysFull[DateTime(
-      state.year,
-      state.monthIdx + 1,
-      d.day,
-    ).weekday - 1];
+    final wd =
+        kWeekdaysFull[DateTime(state.year, state.monthIdx + 1, d.day).weekday -
+            1];
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,

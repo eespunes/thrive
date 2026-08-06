@@ -53,12 +53,15 @@ void main() {
       expect(r.movedFrom, 7);
     });
 
-    test('resolveMoneyDay clamps a weekend 1st with before (no infinite loop)', () {
-      // Feb 1st 2026 is a Sunday.
-      final r = resolveMoneyDay(1, 'before', 2026, 1);
-      expect(r.day, 1);
-      expect(r.movedFrom, isNull);
-    });
+    test(
+      'resolveMoneyDay clamps a weekend 1st with before (no infinite loop)',
+      () {
+        // Feb 1st 2026 is a Sunday.
+        final r = resolveMoneyDay(1, 'before', 2026, 1);
+        expect(r.day, 1);
+        expect(r.movedFrom, isNull);
+      },
+    );
 
     test(
       'resolveMoneyDay clamps a weekend last day with after (no infinite loop)',
@@ -77,9 +80,7 @@ void main() {
   });
 
   group('Money calendar screen', () {
-    testWidgets('third finance segment opens the flow screen', (
-      tester,
-    ) async {
+    testWidgets('third finance segment opens the flow screen', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
       expect(find.text('Money calendar'), findsWidgets);
@@ -90,9 +91,7 @@ void main() {
       expect(find.byKey(const ValueKey('flow-start-btn')), findsOneWidget);
     });
 
-    testWidgets('toggling between calendar and timeline views', (
-      tester,
-    ) async {
+    testWidgets('toggling between calendar and timeline views', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
       expect(find.byKey(const ValueKey('flow-view-calendar')), findsOneWidget);
@@ -126,10 +125,7 @@ void main() {
       await goToTab(tester, 'flow');
       await tester.tap(find.byKey(const ValueKey('flow-start-btn')));
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('What sits on your accounts'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('What sits on your accounts'), findsOneWidget);
       await tester.enterText(find.byType(TextField).first, '1500');
       await tester.tap(find.text('Save start balance'));
       await tester.pumpAndSettle();
@@ -151,9 +147,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('shift field appears in the income edit sheet', (
-      tester,
-    ) async {
+    testWidgets('shift field appears in the income edit sheet', (tester) async {
       await pumpApp(tester);
       final income = firstIncomeLabel(tester);
       await tester.tap(find.text(income).first);

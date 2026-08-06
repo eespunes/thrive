@@ -2404,6 +2404,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
   bool _autoSync = true;
   bool _includeLocation = true;
   bool _includeDescription = true;
+  String _reminder = '1h';
 
   bool get _editing => widget.calendar != null;
 
@@ -2419,6 +2420,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     _autoSync = cal?.autoSync ?? true;
     _includeLocation = cal?.includeLocation ?? true;
     _includeDescription = cal?.includeDescription ?? true;
+    _reminder = cal?.reminder ?? '1h';
   }
 
   @override
@@ -2443,6 +2445,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             autoSync: _autoSync,
             includeLocation: _includeLocation,
             includeDescription: _includeDescription,
+            reminder: _reminder,
           )
         : await s.saveImport(
             name: _name.text,
@@ -2452,6 +2455,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             autoSync: _autoSync,
             includeLocation: _includeLocation,
             includeDescription: _includeDescription,
+            reminder: _reminder,
           );
     if (!mounted) return;
     if (err == null) {
@@ -2461,6 +2465,45 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     }
     setState(() => _busy = false);
     s.showError(err);
+  }
+
+  Widget _importChipRow(
+    List<(String, String)> opts,
+    String value,
+    ValueChanged<String> onPick,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (k, label) in opts) ...[
+            GestureDetector(
+              onTap: () => onPick(k),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: value == k ? B.soft : Colors.white,
+                  border: Border.all(color: value == k ? B.primary : B.line),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == k ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _toggleRow({
@@ -2579,6 +2622,36 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
               subtitle: 'e.g. a competition name or extra feed details',
               value: _includeDescription,
               onChanged: (v) => setState(() => _includeDescription = v),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'REMINDER',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: _importChipRow(
+              const [
+                ('none', 'No reminder'),
+                ('at', 'On time'),
+                ('5m', '5 min before'),
+                ('15m', '15 min before'),
+                ('30m', '30 min before'),
+                ('1h', '1 hour before'),
+                ('2h', '2 hours before'),
+                ('1d', '1 day before'),
+                ('2d', '2 days before'),
+              ],
+              _reminder,
+              (v) => setState(() => _reminder = v),
             ),
           ),
           _sheetField(
