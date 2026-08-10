@@ -528,57 +528,79 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         final left = o.date.compareTo(ws) < 0;
         final right = o.spanEnd.compareTo(we) > 0;
         final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
-        return GestureDetector(
-          key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
-          onTap: () => openEventView(o.ev.id, o.date),
-          child: Opacity(
-            opacity: faded ? _calendarFadedOpacity : 1,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
-              height: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: col,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(left ? 0 : 4),
-                  bottomLeft: Radius.circular(left ? 0 : 4),
-                  topRight: Radius.circular(right ? 0 : 4),
-                  bottomRight: Radius.circular(right ? 0 : 4),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (category != null) ...[
-                    categoryGlyph(category, size: 10, iconColor: barFg),
-                    const SizedBox(width: 3),
-                  ] else if (!o.isMultiDay)
-                    Container(
-                      width: 5,
-                      height: 5,
-                      margin: const EdgeInsets.only(right: 3),
-                      decoration: BoxDecoration(
-                        color: barFg,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  Flexible(
-                    child: Text(
-                      label,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                        color: barFg,
-                      ),
+        final span = ce - cs + 1;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Tapping an event bar (single- or multi-day) always opens the
+            // day-detail sheet for the day under the finger — never the
+            // individual event view directly — so every tap on a Month-view
+            // day, on an event or on empty space, shows the day's full
+            // event list first (issue #198).
+            void openDetailForTap(double localX) {
+              final width = constraints.maxWidth;
+              final frac = width > 0 ? (localX / width).clamp(0.0, 0.999) : 0;
+              final dayIndex = (cs + (frac * span).floor()).clamp(cs, ce);
+              final iso = row[dayIndex];
+              setCalSel(iso);
+              openDayDetail(iso);
+            }
+
+            return GestureDetector(
+              key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
+              onTapUp: (details) => openDetailForTap(details.localPosition.dx),
+              child: Opacity(
+                opacity: faded ? _calendarFadedOpacity : 1,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 1,
+                    vertical: .5,
+                  ),
+                  height: 14,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: col,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(left ? 0 : 4),
+                      bottomLeft: Radius.circular(left ? 0 : 4),
+                      topRight: Radius.circular(right ? 0 : 4),
+                      bottomRight: Radius.circular(right ? 0 : 4),
                     ),
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (category != null) ...[
+                        categoryGlyph(category, size: 10, iconColor: barFg),
+                        const SizedBox(width: 3),
+                      ] else if (!o.isMultiDay)
+                        Container(
+                          width: 5,
+                          height: 5,
+                          margin: const EdgeInsets.only(right: 3),
+                          decoration: BoxDecoration(
+                            color: barFg,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      Flexible(
+                        child: Text(
+                          label,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                            color: barFg,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       }
 
@@ -1429,7 +1451,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------------- card
-  Widget _eventCard(CalendarOccurrence o) {
+  Widget _eventCard(CalendarOccurrence o, {bool popSheetFirst = false}) {
     final ev = o.ev;
     final col = evColor(ev);
     final cat = catById(ev.category);
@@ -1604,14 +1626,23 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       boxShadow: cardShadow(),
     );
 
-    return GestureDetector(
-      key: key,
-      onTap: () => openEventView(ev.id, o.date),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-        decoration: decoration,
-        child: inner,
+    return Builder(
+      builder: (context) => GestureDetector(
+        key: key,
+        onTap: () {
+          // From the day-detail sheet: pop it first so the event view opens
+          // as a single sheet, not stacked on top of a now-stale one that
+          // would otherwise still show pre-edit data once dismissed
+          // (issue #198).
+          if (popSheetFirst) Navigator.of(context).pop();
+          openEventView(ev.id, o.date);
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+          decoration: decoration,
+          child: inner,
+        ),
       ),
     );
   }
