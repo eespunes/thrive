@@ -64,10 +64,39 @@ class ThriveDebugController {
   void inviteMember(String name, String email) => _s.inviteMember(name, email);
   void removeMember(String id) => _s.removeMember(id);
   void toggleMemberRole(String id) => _s.toggleMemberRole(id);
-  void editMember(String id, String name, String email) =>
-      _s.editMember(id, name, email);
+  void editMember(
+    String id,
+    String name,
+    String email, {
+    String? photo,
+    String? emoji,
+    bool photoTouched = false,
+    bool emojiTouched = false,
+  }) => _s.editMember(
+    id,
+    name,
+    email,
+    photo: photo,
+    emoji: emoji,
+    photoTouched: photoTouched,
+    emojiTouched: emojiTouched,
+  );
+  void addMember(String name, {String? photo, String? emoji}) =>
+      _s.addMember(name, photo: photo, emoji: emoji);
   void switchFamily(String id) => _s.switchFamily(id);
-  void createFamily(String name) => _s.createFamily(name);
+  Future<String?> createFamily(
+    String name, {
+    String? username,
+    String? password,
+    String? picture,
+  }) => _s.createFamily(
+    name,
+    username: username,
+    password: password,
+    picture: picture,
+  );
+  Future<String?> fetchFamilyPassword(Family family) =>
+      _s.fetchFamilyPassword(family);
   void deleteFamily(String id) => _s.deleteFamily(id);
   void leaveFamily(String id) => _s.leaveFamily(id);
   void setYear(int y) => _s.setYear(y);
@@ -145,9 +174,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   bool ready = false;
   int year = 2026;
   int monthIdx = 5;
-  String screen = 'overview'; // overview | stats — Finance tab's own sub-view
+  String screen =
+      'overview'; // overview | flow | stats — Finance tab's own sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
+  String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -209,12 +240,30 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String familyId = 'fam_main';
   Map<String, Workspace> workspaces = {};
 
+  // In-memory-only cache of a family join password, kept only for the
+  // session that just typed it (create/join). Never persisted — cloud
+  // families store only a salted hash server-side, and this avoids adding a
+  // new persistent field just to remember a plaintext password. Keyed by
+  // family id so switching families doesn't leak the wrong one.
+  final Map<String, String> _sessionFamilyPasswords = {};
+
+  /// Bumped on every `update()`/`mutate()` call so widgets embedded in
+  /// bottom sheets (e.g. the Weekly plan / Finance settings sheets, which
+  /// render their content outside the main `build()` subtree) can listen
+  /// and rebuild when state changes underneath them.
+  final ValueNotifier<int> _rev = ValueNotifier<int>(0);
+
+  /// App version from pubspec (e.g. "2.7.1"), without the build number
+  /// suffix. Populated asynchronously in [initState]; empty until then.
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
     thriveDebug._attach(this);
     WidgetsBinding.instance.addObserver(this);
     _boot();
+    _loadAppVersion();
     pendingNotificationDeepLink.addListener(_handleNotificationDeepLink);
     // A tap that launched the app cold arrives before this listener attaches.
     _handleNotificationDeepLink();
@@ -286,6 +335,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   // ---------------------------------------------------------------- boot
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _appVersion = info.version);
+  }
+
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
@@ -393,7 +448,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         await NotificationService.instance.scheduleTaskReminder(t);
       }
     }
-    await NotificationService.instance.syncEventReminders(events);
+    final importedEvents = [
+      for (final cal in importedCalendars)
+        if (cal.visible && cal.reminder != 'none')
+          for (final e in cal.events) importedSyntheticEvent(cal, e),
+    ];
+    await NotificationService.instance.syncEventReminders([
+      ...events,
+      ...importedEvents,
+    ]);
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -532,7 +595,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       tab = 'finsettings';
       return;
     }
-    screen = const {'overview', 'stats'}.contains(legacyScreen)
+    screen = const {'overview', 'stats', 'flow'}.contains(legacyScreen)
         ? legacyScreen
         : 'overview';
     if (rawTab == null) {
@@ -637,10 +700,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   // ------------------------------------------------------------- helpers
-  void update(VoidCallback fn) => setState(fn);
+  void update(VoidCallback fn) {
+    setState(fn);
+    _rev.value++;
+  }
 
   void mutate(VoidCallback fn, [VoidCallback? cb]) {
     setState(fn);
+    _rev.value++;
     _persist();
     cb?.call();
   }
@@ -832,6 +899,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ..recurEvery = anchor.item.recurEvery
               ..seriesId = _seriesIdFor(anchor.item)
               ..recurEndDate = anchor.item.recurEndDate
+              ..shift = anchor.item.shift
               ..until = anchor.item.recurEndDate ?? anchor.item.until;
           }
           allowedGenerated.add(ord);
@@ -1227,6 +1295,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     switch (screen) {
       case 'stats':
         return _buildStats();
+      case 'flow':
+        return _buildFlow();
       default:
         return _buildOverview();
     }
@@ -1240,6 +1310,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (tab == 'finance') {
         final titles = <String, List<String>>{
           'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
+          'flow': ['Money calendar', '${kMonthsEn[monthIdx]} $year'],
           'stats': ['Statistics', _statsPeriod().label],
         };
         final t = titles[screen] ?? titles['overview']!;
@@ -1254,6 +1325,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final subHeader = ready
         ? (tab == 'finance' && screen == 'stats'
               ? _buildStatsModeSwitcher()
+              : tab == 'finance' && screen == 'flow'
+              ? _buildFlowSubHeader()
               : _tabSubHeader(tab))
         : null;
     final dateInHeader = tab == 'calendar' || tab == 'finance';
@@ -1378,7 +1451,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [seg('overview', 'grid'), seg('stats', 'chart')],
+      children: [
+        seg('overview', 'grid'),
+        seg('flow', 'cal'),
+        seg('stats', 'chart'),
+      ],
     );
   }
 

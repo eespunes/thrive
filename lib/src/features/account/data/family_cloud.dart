@@ -160,6 +160,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
     fam.members = _dedupeMembers(fam.members);
+    final joinPassword = doc['joinPassword'];
+    if (joinPassword is String && joinPassword.isNotEmpty) {
+      _sessionFamilyPasswords[fid] = joinPassword;
+    }
     return fam;
   }
 
@@ -501,12 +505,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // proves knowledge of the password by matching this `joinHash`; they can
       // never read it, which prevents offline brute-forcing.
       final joinHash = hashFamilyPassword(password, _cloudJoinSalt(slug));
-      // Commit the family doc, then publish its public handle. Bounded: awaiting
-      // a Firestore write only resolves once the backend acks it, so an
-      // offline/flaky connection surfaces an error instead of stranding the
-      // user on "Creating…".
+      // The plaintext also lives here (as `joinPassword`) so any member can
+      // view/share it later — e.g. from the "Invite someone" sheet. This is
+      // safe: the field is on the same members-only doc as everything else
+      // (see firestore.rules `allow read: if isMember()`), so it's exactly as
+      // protected as the rest of the family's shared data.
       await _familyDocRef(fid)
-          .set({..._familyToDoc(fam, ws), 'joinHash': joinHash})
+          .set({
+            ..._familyToDoc(fam, ws),
+            'joinHash': joinHash,
+            'joinPassword': password,
+          })
           .timeout(kCloudOpTimeout);
       try {
         await _familyHandleRef(

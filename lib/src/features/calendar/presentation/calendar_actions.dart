@@ -291,6 +291,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       color: cat?.color ?? cal.color,
       attendees: cat?.members ?? const [],
       recur: 'none',
+      reminder: cal.reminder,
       createdBy: cal.name,
     );
   }
@@ -647,7 +648,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         notes: notes.trim(),
         category: category,
         color: effectiveColor,
-        attendees: attendees.isEmpty ? ['me'] : attendees,
+        attendees: attendees,
         reminder: reminder,
         recur: recur,
         recurEvery: recurEvery,
@@ -857,8 +858,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- imports
-  void openCalendarManageSheet() {
-    _showSheet((ctx) => _CalendarManageSheet(state: this));
+  void openCalendarManageSheet({
+    _CalManageMode mode = _CalManageMode.categories,
+  }) {
+    _showSheet((ctx) => _CalendarManageSheet(state: this, mode: mode));
   }
 
   void openImportCalendarSheet() {
@@ -881,6 +884,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     bool autoSync = true,
     bool includeLocation = true,
     bool includeDescription = true,
+    String reminder = '1h',
   }) async {
     final calName = name.trim().isEmpty
         ? kImportProviders['ics']!.$1
@@ -909,6 +913,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
             autoSync: autoSync,
             includeLocation: includeLocation,
             includeDescription: includeDescription,
+            reminder: reminder,
             events: _applyImportPrefs(
               events,
               includeLocation: includeLocation,
@@ -934,6 +939,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required bool autoSync,
     required bool includeLocation,
     required bool includeDescription,
+    String reminder = '1h',
   }) async {
     ImportedCalendar? cal;
     for (final c in importedCalendars) {
@@ -968,6 +974,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         resolvedCal.autoSync = autoSync;
         resolvedCal.includeLocation = includeLocation;
         resolvedCal.includeDescription = includeDescription;
+        resolvedCal.reminder = reminder;
         resolvedCal.events = _applyImportPrefs(
           fetchedEvents ?? resolvedCal.events,
           includeLocation: includeLocation,

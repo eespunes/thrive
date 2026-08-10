@@ -94,7 +94,13 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _end = e?.end.isNotEmpty == true ? e!.end : '10:00';
     _category = e?.category;
     _color = e?.color ?? kEventColors.first;
-    _attendees = (e?.attendees ?? const ['me']).toList();
+    // New events with no category default to no assignees ('me' is only
+    // a stored fallback so legacy events always render an avatar — it's not
+    // implied as "selected" in the editor). Editing an event keeps its
+    // stored attendees as-is (which may be the synthetic ['me']).
+    _attendees = widget.event == null
+        ? <String>[]
+        : (e?.attendees ?? const <String>[]).toList();
     _reminder = e?.reminder ?? '1h';
     _recurEvery = e?.recurEvery ?? 1;
     _recurUnit = e?.recurUnit ?? 'week';
@@ -300,7 +306,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         notes: _notes.text.trim(),
         category: _category,
         color: s.catById(_category)?.color ?? _color,
-        attendees: _attendees.isEmpty ? ['me'] : _attendees,
+        attendees: _attendees,
         reminder: _reminder,
         recur: _recur,
         recurEvery: _recurEvery,
@@ -522,11 +528,10 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                             onTap: () => setState(() {
                               _category = c.id;
                               _color = c.color;
-                              for (final mid in c.members) {
-                                if (!_attendees.contains(mid)) {
-                                  _attendees.add(mid);
-                                }
-                              }
+                              // Selecting a category sets assignees to match
+                              // it exactly (including nobody, if the category
+                              // has no members assigned).
+                              _attendees = c.members.toList();
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -549,7 +554,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                                     c,
                                     size: 14,
                                     iconColor: _category == c.id
-                                        ? Colors.white
+                                        ? contrastOn(c.color)
                                         : c.color,
                                   ),
                                   const SizedBox(width: 5),
@@ -559,7 +564,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w800,
                                       color: _category == c.id
-                                          ? Colors.white
+                                          ? contrastOn(c.color)
                                           : B.soft2,
                                     ),
                                   ),
@@ -654,6 +659,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                               children: [
                                 s.avatarNode(
                                   photo: m.photo,
+                                  emoji: m.emoji,
                                   initials: m.initials,
                                   color: m.color,
                                   size: 22,
@@ -1117,27 +1123,35 @@ class _EventViewSheet extends StatelessWidget {
         if (cat != null)
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 2),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: cat.color,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  categoryGlyph(cat, size: 15, iconColor: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    cat.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
+            child: Builder(
+              builder: (context) {
+                final fg = contrastOn(cat.color);
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
                   ),
-                ],
-              ),
+                  decoration: BoxDecoration(
+                    color: cat.color,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      categoryGlyph(cat, size: 15, iconColor: fg),
+                      const SizedBox(width: 6),
+                      Text(
+                        cat.name,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         Padding(
@@ -1574,12 +1588,22 @@ class _RecurDeleteSheet extends StatelessWidget {
 /// "Calendars & categories" — categories + imported calendars management,
 /// ported from `sheetCalManage()`. Replaces the #160/#161 placeholder.
 class _CalendarManageSheet extends StatefulWidget {
-  const _CalendarManageSheet({required this.state});
+  const _CalendarManageSheet({
+    required this.state,
+    this.mode = _CalManageMode.categories,
+  });
   final _ThriveHomeState state;
+
+  /// Which section(s) this sheet instance shows — split into two separate
+  /// More-screen rows/sheets (categories+colours vs imports) per issue
+  /// request, while keeping all the row-building logic in one place.
+  final _CalManageMode mode;
 
   @override
   State<_CalendarManageSheet> createState() => _CalendarManageSheetState();
 }
+
+enum _CalManageMode { categories, imports }
 
 class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   final Set<String> _syncing = {};
@@ -1691,7 +1715,11 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                   color: c.color,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: categoryGlyph(c, size: 32, iconColor: Colors.white),
+                child: categoryGlyph(
+                  c,
+                  size: 32,
+                  iconColor: contrastOn(c.color),
+                ),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -1746,6 +1774,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       final providerLabel = kImportProviders[c.provider]?.$1 ?? c.provider;
       final category = s.catById(c.category);
       final rowColor = category?.color ?? c.color;
+      final rowFg = contrastOn(rowColor);
       final eventLabel =
           '${c.events.length} event${c.events.length == 1 ? '' : 's'}';
       final inner = GestureDetector(
@@ -1771,18 +1800,9 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 ),
                 child: category == null
                     ? Center(
-                        child: ic(
-                          'download',
-                          size: 16,
-                          sw: 2.2,
-                          color: Colors.white,
-                        ),
+                        child: ic('download', size: 16, sw: 2.2, color: rowFg),
                       )
-                    : categoryGlyph(
-                        category,
-                        size: 32,
-                        iconColor: Colors.white,
-                      ),
+                    : categoryGlyph(category, size: 32, iconColor: rowFg),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -2015,115 +2035,101 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       );
     }
 
+    final showCats = widget.mode == _CalManageMode.categories;
+    final showImports = widget.mode == _CalManageMode.imports;
+
+    Widget sectionLabel(String text) => Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 9),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: .3,
+          color: Color(0xff64748b),
+        ),
+      ),
+    );
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sheetHead(
             context,
-            'Calendars & categories',
-            'Colours, icons & imports',
+            showCats ? 'Categories' : 'Imported calendars',
+            showCats ? 'Colours, icons & member colours' : 'Feeds & sync',
           ),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 9),
-            child: Text(
-              'CATEGORIES',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
-            ),
-          ),
-          if (cats.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'No categories yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+          if (showCats) ...[
+            sectionLabel('CATEGORIES'),
+            if (cats.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'No categories yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final c in cats)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: catRow(c),
-              ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _addButtonForSheet('New category', () {
-              Navigator.of(context).pop();
-              s.openCategory(null);
-            }),
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 20, bottom: 9),
-            child: Text(
-              'FAMILY MEMBER COLOURS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
-            ),
-          ),
-          if (members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'No members yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+              )
+            else
+              for (final c in cats)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: catRow(c),
                 ),
-              ),
-            )
-          else
-            for (final m in members) memberColourRow(m),
-          const Padding(
-            padding: EdgeInsets.only(top: 20, bottom: 9),
-            child: Text(
-              'IMPORTED CALENDARS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .3,
-                color: Color(0xff64748b),
-              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('New category', () {
+                Navigator.of(context).pop();
+                s.openCategory(null);
+              }),
             ),
-          ),
-          if (imps.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                'Nothing imported yet.',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
+            sectionLabel('FAMILY MEMBER COLOURS'),
+            if (members.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'No members yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
                 ),
-              ),
-            )
-          else
-            for (final c in imps)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: impRow(c),
-              ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: _addButtonForSheet('Import a calendar', () {
-              Navigator.of(context).pop();
-              s.openImportCalendarSheet();
-            }, icon: 'download'),
-          ),
+              )
+            else
+              for (final m in members) memberColourRow(m),
+          ],
+          if (showImports) ...[
+            if (imps.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'Nothing imported yet.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
+                ),
+              )
+            else
+              for (final c in imps)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: impRow(c),
+                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('Import a calendar', () {
+                Navigator.of(context).pop();
+                s.openImportCalendarSheet();
+              }, icon: 'download'),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Row(
@@ -2316,6 +2322,7 @@ class _CategorySheetState extends State<_CategorySheet> {
                         children: [
                           s.avatarNode(
                             photo: m.photo,
+                            emoji: m.emoji,
                             initials: m.initials,
                             color: m.color,
                             size: 22,
@@ -2349,7 +2356,7 @@ class _CategorySheetState extends State<_CategorySheet> {
               members: _members,
             );
             Navigator.of(context).pop();
-            s.openCalendarManageSheet();
+            s.openCalendarManageSheet(mode: _CalManageMode.categories);
           }, enabled: valid),
           if (_editing)
             GestureDetector(
@@ -2360,7 +2367,7 @@ class _CategorySheetState extends State<_CategorySheet> {
                   'Events keep their times but lose this category.',
                   () {
                     s.deleteCategory(widget.category!.id);
-                    s.openCalendarManageSheet();
+                    s.openCalendarManageSheet(mode: _CalManageMode.categories);
                   },
                 );
               },
@@ -2403,6 +2410,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
   bool _autoSync = true;
   bool _includeLocation = true;
   bool _includeDescription = true;
+  String _reminder = '1h';
 
   bool get _editing => widget.calendar != null;
 
@@ -2418,6 +2426,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
     _autoSync = cal?.autoSync ?? true;
     _includeLocation = cal?.includeLocation ?? true;
     _includeDescription = cal?.includeDescription ?? true;
+    _reminder = cal?.reminder ?? '1h';
   }
 
   @override
@@ -2442,6 +2451,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             autoSync: _autoSync,
             includeLocation: _includeLocation,
             includeDescription: _includeDescription,
+            reminder: _reminder,
           )
         : await s.saveImport(
             name: _name.text,
@@ -2451,15 +2461,55 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             autoSync: _autoSync,
             includeLocation: _includeLocation,
             includeDescription: _includeDescription,
+            reminder: _reminder,
           );
     if (!mounted) return;
     if (err == null) {
       Navigator.of(context).pop();
-      s.openCalendarManageSheet();
+      s.openCalendarManageSheet(mode: _CalManageMode.imports);
       return;
     }
     setState(() => _busy = false);
     s.showError(err);
+  }
+
+  Widget _importChipRow(
+    List<(String, String)> opts,
+    String value,
+    ValueChanged<String> onPick,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (k, label) in opts) ...[
+            GestureDetector(
+              onTap: () => onPick(k),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: value == k ? B.soft : Colors.white,
+                  border: Border.all(color: value == k ? B.primary : B.line),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == k ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _toggleRow({
@@ -2580,6 +2630,36 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
               onChanged: (v) => setState(() => _includeDescription = v),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'REMINDER',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 15),
+            child: _importChipRow(
+              const [
+                ('none', 'No reminder'),
+                ('at', 'On time'),
+                ('5m', '5 min before'),
+                ('15m', '15 min before'),
+                ('30m', '30 min before'),
+                ('1h', '1 hour before'),
+                ('2h', '2 hours before'),
+                ('1d', '1 day before'),
+                ('2d', '2 days before'),
+              ],
+              _reminder,
+              (v) => setState(() => _reminder = v),
+            ),
+          ),
           _sheetField(
             'Name (optional)',
             _sheetInput(
@@ -2652,7 +2732,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
                             c,
                             size: 14,
                             iconColor: _category == c.id
-                                ? Colors.white
+                                ? contrastOn(c.color)
                                 : c.color,
                           ),
                           const SizedBox(width: 5),
@@ -2661,7 +2741,9 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: _category == c.id ? Colors.white : B.soft2,
+                              color: _category == c.id
+                                  ? contrastOn(c.color)
+                                  : B.soft2,
                             ),
                           ),
                         ],

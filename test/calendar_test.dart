@@ -43,10 +43,12 @@ Future<void> goToCalendar(WidgetTester tester) async {
 
 /// Calendar management (categories/imports) moved behind the More hub once
 /// the new header replaced the old inline sub-header's "Manage" button.
-Future<void> openCalManage(WidgetTester tester) async {
+Future<void> openCalManage(WidgetTester tester, {bool imports = false}) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('more-calmanage')));
+  await tester.tap(
+    find.byKey(ValueKey(imports ? 'more-calimports' : 'more-calmanage')),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -785,8 +787,8 @@ void main() {
     expect(scheduler.cancelledEvents, [eventId]);
   });
 
-  testWidgets('creating a category from the event editor lands on Calendars & '
-      'categories with it listed', (tester) async {
+  testWidgets('creating a category from the event editor lands on '
+      'Categories with it listed', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -801,9 +803,9 @@ void main() {
     await tester.tap(find.text('Add category'));
     await tester.pumpAndSettle();
 
-    // Saving routes to "Calendars & categories" with the new category
-    // listed (matches the design's `saveCategory()`).
-    expect(find.text('Calendars & categories'), findsWidgets);
+    // Saving routes to "Categories" with the new category listed (matches
+    // the design's `saveCategory()`).
+    expect(find.text('Categories'), findsWidgets);
     expect(find.text('Work'), findsWidgets);
   });
 
@@ -842,11 +844,22 @@ void main() {
     );
     await openCalManage(tester);
 
-    for (final key in ['cat-marker-family', 'imp-marker-school-feed']) {
-      final marker = tester.widget<Container>(find.byKey(ValueKey(key)));
-      expect(marker.color, categoryColor);
-      expect(marker.constraints?.maxWidth, 4);
-    }
+    final catMarker = tester.widget<Container>(
+      find.byKey(const ValueKey('cat-marker-family')),
+    );
+    expect(catMarker.color, categoryColor);
+    expect(catMarker.constraints?.maxWidth, 4);
+
+    // Close the categories sheet before opening the imports sheet.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    await openCalManage(tester, imports: true);
+    final impMarker = tester.widget<Container>(
+      find.byKey(const ValueKey('imp-marker-school-feed')),
+    );
+    expect(impMarker.color, categoryColor);
+    expect(impMarker.constraints?.maxWidth, 4);
     final importVisual = find.byKey(const ValueKey('imp-visual-school-feed'));
     expect(
       find.descendant(of: importVisual, matching: find.byType(SvgPicture)),
@@ -913,7 +926,7 @@ void main() {
       prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
       landOnDefaultTab: true,
     );
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
 
     await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
     await tester.pumpAndSettle();
@@ -943,6 +956,60 @@ void main() {
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
     expect(find.text('Imported training'), findsNothing);
+  });
+
+  testWidgets('changing an imported calendar reminder persists it', (
+    tester,
+  ) async {
+    final imported = ImportedCalendar(
+      id: 'training-feed',
+      name: 'Training',
+      provider: 'ics',
+      color: kCatColors.first,
+      url: 'https://example.com/training.ics',
+      autoSync: false,
+      events: [
+        ImportedCalendarEvent(
+          id: 'training-1',
+          title: 'Imported training',
+          date: todayIso(),
+        ),
+      ],
+    );
+
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(events: const [], importedCalendars: [imported]),
+      landOnDefaultTab: true,
+    );
+    await openCalManage(tester, imports: true);
+
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    expect(find.text('REMINDER'), findsOneWidget);
+
+    await tester.dragUntilVisible(
+      find.text('1 day before'),
+      find.byType(SingleChildScrollView).last,
+      const Offset(-50, 0),
+    );
+    await tester.tap(find.text('1 day before'));
+    await tester.pump();
+    await tester.tap(find.text('Save calendar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    final chip = tester
+        .widgetList<Container>(
+          find.ancestor(
+            of: find.text('1 day before'),
+            matching: find.byType(Container),
+          ),
+        )
+        .first;
+    final decoration = chip.decoration as BoxDecoration;
+    expect(decoration.color, B.soft);
   });
 
   testWidgets(
@@ -984,7 +1051,12 @@ void main() {
       await openCalManage(tester);
       expect(find.text('Colors'), findsWidgets);
 
+      // Close the categories sheet before opening the imports sheet.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
       // Imported calendar sheet.
+      await openCalManage(tester, imports: true);
       await tester.tap(
         find.byKey(const ValueKey('imp-settings-training-feed')),
       );
@@ -1051,7 +1123,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dinner'), findsWidgets);
+
+    // The new category has no members assigned, so the event should have
+    // no attendees either — it must not fall back to "me".
+    await tester.tap(find.text('Dinner').first);
+    await tester.pumpAndSettle();
+    expect(find.text('ATTENDEES'), findsOneWidget);
+    final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
+    expect(attendeesWrap.children, isEmpty);
   });
+
+  testWidgets(
+    'creating a new event with no category selected has no attendees',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Solo errand');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Solo errand').first);
+      await tester.pumpAndSettle();
+      expect(find.text('ATTENDEES'), findsOneWidget);
+      final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
+      expect(attendeesWrap.children, isEmpty);
+    },
+  );
 
   testWidgets(
     'a weekly recurring event: delete "this event only" keeps the series',
@@ -1293,7 +1394,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
 
     await tester.tap(find.text('Import a calendar'));
@@ -1349,7 +1450,7 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
 
-      await openCalManage(tester);
+      await openCalManage(tester, imports: true);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1389,7 +1490,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await openCalManage(tester);
+      await openCalManage(tester, imports: true);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1412,7 +1513,7 @@ void main() {
       // pick up the new title this time.
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-calmanage')));
+      await tester.tap(find.byKey(const ValueKey('more-calimports')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Auto-syncs on open'));
       await tester.pumpAndSettle();
@@ -1440,7 +1541,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1481,7 +1582,7 @@ void main() {
 
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
-      await openCalManage(tester);
+      await openCalManage(tester, imports: true);
       await tester.tap(find.text('Import a calendar'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -1523,7 +1624,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2670,7 +2771,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2709,7 +2810,7 @@ void main() {
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
-    await openCalManage(tester);
+    await openCalManage(tester, imports: true);
     await tester.tap(find.text('Import a calendar'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2741,6 +2842,17 @@ void main() {
   test('IcsImportException.toString() returns its message', () {
     expect(IcsImportException('boom').toString(), 'boom');
   });
+
+  test(
+    'contrastOn picks dark text for light colours, white for dark colours',
+    () {
+      // Pale yellow: light enough that white text would be unreadable.
+      expect(contrastOn(const Color(0xfffde047)), B.ink);
+      // Deep teal/navy: dark enough that white text stays readable.
+      expect(contrastOn(const Color(0xff0f172a)), Colors.white);
+      expect(contrastOn(const Color(0xff0E9A8D)), Colors.white);
+    },
+  );
 }
 
 String _isoNow() => todayIso();

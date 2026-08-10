@@ -26,6 +26,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     }
     return avatarNode(
       photo: m.photo,
+      emoji: m.emoji,
       initials: m.initials,
       color: m.color,
       size: size,

@@ -47,27 +47,33 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final key in [
-      'more-lists',
+      'more-profile',
       'more-weekly',
       'more-calmanage',
-      'more-family',
+      'more-calimports',
       'more-finsettings',
-      'more-profile',
+      'more-family',
+      'more-invite',
+      'more-signout',
     ]) {
       expect(find.byKey(ValueKey(key)), findsOneWidget);
     }
 
     final firstTop = tester
-        .getTopLeft(find.byKey(const ValueKey('more-lists')))
-        .dy;
-    final lastTop = tester
         .getTopLeft(find.byKey(const ValueKey('more-profile')))
         .dy;
+    final lastTop = tester
+        .getTopLeft(find.byKey(const ValueKey('more-signout')))
+        .dy;
     expect(firstTop, lessThan(lastTop));
+
+    // Version label reads the pubspec version, without the build-number
+    // "+N" suffix (mocked to 2.7.1+46 in tests).
+    expect(find.text('Thrive · v2.7.1'), findsOneWidget);
   });
 
   testWidgets(
-    'More → Finance settings shows settings with a working back row',
+    'More → Finance settings opens as a sheet with settings content',
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
       await tester.tap(find.byKey(const ValueKey('nav-more')));
@@ -75,34 +81,29 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('more-finsettings')));
       await tester.pumpAndSettle();
-      expect(find.text('Finance settings'), findsOneWidget);
+      expect(find.text('Finance settings'), findsWidgets);
       expect(find.text('Add account'), findsOneWidget);
 
-      // More stays highlighted while on the finsettings sub-screen.
-      await tester.tap(find.byKey(const ValueKey('back-row')));
+      // Dismiss the sheet and land back on the More hub, not a sub-tab.
+      await tester.tapAt(const Offset(200, 60));
       await tester.pumpAndSettle();
       expect(find.text('More'), findsWidgets);
+      expect(find.byKey(const ValueKey('more-finsettings')), findsOneWidget);
     },
   );
 
-  testWidgets('More → Lists / Weekly plan switch tabs', (tester) async {
+  testWidgets('More → Weekly plan opens as a sheet', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-lists')));
-    await tester.pumpAndSettle();
-    expect(find.text('No lists yet'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('nav-more')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('more-weekly')));
     await tester.pumpAndSettle();
     expect(find.text('Weekly plan'), findsWidgets);
     expect(find.byKey(const ValueKey('week-prev')), findsOneWidget);
   });
 
-  testWidgets('More → Your profile opens the existing profile sheet', (
+  testWidgets('More → profile card opens the existing profile sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -124,7 +125,7 @@ void main() {
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
-  testWidgets('More → Calendars & categories opens the management sheet', (
+  testWidgets('More → Categories opens the category management sheet', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -133,8 +134,20 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('more-calmanage')));
     await tester.pumpAndSettle();
-    expect(find.text('Calendars & categories'), findsWidgets);
+    expect(find.text('Categories'), findsWidgets);
     expect(find.text('No categories yet.'), findsOneWidget);
+  });
+
+  testWidgets('More → Imported calendars opens the imports management sheet', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('more-calimports')));
+    await tester.pumpAndSettle();
+    expect(find.text('Imported calendars'), findsWidgets);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
 

@@ -68,7 +68,9 @@ class _ColorSwatchTile extends StatelessWidget {
               : null,
         ),
         child: selected
-            ? Center(child: ic('check', size: 16, sw: 3, color: Colors.white))
+            ? Center(
+                child: ic('check', size: 16, sw: 3, color: contrastOn(color)),
+              )
             : null,
       ),
     );

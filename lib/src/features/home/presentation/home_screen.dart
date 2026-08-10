@@ -416,7 +416,7 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                           child: categoryGlyph(
                             category,
                             size: 18,
-                            iconColor: Colors.white,
+                            iconColor: contrastOn(color),
                           ),
                         ),
                         const SizedBox(width: 6),

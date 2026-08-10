@@ -95,6 +95,7 @@ class FamilyMember {
     required this.color,
     this.uid,
     this.photo,
+    this.emoji,
     this.role = 'member', // 'owner' | 'member'
     this.status = 'active', // 'active' | 'invited'
   });
@@ -108,7 +109,14 @@ class FamilyMember {
   /// Firebase Auth uid of the signed-in user backing this member, when known.
   /// `null` for invited-but-not-yet-joined members.
   String? uid;
+
+  /// Base64 uploaded avatar picture, if set.
   String? photo;
+
+  /// Emoji avatar (e.g. for a login-less kid profile) — mutually exclusive
+  /// with [photo]; shown instead of it, falling back to [initials] when
+  /// neither is set.
+  String? emoji;
   String role;
   String status;
 
@@ -120,6 +128,7 @@ class FamilyMember {
     color: color,
     uid: uid,
     photo: photo,
+    emoji: emoji,
     role: role,
     status: status,
   );
@@ -132,6 +141,7 @@ class FamilyMember {
     'color': color.toARGB32(),
     if (uid != null) 'uid': uid,
     if (photo != null) 'photo': photo,
+    if (emoji != null) 'emoji': emoji,
     'role': role,
     'status': status,
   };
@@ -144,6 +154,7 @@ class FamilyMember {
     color: Color((j['color'] as num?)?.toInt() ?? 0xff0E9A8D),
     uid: j['uid']?.toString(),
     photo: j['photo']?.toString(),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
     role: (j['role'] ?? 'member').toString(),
     status: (j['status'] ?? 'active').toString(),
   );

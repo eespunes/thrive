@@ -335,5 +335,210 @@ void main() {
       expect(added.id, isNotEmpty);
       expect(added.status, 'active');
     });
+
+    testWidgets('owner edits a login-less member\'s name, emoji and picture', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.pumpAndSettle();
+
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Emma Bakker',
+      );
+
+      // Tap the row to enter inline edit mode.
+      await tester.tap(find.text('Emma Bakker'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
+
+      // Pick an emoji through the in-app picker (issue precedent from
+      // family_emoji_features_test.dart: hop to the Smileys tab and tap
+      // the first emoji since Recents starts empty).
+      await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(Tab).at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('😀').first);
+      await tester.pumpAndSettle();
+
+      // Change the name too.
+      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.pumpAndSettle();
+
+      final updated = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(updated.name, 'Emma B.');
+      expect(updated.emoji, '😀');
+      expect(updated.photo, isNull);
+      expect(find.text('😀'), findsWidgets);
+    });
+
+    testWidgets('a non-owner member can edit and remove a login-less member', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.pumpAndSettle();
+
+      // Demote 'me' to a plain member.
+      final me = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == 'me',
+      );
+      me.role = 'member';
+      expect(thriveDebug.amOwner(), isFalse);
+
+      // A non-owner can still open the inline edit for a login-less member...
+      await tester.tap(find.text('Emma Bakker'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
+      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.pumpAndSettle();
+      expect(
+        thriveDebug
+            .curFamily()!
+            .members
+            .firstWhere((m) => m.name == 'Emma B.')
+            .name,
+        'Emma B.',
+      );
+
+      // ...and remove them too.
+      final emmaId = thriveDebug
+          .curFamily()!
+          .members
+          .firstWhere((m) => m.name == 'Emma B.')
+          .id;
+      await tester.tap(find.byKey(ValueKey('member-remove-$emmaId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Member removed'), findsOneWidget);
+      expect(
+        thriveDebug.curFamily()!.members.any((m) => m.name == 'Emma B.'),
+        isFalse,
+      );
+    });
+
+    testWidgets('a login-less member can be given an emoji avatar', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+
+      thriveDebug.addMember('Kid One', emoji: '🦄');
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Kid One',
+      );
+      expect(added.emoji, '🦄');
+      expect(added.photo, isNull);
+
+      thriveDebug.editMember(
+        added.id,
+        'Kid One',
+        '',
+        emoji: '🐼',
+        emojiTouched: true,
+      );
+      final updated = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(updated.emoji, '🐼');
+
+      // Without the touched flag, an existing emoji/photo is left alone.
+      thriveDebug.editMember(added.id, 'Kid One', '');
+      final untouched = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == added.id,
+      );
+      expect(untouched.emoji, '🐼');
+    });
+
+    testWidgets(
+      'a local family password survives a reboot (session cache lost)',
+      (tester) async {
+        await pumpApp(tester);
+
+        final err = await thriveDebug.createFamily(
+          'Bakker family',
+          username: 'bakkerfam',
+          password: 'sunshine',
+        );
+        expect(err, isNull);
+        await tester.pumpAndSettle();
+
+        // Immediately after creation the password is served from the
+        // in-memory session cache.
+        final fam = thriveDebug.curFamily()!;
+        expect(await thriveDebug.fetchFamilyPassword(fam), 'sunshine');
+
+        // Simulate a fresh app session: the in-memory cache is gone, but the
+        // password must still be recoverable from the on-device registry in
+        // local/demo mode.
+        await rebootApp(tester);
+        final famAfterReboot = thriveDebug.curFamily()!;
+        expect(
+          await thriveDebug.fetchFamilyPassword(famAfterReboot),
+          'sunshine',
+        );
+
+        // Also verify the "Invite someone" sheet itself now shows it.
+        await tester.tap(find.byKey(const ValueKey('nav-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('more-invite')));
+        await tester.pumpAndSettle();
+        expect(find.text('•' * 'sunshine'.length), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
+        await tester.pumpAndSettle();
+        expect(find.text('sunshine'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a non-owner member can reveal the family password', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      final err = await thriveDebug.createFamily(
+        'Bakker family',
+        username: 'bakkerfam2',
+        password: 'sunshine2',
+      );
+      expect(err, isNull);
+      await tester.pumpAndSettle();
+
+      // Demote 'me' to a plain member.
+      final me = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id == 'me',
+      );
+      me.role = 'member';
+      expect(thriveDebug.amOwner(), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-invite')));
+      await tester.pumpAndSettle();
+      expect(find.text('•' * 'sunshine2'.length), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('sunshine2'), findsOneWidget);
+    });
   });
 }

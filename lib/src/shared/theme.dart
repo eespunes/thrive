@@ -41,6 +41,14 @@ class B {
   );
 }
 
+/// Picks readable foreground text/icon colour for a user-chosen [bg]
+/// (category, member, event colours, etc.): white on darker/saturated
+/// colours, a dark ink on pale/light ones (e.g. yellow, lime) where white
+/// would be hard to read.
+Color contrastOn(Color bg) {
+  return bg.computeLuminance() > 0.55 ? B.ink : Colors.white;
+}
+
 const List<String> kMonthKeys = [
   'Januari',
   'Februari',

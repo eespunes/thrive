@@ -252,6 +252,7 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
                         children: [
                           widget.state.avatarNode(
                             photo: m.photo,
+                            emoji: m.emoji,
                             initials: m.initials,
                             color: m.color,
                             size: 22,

@@ -623,6 +623,13 @@ class _FamilySheetState extends State<_FamilySheet> {
   final _mEmailFocus = FocusNode();
   final _iEmailFocus = FocusNode();
 
+  // Avatar picture/emoji for the "add member" and inline "edit member" forms
+  // (login-less members, e.g. kids, can't set their own profile picture).
+  String? _aPhoto;
+  String? _aEmoji;
+  String? _mPhoto;
+  String? _mEmoji;
+
   _ThriveHomeState get s => widget.state;
 
   @override
@@ -673,7 +680,6 @@ class _FamilySheetState extends State<_FamilySheet> {
               ),
             ),
           _membersCard(f, owner),
-          if (f.username.trim().isNotEmpty) _joinCredCard(f),
           if (_invite) _inviteCard(),
           if (_addNoEmail) _addMemberCard(),
           Padding(
@@ -802,88 +808,6 @@ class _FamilySheetState extends State<_FamilySheet> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _joinCredCard(Family f) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 13),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: B.soft,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: B.greenLine),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              ic('users', size: 14, sw: 2.2, color: B.deep),
-              const SizedBox(width: 7),
-              const Text(
-                'Invite relatives',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.deep,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Share this username and the family password so they can join from '
-            'their own account.',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-              color: B.soft2,
-            ),
-          ),
-          const SizedBox(height: 11),
-          GestureDetector(
-            key: const ValueKey('family-copy-username'),
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: f.username));
-              s.flash('Username copied');
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: B.line),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Username',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: B.muted,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      f.username,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
-                      ),
-                    ),
-                  ),
-                  ic('copy', size: 15, sw: 2.2, color: B.deep),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1022,6 +946,8 @@ class _FamilySheetState extends State<_FamilySheet> {
               () => setState(() {
                 _addNoEmail = true;
                 _aName.clear();
+                _aPhoto = null;
+                _aEmoji = null;
               }),
               key: const ValueKey('family-add-member'),
             ),
@@ -1033,6 +959,10 @@ class _FamilySheetState extends State<_FamilySheet> {
 
   Widget _memberRow(Family f, FamilyMember m, bool owner) {
     final isMe = m.id == 'me';
+    // Members with no login (uid == null, added via "Add family member")
+    // can't edit their own name/avatar, so anyone in the family — not just
+    // the owner — should be able to on their behalf.
+    final isLoginLess = m.uid == null && m.status != 'invited';
     final editableByOwner =
         owner &&
         !isMe &&
@@ -1049,6 +979,20 @@ class _FamilySheetState extends State<_FamilySheet> {
         ),
         child: Column(
           children: [
+            if (!isMe && m.uid == null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Center(
+                  child: _GlyphPicker(
+                    emoji: _mEmoji,
+                    picture: _mPhoto,
+                    onChanged: ({emoji, picture}) => setState(() {
+                      _mEmoji = emoji;
+                      _mPhoto = picture;
+                    }),
+                  ),
+                ),
+              ),
             _sheetField(
               'Name',
               _sheetInput(
@@ -1068,7 +1012,15 @@ class _FamilySheetState extends State<_FamilySheet> {
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
                   if (valid) {
-                    s.editMember(m.id, _mName.text.trim(), _mEmail.text.trim());
+                    s.editMember(
+                      m.id,
+                      _mName.text.trim(),
+                      _mEmail.text.trim(),
+                      photo: _mPhoto,
+                      emoji: _mEmoji,
+                      photoTouched: !isMe && m.uid == null,
+                      emojiTouched: !isMe && m.uid == null,
+                    );
                     setState(() => _editId = null);
                   }
                 },
@@ -1109,6 +1061,10 @@ class _FamilySheetState extends State<_FamilySheet> {
                               m.id,
                               _mName.text.trim(),
                               _mEmail.text.trim(),
+                              photo: _mPhoto,
+                              emoji: _mEmoji,
+                              photoTouched: !isMe && m.uid == null,
+                              emojiTouched: !isMe && m.uid == null,
                             );
                             setState(() => _editId = null);
                           }
@@ -1139,8 +1095,10 @@ class _FamilySheetState extends State<_FamilySheet> {
     }
 
     final pill = s.memberPill(m.role, m.status);
-    final canEdit = isMe || editableByOwner;
-    final canRemove = owner && !isMe;
+    final canEdit = isMe || editableByOwner || isLoginLess;
+    // Anyone can remove a login-less member on their behalf (they can't
+    // remove themselves), same reasoning as editing them above.
+    final canRemove = !isMe && (owner || isLoginLess);
     return GestureDetector(
       key: ValueKey('member-${m.id}'),
       onTap: canEdit
@@ -1148,6 +1106,8 @@ class _FamilySheetState extends State<_FamilySheet> {
               _editId = m.id;
               _mName.text = m.name;
               _mEmail.text = m.email;
+              _mPhoto = m.photo;
+              _mEmoji = m.emoji;
             })
           : null,
       child: Container(
@@ -1160,6 +1120,7 @@ class _FamilySheetState extends State<_FamilySheet> {
           children: [
             s.avatarNode(
               photo: m.photo,
+              emoji: m.emoji,
               initials: m.initials,
               color: m.color,
               size: 38,
@@ -1397,7 +1358,7 @@ class _FamilySheetState extends State<_FamilySheet> {
   Widget _addMemberCard() {
     final valid = _aName.text.trim().isNotEmpty;
     void submit() {
-      s.addMember(_aName.text.trim());
+      s.addMember(_aName.text.trim(), photo: _aPhoto, emoji: _aEmoji);
       setState(() => _addNoEmail = false);
     }
 
@@ -1435,6 +1396,17 @@ class _FamilySheetState extends State<_FamilySheet> {
               ),
             ),
           ),
+          Center(
+            child: _GlyphPicker(
+              emoji: _aEmoji,
+              picture: _aPhoto,
+              onChanged: ({emoji, picture}) => setState(() {
+                _aEmoji = emoji;
+                _aPhoto = picture;
+              }),
+            ),
+          ),
+          const SizedBox(height: 12),
           _sheetField(
             'Name',
             _sheetInput(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:family_money_management_app/main.dart' as app;
 
@@ -11,6 +12,13 @@ import 'helpers.dart';
 void main() {
   testWidgets('main boots the app shell', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'Thrive',
+      packageName: 'com.thrive.app',
+      version: '2.7.1',
+      buildNumber: '46',
+      buildSignature: '',
+    );
     await tester.runAsync(() async {
       await app.main();
       await Future<void>.delayed(const Duration(milliseconds: 250));
@@ -23,6 +31,13 @@ void main() {
   testWidgets('main handles Firebase init failure', (tester) async {
     TestFirebaseCoreHostApi.setUp(_ThrowingFirebaseApp());
     SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'Thrive',
+      packageName: 'com.thrive.app',
+      version: '2.7.1',
+      buildNumber: '46',
+      buildSignature: '',
+    );
     await tester.runAsync(() async {
       await app.main();
       await Future<void>.delayed(const Duration(milliseconds: 250));

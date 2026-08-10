@@ -126,3 +126,72 @@ String accForLabel(String? label) {
 
 /// Light tint for a category background, mirrors `tintFor(hex)`.
 Color tintFor(Color tone) => tone.withValues(alpha: 0.10);
+
+// ======================================================= money calendar
+
+/// Number of days in [monthIdx] (0-based, Jan = 0) of [year].
+int daysInMonthOf(int year, int monthIdx) =>
+    DateTime(year, monthIdx + 2, 0).day;
+
+/// Parses the leading day-of-month digits out of a free-text marker like
+/// `"24th"` or `"27e"`. Mirrors `dayNum(marker)`. Returns `null` when the
+/// marker carries no parseable day (`"-"`, `""`, or no leading digits).
+int? dayNumFromMarker(String? marker) {
+  if (marker == null) return null;
+  final m = RegExp(r'^(\d{1,2})').firstMatch(marker.trim());
+  if (m == null) return null;
+  final n = int.tryParse(m.group(1)!);
+  if (n == null || n < 1 || n > 31) return null;
+  return n;
+}
+
+/// Ordinal suffix for a day number, e.g. `24` → `"24th"`. Mirrors `ord(n)`.
+String ordinal(int n) {
+  final v = n % 100;
+  if (v >= 11 && v <= 13) return '${n}th';
+  switch (n % 10) {
+    case 1:
+      return '${n}st';
+    case 2:
+      return '${n}nd';
+    case 3:
+      return '${n}rd';
+    default:
+      return '${n}th';
+  }
+}
+
+/// Resolves the marker day of an item onto an actual day of [year]/[monthIdx]
+/// (0-based), applying the weekend rule described by [shift] (`'none'` |
+/// `'before'` | `'after'`). Never crosses a month boundary — clamps at the
+/// 1st/last day instead. `movedFrom` carries the original day when the rule
+/// moved it, else `null`. Mirrors `resolveDay(day,shift)`.
+({int day, int? movedFrom}) resolveMoneyDay(
+  int day,
+  String shift,
+  int year,
+  int monthIdx,
+) {
+  final dim = daysInMonthOf(year, monthIdx);
+  var d = day.clamp(1, dim);
+  final from = d;
+  bool isWeekend(int dd) {
+    final wd = DateTime(year, monthIdx + 1, dd).weekday;
+    return wd == DateTime.saturday || wd == DateTime.sunday;
+  }
+
+  if (shift == 'before') {
+    var guard = 0;
+    while (isWeekend(d) && d > 1 && guard < 7) {
+      d--;
+      guard++;
+    }
+  } else if (shift == 'after') {
+    var guard = 0;
+    while (isWeekend(d) && d < dim && guard < 7) {
+      d++;
+      guard++;
+    }
+  }
+  return (day: d, movedFrom: d != from ? from : null);
+}
