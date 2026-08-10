@@ -65,10 +65,25 @@ Future<void> openCalFilters(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Opens an event from Month view: tapping an event bar there now always
+/// opens the day-detail sheet first (issue #198), so this taps the bar/day
+/// then the event card inside the sheet to reach the event view/editor.
+Future<void> openMonthEvent(WidgetTester tester, String title) async {
+  await tester.tap(find.text(title).first);
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byWidgetPredicate(
+      (w) => w is Text && w.data == title && w.style?.fontSize == 13.5,
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Map<String, Object> calendarPrefs({
   required List<CalendarEvent> events,
   List<EventCategory> categories = const [],
   List<ImportedCalendar> importedCalendars = const [],
+  List<TaskList> taskLists = const [],
 }) {
   final family = Family(
     id: 'fam_main',
@@ -95,7 +110,8 @@ Map<String, Object> calendarPrefs({
   final ws = Workspace.empty()
     ..events = events
     ..eventCategories = categories
-    ..importedCalendars = importedCalendars;
+    ..importedCalendars = importedCalendars
+    ..taskLists = taskLists;
   return {
     'flutter.$kStorageKeyV4': json.encode({
       'year': 2026,
@@ -162,6 +178,8 @@ String monthTitleForTest(String iso) {
   final d = DateTime.parse('${iso}T00:00:00Z');
   return '${months[d.month - 1]} ${d.year}';
 }
+
+String prettyDateForTest(String iso) => shortDateForTest(iso);
 
 String shortDateForTest(String iso) {
   final d = DateTime.parse('${iso}T00:00:00Z');
@@ -628,6 +646,144 @@ void main() {
     },
   );
 
+  testWidgets(
+    'tapping a non-today day in Month view opens that day, not today (#198)',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      final today = todayIso();
+      final grid = monthGridForTest(today);
+      final otherDay = grid.firstWhere((iso) => iso != today);
+
+      await tester.tap(find.byKey(ValueKey('cal-day-$otherDay')));
+      await tester.pumpAndSettle();
+
+      // The sheet header should show the tapped day's date, not today's.
+      expect(find.text(prettyDateForTest(otherDay)), findsOneWidget);
+      expect(find.text(prettyDateForTest(today)), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tapping an event bar in Month view opens the day list, not the event (#198)',
+    (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Team lunch',
+              date: today,
+              color: const Color(0xff1684b4),
+              reminder: 'none',
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      // Tap the event bar itself (not empty day background).
+      await tester.tap(find.text('Team lunch').first);
+      await tester.pumpAndSettle();
+
+      // It should open the day-detail sheet (showing the day's date and an
+      // event card), not jump straight to the event editor/view.
+      expect(find.text(prettyDateForTest(today)), findsOneWidget);
+      expect(find.text('New event'), findsNothing);
+    },
+  );
+
+  testWidgets('tapping a day in a paged-to month opens that day (#198)', (
+    tester,
+  ) async {
+    final today = todayIso();
+    final nextMonth = addMonthsForTest(today, 1);
+    final nextMonthGrid = monthGridForTest(nextMonth);
+    final dayInNextMonth = nextMonthGrid.firstWhere(
+      (iso) =>
+          DateTime.parse('${iso}T00:00:00Z').month ==
+          DateTime.parse('${nextMonth}T00:00:00Z').month,
+    );
+
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-month')),
+      const Offset(0, -700),
+      1200,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('cal-day-$dayInNextMonth')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(prettyDateForTest(dayInNextMonth)), findsOneWidget);
+    expect(find.text(prettyDateForTest(today)), findsNothing);
+  });
+
+  testWidgets(
+    'day-detail sheet shows the tapped day events, not today\'s (#198)',
+    (tester) async {
+      final today = todayIso();
+      final grid = monthGridForTest(today);
+      final otherDay = grid.firstWhere(
+        (iso) =>
+            iso != today &&
+            DateTime.parse('${iso}T00:00:00Z').month ==
+                DateTime.parse('${today}T00:00:00Z').month,
+      );
+
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'today-event',
+              title: 'Today only event',
+              date: today,
+              color: const Color(0xff1684b4),
+              reminder: 'none',
+            ),
+            CalendarEvent(
+              id: 'other-event',
+              title: 'Other day event',
+              date: otherDay,
+              color: const Color(0xffef4444),
+              reminder: 'none',
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(ValueKey('cal-day-$otherDay')));
+      await tester.pumpAndSettle();
+
+      // Bars in the month grid also render event titles (in white, size 9)
+      // behind the sheet, so match on the sheet's larger event-card title
+      // style to check what's actually listed inside the day-detail sheet.
+      bool isCardTitle(Widget w) => w is Text && w.style?.fontSize == 13.5;
+      expect(
+        find.byWidgetPredicate(
+          (w) => isCardTitle(w) && (w as Text).data == 'Other day event',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => isCardTitle(w) && (w as Text).data == 'Today only event',
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('add an event via the FAB and see it in month view', (
     tester,
   ) async {
@@ -773,8 +929,7 @@ void main() {
     expect(scheduler.scheduledEvents.single.title, 'Team lunch');
     final eventId = scheduler.scheduledEvents.single.id;
 
-    await tester.tap(find.text('Team lunch').first);
-    await tester.pumpAndSettle();
+    await openMonthEvent(tester, 'Team lunch');
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
 
@@ -1080,8 +1235,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Picnic').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Picnic');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       expect(find.text('Colors'), findsOneWidget);
@@ -1126,8 +1280,7 @@ void main() {
 
     // The new category has no members assigned, so the event should have
     // no attendees either — it must not fall back to "me".
-    await tester.tap(find.text('Dinner').first);
-    await tester.pumpAndSettle();
+    await openMonthEvent(tester, 'Dinner');
     expect(find.text('ATTENDEES'), findsOneWidget);
     final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
     expect(attendeesWrap.children, isEmpty);
@@ -1146,8 +1299,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Solo errand').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Solo errand');
       expect(find.text('ATTENDEES'), findsOneWidget);
       final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
       expect(attendeesWrap.children, isEmpty);
@@ -1169,8 +1321,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Standup').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Standup');
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
       expect(find.text('Delete this event only'), findsOneWidget);
@@ -1204,8 +1355,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Practice').first);
-    await tester.pumpAndSettle();
+    await openMonthEvent(tester, 'Practice');
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Practice updated');
@@ -1233,8 +1383,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Standup').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Standup');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup once');
@@ -1266,8 +1415,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Practice').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Practice');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Practice v2');
@@ -1298,8 +1446,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Yoga').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Yoga');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Yoga renamed');
@@ -1331,8 +1478,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Book club').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Book club');
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
@@ -1359,8 +1505,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Choir').first);
-      await tester.pumpAndSettle();
+      await openMonthEvent(tester, 'Choir');
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
@@ -2745,8 +2890,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Original title').first);
-    await tester.pumpAndSettle();
+    await openMonthEvent(tester, 'Original title');
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Updated title');
@@ -2853,6 +2997,131 @@ void main() {
       expect(contrastOn(const Color(0xff0E9A8D)), Colors.white);
     },
   );
+
+  group('tasks with a due date appear in the calendar (#199)', () {
+    TaskList taskList({List<ListTask>? tasks}) => TaskList(
+      id: 'tl1',
+      name: 'Chores',
+      color: kCatColors.first,
+      tasks: tasks,
+    );
+
+    testWidgets('shows a due task in Month view coloured by its assignee', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          taskLists: [
+            taskList(
+              tasks: [
+                ListTask(
+                  id: 't1',
+                  title: 'Take out bins',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      final bar = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'cal-bar-task_tl1_t1-',
+            ),
+      );
+      expect(bar, findsOneWidget);
+      expect(
+        find.descendant(of: bar, matching: find.text('Take out bins')),
+        findsOneWidget,
+      );
+      final usesAssigneeColor = tester
+          .widgetList<Container>(
+            find.descendant(of: bar, matching: find.byType(Container)),
+          )
+          .any(
+            (container) =>
+                container.decoration is BoxDecoration &&
+                (container.decoration! as BoxDecoration).color ==
+                    kMemberColors[1],
+          );
+      expect(usesAssigneeColor, isTrue);
+    });
+
+    testWidgets('does not show a completed task in the calendar', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          taskLists: [
+            taskList(
+              tasks: [
+                ListTask(
+                  id: 't1',
+                  title: 'Done already',
+                  assignee: 'erik',
+                  due: today,
+                  done: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      expect(find.text('Done already'), findsNothing);
+    });
+
+    testWidgets('tapping a task occurrence opens a read-only task view', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          taskLists: [
+            taskList(
+              tasks: [
+                ListTask(
+                  id: 't1',
+                  title: 'Take out bins',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await openMonthEvent(tester, 'Take out bins');
+
+      expect(find.text('Task due date — open in Lists'), findsOneWidget);
+      expect(find.text('Edit'), findsNothing);
+      expect(find.text('Delete'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('task-open-list')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chores'), findsWidgets);
+    });
+  });
 }
 
 String _isoNow() => todayIso();

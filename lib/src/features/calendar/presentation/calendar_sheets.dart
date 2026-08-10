@@ -1028,6 +1028,8 @@ class _EventViewSheet extends StatelessWidget {
     final r = state.eventOrImportedById(eventId);
     final ev = r.ev;
     final imported = r.imported;
+    final isTask = r.isTask;
+    final taskListId = r.taskListId;
     if (ev == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -1263,6 +1265,43 @@ class _EventViewSheet extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          )
+        else if (isTask)
+          GestureDetector(
+            key: const ValueKey('task-open-list'),
+            onTap: taskListId == null
+                ? null
+                : () {
+                    Navigator.of(context).pop();
+                    state.goTab('lists');
+                    state.openTaskListDetail(taskListId);
+                  },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+              decoration: BoxDecoration(
+                color: B.faint,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ic('list', size: 15, sw: 2.2, color: B.soft2),
+                  const SizedBox(width: 8),
+                  const Flexible(
+                    child: Text(
+                      'Task due date — open in Lists',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: B.soft2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         else
@@ -3427,7 +3466,7 @@ class _DayDetailSheet extends StatelessWidget {
           Column(
             children: [
               for (final o in evs) ...[
-                state._eventCard(o),
+                state._eventCard(o, popSheetFirst: true),
                 if (o != evs.last) const SizedBox(height: 9),
               ],
             ],

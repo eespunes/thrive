@@ -1,14 +1,16 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// An event occurrence on a given date — either a real [CalendarEvent]
-/// (possibly a recurrence instance) or an imported (read-only) event
-/// surfaced through a synthetic [CalendarEvent] for uniform rendering.
+/// (possibly a recurrence instance), an imported (read-only) event, or a
+/// task's due date (also read-only), each surfaced through a synthetic
+/// [CalendarEvent] for uniform rendering.
 class CalendarOccurrence {
   CalendarOccurrence({
     required this.ev,
     required this.date,
     String? spanEnd,
     this.imported = false,
+    this.isTask = false,
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -19,6 +21,11 @@ class CalendarOccurrence {
   /// multi-day span (`ev.endDate`).
   final String spanEnd;
   final bool imported;
+
+  /// True when this occurrence is a task's due date (issue #199) rather
+  /// than a real or imported calendar event. Task occurrences are
+  /// read-only, like imported ones, but keep their assignee visible.
+  final bool isTask;
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
@@ -296,6 +303,25 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     );
   }
 
+  /// Builds the read-only [CalendarEvent] used to render/view a task's due
+  /// date on the calendar (issue #199), keyed by the composite
+  /// `'task_${list.id}_${task.id}'` id. Has no [category], so [evColor]
+  /// resolves its colour from the assignee's member colour, falling back
+  /// to the list's own colour when unassigned.
+  CalendarEvent taskSyntheticEvent(TaskList list, ListTask task) {
+    return CalendarEvent(
+      id: 'task_${list.id}_${task.id}',
+      title: task.title,
+      allDay: true,
+      date: task.due!,
+      color: list.color,
+      attendees: task.assignee != null ? [task.assignee!] : const [],
+      recur: 'none',
+      reminder: 'none',
+      createdBy: list.name,
+    );
+  }
+
   Color evColor(CalendarEvent ev) {
     final category = catById(ev.category);
     if (category != null) return category.color;
@@ -393,6 +419,30 @@ extension _ThriveCalendarActions on _ThriveHomeState {
               imported: true,
               date: e.date,
               ev: importedSyntheticEvent(cal, e),
+            ),
+          );
+        }
+      }
+    }
+
+    // Tasks with a due date show up on the calendar coloured by their
+    // assignee (issue #199); completed tasks and category filters (tasks
+    // have no category) both hide them.
+    for (final list in taskLists) {
+      for (final task in list.tasks) {
+        final due = task.due;
+        if (due == null || due.isEmpty || task.done) continue;
+        if (cflt.isNotEmpty) continue;
+        if (flt.isNotEmpty &&
+            !(task.assignee != null && flt.contains(task.assignee))) {
+          continue;
+        }
+        if (due.compareTo(rangeStart) >= 0 && due.compareTo(rangeEnd) <= 0) {
+          out.add(
+            CalendarOccurrence(
+              isTask: true,
+              date: due,
+              ev: taskSyntheticEvent(list, task),
             ),
           );
         }
@@ -595,20 +645,41 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return null;
   }
 
-  /// Looks up an occurrence's id across both real and imported events. Real
-  /// events are mutable; imported ones are synthesized read-only and can be
-  /// viewed but never edited/deleted.
-  ({CalendarEvent? ev, bool imported}) eventOrImportedById(String id) {
+  /// Looks up an occurrence's id across real, imported, and task-derived
+  /// events. Real events are mutable; imported and task ones are
+  /// synthesized read-only and can be viewed but never edited/deleted.
+  /// [taskListId] is set (to the owning [TaskList.id]) only when [isTask].
+  ({CalendarEvent? ev, bool imported, bool isTask, String? taskListId})
+  eventOrImportedById(String id) {
     final real = eventById(id);
-    if (real != null) return (ev: real, imported: false);
+    if (real != null) {
+      return (ev: real, imported: false, isTask: false, taskListId: null);
+    }
     for (final cal in importedCalendars) {
       for (final e in cal.events) {
         if ('${cal.id}_${e.id}' == id) {
-          return (ev: importedSyntheticEvent(cal, e), imported: true);
+          return (
+            ev: importedSyntheticEvent(cal, e),
+            imported: true,
+            isTask: false,
+            taskListId: null,
+          );
         }
       }
     }
-    return (ev: null, imported: false);
+    for (final list in taskLists) {
+      for (final task in list.tasks) {
+        if ('task_${list.id}_${task.id}' == id) {
+          return (
+            ev: taskSyntheticEvent(list, task),
+            imported: false,
+            isTask: true,
+            taskListId: list.id,
+          );
+        }
+      }
+    }
+    return (ev: null, imported: false, isTask: false, taskListId: null);
   }
 
   void saveEvent({
