@@ -133,17 +133,134 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       FirebaseFirestore.instance.collection(kFamilyHandlesCollection).doc(slug);
 
   // ------------------------------------------------------- (de)serialize
-  Map<String, dynamic> _familyToDoc(Family f, Workspace ws) => {
+  Map<String, dynamic> _familyToDoc(Family f, Workspace ws, String meUid) => {
     'name': f.name,
     'username': f.username,
     if (f.picture != null) 'picture': f.picture,
     'ownerUid': f.ownerUid,
     'memberUids': f.memberUids,
     'members': f.members.map(_externalizeMember).toList(),
-    'workspace': ws.toJson(),
+    'workspace': _externalizeWorkspaceJson(ws.toJson(), meUid),
     'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
     'updatedAt': FieldValue.serverTimestamp(),
   };
+
+  /// Rewrites every member-id reference inside a serialized [Workspace] —
+  /// event attendees/creators, category members, task assignee/creator/
+  /// completer, and shopping-item adder — replacing the local `'me'`
+  /// sentinel with the signed-in user's stable uid. Without this, every
+  /// family member's own contributions would collapse onto the same
+  /// ambiguous `'me'` string once synced to a shared family (the sibling of
+  /// [_externalizeMember], which only fixes up the `FamilyMember` record
+  /// itself).
+  Map<String, dynamic> _externalizeWorkspaceJson(
+    Map<String, dynamic> json,
+    String meUid,
+  ) {
+    if (meUid.isEmpty) return json;
+    String swap(String id) => id == 'me' ? meUid : id;
+    String? swapNullable(dynamic id) => id == null ? null : swap(id.toString());
+
+    final events = json['events'];
+    if (events is List) {
+      for (final e in events) {
+        if (e is Map) {
+          final attendees = e['attendees'];
+          if (attendees is List) {
+            e['attendees'] = [for (final a in attendees) swap(a.toString())];
+          }
+          if (e.containsKey('createdBy')) {
+            e['createdBy'] = swapNullable(e['createdBy']);
+          }
+        }
+      }
+    }
+
+    final categories = json['eventCategories'];
+    if (categories is List) {
+      for (final c in categories) {
+        if (c is Map) {
+          final members = c['members'];
+          if (members is List) {
+            c['members'] = [for (final m in members) swap(m.toString())];
+          }
+        }
+      }
+    }
+
+    final taskLists = json['taskLists'];
+    if (taskLists is List) {
+      for (final l in taskLists) {
+        if (l is Map) {
+          final tasks = l['tasks'];
+          if (tasks is List) {
+            for (final t in tasks) {
+              if (t is Map) {
+                if (t.containsKey('assignee')) {
+                  t['assignee'] = swapNullable(t['assignee']);
+                }
+                if (t.containsKey('createdBy')) {
+                  t['createdBy'] = swapNullable(t['createdBy']);
+                }
+                if (t.containsKey('completedBy')) {
+                  t['completedBy'] = swapNullable(t['completedBy']);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    final shoppingLists = json['shoppingLists'];
+    if (shoppingLists is List) {
+      for (final l in shoppingLists) {
+        if (l is Map) {
+          final items = l['items'];
+          if (items is List) {
+            for (final it in items) {
+              if (it is Map && it.containsKey('addedBy')) {
+                it['addedBy'] = swapNullable(it['addedBy']);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return json;
+  }
+
+  /// Reverses [_externalizeWorkspaceJson]: replaces the signed-in user's own
+  /// uid with the local `'me'` sentinel across the same fields, so UI code
+  /// that compares against `'me'` (e.g. task filters, assignee highlighting)
+  /// keeps working after a cloud load, while other members' uids are left
+  /// untouched so they resolve to their own name/color via `_memberById`.
+  void _localizeWorkspaceIn(Workspace ws, String meUid) {
+    if (meUid.isEmpty) return;
+    String swap(String id) => id == meUid ? 'me' : id;
+    String? swapNullable(String? id) => id == null ? null : swap(id);
+
+    for (final e in ws.events) {
+      e.attendees = [for (final a in e.attendees) swap(a)];
+      e.createdBy = swapNullable(e.createdBy);
+    }
+    for (final c in ws.eventCategories) {
+      c.members = [for (final m in c.members) swap(m)];
+    }
+    for (final l in ws.taskLists) {
+      for (final t in l.tasks) {
+        t.assignee = swapNullable(t.assignee);
+        t.createdBy = swapNullable(t.createdBy);
+        t.completedBy = swapNullable(t.completedBy);
+      }
+    }
+    for (final l in ws.shoppingLists) {
+      for (final it in l.items) {
+        it.addedBy = swapNullable(it.addedBy);
+      }
+    }
+  }
 
   /// Serializes a member for shared storage. The local `'me'` sentinel id is
   /// replaced with the member's stable uid so multiple users sharing a family
@@ -318,6 +435,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       if (f.username.trim().isEmpty) f.username = familySlug(f.name);
       _localizeMeIn(f, meUid);
+      final ws = workspaces[f.id];
+      if (ws != null) _localizeWorkspaceIn(ws, meUid);
     }
     await _persistAllFamilies(meUid);
     await _writeUserDoc(meUid);
@@ -414,7 +533,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
       await _familyDocRef(f.id).set(
-        _familyToDoc(f, workspaces[f.id] ?? Workspace.empty()),
+        _familyToDoc(f, workspaces[f.id] ?? Workspace.empty(), meUid),
         SetOptions(merge: true),
       );
     }
@@ -454,7 +573,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final ws = workspaces[f.id] ?? Workspace.empty();
       await _familyDocRef(
         f.id,
-      ).set(_familyToDoc(f, ws), SetOptions(merge: true));
+      ).set(_familyToDoc(f, ws, meUid), SetOptions(merge: true));
     }
   }
 
@@ -512,7 +631,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // protected as the rest of the family's shared data.
       await _familyDocRef(fid)
           .set({
-            ..._familyToDoc(fam, ws),
+            ..._familyToDoc(fam, ws, meUid),
             'joinHash': joinHash,
             'joinPassword': password,
           })
@@ -684,6 +803,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       collapsed = {};
     });
     _localizeMeIn(fam, meUid);
+    _localizeWorkspaceIn(ws, meUid);
   }
 
   Future<void> cloudDeleteFamily(String meUid, String fid) async {
@@ -726,7 +846,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final ws = workspaces[fam.id] ?? Workspace.empty();
         await _familyDocRef(
           fam.id,
-        ).set(_familyToDoc(fam, ws), SetOptions(merge: true));
+        ).set(_familyToDoc(fam, ws, meUid), SetOptions(merge: true));
       }
       await _writeUserDoc(meUid);
     } catch (e) {
@@ -934,11 +1054,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Tags the `me` member of every family with the signed-in uid so security
-  /// rules and `isMe` checks line up after a cloud load.
+  /// rules and `isMe` checks line up after a cloud load, and applies the same
+  /// translation to each family's workspace data so the signed-in user's own
+  /// `attendees`/`createdBy`/`assignee`/`completedBy`/`addedBy` references
+  /// resolve back to the local `'me'` sentinel while other members' uids
+  /// stay resolvable via `_memberById`.
   // coverage:ignore-start
   void _localizeMe(String meUid) {
     for (final f in families) {
       _localizeMeIn(f, meUid);
+      final ws = workspaces[f.id];
+      if (ws != null) _localizeWorkspaceIn(ws, meUid);
     }
   }
 
