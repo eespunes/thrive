@@ -599,9 +599,7 @@ void main() {
     expect((focus.border! as Border).top.color, B.primary);
   });
 
-  testWidgets('month view scrolls horizontally between months', (
-    tester,
-  ) async {
+  testWidgets('month view scrolls horizontally between months', (tester) async {
     final today = todayIso();
     final nextMonth = addMonthsForTest(today, 1);
     final nextMonthStart = monthStartForTest(nextMonth);

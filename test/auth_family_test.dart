@@ -543,58 +543,55 @@ void main() {
       expect(find.text('sunshine2'), findsOneWidget);
     });
 
-    testWidgets(
-      "joining a local family whose stored owner still carries the "
-      "'me' sentinel doesn't merge the two identities",
-      (tester) async {
-        // Simulates a family registry entry left over from before members
-        // were externalized on write (or any other stale doc): the owner's
-        // row is still literally `id: 'me'`. Joining it must not let the
-        // freshly-signed-in device collide with — and take over — that real
-        // member's identity.
-        final reg = {
-          'oldfam': {
-            'username': 'oldfam',
-            'password': 'legacy1',
-            'name': 'Old family',
-            'picture': null,
-            'members': [
-              FamilyMember(
-                id: 'me',
-                name: 'Sophie van der Berg',
-                email: 'sophie@vanderberg.nl',
-                initials: 'SB',
-                color: kMemberColors[2],
-                role: 'owner',
-                status: 'active',
-              ).toJson(),
-            ],
-            'workspace': Workspace.empty().toJson(),
-          },
-        };
-        await pumpApp(
-          tester,
-          prefs: {'flutter.thrive.registry': json.encode(reg)},
-        );
+    testWidgets("joining a local family whose stored owner still carries the "
+        "'me' sentinel doesn't merge the two identities", (tester) async {
+      // Simulates a family registry entry left over from before members
+      // were externalized on write (or any other stale doc): the owner's
+      // row is still literally `id: 'me'`. Joining it must not let the
+      // freshly-signed-in device collide with — and take over — that real
+      // member's identity.
+      final reg = {
+        'oldfam': {
+          'username': 'oldfam',
+          'password': 'legacy1',
+          'name': 'Old family',
+          'picture': null,
+          'members': [
+            FamilyMember(
+              id: 'me',
+              name: 'Sophie van der Berg',
+              email: 'sophie@vanderberg.nl',
+              initials: 'SB',
+              color: kMemberColors[2],
+              role: 'owner',
+              status: 'active',
+            ).toJson(),
+          ],
+          'workspace': Workspace.empty().toJson(),
+        },
+      };
+      await pumpApp(
+        tester,
+        prefs: {'flutter.thrive.registry': json.encode(reg)},
+      );
 
-        final err = await thriveDebug.joinFamily(
-          username: 'oldfam',
-          password: 'legacy1',
-        );
-        expect(err, isNull);
-        await tester.pumpAndSettle();
+      final err = await thriveDebug.joinFamily(
+        username: 'oldfam',
+        password: 'legacy1',
+      );
+      expect(err, isNull);
+      await tester.pumpAndSettle();
 
-        final members = thriveDebug.curFamily()!.members;
-        final meRows = members.where((m) => m.id == 'me').toList();
-        // Exactly one row resolves to `'me'` — the signed-in device itself —
-        // never the pre-existing owner.
-        expect(meRows, hasLength(1));
-        expect(meRows.single.name, 'Eva Janssen');
-        expect(
-          members.any((m) => m.name == 'Sophie van der Berg' && m.id != 'me'),
-          isTrue,
-        );
-      },
-    );
+      final members = thriveDebug.curFamily()!.members;
+      final meRows = members.where((m) => m.id == 'me').toList();
+      // Exactly one row resolves to `'me'` — the signed-in device itself —
+      // never the pre-existing owner.
+      expect(meRows, hasLength(1));
+      expect(meRows.single.name, 'Eva Janssen');
+      expect(
+        members.any((m) => m.name == 'Sophie van der Berg' && m.id != 'me'),
+        isTrue,
+      );
+    });
   });
 }
