@@ -97,7 +97,7 @@ extension _ThriveListActions on _ThriveHomeState {
           title: title.trim().isEmpty ? 'Untitled' : title.trim(),
           assignee: assignee,
           due: due,
-          createdBy: 'me',
+          createdBy: myId,
         );
         l.tasks.add(t);
         saved = t;
@@ -120,7 +120,7 @@ extension _ThriveListActions on _ThriveHomeState {
       for (final t in l.tasks) {
         if (t.id == taskId) {
           t.done = !t.done;
-          t.completedBy = t.done ? 'me' : null;
+          t.completedBy = t.done ? myId : null;
           toggled = t;
           break;
         }
@@ -179,7 +179,7 @@ extension _ThriveListActions on _ThriveHomeState {
     if (nm.isEmpty) return;
     mutate(() {
       final l = shopListById(listId);
-      l?.items.insert(0, ShopItem(id: uid(), name: nm, addedBy: 'me'));
+      l?.items.insert(0, ShopItem(id: uid(), name: nm, addedBy: myId));
     });
   }
 

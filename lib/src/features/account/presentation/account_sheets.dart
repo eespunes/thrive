@@ -712,7 +712,7 @@ class _FamilySheetState extends State<_FamilySheet> {
                     ),
                   ),
           ),
-          if (!owner || f.members.where((m) => m.id != 'me').isNotEmpty)
+          if (!owner || f.members.where((m) => m.id != s.myId).isNotEmpty)
             _leaveButton(f),
           // The owner can always delete a family, even their last one (it then
           // drops them back to the create/join gate).
@@ -958,7 +958,7 @@ class _FamilySheetState extends State<_FamilySheet> {
   }
 
   Widget _memberRow(Family f, FamilyMember m, bool owner) {
-    final isMe = m.id == 'me';
+    final isMe = m.id == s.myId;
     // Members with no login (uid == null, added via "Add family member")
     // can't edit their own name/avatar, so anyone in the family — not just
     // the owner — should be able to on their behalf.

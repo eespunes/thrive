@@ -348,7 +348,8 @@ class Workspace {
 
 /// Mirrors the design's `seedFamily(user)` — creates the initial family with
 /// the user as owner plus one dummy member, so a new account isn't empty.
-Family seedFamily(String id, AppUser u, {String? ownerUid}) {
+/// [selfId] is the caller's own stable id (`myId`) for the owner's member row.
+Family seedFamily(String id, AppUser u, String selfId, {String? ownerUid}) {
   final last = u.name.trim().split(RegExp(r'\s+')).last;
   final name = '$last family';
   return Family(
@@ -359,12 +360,12 @@ Family seedFamily(String id, AppUser u, {String? ownerUid}) {
     memberUids: ownerUid != null ? [ownerUid] : <String>[],
     members: [
       FamilyMember(
-        id: 'me',
+        id: selfId,
         name: u.name,
         email: u.email,
         initials: u.initials,
         color: kMemberColors[0],
-        uid: ownerUid,
+        uid: ownerUid ?? selfId,
         photo: u.photo,
         role: 'owner',
         status: 'active',

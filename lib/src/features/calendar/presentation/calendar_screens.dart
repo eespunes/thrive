@@ -135,7 +135,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       'agenda' => _calAgenda(),
       _ => _withStickyMonthWeekdays(
         _calPagedView(
-          axis: Axis.vertical,
+          axis: Axis.horizontal,
           periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
           pageBuilder: _calMonth,
         ),
@@ -178,8 +178,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   /// content — as a true `Column` sibling rather than a `Stack`/`Positioned`
   /// overlay on top of it. Each month page (`_calMonth`) only renders its
   /// week rows, so there is no second, non-sticky copy of the header able to
-  /// surface (crossed by event bars) while paging vertically between months
-  /// (issue #190).
+  /// surface (crossed by event bars) while paging horizontally between
+  /// months (issue #190).
   Widget _withStickyMonthWeekdays(Widget child) {
     return Container(
       key: const ValueKey('cal-sticky-month-weekdays'),

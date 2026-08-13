@@ -15,6 +15,11 @@ final Map<String, Object> _signedInUser = {
     'initials': 'EJ',
     'provider': 'google',
   }),
+  // Pins this device's local (no-Firebase) self id — normally a random
+  // generated id (see `kLocalSelfUidKey`/`myId`) — to the stable, readable
+  // literal `'me'`, so existing tests can keep asserting against a fixed id
+  // for "the signed-in user" instead of a fresh random one every run.
+  'flutter.$kLocalSelfUidKey': 'me',
 };
 
 /// A local family registry pre-seeded with a joinable family

@@ -28,7 +28,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final f = curFamily();
     if (f == null) return true;
     for (final m in f.members) {
-      if (m.id == 'me') return m.role == 'owner';
+      if (m.id == myId) return m.role == 'owner';
     }
     return true;
   }
@@ -107,9 +107,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
 
   FamilyMember? _currentUserMember() {
     FamilyMember? me;
-    final firebaseUid = _firebaseUid();
     for (final m in curFamily()?.members ?? const <FamilyMember>[]) {
-      if (m.id == 'me' || (firebaseUid != null && m.uid == firebaseUid)) {
+      if (m.id == myId) {
         me = m;
         break;
       }
@@ -168,7 +167,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       // usable. In cloud mode we instead load the user's shared families (or
       // land on onboarding) — see the sign-in flows below.
       if (!_cloudBacked && families.isEmpty) {
-        families = [seedFamily('fam_main', u)];
+        families = [seedFamily('fam_main', u, myId)];
         familyId = 'fam_main';
         workspaces.putIfAbsent(
           'fam_main',
@@ -448,11 +447,12 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Profile updated');
   }
 
-  /// Propagates the user's identity onto the `me` member of every family.
+  /// Propagates the user's identity onto the current user's own member row
+  /// in every family.
   void _syncMe(AppUser u) {
     for (final f in families) {
       for (final m in f.members) {
-        if (m.id == 'me') {
+        if (m.id == myId) {
           m
             ..name = u.name
             ..email = u.email
@@ -530,7 +530,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     if (!amOwner()) return;
     _withCurFamily((f) {
       for (final m in f.members) {
-        if (m.id == id && m.id != 'me') {
+        if (m.id == id && m.id != myId) {
           m.role = m.role == 'owner' ? 'member' : 'owner';
         }
       }
@@ -769,8 +769,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
   /// family this user is the sole member of and strips this user from the rest.
   Future<void> _deleteAccountLocal() async {
     final reg = await loadRegistry();
+    final id = myId;
     for (final f in families) {
-      final others = f.members.where((m) => m.id != 'me').toList();
+      final others = f.members.where((m) => m.id != id).toList();
       if (others.isEmpty) {
         reg.remove(f.username);
       } else {
@@ -779,7 +780,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
           final map = Map<String, dynamic>.from(entry);
           map['members'] = [
             for (final m in (map['members'] as List? ?? []))
-              if (Map<String, dynamic>.from(m as Map)['id'] != 'me') m,
+              if (Map<String, dynamic>.from(m as Map)['id'] != id) m,
           ];
           reg[f.username] = map;
         }
@@ -820,6 +821,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final ws = Workspace.empty();
     workspaces[id] = ws;
     final u = user;
+    final selfId = myId;
     final fam = Family(
       id: id,
       name: name,
@@ -828,12 +830,12 @@ extension _ThriveAccountActions on _ThriveHomeState {
       memberUids: _firebaseUid() != null ? [_firebaseUid()!] : <String>[],
       members: [
         FamilyMember(
-          id: 'me',
+          id: selfId,
           name: u?.name ?? '',
           email: u?.email ?? '',
           initials: u?.initials ?? '?',
           color: kMemberColors[0],
-          uid: _firebaseUid(),
+          uid: _firebaseUid() ?? selfId,
           photo: u?.photo,
           role: 'owner',
           status: 'active',
@@ -871,8 +873,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }
     if (fam == null) return;
 
-    final iAmOwner = fam.members.any((m) => m.id == 'me' && m.role == 'owner');
-    final others = fam.members.where((m) => m.id != 'me').toList();
+    final selfId = myId;
+    final iAmOwner = fam.members.any(
+      (m) => m.id == selfId && m.role == 'owner',
+    );
+    final others = fam.members.where((m) => m.id != selfId).toList();
 
     // An owner leaving must hand ownership off so the family keeps an owner.
     if (iAmOwner && others.isNotEmpty) {
@@ -884,7 +889,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }
 
     // Drop my own membership from the shared family record.
-    fam.members.removeWhere((m) => m.id == 'me');
+    fam.members.removeWhere((m) => m.id == selfId);
     final uid = _firebaseUid();
     // coverage:ignore-start
     if (uid != null) {
