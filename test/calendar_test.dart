@@ -599,7 +599,9 @@ void main() {
     expect((focus.border! as Border).top.color, B.primary);
   });
 
-  testWidgets('month view scrolls vertically between months', (tester) async {
+  testWidgets('month view scrolls horizontally between months', (
+    tester,
+  ) async {
     final today = todayIso();
     final nextMonth = addMonthsForTest(today, 1);
     final nextMonthStart = monthStartForTest(nextMonth);
@@ -609,7 +611,7 @@ void main() {
     expect(find.text(monthTitleForTest(today)), findsOneWidget);
     await tester.fling(
       find.byKey(const ValueKey('cal-pager-month')),
-      const Offset(0, -700),
+      const Offset(-700, 0),
       1200,
     );
     await tester.pumpAndSettle();
@@ -2982,6 +2984,50 @@ void main() {
 
     expect(find.text('Calendar synced (2 events)'), findsOneWidget);
   });
+
+  testWidgets(
+    'a task with a due date appears on the calendar and is read-only there',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-lists')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Household'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Take out bins');
+      await tester.pump();
+      // The "Due date" toggle defaults to today.
+      await tester.tap(find.text('Due date'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Take out bins'), findsOneWidget);
+
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+      expect(find.text('Take out bins'), findsOneWidget);
+      expect(find.text('Task'), findsOneWidget);
+
+      await tester.tap(find.text('Take out bins'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('This is a task\u2019s due date — manage it from Lists'),
+        findsOneWidget,
+      );
+      // Read-only: no Edit/Delete affordances for a task's calendar entry.
+      expect(find.text('Edit'), findsNothing);
+      expect(find.text('Delete'), findsNothing);
+    },
+  );
 
   test('IcsImportException.toString() returns its message', () {
     expect(IcsImportException('boom').toString(), 'boom');
