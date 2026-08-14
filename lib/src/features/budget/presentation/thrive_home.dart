@@ -172,6 +172,10 @@ class ThriveDebugController {
   AppUser? get user => _s.user;
   List<Family> get families => _s.families;
   String get familyId => _s.familyId;
+  String get myId => _s.myId;
+  List<CalendarEvent> get events => _s.events;
+  List<TaskList> get taskLists => _s.taskLists;
+  List<ShoppingList> get shoppingLists => _s.shoppingLists;
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {

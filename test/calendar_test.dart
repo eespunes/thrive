@@ -3002,6 +3002,11 @@ void main() {
     },
   );
 
+  test('eurBare strips the euro glyph + nbsp from eur()', () {
+    expect(eurBare(1234.5), '1.234,50');
+    expect(eurBare(-5, cents: false), '\u22125');
+  });
+
   group('tasks with a due date appear in the calendar (#199)', () {
     TaskList taskList({List<ListTask>? tasks}) => TaskList(
       id: 'tl1',
