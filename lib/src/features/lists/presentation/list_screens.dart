@@ -70,7 +70,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     final cards = <Widget>[];
     for (final list in taskLists) {
       final tasks = filterMe
-          ? list.tasks.where((t) => t.assignee == 'me').toList()
+          ? list.tasks.where((t) => t.assignee == myId).toList()
           : list.tasks;
       if (filterMe && tasks.isEmpty) continue;
       cards.add(_taskListCard(list, tasks));

@@ -20,6 +20,12 @@ const String kFamilyHandlesCollection = 'family_handles';
 /// `localStorage['thrive.registry']`, so create/join works offline.
 const String kRegistryKey = 'thrive.registry';
 
+/// Stable per-device id used in place of a Firebase `uid` when running in
+/// local/offline mode (see `myId`), so every member's own row always has a
+/// real, globally-consistent id — never the ambiguous legacy `'me'` sentinel,
+/// which used to collide whenever two real people's rows both carried it.
+const String kLocalSelfUidKey = 'thrive.localSelfUid';
+
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
 /// it, so with offline persistence a dropped connection would otherwise hang
 /// the UI forever. Bounding every await turns that into a recoverable error.
@@ -139,27 +145,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (f.picture != null) 'picture': f.picture,
     'ownerUid': f.ownerUid,
     'memberUids': f.memberUids,
-    'members': f.members.map(_externalizeMember).toList(),
+    'members': f.members.map((m) => m.toJson()).toList(),
     'workspace': ws.toJson(),
     'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
     'updatedAt': FieldValue.serverTimestamp(),
   };
 
-  /// Serializes a member for shared storage. The local `'me'` sentinel id is
-  /// replaced with the member's stable uid so multiple users sharing a family
-  /// don't all collide on `id == 'me'`.
-  Map<String, dynamic> _externalizeMember(FamilyMember m) {
-    final json = m.toJson();
-    if (m.id == 'me' && (m.uid ?? '').isNotEmpty) {
-      json['id'] = m.uid;
-    }
-    return json;
-  }
-
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
     fam.members = _dedupeMembers(fam.members);
+    _migrateLegacyMeIds(fam);
     final joinPassword = doc['joinPassword'];
     if (joinPassword is String && joinPassword.isNotEmpty) {
       _sessionFamilyPasswords[fid] = joinPassword;
@@ -301,7 +297,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         screen = rawScreen;
       }
     }
-    _localizeMe(meUid);
+    _migrateLegacyMeIdsAll(meUid);
   }
 
   /// Reads the deprecated `user_workspaces/{uid}` blob and promotes each family
@@ -317,7 +313,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       f.ownerUid ??= meUid;
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       if (f.username.trim().isEmpty) f.username = familySlug(f.name);
-      _localizeMeIn(f, meUid);
+      // This is solely-owned local data this device already had before its
+      // first cloud login, so its own row is unambiguously `'me'` even
+      // though it predates uid tracking.
+      _migrateLegacyMeIds(f, meUid);
     }
     await _persistAllFamilies(meUid);
     await _writeUserDoc(meUid);
@@ -389,7 +388,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
         workspaces[fid] = ws;
         if (fid == familyId) _adoptActiveWorkspace();
-        _localizeMe(meUid);
+        _migrateLegacyMeIdsAll(meUid);
         _lastSyncedAtMillis = remoteMillis;
         _applyingCloudSnapshot = false;
         if (mounted) {
@@ -480,7 +479,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
       final fid = 'fam_${uid()}';
       final me = FamilyMember(
-        id: 'me',
+        id: meUid,
         name: user?.name ?? '',
         email: user?.email ?? '',
         initials: user?.initials ?? '?',
@@ -623,7 +622,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         await _familyDocRef(fid)
             .update({
               'memberUids': FieldValue.arrayUnion([meUid]),
-              'members': FieldValue.arrayUnion([_externalizeMember(me)]),
+              'members': FieldValue.arrayUnion([me.toJson()]),
               'joinProof': joinProof,
               'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
               'updatedAt': FieldValue.serverTimestamp(),
@@ -683,7 +682,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       swipedId = null;
       collapsed = {};
     });
-    _localizeMeIn(fam, meUid);
   }
 
   Future<void> cloudDeleteFamily(String meUid, String fid) async {
@@ -785,6 +783,19 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await prefs.setString(kRegistryKey, json.encode(reg));
   }
 
+  /// Returns (creating on first use) a stable id for this device's local,
+  /// no-Firebase identity — this device's `myId` when not signed in via
+  /// Firebase.
+  Future<String> _localSelfUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString(kLocalSelfUidKey);
+    if (id == null || id.isEmpty) {
+      id = uid();
+      await prefs.setString(kLocalSelfUidKey, id);
+    }
+    return id;
+  }
+
   /// Offline/local equivalent of leaving a family (issue #133): writes [fam]'s
   /// post-departure member list (this user removed, any new owner promoted) back
   /// to the registry so a later re-join sees the handed-off family. Drops the
@@ -817,12 +828,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return 'That family username is taken';
     }
     final id = 'fam_${uid()}';
+    final selfUid = await _localSelfUid();
     final me = FamilyMember(
-      id: 'me',
+      id: selfUid,
       name: user?.name ?? '',
       email: user?.email ?? '',
       initials: user?.initials ?? '?',
       color: kMemberColors[0],
+      uid: selfUid,
       photo: user?.photo,
       role: 'owner',
       status: 'active',
@@ -874,21 +887,29 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return 'You\u2019re already in this family';
     }
     final id = 'fam_${uid()}';
+    final selfUid = await _localSelfUid();
+    final fetchedMembers = [
+      for (final m in (map['members'] as List? ?? []))
+        FamilyMember.fromJson(Map<String, dynamic>.from(m as Map)),
+    ];
+    // Rewrites any legacy `'me'`-tagged row (e.g. the family's original
+    // local creator, from before this fix) to its own distinct id. None of
+    // these can be us — we're not a member yet — so nothing is claimed as
+    // [selfUid], preventing a collision with our own (already-distinct,
+    // uid-based) row added below.
+    _migrateLegacyMeIdsInList(fetchedMembers, selfUid, false);
     final me = FamilyMember(
-      id: 'me',
+      id: selfUid,
       name: user?.name ?? '',
       email: user?.email ?? '',
       initials: user?.initials ?? '?',
       color: kMemberColors[families.length % kMemberColors.length],
+      uid: selfUid,
       photo: user?.photo,
       role: 'member',
       status: 'active',
     );
-    final members = [
-      for (final m in (map['members'] as List? ?? []))
-        FamilyMember.fromJson(Map<String, dynamic>.from(m as Map)),
-      me,
-    ];
+    final members = _dedupeMembers([...fetchedMembers, me]);
     final fam = Family(
       id: id,
       name: (map['name'] ?? 'Family').toString(),
@@ -901,7 +922,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         : Workspace.empty();
     _syncWorkspaces();
     workspaces[id] = ws;
-    map['members'] = members.map((m) => m.toJson()).toList();
+    map['members'] = fam.members.map((m) => m.toJson()).toList();
     reg[slug] = map;
     await saveRegistry(reg);
     update(() {
@@ -918,9 +939,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   // --------------------------------------------------------- helpers
-  /// Points the active accounts/cats/data at the current family's workspace.
+  /// Points the active accounts/cats/data at the current family's workspace,
+  /// after migrating any legacy literal `'me'` still stored in this
+  /// workspace's calendar/list/shopping data (see
+  /// `_migrateLegacyMeReferencesInWorkspace`).
   void _adoptActiveWorkspace() {
     final ws = workspaces[familyId] ?? Workspace.empty();
+    _migrateLegacyMeReferencesInWorkspace(ws);
     workspaces[familyId] = ws;
     accounts = ws.accounts;
     cats = ws.cats;
@@ -933,23 +958,88 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     weeklyPlan = ws.weeklyPlan;
   }
 
-  /// Tags the `me` member of every family with the signed-in uid so security
-  /// rules and `isMe` checks line up after a cloud load.
-  // coverage:ignore-start
-  void _localizeMe(String meUid) {
-    for (final f in families) {
-      _localizeMeIn(f, meUid);
+  /// One-time migration for workspace data (calendar events, tasks, shopping
+  /// items) that still carries the legacy literal `'me'` sentinel instead of
+  /// a real, stable member id (see `myId`). Before this fix, `'me'` in shared
+  /// workspace data was a *relative* token meant to resolve to "whichever
+  /// device is viewing" — but since the workspace is a single shared blob,
+  /// this made an event/task genuinely assigned to one specific family
+  /// member appear as "assigned to me" on every other member's device too.
+  /// Rewriting any stray `'me'` here to this device's own real [myId]
+  /// preserves the historic (if bugged) intent — data literally created as
+  /// `'me'` was created by this device — while ensuring it never again
+  /// resolves differently depending on who's looking.
+  void _migrateLegacyMeReferencesInWorkspace(Workspace ws) {
+    final id = myId;
+    for (final ev in ws.events) {
+      var changed = false;
+      final attendees = [
+        for (final a in ev.attendees)
+          if (a == 'me')
+            () {
+              changed = true;
+              return id;
+            }()
+          else
+            a,
+      ];
+      if (changed) ev.attendees = attendees;
+      if (ev.createdBy == 'me') ev.createdBy = id;
     }
-  }
-
-  void _localizeMeIn(Family f, String meUid) {
-    for (final m in f.members) {
-      if (m.uid == meUid || m.id == 'me') {
-        m.uid = meUid;
-        m.id = 'me';
+    for (final list in ws.taskLists) {
+      for (final t in list.tasks) {
+        if (t.assignee == 'me') t.assignee = id;
+        if (t.createdBy == 'me') t.createdBy = id;
+        if (t.completedBy == 'me') t.completedBy = id;
+      }
+    }
+    for (final list in ws.shoppingLists) {
+      for (final item in list.items) {
+        if (item.addedBy == 'me') item.addedBy = id;
       }
     }
   }
 
-  // coverage:ignore-end
+  /// One-time migration for family data that still carries the legacy
+  /// `'me'` sentinel id (from before every member's own row always used its
+  /// real, stable id — see `myId`). When [claim] is true (the default —
+  /// used when reloading/migrating a family we're already in), the first
+  /// stale `'me'` row is rewritten to [meId] permanently, since a literal
+  /// `'me'` there could only ever have been written by whichever single
+  /// device considered itself `'me'` at the time; any *additional* stale
+  /// `'me'` row (e.g. legacy data from two different devices merged into
+  /// the same doc/registry entry) is given a fresh, unique id instead —
+  /// `'me'` must never resolve to more than one member, or their identities
+  /// (and calendar events, tasks, etc.) merge. When [claim] is false (used
+  /// right before *joining* a family, whose members can't yet include us),
+  /// every stale `'me'` row is known to be a foreign member's, so all of
+  /// them get a fresh id and none are claimed as [meId].
+  void _migrateLegacyMeIds(Family f, [String? meId, bool claim = true]) =>
+      _migrateLegacyMeIdsInList(f.members, meId, claim);
+
+  void _migrateLegacyMeIdsInList(
+    List<FamilyMember> members, [
+    String? meId,
+    bool claim = true,
+  ]) {
+    final id = meId ?? myId;
+    var claimed = !claim;
+    for (final m in members) {
+      if (m.id != 'me') continue;
+      if (!claimed) {
+        m.id = id;
+        m.uid ??= id;
+        claimed = true;
+      } else {
+        m.id = uid();
+      }
+    }
+  }
+
+  /// Runs [_migrateLegacyMeIds] over every locally-held family.
+  void _migrateLegacyMeIdsAll(String meId) {
+    for (final f in families) {
+      _migrateLegacyMeIds(f, meId);
+    }
+  }
 }

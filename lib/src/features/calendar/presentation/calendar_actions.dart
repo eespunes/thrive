@@ -725,7 +725,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         recurEvery: recurEvery,
         recurUnit: recurUnit,
         recurWeekdays: recurWeekdays,
-        createdBy: createdBy ?? 'me',
+        createdBy: createdBy ?? myId,
         exceptions: exceptions ?? const [],
       );
       final i = events.indexWhere((x) => x.id == ev.id);

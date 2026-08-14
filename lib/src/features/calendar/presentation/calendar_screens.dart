@@ -135,7 +135,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       'agenda' => _calAgenda(),
       _ => _withStickyMonthWeekdays(
         _calPagedView(
-          axis: Axis.vertical,
+          axis: Axis.horizontal,
           periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
           pageBuilder: _calMonth,
         ),
@@ -178,8 +178,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   /// content — as a true `Column` sibling rather than a `Stack`/`Positioned`
   /// overlay on top of it. Each month page (`_calMonth`) only renders its
   /// week rows, so there is no second, non-sticky copy of the header able to
-  /// surface (crossed by event bars) while paging vertically between months
-  /// (issue #190).
+  /// surface (crossed by event bars) while paging horizontally between
+  /// months (issue #190).
   Widget _withStickyMonthWeekdays(Widget child) {
     return Container(
       key: const ValueKey('cal-sticky-month-weekdays'),
@@ -1456,6 +1456,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final col = evColor(ev);
     final cat = catById(ev.category);
     final imp = o.imported;
+    final isTask = o.isTask;
 
     final inner = Row(
       children: [
@@ -1598,6 +1599,32 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                           Text(
                             ev.createdBy ?? 'Imported',
                             style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: B.soft2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (isTask)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: B.faint,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ic('tasklist', size: 10, sw: 2.4, color: B.soft2),
+                          const SizedBox(width: 3),
+                          const Text(
+                            'Task',
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: B.soft2,

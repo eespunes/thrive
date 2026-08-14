@@ -599,7 +599,7 @@ void main() {
     expect((focus.border! as Border).top.color, B.primary);
   });
 
-  testWidgets('month view scrolls vertically between months', (tester) async {
+  testWidgets('month view scrolls horizontally between months', (tester) async {
     final today = todayIso();
     final nextMonth = addMonthsForTest(today, 1);
     final nextMonthStart = monthStartForTest(nextMonth);
@@ -609,7 +609,7 @@ void main() {
     expect(find.text(monthTitleForTest(today)), findsOneWidget);
     await tester.fling(
       find.byKey(const ValueKey('cal-pager-month')),
-      const Offset(0, -700),
+      const Offset(-700, 0),
       1200,
     );
     await tester.pumpAndSettle();
@@ -2983,6 +2983,10 @@ void main() {
     expect(find.text('Calendar synced (2 events)'), findsOneWidget);
   });
 
+  // Note: coverage for tasks with a due date appearing on the calendar (and
+  // being read-only there) lives in the
+  // "tasks with a due date appear in the calendar (#199)" group below.
+
   test('IcsImportException.toString() returns its message', () {
     expect(IcsImportException('boom').toString(), 'boom');
   });
@@ -2997,6 +3001,11 @@ void main() {
       expect(contrastOn(const Color(0xff0E9A8D)), Colors.white);
     },
   );
+
+  test('eurBare strips the euro glyph + nbsp from eur()', () {
+    expect(eurBare(1234.5), '1.234,50');
+    expect(eurBare(-5, cents: false), '\u22125');
+  });
 
   group('tasks with a due date appear in the calendar (#199)', () {
     TaskList taskList({List<ListTask>? tasks}) => TaskList(

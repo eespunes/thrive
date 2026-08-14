@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -540,5 +542,228 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('sunshine2'), findsOneWidget);
     });
+
+    testWidgets("joining a local family whose stored owner still carries the "
+        "'me' sentinel doesn't merge the two identities", (tester) async {
+      // Simulates a family registry entry left over from before members
+      // were externalized on write (or any other stale doc): the owner's
+      // row is still literally `id: 'me'`. Joining it must not let the
+      // freshly-signed-in device collide with — and take over — that real
+      // member's identity.
+      final reg = {
+        'oldfam': {
+          'username': 'oldfam',
+          'password': 'legacy1',
+          'name': 'Old family',
+          'picture': null,
+          'members': [
+            FamilyMember(
+              id: 'me',
+              name: 'Sophie van der Berg',
+              email: 'sophie@vanderberg.nl',
+              initials: 'SB',
+              color: kMemberColors[2],
+              role: 'owner',
+              status: 'active',
+            ).toJson(),
+          ],
+          'workspace': Workspace.empty().toJson(),
+        },
+      };
+      await pumpApp(
+        tester,
+        prefs: {'flutter.thrive.registry': json.encode(reg)},
+      );
+
+      final err = await thriveDebug.joinFamily(
+        username: 'oldfam',
+        password: 'legacy1',
+      );
+      expect(err, isNull);
+      await tester.pumpAndSettle();
+
+      final members = thriveDebug.curFamily()!.members;
+      final meRows = members.where((m) => m.id == 'me').toList();
+      // Exactly one row resolves to `'me'` — the signed-in device itself —
+      // never the pre-existing owner.
+      expect(meRows, hasLength(1));
+      expect(meRows.single.name, 'Eva Janssen');
+      expect(
+        members.any((m) => m.name == 'Sophie van der Berg' && m.id != 'me'),
+        isTrue,
+      );
+    });
+
+    testWidgets('joining a family whose workspace still carries legacy \'me\' '
+        'references migrates them to this device\'s own id', (tester) async {
+      // Simulates a workspace blob left over from before writes/reads
+      // externalized every member reference: calendar attendees/createdBy,
+      // task assignee/createdBy/completedBy and shopping addedBy are all
+      // still the literal string 'me'. Adopting this workspace must rewrite
+      // every one of those to this device's own stable id so they stop
+      // resolving as "whichever device is viewing" once shared.
+      final ws = Workspace.empty();
+      ws.events.add(
+        CalendarEvent(
+          id: 'ev1',
+          title: 'Dentist',
+          date: '2026-01-01',
+          color: kMemberColors[0],
+          attendees: ['me'],
+          createdBy: 'me',
+          recur: 'weekly',
+          recurWeekdays: [1, 3, 5],
+        ),
+      );
+      ws.taskLists.add(
+        TaskList(
+          id: 'tl1',
+          name: 'Chores',
+          color: kMemberColors[0],
+          tasks: [
+            ListTask(
+              id: 't1',
+              title: 'Wash dishes',
+              assignee: 'me',
+              createdBy: 'me',
+              completedBy: 'me',
+            ),
+          ],
+        ),
+      );
+      ws.shoppingLists.add(
+        ShoppingList(
+          id: 'sl1',
+          name: 'Groceries',
+          items: [ShopItem(id: 'i1', name: 'Milk', addedBy: 'me')],
+        ),
+      );
+      ws.weeklyPlan['2026-01-01'] = DayPlan(
+        dateIso: '2026-01-01',
+        breakfast: 'Oatmeal',
+      );
+      final reg = {
+        'legacyws': {
+          'username': 'legacyws',
+          'password': 'legacy2',
+          'name': 'Legacy workspace family',
+          'picture': null,
+          'members': [
+            FamilyMember(
+              id: uid(),
+              name: 'Owner',
+              email: 'owner@example.com',
+              initials: 'OW',
+              color: kMemberColors[3],
+              role: 'owner',
+              status: 'active',
+            ).toJson(),
+          ],
+          'workspace': ws.toJson(),
+        },
+      };
+      await pumpApp(
+        tester,
+        prefs: {
+          'flutter.thrive.registry': json.encode(reg),
+          // Give this device a distinct self id (instead of the usual
+          // 'me' test convenience default) so the migrated fields can be
+          // told apart from their pre-migration 'me' value below.
+          'flutter.$kLocalSelfUidKey': 'self_device_1',
+        },
+      );
+
+      final err = await thriveDebug.joinFamily(
+        username: 'legacyws',
+        password: 'legacy2',
+      );
+      expect(err, isNull);
+      await tester.pumpAndSettle();
+
+      final myId = thriveDebug.myId;
+      expect(myId, 'self_device_1');
+
+      final event = thriveDebug.events.firstWhere((e) => e.id == 'ev1');
+      expect(event.attendees, [myId]);
+      expect(event.createdBy, myId);
+
+      final task = thriveDebug.taskLists
+          .firstWhere((l) => l.id == 'tl1')
+          .tasks
+          .first;
+      expect(task.assignee, myId);
+      expect(task.createdBy, myId);
+      expect(task.completedBy, myId);
+
+      final item = thriveDebug.shoppingLists
+          .firstWhere((l) => l.id == 'sl1')
+          .items
+          .first;
+      expect(item.addedBy, myId);
+    });
+
+    testWidgets(
+      'joining fails gracefully when the local registry prefs blob is '
+      'corrupted JSON',
+      (tester) async {
+        // A corrupted/unparsable `thrive.registry` value (e.g. from a
+        // partial write) must not crash the app — loadRegistry() should
+        // swallow the decode error and behave as if no families exist.
+        await pumpApp(
+          tester,
+          prefs: {'flutter.thrive.registry': '{not valid json'},
+        );
+
+        final err = await thriveDebug.joinFamily(
+          username: 'anything',
+          password: 'whatever',
+        );
+        expect(err, 'No family found with that username');
+      },
+    );
+
+    testWidgets(
+      'joining a family whose registry entry has no stored workspace falls '
+      'back to an empty one',
+      (tester) async {
+        // Older/foreign registry entries may not carry a 'workspace' key at
+        // all; joining such a family must still succeed with a fresh, empty
+        // workspace instead of throwing.
+        final reg = {
+          'noworkspace': {
+            'username': 'noworkspace',
+            'password': 'pw123',
+            'name': 'No workspace family',
+            'picture': null,
+            'members': [
+              FamilyMember(
+                id: uid(),
+                name: 'Owner',
+                email: 'owner@example.com',
+                initials: 'OW',
+                color: kMemberColors[3],
+                role: 'owner',
+                status: 'active',
+              ).toJson(),
+            ],
+          },
+        };
+        await pumpApp(
+          tester,
+          prefs: {'flutter.thrive.registry': json.encode(reg)},
+        );
+
+        final err = await thriveDebug.joinFamily(
+          username: 'noworkspace',
+          password: 'pw123',
+        );
+        expect(err, isNull);
+        await tester.pumpAndSettle();
+
+        expect(thriveDebug.events, isEmpty);
+        expect(thriveDebug.taskLists, isEmpty);
+        expect(thriveDebug.shoppingLists, isEmpty);
+      },
+    );
   });
 }

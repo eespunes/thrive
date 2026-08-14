@@ -97,6 +97,10 @@ class ThriveDebugController {
   );
   Future<String?> fetchFamilyPassword(Family family) =>
       _s.fetchFamilyPassword(family);
+  Future<String?> joinFamily({
+    required String username,
+    required String password,
+  }) => _s.joinFamily(username: username, password: password);
   void deleteFamily(String id) => _s.deleteFamily(id);
   void leaveFamily(String id) => _s.leaveFamily(id);
   void setYear(int y) => _s.setYear(y);
@@ -168,6 +172,10 @@ class ThriveDebugController {
   AppUser? get user => _s.user;
   List<Family> get families => _s.families;
   String get familyId => _s.familyId;
+  String get myId => _s.myId;
+  List<CalendarEvent> get events => _s.events;
+  List<TaskList> get taskLists => _s.taskLists;
+  List<ShoppingList> get shoppingLists => _s.shoppingLists;
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
@@ -257,6 +265,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// suffix. Populated asynchronously in [initState]; empty until then.
   String _appVersion = '';
 
+  /// Synchronous cache of `_localSelfUid()`, populated once at the start of
+  /// [_boot] so [myId] never has to await a `SharedPreferences` read.
+  String? _localSelfUidCache;
+
   @override
   void initState() {
     super.initState();
@@ -344,6 +356,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
+    _localSelfUidCache = await _localSelfUid();
 
     // Firebase boot sync is integration-only here.
     // coverage:ignore-start
@@ -484,6 +497,18 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   bool get _cloudBacked => _firebaseUid() != null;
 
+  /// This device's stable, globally-unique identity: the signed-in Firebase
+  /// `uid` when cloud-backed, otherwise the persisted local pseudo-uid (see
+  /// `_localSelfUid`). Every `FamilyMember` row that represents "you" uses
+  /// this as its `id` — there is no more `'me'` sentinel/alias, so the same
+  /// member row (and anything it authors — calendar attendees, task
+  /// assignees, etc.) resolves to the same real person on every device that
+  /// shares the family, instead of ambiguously to "whoever's looking".
+  /// Falls back to the legacy `'me'` sentinel only in the instant before
+  /// `_boot()` has populated `_localSelfUidCache` (e.g. debug helpers invoked
+  /// before the first frame), which normal app usage never hits.
+  String get myId => _firebaseUid() ?? _localSelfUidCache ?? 'me';
+
   DocumentReference<Map<String, dynamic>> _stateDocRef(String uid) {
     return FirebaseFirestore.instance.collection('user_workspaces').doc(uid);
   }
@@ -544,7 +569,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         weeklyPlan: weeklyPlan,
       ),
     };
-    families = user != null ? [seedFamily('fam_main', user!)] : [];
+    families = user != null ? [seedFamily('fam_main', user!, myId)] : [];
   }
 
   void _restore(Map<String, dynamic> saved) {
