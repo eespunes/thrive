@@ -55,6 +55,7 @@ extension _ThriveListActions on _ThriveHomeState {
     Color color, {
     String? emoji,
     String? picture,
+    String kind = 'chore',
   }) {
     mutate(() {
       taskLists.add(
@@ -64,6 +65,7 @@ extension _ThriveListActions on _ThriveHomeState {
           color: color,
           emoji: emoji,
           picture: picture,
+          kind: kind,
         ),
       );
     }, () => flash('List created'));
@@ -75,8 +77,13 @@ extension _ThriveListActions on _ThriveHomeState {
     required String title,
     String? assignee,
     String? due,
+    String recur = 'none',
+    int recurEvery = 1,
+    String recurUnit = 'week',
+    List<int>? recurWeekdays,
   }) {
     final wasEditing = id != null;
+    final weekdays = recurWeekdays ?? const <int>[];
     ListTask? saved;
     mutate(() {
       final l = openListById(listId);
@@ -87,6 +94,10 @@ extension _ThriveListActions on _ThriveHomeState {
             t.title = title.trim().isEmpty ? 'Untitled' : title.trim();
             t.assignee = assignee;
             t.due = due;
+            t.recur = recur;
+            t.recurEvery = recurEvery;
+            t.recurUnit = recurUnit;
+            t.recurWeekdays = weekdays.toList();
             saved = t;
             break;
           }
@@ -98,6 +109,10 @@ extension _ThriveListActions on _ThriveHomeState {
           assignee: assignee,
           due: due,
           createdBy: myId,
+          recur: recur,
+          recurEvery: recurEvery,
+          recurUnit: recurUnit,
+          recurWeekdays: weekdays.toList(),
         );
         l.tasks.add(t);
         saved = t;
@@ -132,6 +147,34 @@ extension _ThriveListActions on _ThriveHomeState {
     } else if ((toggled!.due ?? '').isNotEmpty) {
       NotificationService.instance.scheduleTaskReminder(toggled!);
     }
+  }
+
+  /// Toggles completion of a single task occurrence on the calendar
+  /// (issue: calendar layers checkbox). For a non-recurring task
+  /// (`recur == 'none'`) this is equivalent to [toggleTask] — it flips
+  /// [ListTask.done] and the task disappears from the calendar entirely.
+  /// For a recurring task, only the occurrence on [dateIso] is flipped in
+  /// [ListTask.doneDates] — the rest of the series (including later
+  /// occurrences) is left untouched.
+  void toggleTaskOccurrence(String listId, String taskId, String dateIso) {
+    final l = openListById(listId);
+    if (l == null) return;
+    ListTask? target;
+    for (final t in l.tasks) {
+      if (t.id == taskId) {
+        target = t;
+        break;
+      }
+    }
+    if (target == null) return;
+    if (target.recur == 'none') {
+      toggleTask(listId, taskId);
+      return;
+    }
+    mutate(() {
+      final done = !(target!.doneDates[dateIso] ?? false);
+      target.doneDates[dateIso] = done;
+    });
   }
 
   void deleteTask(String listId, String taskId) {

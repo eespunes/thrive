@@ -97,16 +97,90 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   Widget _buildCalendar() {
-    return switch (calView) {
-      'agenda' => _calAgenda(),
-      _ => _withStickyMonthWeekdays(
-        _calPagedView(
-          axis: Axis.horizontal,
-          periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
-          pageBuilder: _calMonth,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _layerFilterChips(),
+        Expanded(
+          child: switch (calView) {
+            'agenda' => _calAgenda(),
+            _ => _withStickyMonthWeekdays(
+              _calPagedView(
+                axis: Axis.horizontal,
+                periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
+                pageBuilder: _calMonth,
+              ),
+            ),
+          },
         ),
+      ],
+    );
+  }
+
+  /// Row of 3 pill chips toggling `layerFilter` membership for the
+  /// appointments/to-dos/content layers (Calendar Layers design). At least
+  /// one layer always stays enabled — [toggleLayerFilter] ignores a tap
+  /// that would empty the list.
+  Widget _layerFilterChips() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        children: [
+          for (final (id, label, icon, color) in kCalLayers) ...[
+            if (id != kCalLayers.first.$1) const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                key: ValueKey('cal-layer-chip-$id'),
+                onTap: () => toggleLayerFilter(id),
+                child: Builder(
+                  builder: (context) {
+                    final on = layerFilter.contains(id);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: on ? color : Colors.white,
+                        border: Border.all(
+                          color: on ? color : B.line,
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ic(
+                            icon,
+                            size: 13,
+                            sw: 2.3,
+                            color: on ? Colors.white : color,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              label,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: on ? Colors.white : B.soft2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
-    };
+    );
   }
 
   Widget _calPagedView({
@@ -262,6 +336,76 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         final right = o.spanEnd.compareTo(we) > 0;
         final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
         final span = ce - cs + 1;
+        // Task/content occurrences render as an outlined (task) or
+        // dashed-outline pink (content) pill with a leading checkbox that
+        // toggles completion independently of the day-detail tap (issue:
+        // calendar layers). Real/imported appointments keep the original
+        // solid-colour block look.
+        if (o.isTask) {
+          // Household to-dos (`kind: 'chore'`) keep the original solid
+          // assignee/list-colour fill so the existing "coloured by
+          // assignee" behaviour (issue #199) is unchanged; content-layer
+          // occurrences instead use a transparent fill with a dashed pink
+          // outline, matching the Calendar Layers design.
+          final accent = o.isContent ? const Color(0xffdb2777) : col;
+          final fg = o.isContent ? accent : contrastOn(col);
+          return Opacity(
+            key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
+            opacity: faded ? _calendarFadedOpacity : 1,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 1, vertical: .5),
+              height: 14,
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: o.isContent ? Colors.white : col,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              foregroundDecoration: o.isContent
+                  ? _DashedBoxDecoration(color: accent, radius: 4)
+                  : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    key: ValueKey('cal-check-${o.ev.id}-${o.date}'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _toggleOccurrenceDone(o),
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      margin: const EdgeInsets.only(right: 3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: fg, width: 1.2),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        setCalSel(o.date);
+                        openDayDetail(o.date);
+                      },
+                      child: Text(
+                        label,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         return LayoutBuilder(
           builder: (context, constraints) {
             // Tapping an event bar (single- or multi-day) always opens the
@@ -518,18 +662,39 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final cat = catById(ev.category);
     final imp = o.imported;
     final isTask = o.isTask;
+    final isContent = o.isContent;
+    final accent = isContent ? const Color(0xffdb2777) : col;
 
-    final inner = Row(
+    // Task/content occurrences get a tappable checkbox as their leading
+    // widget instead of the plain colour strip, so completion can be
+    // toggled without opening the (read-only) detail sheet (issue:
+    // calendar layers checkbox).
+    final leading = isTask
+        ? GestureDetector(
+            key: ValueKey('event-check-${ev.id}-${o.date}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleOccurrenceDone(o),
+            child: Container(
+              width: 22,
+              height: 22,
+              margin: const EdgeInsets.only(top: 6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accent, width: 2),
+              ),
+            ),
+          )
+        : Container(
+            width: 4,
+            constraints: const BoxConstraints(minHeight: 34),
+            decoration: BoxDecoration(
+              color: col,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          );
+
+    final rest = Row(
       children: [
-        Container(
-          width: 4,
-          constraints: const BoxConstraints(minHeight: 34),
-          decoration: BoxDecoration(
-            color: col,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,20 +840,27 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: B.faint,
+                        color: isContent
+                            ? const Color(0xfffce7f3)
+                            : B.faint,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ic('tasklist', size: 10, sw: 2.4, color: B.soft2),
+                          ic(
+                            isContent ? 'camera' : 'tasklist',
+                            size: 10,
+                            sw: 2.4,
+                            color: isContent ? accent : B.soft2,
+                          ),
                           const SizedBox(width: 3),
-                          const Text(
-                            'Task',
+                          Text(
+                            isContent ? 'Content' : 'Task',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: B.soft2,
+                              color: isContent ? accent : B.soft2,
                             ),
                           ),
                         ],
@@ -709,29 +881,60 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final key = ValueKey('event-${ev.id}-${o.date}');
     final decoration = BoxDecoration(
       color: imp ? const Color(0xfffbfcfd) : Colors.white,
-      border: Border.all(color: B.line),
+      border: isContent ? null : Border.all(color: B.line),
       borderRadius: BorderRadius.circular(14),
       boxShadow: cardShadow(),
     );
 
     return Builder(
-      builder: (context) => GestureDetector(
-        key: key,
-        onTap: () {
+      builder: (context) {
+        void openTap() {
           // From the day-detail sheet: pop it first so the event view opens
           // as a single sheet, not stacked on top of a now-stale one that
           // would otherwise still show pre-edit data once dismissed
           // (issue #198).
           if (popSheetFirst) Navigator.of(context).pop();
           openEventView(ev.id, o.date);
-        },
-        child: Container(
+        }
+
+        // Task/content cards keep the checkbox (`leading`) outside the
+        // open-detail tap area — only the rest of the card opens the
+        // sheet, so the checkbox toggles completion independently
+        // (issue: calendar layers checkbox). Real/imported events keep
+        // the whole card tappable, as before.
+        final cardBody = isTask
+            ? Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: GestureDetector(
+                      key: key,
+                      behavior: HitTestBehavior.opaque,
+                      onTap: openTap,
+                      child: rest,
+                    ),
+                  ),
+                ],
+              )
+            : GestureDetector(
+                key: key,
+                onTap: openTap,
+                child: Row(
+                  children: [leading, const SizedBox(width: 11), Expanded(child: rest)],
+                ),
+              );
+
+        return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
           decoration: decoration,
-          child: inner,
-        ),
-      ),
+          foregroundDecoration: isContent
+              ? _DashedBoxDecoration(color: accent, radius: 14)
+              : null,
+          child: cardBody,
+        );
+      },
     );
   }
 
@@ -760,5 +963,61 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         ],
       ),
     );
+  }
+}
+
+/// A dashed rounded-rect border, painted as a [foregroundDecoration] —
+/// content-layer occurrences (Month bars, Agenda/day-detail cards) use this
+/// to stand out from the solid borders/fills of real appointments and
+/// household task pills (Calendar Layers design).
+class _DashedBoxDecoration extends Decoration {
+  const _DashedBoxDecoration({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+  final double strokeWidth = 1.2;
+  final double dashWidth = 3;
+  final double gapWidth = 2;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _DashedBoxPainter(this);
+}
+
+class _DashedBoxPainter extends BoxPainter {
+  _DashedBoxPainter(this.decoration);
+  final _DashedBoxDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size ?? Size.zero;
+    if (size.isEmpty) return;
+    final paint = Paint()
+      ..color = decoration.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = decoration.strokeWidth;
+    final inset = decoration.strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      offset.dx + inset,
+      offset.dy + inset,
+      size.width - decoration.strokeWidth,
+      size.height - decoration.strokeWidth,
+    );
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(decoration.radius),
+    );
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + decoration.dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0, metric.length)),
+          paint,
+        );
+        distance = next + decoration.gapWidth;
+      }
+    }
   }
 }

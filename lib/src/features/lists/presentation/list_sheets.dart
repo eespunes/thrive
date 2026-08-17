@@ -20,12 +20,18 @@ class _NewListSheet extends StatefulWidget {
   State<_NewListSheet> createState() => _NewListSheetState();
 }
 
+const Color _kContentPink = Color(0xffdb2777);
+
 class _NewListSheetState extends State<_NewListSheet> {
   late String _kind;
   late final TextEditingController _name;
   Color _color = _kListColors.first;
   String? _emoji;
   String? _picture;
+
+  /// `chore` (regular to-do list) or `content` (content-creation schedule).
+  /// Only meaningful when [_kind] is `todo`.
+  String _todoKind = 'chore';
 
   @override
   void initState() {
@@ -115,6 +121,109 @@ class _NewListSheetState extends State<_NewListSheet> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          if (!shopping)
+            _sheetField(
+              'Type',
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      key: const ValueKey('new-list-kind-chore'),
+                      onTap: () => setState(() => _todoKind = 'chore'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _todoKind == 'chore'
+                              ? B.soft
+                              : Colors.white,
+                          border: Border.all(
+                            color: _todoKind == 'chore'
+                                ? B.primary
+                                : B.line,
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ic(
+                              'tasklist',
+                              size: 18,
+                              sw: 2.1,
+                              color: _todoKind == 'chore'
+                                  ? B.primary
+                                  : B.soft2,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Chore list',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _todoKind == 'chore'
+                                    ? B.deep
+                                    : B.soft2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: GestureDetector(
+                      key: const ValueKey('new-list-kind-content'),
+                      onTap: () => setState(() {
+                        _todoKind = 'content';
+                        _color = _kContentPink;
+                        _emoji = '📷';
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _todoKind == 'content'
+                              ? _kContentPink.withValues(alpha: .1)
+                              : Colors.white,
+                          border: Border.all(
+                            color: _todoKind == 'content'
+                                ? _kContentPink
+                                : B.line,
+                          ),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '📷',
+                              style: TextStyle(fontSize: 18),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Content Creation',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _todoKind == 'content'
+                                    ? _kContentPink
+                                    : B.soft2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _sheetField(
             'Icon',
             _GlyphPicker(
@@ -164,6 +273,7 @@ class _NewListSheetState extends State<_NewListSheet> {
                 _color,
                 emoji: _emoji,
                 picture: _picture,
+                kind: _todoKind,
               );
             }
             Navigator.of(context).pop();
@@ -191,8 +301,14 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
   String? _assignee;
   bool _hasDue = false;
   String _due = todayIso();
+  late String _recur;
+  late int _recurEvery;
+  late String _recurUnit;
+  late List<int> _recurWeekdays;
 
   bool get _editing => widget.task != null;
+
+  int _isoWeekday(String iso) => (DateTime.tryParse(iso) ?? DateTime.now()).weekday;
 
   @override
   void initState() {
@@ -202,6 +318,150 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
     _assignee = t?.assignee;
     _hasDue = (t?.due ?? '').isNotEmpty;
     _due = t?.due ?? todayIso();
+    _recur = t?.recur ?? 'none';
+    _recurEvery = t?.recurEvery ?? 1;
+    _recurUnit = t?.recurUnit ?? 'week';
+    _recurWeekdays = (t?.recurWeekdays ?? const <int>[]).toList();
+    if (_recurWeekdays.isEmpty &&
+        (_recur == 'weekly' || (_recur == 'custom' && _recurUnit == 'week'))) {
+      _recurWeekdays = [_isoWeekday(_due)];
+    }
+  }
+
+  bool get _showWeekdayPicker =>
+      _recur == 'weekly' || (_recur == 'custom' && _recurUnit == 'week');
+
+  Widget _recurChipRow(
+    List<(String, String)> opts,
+    String value,
+    ValueChanged<String> onPick,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final (k, label) in opts) ...[
+            GestureDetector(
+              key: ValueKey('task-recur-$k'),
+              onTap: () => onPick(k),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: value == k ? B.soft : Colors.white,
+                  border: Border.all(color: value == k ? B.primary : B.line),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == k ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _recurNumberChipRow(
+    List<int> opts,
+    int value,
+    ValueChanged<int> onPick,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final option in opts) ...[
+            GestureDetector(
+              key: ValueKey('task-recur-every-$option'),
+              onTap: () => onPick(option),
+              child: Container(
+                width: 38,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: value == option ? B.soft : Colors.white,
+                  border: Border.all(
+                    color: value == option ? B.primary : B.line,
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$option',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: value == option ? B.deep : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _recurWeekdayPicker() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var weekday = 1; weekday <= 7; weekday++) ...[
+            GestureDetector(
+              key: ValueKey('task-recur-weekday-$weekday'),
+              onTap: () => setState(() {
+                if (_recurWeekdays.contains(weekday)) {
+                  if (_recurWeekdays.length > 1) {
+                    _recurWeekdays.remove(weekday);
+                  }
+                } else {
+                  _recurWeekdays.add(weekday);
+                  _recurWeekdays.sort();
+                }
+              }),
+              child: Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _recurWeekdays.contains(weekday)
+                      ? B.soft
+                      : Colors.white,
+                  border: Border.all(
+                    color: _recurWeekdays.contains(weekday)
+                        ? B.primary
+                        : B.line,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  kWeekdayLetters[weekday - 1],
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: _recurWeekdays.contains(weekday)
+                        ? B.deep
+                        : B.soft2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -328,6 +588,98 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
             ),
           ],
           const SizedBox(height: 13),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
+              'REPEAT',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 13),
+            child: _recurChipRow(
+              const [
+                ('none', 'None'),
+                ('daily', 'Daily'),
+                ('weekly', 'Weekly'),
+                ('monthly', 'Monthly'),
+                ('yearly', 'Yearly'),
+                ('custom', 'Custom'),
+              ],
+              _recur,
+              (v) => setState(() {
+                _recur = v;
+                if (_showWeekdayPicker && _recurWeekdays.isEmpty) {
+                  _recurWeekdays = [_isoWeekday(_due)];
+                }
+              }),
+            ),
+          ),
+          if (_recur != 'none') ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Text(
+                'EVERY',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .3,
+                  color: B.muted,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: _recurNumberChipRow(
+                const [1, 2, 3, 4, 5, 6],
+                _recurEvery,
+                (v) => setState(() => _recurEvery = v),
+              ),
+            ),
+            if (_recur == 'custom') ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 13),
+                child: _recurChipRow(
+                  const [
+                    ('day', 'Days'),
+                    ('week', 'Weeks'),
+                    ('month', 'Months'),
+                    ('year', 'Years'),
+                  ],
+                  _recurUnit,
+                  (v) => setState(() {
+                    _recurUnit = v;
+                    if (_showWeekdayPicker && _recurWeekdays.isEmpty) {
+                      _recurWeekdays = [_isoWeekday(_due)];
+                    }
+                  }),
+                ),
+              ),
+            ],
+            if (_showWeekdayPicker) ...[
+              Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Text(
+                  'ON DAYS',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                    color: B.muted,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 13),
+                child: _recurWeekdayPicker(),
+              ),
+            ],
+          ],
           _primaryBtn(_editing ? 'Save task' : 'Add task', () {
             widget.state.saveTask(
               listId: widget.listId,
@@ -335,6 +687,10 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
               title: _title.text,
               assignee: _assignee,
               due: _hasDue ? _due : null,
+              recur: _recur,
+              recurEvery: _recurEvery,
+              recurUnit: _recurUnit,
+              recurWeekdays: _recurWeekdays,
             );
             Navigator.of(context).pop();
           }, enabled: valid),

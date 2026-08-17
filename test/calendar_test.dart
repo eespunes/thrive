@@ -2420,6 +2420,234 @@ void main() {
       expect(find.text('Chores'), findsWidgets);
     });
   });
+
+  group('calendar layer toggles + task/content occurrence checkboxes', () {
+    TaskList chores({List<ListTask>? tasks}) => TaskList(
+      id: 'tl1',
+      name: 'Chores',
+      color: kCatColors.first,
+      tasks: tasks,
+    );
+
+    TaskList content({List<ListTask>? tasks}) => TaskList(
+      id: 'tl2',
+      name: 'Content plan',
+      color: kCatColors[1],
+      kind: 'content',
+      tasks: tasks,
+    );
+
+    testWidgets(
+      'layer chips independently hide appointment/task/content occurrences, '
+      'and the last enabled layer cannot be disabled',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: [
+              CalendarEvent(
+                id: 'e1',
+                title: 'Team sync',
+                allDay: true,
+                date: today,
+                color: kCatColors.first,
+              ),
+            ],
+            taskLists: [
+              chores(
+                tasks: [
+                  ListTask(
+                    id: 't1',
+                    title: 'Take out bins',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+              content(
+                tasks: [
+                  ListTask(
+                    id: 'c1',
+                    title: 'Film reel',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+
+        expect(find.text('Team sync'), findsOneWidget);
+        expect(find.text('Take out bins'), findsOneWidget);
+        expect(find.text('Film reel'), findsOneWidget);
+
+        // Turning off the to-dos layer hides only the chore occurrence.
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
+        await tester.pumpAndSettle();
+        expect(find.text('Take out bins'), findsNothing);
+        expect(find.text('Team sync'), findsOneWidget);
+        expect(find.text('Film reel'), findsOneWidget);
+
+        // Turning off content too hides that occurrence, leaving only the
+        // appointment — the only remaining enabled layer.
+        await tester.tap(
+          find.byKey(const ValueKey('cal-layer-chip-content')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Film reel'), findsNothing);
+        expect(find.text('Team sync'), findsOneWidget);
+
+        // Tapping the last remaining enabled layer's chip must be ignored —
+        // at least one layer always stays visible.
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-appt')));
+        await tester.pumpAndSettle();
+        expect(find.text('Team sync'), findsOneWidget);
+
+        // Re-enabling brings the hidden occurrences back.
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
+        await tester.tap(
+          find.byKey(const ValueKey('cal-layer-chip-content')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Take out bins'), findsOneWidget);
+        expect(find.text('Film reel'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      "checking a non-recurring task's box marks it done and removes it "
+      'from the calendar',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: const [],
+            taskLists: [
+              chores(
+                tasks: [
+                  ListTask(
+                    id: 't1',
+                    title: 'Take out bins',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+
+        expect(find.text('Take out bins'), findsOneWidget);
+        await tester.tap(
+          find.byKey(ValueKey('cal-check-task_tl1_t1-$today')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Take out bins'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      "checking one occurrence of a recurring task's box only completes "
+      'that date — a later occurrence stays visible and untouched',
+      (tester) async {
+        final today = todayIso();
+        final future = addDaysForTest(today, 7);
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: const [],
+            taskLists: [
+              chores(
+                tasks: [
+                  ListTask(
+                    id: 't1',
+                    title: 'Water plants',
+                    assignee: 'erik',
+                    due: today,
+                    recur: 'weekly',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+
+        final todayCheckbox = ValueKey('cal-check-task_tl1_t1-$today');
+        final futureCheckbox = ValueKey('cal-check-task_tl1_t1-$future');
+        expect(find.byKey(todayCheckbox), findsOneWidget);
+        expect(find.byKey(futureCheckbox), findsOneWidget);
+        final countBefore = find.text('Water plants').evaluate().length;
+
+        await tester.tap(find.byKey(todayCheckbox));
+        await tester.pumpAndSettle();
+
+        // Only today's occurrence is gone — the later one (and any other
+        // still-visible occurrence of the series) is untouched.
+        expect(find.byKey(todayCheckbox), findsNothing);
+        expect(find.byKey(futureCheckbox), findsOneWidget);
+        expect(find.text('Water plants').evaluate().length, countBefore - 1);
+      },
+    );
+
+    testWidgets(
+      'content-layer occurrences render with a dashed pink outline, '
+      'distinct from a household task occurrence',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: const [],
+            taskLists: [
+              content(
+                tasks: [
+                  ListTask(
+                    id: 'c1',
+                    title: 'Film reel',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+
+        final bar = find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'cal-bar-task_tl2_c1-',
+              ),
+        );
+        expect(bar, findsOneWidget);
+        final hasDashedOutline = tester
+            .widgetList<Container>(
+              find.descendant(of: bar, matching: find.byType(Container)),
+            )
+            .any(
+              (c) =>
+                  c.foregroundDecoration != null &&
+                  c.foregroundDecoration!.runtimeType.toString().contains(
+                    'Dashed',
+                  ),
+            );
+        expect(hasDashedOutline, isTrue);
+      },
+    );
+  });
 }
 
 String _isoNow() => todayIso();

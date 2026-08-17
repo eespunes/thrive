@@ -107,6 +107,14 @@ const List<Color> kCatColors = [
 
 const List<Color> kEventColors = kCatColors;
 
+/// (layerId, label, icon, accent color) for the calendar's layer-toggle
+/// chips, matching the design's `LAYERS` list (Calendar Layers mockup).
+const List<(String, String, String, Color)> kCalLayers = [
+  ('appt', 'Appointments', 'cal', B.primary),
+  ('task', 'To-Dos', 'check', Color(0xff2563eb)),
+  ('content', 'Content', 'camera', Color(0xffdb2777)),
+];
+
 /// (label, colour) for each import provider. `google`/`apple` account sync
 /// isn't implemented (#161) — ICS/web-link is the only real import path.
 const Map<String, (String, Color)> kImportProviders = {
@@ -491,6 +499,18 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   });
   void setCalSel(String iso) => update(() => calSel = iso);
 
+  /// Toggles a calendar layer (`appt|task|content`) on/off in [layerFilter].
+  /// At least one layer must stay enabled — a tap that would empty the list
+  /// (removing the last remaining layer) is ignored.
+  void toggleLayerFilter(String layerId) => update(() {
+    if (layerFilter.contains(layerId)) {
+      if (layerFilter.length <= 1) return;
+      layerFilter.remove(layerId);
+    } else {
+      layerFilter.add(layerId);
+    }
+  });
+
   void toggleCalMemberFilter(String memberId) => update(() {
     if (!calFilter.remove(memberId)) calFilter.add(memberId);
   });
@@ -643,6 +663,31 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       }
     }
     return (ev: null, imported: false, isTask: false, taskListId: null);
+  }
+
+  /// Toggles completion of a task/content occurrence tapped from its
+  /// calendar checkbox (Month bar or Agenda/day-detail card). No-op for
+  /// non-task occurrences (real/imported events have no checkbox).
+  void _toggleOccurrenceDone(CalendarOccurrence o) {
+    if (!o.isTask) return;
+    final ids = taskIdsFromOccurrenceId(o.ev.id);
+    if (ids == null) return;
+    toggleTaskOccurrence(ids.listId, ids.taskId, o.date);
+  }
+
+  /// Resolves a task occurrence's synthetic id (`'task_${list.id}_${task.id}'`,
+  /// see [taskSyntheticEvent]) back to its owning list/task ids, for the
+  /// calendar checkbox to toggle completion without re-deriving the id
+  /// format itself.
+  ({String listId, String taskId})? taskIdsFromOccurrenceId(String id) {
+    for (final list in taskLists) {
+      for (final task in list.tasks) {
+        if ('task_${list.id}_${task.id}' == id) {
+          return (listId: list.id, taskId: task.id);
+        }
+      }
+    }
+    return null;
   }
 
   void saveEvent({

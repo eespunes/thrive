@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_money_management_app/main.dart';
+
 import 'helpers.dart';
+
+/// Whether the chip/toggle `GestureDetector` at [key] renders "active"
+/// (its descendant `Container`'s border uses [B.primary]).
+bool chipActive(WidgetTester tester, Key key) {
+  final container = tester.widget<Container>(
+    find
+        .descendant(of: find.byKey(key), matching: find.byType(Container))
+        .first,
+  );
+  final deco = container.decoration! as BoxDecoration;
+  final border = deco.border;
+  if (border is Border) return border.top.color == B.primary;
+  return false;
+}
 
 /// The glyph picker's emoji field opens the in-app emoji picker from its `+`
 /// tile. The Recents tab starts empty, so we hop to Smileys (tab 1) and tap
@@ -372,4 +388,183 @@ void main() {
     expect(find.text('Pharmacy'), findsNothing);
     expect(find.text('No lists yet'), findsOneWidget);
   });
+
+  testWidgets(
+    'create a weekly recurring task with specific weekdays persists',
+    (tester) async {
+      await pumpApp(tester);
+      await goToLists(tester);
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Household'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Water plants');
+      await tester.pump();
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('task-recur-weekly')),
+      );
+      await tester.tap(find.byKey(const ValueKey('task-recur-weekly')));
+      await tester.pumpAndSettle();
+      // Switching to weekly defaults the weekday picker to today's weekday.
+      // Toggle on whichever of Mon (1) / Wed (3) isn't already selected,
+      // then toggle off today's default if it's neither of those two —
+      // weekday chips are pure toggles, so the exact sequence depends on
+      // today's date.
+      final defaultWeekday = DateTime.now().weekday;
+      for (final day in const [1, 3]) {
+        if (day != defaultWeekday) {
+          final f = find.byKey(ValueKey('task-recur-weekday-$day'));
+          await tester.ensureVisible(f);
+          await tester.tap(f);
+          await tester.pumpAndSettle();
+        }
+      }
+      if (defaultWeekday != 1 && defaultWeekday != 3) {
+        final f = find.byKey(ValueKey('task-recur-weekday-$defaultWeekday'));
+        await tester.ensureVisible(f);
+        await tester.tap(f);
+        await tester.pumpAndSettle();
+      }
+
+      await tester.ensureVisible(find.text('Add task').last);
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Water plants'), findsOneWidget);
+
+      // Reopen the task and confirm recur/recurWeekdays round-tripped.
+      await tester.tap(find.text('Water plants'));
+      await tester.pumpAndSettle();
+      expect(chipActive(tester, const ValueKey('task-recur-weekly')), isTrue);
+      expect(
+        chipActive(tester, const ValueKey('task-recur-weekday-1')),
+        isTrue,
+      );
+      expect(
+        chipActive(tester, const ValueKey('task-recur-weekday-3')),
+        isTrue,
+      );
+      expect(
+        chipActive(tester, const ValueKey('task-recur-weekday-2')),
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets(
+    'editing a recurring task updates its recurEvery/recurWeekdays without '
+    'affecting other tasks',
+    (tester) async {
+      await pumpApp(tester);
+      await goToLists(tester);
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.pump();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Household'));
+      await tester.pumpAndSettle();
+
+      // Task A: will become the recurring task we edit.
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Take out bins');
+      await tester.pump();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('task-recur-custom')),
+      );
+      await tester.tap(find.byKey(const ValueKey('task-recur-custom')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Add task').last);
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+
+      // Task B: a plain, non-recurring task that must stay untouched.
+      await tester.tap(find.text('Add task'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Vacuum');
+      await tester.pump();
+      await tester.tap(find.text('Add task').last);
+      await tester.pumpAndSettle();
+
+      // Re-open task A and bump "every" to 3, add Friday (5).
+      await tester.tap(find.text('Take out bins'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('task-recur-every-3')),
+      );
+      await tester.tap(find.byKey(const ValueKey('task-recur-every-3')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('task-recur-weekday-5')),
+      );
+      await tester.tap(find.byKey(const ValueKey('task-recur-weekday-5')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Save task'));
+      await tester.tap(find.text('Save task'));
+      await tester.pumpAndSettle();
+
+      // Task A: reopen and confirm the new every/weekday values stuck.
+      await tester.tap(find.text('Take out bins'));
+      await tester.pumpAndSettle();
+      expect(chipActive(tester, const ValueKey('task-recur-custom')), isTrue);
+      expect(
+        chipActive(tester, const ValueKey('task-recur-every-3')),
+        isTrue,
+      );
+      expect(
+        chipActive(tester, const ValueKey('task-recur-weekday-5')),
+        isTrue,
+      );
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      // Task B stayed non-recurring throughout.
+      await tester.tap(find.text('Vacuum'));
+      await tester.pumpAndSettle();
+      expect(chipActive(tester, const ValueKey('task-recur-none')), isTrue);
+    },
+  );
+
+  testWidgets(
+    'creating a content-kind list defaults to pink + camera marker',
+    (tester) async {
+      await pumpApp(tester);
+      await goToLists(tester);
+
+      await tester.tap(find.text('New list'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'YouTube');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('new-list-kind-content')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Create list'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('YouTube'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('tasklist-content-badge')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('📷'), findsWidgets);
+
+      await tester.tap(find.text('YouTube'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('tasklist-detail-content-marker')),
+        findsOneWidget,
+      );
+    },
+  );
 }
