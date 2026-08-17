@@ -214,16 +214,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
-  final ScrollController calWeekTimelineController = ScrollController();
-  bool calWeekTimelineCentered = false;
-  // Tracks the week view's vertical hour-grid scroll offset so the sticky
-  // hour-number gutter (`_withStickyWeekHours`) can mirror it via a
-  // `NotificationListener` instead of reading `calWeekTimelineController`
-  // directly — the latter throws/falls back to 0 once more than one page's
-  // scroll view is attached to the shared controller, which happens
-  // routinely since `PageView.builder` keeps neighboring week pages mounted
-  // (issue #190).
-  double calWeekHourOffset = 0;
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -292,7 +282,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
     calPageController.dispose();
-    calWeekTimelineController.dispose();
     super.dispose();
   }
 

@@ -174,20 +174,6 @@ String _monthTitleIso(String iso) {
   return '${kMonthsEn[d.month - 1]} ${d.year}';
 }
 
-/// Parses `HH:MM` into minutes-since-midnight; empty/invalid → 0.
-int _toMinutes(String hhmm) {
-  if (hhmm.isEmpty) return 0;
-  final parts = hhmm.split(':');
-  if (parts.length != 2) return 0;
-  return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
-}
-
-int _timedEventEndMinutes(CalendarEvent ev) {
-  final start = _toMinutes(ev.start);
-  final explicitEnd = ev.end.isNotEmpty ? _toMinutes(ev.end) : start + 60;
-  return explicitEnd <= start ? start + 60 : explicitEnd;
-}
-
 String _weekRangeIso(String weekStartIso) {
   final weekEndIso = _addDaysIso(weekStartIso, 6);
   return '${_displayDateIso(weekStartIso)} – ${_displayDateIso(weekEndIso)}';
@@ -502,9 +488,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   void setCalView(String v) => update(() {
     calView = v;
-    if (v == 'week' || v == 'family') {
-      calWeekTimelineCentered = false;
-    }
   });
   void setCalSel(String iso) => update(() => calSel = iso);
 
@@ -524,15 +507,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     _showSheet((ctx) => _CalMonthPickerSheet(state: this));
   }
 
-  void openCalWeekPicker() {
-    _showSheet((ctx) => _CalWeekPickerSheet(state: this));
-  }
-
   void openCalPeriodPicker() {
-    if (calView == 'week' || calView == 'family') {
-      openCalWeekPicker();
-      return;
-    }
     openCalMonthPicker();
   }
 
@@ -613,52 +588,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       }
     }
     return (lanes: lanes, overflow: overflow);
-  }
-
-  /// Overlap-aware column packing for Week-view timed events on a single
-  /// day: assigns each occurrence a `col`/`cols` (total columns in its
-  /// overlap cluster) so overlapping blocks split the day column's width.
-  List<({CalendarOccurrence o, int col, int cols})> packTimedColumns(
-    List<CalendarOccurrence> timed,
-  ) {
-    final starts = [for (final o in timed) _toMinutes(o.ev.start)];
-    final ends = [for (final o in timed) _timedEventEndMinutes(o.ev)];
-    final cols = List<int>.filled(timed.length, 0);
-    final active = <(int col, int end)>[];
-    for (var i = 0; i < timed.length; i++) {
-      active.removeWhere((a) => a.$2 <= starts[i]);
-      var col = 0;
-      final used = active.map((a) => a.$1).toSet();
-      while (used.contains(col)) {
-        col++;
-      }
-      cols[i] = col;
-      active.add((col, ends[i]));
-    }
-    final total = List<int>.filled(timed.length, 1);
-    for (var i = 0; i < timed.length; i++) {
-      var m = cols[i] + 1;
-      for (var j = 0; j < timed.length; j++) {
-        if (starts[j] < ends[i] && ends[j] > starts[i]) {
-          m = m > cols[j] + 1 ? m : cols[j] + 1;
-        }
-      }
-      total[i] = m;
-    }
-    // Normalize each overlap cluster to the same column count.
-    for (var i = 0; i < timed.length; i++) {
-      var m = total[i];
-      for (var j = 0; j < timed.length; j++) {
-        if (starts[j] < ends[i] && ends[j] > starts[i]) {
-          m = m > total[j] ? m : total[j];
-        }
-      }
-      total[i] = m;
-    }
-    return [
-      for (var i = 0; i < timed.length; i++)
-        (o: timed[i], col: cols[i], cols: total[i]),
-    ];
   }
 
   // -------------------------------------------------------------- events
