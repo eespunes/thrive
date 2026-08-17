@@ -92,6 +92,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       children: [
         iconBtn(_calViewIcon(), 'view', openViewPicker),
         iconBtn('filter', 'filter', openCalFilterSheet, badge: fc),
+        iconBtn('columns', 'kitchen-dashboard', openKitchenDashboard),
       ],
     );
   }
