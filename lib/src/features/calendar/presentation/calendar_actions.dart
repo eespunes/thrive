@@ -11,6 +11,7 @@ class CalendarOccurrence {
     String? spanEnd,
     this.imported = false,
     this.isTask = false,
+    this.isContent = false,
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -24,8 +25,16 @@ class CalendarOccurrence {
 
   /// True when this occurrence is a task's due date (issue #199) rather
   /// than a real or imported calendar event. Task occurrences are
-  /// read-only, like imported ones, but keep their assignee visible.
+  /// read-only apart from their checkbox, but keep their assignee visible.
   final bool isTask;
+
+  /// True when this occurrence is a content-creation task (a [TaskList]
+  /// with `kind: 'content'`) rather than a household chore.
+  final bool isContent;
+
+  /// Which calendar layer this occurrence belongs to — one of
+  /// `appt|task|content` — used by the layer-toggle filter.
+  String get layer => isContent ? 'content' : (isTask ? 'task' : 'appt');
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
@@ -316,7 +325,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       date: task.due!,
       color: list.color,
       attendees: task.assignee != null ? [task.assignee!] : const [],
-      recur: 'none',
+      recur: task.recur,
+      recurEvery: task.recurEvery,
+      recurUnit: task.recurUnit,
+      recurWeekdays: task.recurWeekdays,
+      exceptions: task.exceptions,
       reminder: 'none',
       createdBy: list.name,
     );
@@ -379,8 +392,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final out = <CalendarOccurrence>[];
     final flt = calFilter;
     final cflt = calCatFilter;
+    final apptLayerOn = layerFilter.contains('appt');
 
-    for (final ev in events) {
+    for (final ev in apptLayerOn ? events : const <CalendarEvent>[]) {
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
       if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
 
@@ -404,7 +418,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
-    for (final cal in importedCalendars) {
+    for (final cal in apptLayerOn ? importedCalendars : const <ImportedCalendar>[]) {
       if (!cal.visible) continue;
       if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
       if (flt.isNotEmpty) {
@@ -426,23 +440,43 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }
 
     // Tasks with a due date show up on the calendar coloured by their
-    // assignee (issue #199); completed tasks and category filters (tasks
-    // have no category) both hide them.
+    // assignee (issue #199); category filters (tasks have no category)
+    // hide them. Recurring tasks (#208) expand like recurring events, and
+    // completion is tracked per-occurrence instead of hiding the series.
     for (final list in taskLists) {
+      final layerId = list.kind == 'content' ? 'content' : 'task';
+      if (!layerFilter.contains(layerId)) continue;
       for (final task in list.tasks) {
         final due = task.due;
-        if (due == null || due.isEmpty || task.done) continue;
+        if (due == null || due.isEmpty) continue;
         if (cflt.isNotEmpty) continue;
         if (flt.isNotEmpty &&
             !(task.assignee != null && flt.contains(task.assignee))) {
           continue;
         }
-        if (due.compareTo(rangeStart) >= 0 && due.compareTo(rangeEnd) <= 0) {
+        final synth = taskSyntheticEvent(list, task);
+        if (task.recur == 'none') {
+          if (task.done) continue;
+          if (due.compareTo(rangeStart) >= 0 && due.compareTo(rangeEnd) <= 0) {
+            out.add(
+              CalendarOccurrence(
+                isTask: true,
+                isContent: list.kind == 'content',
+                date: due,
+                ev: synth,
+              ),
+            );
+          }
+          continue;
+        }
+        for (final d in recurringEventDates(synth, rangeStart, rangeEnd)) {
+          if (task.isDoneOn(d)) continue;
           out.add(
             CalendarOccurrence(
               isTask: true,
-              date: due,
-              ev: taskSyntheticEvent(list, task),
+              isContent: list.kind == 'content',
+              date: d,
+              ev: synth,
             ),
           );
         }

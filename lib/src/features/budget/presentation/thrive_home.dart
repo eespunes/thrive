@@ -205,11 +205,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<CalendarEvent> events = [];
   List<EventCategory> eventCategories = [];
   List<ImportedCalendar> importedCalendars = [];
-  String calView = 'month'; // month | week | family | agenda
+  String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
   List<String> calFilter = []; // member id multi-filter
   List<String> calCatFilter = []; // category id multi-filter
+  List<String> layerFilter = ['appt', 'task', 'content']; // enabled layers
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
