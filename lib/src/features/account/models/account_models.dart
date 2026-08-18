@@ -367,6 +367,40 @@ class Workspace {
   }
 }
 
+/// One-time data migration helper: converts legacy `TaskList`/`ListTask`
+/// items into equivalent layer-tagged [CalendarEvent]s, for use once
+/// `eventOccurrences()`/the Lists UI are rewired to read `CalendarEvent`
+/// directly instead of synthesizing from `TaskList`/`ListTask` (tracked
+/// separately — NOT yet wired into [Workspace.fromJson], since the calendar
+/// and Lists screens still read `taskLists`/`ListTask.kind` today; wiring
+/// this in without also rewriting `calendar_actions.dart`'s
+/// `taskSyntheticEvent`/`eventOccurrences` and `list_screens.dart` would
+/// silently double-render or blank out existing tasks). Mirrors the
+/// pre-migration `taskSyntheticEvent`/`eventOccurrences` notion of "done": a
+/// non-recurring task's `done` flag and a recurring task's per-occurrence
+/// `doneDates` map carry over unchanged.
+List<CalendarEvent> migrateTaskListsToEvents(List<TaskList> lists) => [
+  for (final list in lists)
+    for (final task in list.tasks)
+      CalendarEvent(
+        id: task.id,
+        title: task.title,
+        date: task.due ?? todayIso(),
+        color: list.color,
+        category: null,
+        attendees: task.assignee != null ? [task.assignee!] : <String>['me'],
+        createdBy: task.createdBy,
+        recur: task.recur,
+        recurEvery: task.recurEvery,
+        recurUnit: task.recurUnit,
+        recurWeekdays: List<int>.from(task.recurWeekdays),
+        exceptions: List<String>.from(task.exceptions),
+        layerId: list.kind,
+        done: task.done,
+        doneDates: Map<String, bool>.from(task.doneDates),
+      ),
+];
+
 /// Mirrors the design's `seedFamily(user)` — creates the initial family with
 /// the user as owner plus one dummy member, so a new account isn't empty.
 /// [selfId] is the caller's own stable id (`myId`) for the owner's member row.

@@ -22,9 +22,13 @@ class CalendarEvent {
     List<int>? recurWeekdays,
     this.createdBy,
     List<String>? exceptions,
+    this.layerId = 'appt',
+    this.done = false,
+    Map<String, bool>? doneDates,
   }) : attendees = attendees ?? <String>['me'],
        recurWeekdays = recurWeekdays ?? <int>[],
-       exceptions = exceptions ?? <String>[];
+       exceptions = exceptions ?? <String>[],
+       doneDates = doneDates ?? <String, bool>{};
 
   String id;
   String title;
@@ -70,6 +74,28 @@ class CalendarEvent {
   /// ISO dates removed from a recurring series (single-occurrence deletes).
   List<String> exceptions;
 
+  /// The [CalendarLayerDef.id] this event belongs to — `appt` (the default,
+  /// preserving pre-layers behaviour), `task`, `content`, or any custom
+  /// layer id. Every layer's items are just [CalendarEvent]s tagged with a
+  /// [layerId]; the calendar reads this field directly instead of
+  /// synthesizing task/content occurrences from `TaskList`/`ListTask`.
+  String layerId;
+
+  /// Completion state for a non-recurring task-like event (any layer, not
+  /// just `task`). For a recurring event, completion is tracked
+  /// per-occurrence in [doneDates] instead — this field is ignored in that
+  /// case. Meaningless for plain appointments but harmless.
+  bool done;
+
+  /// ISO date -> completed, for occurrence completion of a recurring
+  /// task-like event. Mirrors `ListTask.doneDates`.
+  Map<String, bool> doneDates;
+
+  /// Whether the occurrence on [iso] is completed. Falls back to [done] for
+  /// non-recurring events so old data with only a `done` flag keeps working.
+  bool isDoneOn(String iso) =>
+      recur == 'none' ? done : (doneDates[iso] ?? false);
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -90,6 +116,9 @@ class CalendarEvent {
     if (recurWeekdays.isNotEmpty) 'recurWeekdays': recurWeekdays,
     if (createdBy != null) 'createdBy': createdBy,
     'exceptions': exceptions,
+    if (layerId != 'appt') 'layerId': layerId,
+    'done': done,
+    if (doneDates.isNotEmpty) 'doneDates': doneDates,
   };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
@@ -121,6 +150,14 @@ class CalendarEvent {
     exceptions: [
       for (final e in (j['exceptions'] as List? ?? [])) e.toString(),
     ],
+    layerId: (j['layerId'] as String?)?.isNotEmpty == true
+        ? j['layerId'] as String
+        : 'appt',
+    done: j['done'] == true,
+    doneDates: {
+      for (final entry in (j['doneDates'] as Map? ?? {}).entries)
+        entry.key.toString(): entry.value == true,
+    },
   );
 }
 
@@ -134,11 +171,18 @@ class EventCategory {
     this.emoji,
     this.picture,
     List<String>? members,
+    this.layerId = 'appt',
   }) : members = members ?? <String>[];
 
   String id;
   String name;
   Color color;
+
+  /// The [CalendarLayerDef.id] this category is scoped to — categories are
+  /// layer-scoped, so the event editor only offers categories whose
+  /// [layerId] matches the event's selected layer. Defaults to `appt` for
+  /// backward compatibility with categories saved before layer-scoping.
+  String layerId;
 
   /// Legacy stroke-icon name, rendered only as the fallback when no
   /// [emoji]/[picture] is set (matches the budget block picker, issue #131).
@@ -161,6 +205,7 @@ class EventCategory {
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
     'members': members,
+    if (layerId != 'appt') 'layerId': layerId,
   };
 
   factory EventCategory.fromJson(Map<String, dynamic> j) => EventCategory(
@@ -173,6 +218,9 @@ class EventCategory {
         ? j['picture']
         : null,
     members: [for (final m in (j['members'] as List? ?? [])) m.toString()],
+    layerId: (j['layerId'] as String?)?.isNotEmpty == true
+        ? j['layerId'] as String
+        : 'appt',
   );
 }
 

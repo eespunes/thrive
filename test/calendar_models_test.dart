@@ -22,6 +22,9 @@ void main() {
         recur: 'weekly',
         createdBy: 'me',
         exceptions: ['2026-03-08'],
+        layerId: 'task',
+        done: true,
+        doneDates: {'2026-03-08': true},
       );
 
       final restored = CalendarEvent.fromJson(ev.toJson());
@@ -42,6 +45,9 @@ void main() {
       expect(restored.recur, ev.recur);
       expect(restored.createdBy, ev.createdBy);
       expect(restored.exceptions, ev.exceptions);
+      expect(restored.layerId, ev.layerId);
+      expect(restored.done, ev.done);
+      expect(restored.doneDates, ev.doneDates);
     });
 
     test('fromJson falls back to defaults for a bare/empty map', () {
@@ -59,6 +65,38 @@ void main() {
       expect(restored.recur, 'none');
       expect(restored.createdBy, null);
       expect(restored.exceptions, isEmpty);
+      expect(restored.layerId, 'appt');
+      expect(restored.done, false);
+      expect(restored.doneDates, isEmpty);
+    });
+
+    test('fromJson defaults a missing/empty layerId to appt for backward '
+        'compatibility with pre-layers events', () {
+      expect(CalendarEvent.fromJson({'layerId': ''}).layerId, 'appt');
+      expect(CalendarEvent.fromJson({'layerId': 'content'}).layerId, 'content');
+    });
+
+    test('isDoneOn falls back to done for a non-recurring event and reads '
+        'doneDates for a recurring one', () {
+      final oneOff = CalendarEvent(
+        id: 'e1',
+        title: 't',
+        date: '2026-03-01',
+        color: kEventColors[0],
+        done: true,
+      );
+      expect(oneOff.isDoneOn('2026-03-01'), true);
+
+      final recurring = CalendarEvent(
+        id: 'e2',
+        title: 't',
+        date: '2026-03-01',
+        color: kEventColors[0],
+        recur: 'weekly',
+        doneDates: {'2026-03-08': true},
+      );
+      expect(recurring.isDoneOn('2026-03-08'), true);
+      expect(recurring.isDoneOn('2026-03-15'), false);
     });
   });
 
@@ -72,6 +110,7 @@ void main() {
         emoji: '⚽️',
         picture: 'data:image/png;base64,AAAA',
         members: ['m1', 'm2'],
+        layerId: 'task',
       );
 
       final restored = EventCategory.fromJson(cat.toJson());
@@ -83,6 +122,7 @@ void main() {
       expect(restored.emoji, cat.emoji);
       expect(restored.picture, cat.picture);
       expect(restored.members, cat.members);
+      expect(restored.layerId, cat.layerId);
     });
 
     test('fromJson falls back to defaults for a bare/empty map', () {
@@ -93,6 +133,13 @@ void main() {
       expect(restored.emoji, null);
       expect(restored.picture, null);
       expect(restored.members, isEmpty);
+      expect(restored.layerId, 'appt');
+    });
+
+    test('fromJson defaults a missing/empty layerId to appt so legacy '
+        'categories become appt-scoped', () {
+      expect(EventCategory.fromJson({'layerId': ''}).layerId, 'appt');
+      expect(EventCategory.fromJson({'layerId': 'content'}).layerId, 'content');
     });
 
     test('fromJson treats an empty emoji/picture string as unset', () {
@@ -202,6 +249,50 @@ void main() {
     test('an empty url string is treated as unset', () {
       final restored = ImportedCalendar.fromJson({'url': ''});
       expect(restored.url, null);
+    });
+  });
+
+  group('migrateTaskListsToEvents', () {
+    test('converts a task list\'s tasks into layer-tagged CalendarEvents, '
+        'preserving id/title/due/assignee/recurrence/done-state', () {
+      final list = TaskList(
+        id: 'l1',
+        name: 'Chores',
+        color: kEventColors[1],
+        kind: 'task',
+        tasks: [
+          ListTask(
+            id: 't1',
+            title: 'Take out trash',
+            done: true,
+            assignee: 'm1',
+            due: '2026-03-01',
+            recur: 'weekly',
+            doneDates: {'2026-03-08': true},
+          ),
+          ListTask(id: 't2', title: 'No due date'),
+        ],
+      );
+
+      final events = migrateTaskListsToEvents([list]);
+
+      expect(events, hasLength(2));
+      final e1 = events.firstWhere((e) => e.id == 't1');
+      expect(e1.title, 'Take out trash');
+      expect(e1.layerId, 'task');
+      expect(e1.date, '2026-03-01');
+      expect(e1.attendees, ['m1']);
+      expect(e1.recur, 'weekly');
+      expect(e1.done, true);
+      expect(e1.doneDates, {'2026-03-08': true});
+
+      final e2 = events.firstWhere((e) => e.id == 't2');
+      expect(e2.attendees, ['me']);
+      expect(e2.date, todayIso());
+    });
+
+    test('an empty list of TaskLists yields no events', () {
+      expect(migrateTaskListsToEvents([]), isEmpty);
     });
   });
 }
