@@ -8,10 +8,10 @@ import 'package:family_money_management_app/main.dart';
 import 'helpers.dart';
 
 /// Same shape as `calendar_test.dart`'s `calendarPrefs` — a two-member family
-/// ('me' / 'erik') with a given set of task lists seeded on the shared
+/// ('me' / 'erik') with a given set of calendar events seeded on the shared
 /// workspace, so the kitchen dashboard has real per-member occurrences to
 /// render.
-Map<String, Object> _kitchenPrefs({List<TaskList> taskLists = const []}) {
+Map<String, Object> _kitchenPrefs({List<CalendarEvent> events = const []}) {
   final family = Family(
     id: 'fam_main',
     name: 'Janssen family',
@@ -34,7 +34,7 @@ Map<String, Object> _kitchenPrefs({List<TaskList> taskLists = const []}) {
       ),
     ],
   );
-  final ws = Workspace.empty()..taskLists = taskLists;
+  final ws = Workspace.empty()..events = events;
   return {
     'flutter.$kStorageKeyV4': json.encode({
       'year': 2026,
@@ -67,19 +67,15 @@ void main() {
     await pumpApp(
       tester,
       prefs: _kitchenPrefs(
-        taskLists: [
-          TaskList(
-            id: 'tl1',
-            name: 'Chores',
+        events: [
+          CalendarEvent(
+            id: 't1',
+            title: 'Take out bins',
+            allDay: true,
+            date: today,
             color: kCatColors.first,
-            tasks: [
-              ListTask(
-                id: 't1',
-                title: 'Take out bins',
-                assignee: 'erik',
-                due: today,
-              ),
-            ],
+            attendees: const ['erik'],
+            layerId: 'task',
           ),
         ],
       ),
@@ -103,20 +99,16 @@ void main() {
     await pumpApp(
       tester,
       prefs: _kitchenPrefs(
-        taskLists: [
-          TaskList(
-            id: 'tl1',
-            name: 'Chores',
+        events: [
+          CalendarEvent(
+            id: 't1',
+            title: 'Water plants',
+            allDay: true,
+            date: today,
             color: kCatColors.first,
-            tasks: [
-              ListTask(
-                id: 't1',
-                title: 'Water plants',
-                assignee: 'erik',
-                due: today,
-                recur: 'weekly',
-              ),
-            ],
+            attendees: const ['erik'],
+            layerId: 'task',
+            recur: 'weekly',
           ),
         ],
       ),
@@ -125,7 +117,7 @@ void main() {
     await _openKitchenDashboard(tester);
 
     expect(find.text('Water plants'), findsOneWidget);
-    await tester.tap(find.byKey(ValueKey('event-check-task_tl1_t1-$today')));
+    await tester.tap(find.byKey(ValueKey('event-check-t1-$today')));
     await tester.pumpAndSettle();
 
     // Today's occurrence is gone from the dashboard now that it's done —
@@ -143,26 +135,25 @@ void main() {
       await pumpApp(
         tester,
         prefs: _kitchenPrefs(
-          taskLists: [
-            TaskList(
-              id: 'tl1',
-              name: 'Chores',
+          events: [
+            CalendarEvent(
+              id: 't1',
+              title: 'Take out bins',
+              allDay: true,
+              date: today,
               color: kCatColors.first,
-              tasks: [
-                ListTask(
-                  id: 't1',
-                  title: 'Take out bins',
-                  assignee: 'erik',
-                  due: today,
-                  done: true,
-                ),
-                ListTask(
-                  id: 't2',
-                  title: 'Water plants',
-                  assignee: 'erik',
-                  due: today,
-                ),
-              ],
+              attendees: const ['erik'],
+              layerId: 'task',
+              done: true,
+            ),
+            CalendarEvent(
+              id: 't2',
+              title: 'Water plants',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+              layerId: 'task',
             ),
           ],
         ),

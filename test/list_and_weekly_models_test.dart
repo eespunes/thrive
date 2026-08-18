@@ -42,6 +42,49 @@ void main() {
       final t = ListTask.fromJson(const {'due': ''});
       expect(t.due, isNull);
     });
+
+    test('round-trips recurrence and per-occurrence doneDates', () {
+      final t = ListTask(
+        id: 't1',
+        title: 'Water plants',
+        due: '2026-08-01',
+        recur: 'custom',
+        recurEvery: 2,
+        recurUnit: 'day',
+        recurWeekdays: [2, 4],
+        exceptions: ['2026-08-08'],
+        doneDates: {'2026-08-01': true},
+      );
+
+      final restored = ListTask.fromJson(t.toJson());
+
+      expect(restored.recur, 'custom');
+      expect(restored.recurEvery, 2);
+      expect(restored.recurUnit, 'day');
+      expect(restored.recurWeekdays, [2, 4]);
+      expect(restored.exceptions, ['2026-08-08']);
+      expect(restored.doneDates, {'2026-08-01': true});
+    });
+
+    test('fromJson defaults recurUnit to week when missing/empty', () {
+      final t = ListTask.fromJson(const {'recurUnit': ''});
+      expect(t.recurUnit, 'week');
+    });
+
+    test('isDoneOn falls back to done for a non-recurring task and reads '
+        'doneDates for a recurring one', () {
+      final oneOff = ListTask(id: 't1', title: 'A', done: true);
+      expect(oneOff.isDoneOn('2026-08-01'), isTrue);
+
+      final recurring = ListTask(
+        id: 't2',
+        title: 'B',
+        recur: 'weekly',
+        doneDates: {'2026-08-01': true},
+      );
+      expect(recurring.isDoneOn('2026-08-01'), isTrue);
+      expect(recurring.isDoneOn('2026-08-08'), isFalse);
+    });
   });
 
   group('TaskList', () {
@@ -50,6 +93,7 @@ void main() {
         id: 'l1',
         name: 'Household',
         color: kMemberColors[1],
+        emoji: '🧹',
         tasks: [ListTask(id: 't1', title: 'Vacuum')],
       );
 
@@ -58,8 +102,20 @@ void main() {
       expect(restored.id, 'l1');
       expect(restored.name, 'Household');
       expect(restored.color, kMemberColors[1]);
+      expect(restored.emoji, '🧹');
       expect(restored.tasks, hasLength(1));
       expect(restored.tasks.first.title, 'Vacuum');
+    });
+
+    test('round-trips a picture', () {
+      final list = TaskList(
+        id: 'l1',
+        name: 'Household',
+        color: kMemberColors[1],
+        picture: 'base64==',
+      );
+      final restored = TaskList.fromJson(list.toJson());
+      expect(restored.picture, 'base64==');
     });
 
     test('fromJson fills sensible defaults when fields are missing', () {

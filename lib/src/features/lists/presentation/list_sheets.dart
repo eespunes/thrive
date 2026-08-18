@@ -27,11 +27,6 @@ class _NewListSheetState extends State<_NewListSheet> {
   String? _emoji;
   String? _picture;
 
-  /// The [CalendarLayerDef.id] this to-do list belongs to on the calendar —
-  /// any non-`appt` entry in `state.calendarLayers`. Only meaningful when
-  /// [_kind] is `todo`. Defaults to the core `task` (To-Dos) layer.
-  String _todoKind = 'task';
-
   @override
   void initState() {
     super.initState();
@@ -120,75 +115,6 @@ class _NewListSheetState extends State<_NewListSheet> {
               onChanged: (_) => setState(() {}),
             ),
           ),
-          if (!shopping)
-            _sheetField(
-              'Calendar layer',
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final layer in widget.state.calendarLayers)
-                    if (layer.id != 'appt')
-                      GestureDetector(
-                        key: ValueKey('new-list-kind-${layer.id}'),
-                        onTap: () => setState(() {
-                          _todoKind = layer.id;
-                          _color = layer.color;
-                          _emoji = layer.emoji;
-                          _picture = layer.picture;
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _todoKind == layer.id
-                                ? layer.color.withValues(alpha: .1)
-                                : Colors.white,
-                            border: Border.all(
-                              color: _todoKind == layer.id
-                                  ? layer.color
-                                  : B.line,
-                            ),
-                            borderRadius: BorderRadius.circular(13),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              glyphTile(
-                                size: 18,
-                                radius: 6,
-                                picture: layer.picture,
-                                emoji: layer.emoji,
-                                emojiSize: 14,
-                                fallback: ic(
-                                  layer.icon,
-                                  size: 16,
-                                  sw: 2.1,
-                                  color: _todoKind == layer.id
-                                      ? layer.color
-                                      : B.soft2,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                layer.label,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: _todoKind == layer.id
-                                      ? B.deep
-                                      : B.soft2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ],
-              ),
-            ),
           _sheetField(
             'Icon',
             _GlyphPicker(
@@ -238,7 +164,6 @@ class _NewListSheetState extends State<_NewListSheet> {
                 _color,
                 emoji: _emoji,
                 picture: _picture,
-                kind: _todoKind,
               );
             }
             Navigator.of(context).pop();

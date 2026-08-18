@@ -898,8 +898,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   /// Agenda "To-Dos" row — a white bordered card with a tappable checkbox
   /// (untouched semantics: tapping calls [_toggleOccurrenceDone], which
-  /// removes the occurrence once its underlying [ListTask] is marked done)
-  /// and a recurrence badge chip (`taskRow()` in the design). [checkColor]
+  /// removes the occurrence once its underlying [CalendarEvent] is marked
+  /// done) and a recurrence badge chip (`taskRow()` in the design). [checkColor]
   /// lets the Kitchen Dashboard fill the checkbox with the member's colour
   /// instead of the to-do layer's accent; [showAvatar] is turned off there
   /// too since each column is already scoped to one member.

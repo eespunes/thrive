@@ -105,12 +105,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  bool _isContentList(TaskList list) => list.kind != 'task';
-
   Widget _taskListCard(TaskList list, List<ListTask> tasks) {
-    final content = _isContentList(list);
-    final layerDef = content ? layerDefFor(list.kind) : null;
-    final badgeColor = layerDef?.color ?? const Color(0xffdb2777);
     final open = tasks.where((t) => !t.done).length;
     final done = tasks.length - open;
     final preview = tasks.where((t) => !t.done).take(3).toList();
@@ -131,8 +126,8 @@ extension _ThriveListScreens on _ThriveHomeState {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
           decoration: BoxDecoration(
-            color: content ? badgeColor.withValues(alpha: .04) : Colors.white,
-            border: Border.all(color: content ? badgeColor : B.line),
+            color: Colors.white,
+            border: Border.all(color: B.line),
             borderRadius: BorderRadius.circular(16),
             boxShadow: cardShadow(),
           ),
@@ -156,7 +151,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                       emojiSize: 18,
                       fallback: Center(
                         child: ic(
-                          content ? (layerDef?.icon ?? 'camera') : 'tasklist',
+                          'tasklist',
                           size: 17,
                           sw: 2.1,
                           color: Colors.white,
@@ -185,29 +180,21 @@ extension _ThriveListScreens on _ThriveHomeState {
                             ),
                             const SizedBox(width: 7),
                             Container(
-                              key: content
-                                  ? const ValueKey('tasklist-content-badge')
-                                  : null,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: content
-                                    ? badgeColor.withValues(alpha: .12)
-                                    : B.soft,
+                                color: B.soft,
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: Text(
-                                content
-                                    ? '${layerDef?.emoji ?? '📷'} '
-                                          '${(layerDef?.label ?? 'Content').toUpperCase()}'
-                                    : 'TO-DO',
+                              child: const Text(
+                                'TO-DO',
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: .4,
-                                  color: content ? badgeColor : B.deep,
+                                  color: B.deep,
                                 ),
                               ),
                             ),
@@ -498,39 +485,6 @@ extension _ThriveListScreens on _ThriveHomeState {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
       children: [
-        if (_isContentList(l))
-          Container(
-            key: const ValueKey('tasklist-detail-content-marker'),
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: (layerDefFor(l.kind)?.color ?? const Color(0xffdb2777))
-                  .withValues(alpha: .08),
-              border: Border.all(
-                color: (layerDefFor(l.kind)?.color ?? const Color(0xffdb2777))
-                    .withValues(alpha: .3),
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  layerDefFor(l.kind)?.emoji ?? '📷',
-                  style: const TextStyle(fontSize: 15),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${layerDefFor(l.kind)?.label ?? 'Content'} list',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color:
-                        layerDefFor(l.kind)?.color ?? const Color(0xffdb2777),
-                  ),
-                ),
-              ],
-            ),
-          ),
         if (open.isEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(4, 10, 4, 4),

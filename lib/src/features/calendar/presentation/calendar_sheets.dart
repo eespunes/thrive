@@ -75,6 +75,12 @@ class _EventEditSheetState extends State<_EventEditSheet> {
   late List<int> _recurWeekdays;
   bool _endManuallySet = false;
 
+  /// The [CalendarLayerDef.id] this event belongs to — `appt` (default),
+  /// `task`, `content`, or any custom layer id. Drives which categories are
+  /// offered below (categories are layer-scoped) and which rendering style
+  /// (checkbox vs plain appointment) this event gets on the calendar.
+  late String _layerId;
+
   bool get _editing => widget.event != null;
 
   @override
@@ -106,6 +112,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _recurUnit = e?.recurUnit ?? 'week';
     _recurWeekdays = (e?.recurWeekdays ?? const <int>[]).toList();
     if (_recurWeekdays.isEmpty) _recurWeekdays = [_parseIso(_date).weekday];
+    _layerId = e?.layerId ?? 'appt';
   }
 
   @override
@@ -288,7 +295,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
   Widget build(BuildContext context) {
     final s = widget.state;
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
-    final categories = s.eventCategories;
+    final categories = s.eventCategories
+        .where((c) => c.layerId == _layerId)
+        .toList();
     final valid = _title.text.trim().isNotEmpty;
 
     void submit() {
@@ -314,6 +323,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         recurWeekdays: _recurWeekdays,
         exceptions: widget.event?.exceptions,
         createdBy: widget.event?.createdBy,
+        layerId: _layerId,
+        done: widget.event?.done ?? false,
+        doneDates: widget.event?.doneDates,
       );
       if (_editing && widget.event?.recur != 'none') {
         Navigator.of(context).pop();
@@ -347,6 +359,9 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         recurWeekdays: edited.recurWeekdays,
         exceptions: widget.event?.exceptions,
         createdBy: widget.event?.createdBy,
+        layerId: edited.layerId,
+        done: edited.done,
+        doneDates: edited.doneDates,
       );
       Navigator.of(context).pop();
     }
@@ -373,6 +388,89 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                     _title,
                     hint: 'e.g. Dentist appointment',
                     onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: Text(
+                    'LAYER',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: B.muted,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 13),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final layer in s.calendarLayers) ...[
+                          GestureDetector(
+                            key: ValueKey('event-layer-${layer.id}'),
+                            onTap: () => setState(() {
+                              _layerId = layer.id;
+                              if (_category != null &&
+                                  s.catById(_category)?.layerId != _layerId) {
+                                _category = null;
+                              }
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 13,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _layerId == layer.id
+                                    ? layer.color
+                                    : Colors.white,
+                                border: Border.all(
+                                  color: _layerId == layer.id
+                                      ? layer.color
+                                      : B.line,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  glyphTile(
+                                    size: 16,
+                                    radius: 5,
+                                    picture: layer.picture,
+                                    emoji: layer.emoji,
+                                    emojiSize: 13,
+                                    fallback: ic(
+                                      layer.icon,
+                                      size: 14,
+                                      sw: 2.1,
+                                      color: _layerId == layer.id
+                                          ? contrastOn(layer.color)
+                                          : layer.color,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    layer.label,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: _layerId == layer.id
+                                          ? contrastOn(layer.color)
+                                          : B.soft2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
                 _toggleRow(
@@ -578,7 +676,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                           key: const ValueKey('event-new-category'),
                           onTap: () {
                             Navigator.of(context).pop();
-                            s.openCategory(null);
+                            s.openCategory(null, layerId: _layerId);
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -1028,8 +1126,6 @@ class _EventViewSheet extends StatelessWidget {
     final r = state.eventOrImportedById(eventId);
     final ev = r.ev;
     final imported = r.imported;
-    final isTask = r.isTask;
-    final taskListId = r.taskListId;
     if (ev == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -1265,43 +1361,6 @@ class _EventViewSheet extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          )
-        else if (isTask)
-          GestureDetector(
-            key: const ValueKey('task-open-list'),
-            onTap: taskListId == null
-                ? null
-                : () {
-                    Navigator.of(context).pop();
-                    state.goTab('lists');
-                    state.openTaskListDetail(taskListId);
-                  },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-              decoration: BoxDecoration(
-                color: B.faint,
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ic('list', size: 15, sw: 2.2, color: B.soft2),
-                  const SizedBox(width: 8),
-                  const Flexible(
-                    child: Text(
-                      'Task due date — open in Lists',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: B.soft2,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           )
         else
@@ -2527,9 +2586,17 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
 
 /// "New category" / "Edit category" sheet, ported from `sheetCategory()`.
 class _CategorySheet extends StatefulWidget {
-  const _CategorySheet({required this.state, this.category});
+  const _CategorySheet({
+    required this.state,
+    this.category,
+    this.layerId = 'appt',
+  });
   final _ThriveHomeState state;
   final EventCategory? category;
+
+  /// The [CalendarLayerDef.id] a brand-new category is scoped to — ignored
+  /// when editing (the category keeps its own [EventCategory.layerId]).
+  final String layerId;
 
   @override
   State<_CategorySheet> createState() => _CategorySheetState();
@@ -2542,6 +2609,7 @@ class _CategorySheetState extends State<_CategorySheet> {
   String? _emoji;
   String? _picture;
   late List<String> _members;
+  late String _layerId;
 
   bool get _editing => widget.category != null;
 
@@ -2549,6 +2617,7 @@ class _CategorySheetState extends State<_CategorySheet> {
   void initState() {
     super.initState();
     final c = widget.category;
+    _layerId = c?.layerId ?? widget.layerId;
     _name = TextEditingController(text: c?.name ?? '');
     _color =
         c?.color ??
@@ -2692,6 +2761,7 @@ class _CategorySheetState extends State<_CategorySheet> {
               emoji: _emoji,
               picture: _picture,
               members: _members,
+              layerId: _layerId,
             );
             Navigator.of(context).pop();
             s.openCalendarManageSheet(mode: _CalManageMode.categories);

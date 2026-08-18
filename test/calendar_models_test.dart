@@ -251,48 +251,4 @@ void main() {
       expect(restored.url, null);
     });
   });
-
-  group('migrateTaskListsToEvents', () {
-    test('converts a task list\'s tasks into layer-tagged CalendarEvents, '
-        'preserving id/title/due/assignee/recurrence/done-state', () {
-      final list = TaskList(
-        id: 'l1',
-        name: 'Chores',
-        color: kEventColors[1],
-        kind: 'task',
-        tasks: [
-          ListTask(
-            id: 't1',
-            title: 'Take out trash',
-            done: true,
-            assignee: 'm1',
-            due: '2026-03-01',
-            recur: 'weekly',
-            doneDates: {'2026-03-08': true},
-          ),
-          ListTask(id: 't2', title: 'No due date'),
-        ],
-      );
-
-      final events = migrateTaskListsToEvents([list]);
-
-      expect(events, hasLength(2));
-      final e1 = events.firstWhere((e) => e.id == 't1');
-      expect(e1.title, 'Take out trash');
-      expect(e1.layerId, 'task');
-      expect(e1.date, '2026-03-01');
-      expect(e1.attendees, ['m1']);
-      expect(e1.recur, 'weekly');
-      expect(e1.done, true);
-      expect(e1.doneDates, {'2026-03-08': true});
-
-      final e2 = events.firstWhere((e) => e.id == 't2');
-      expect(e2.attendees, ['me']);
-      expect(e2.date, todayIso());
-    });
-
-    test('an empty list of TaskLists yields no events', () {
-      expect(migrateTaskListsToEvents([]), isEmpty);
-    });
-  });
 }

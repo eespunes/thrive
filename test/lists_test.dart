@@ -533,34 +533,4 @@ void main() {
       expect(chipActive(tester, const ValueKey('task-recur-none')), isTrue);
     },
   );
-
-  testWidgets('creating a content-kind list defaults to pink + camera marker', (
-    tester,
-  ) async {
-    await pumpApp(tester);
-    await goToLists(tester);
-
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'YouTube');
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('new-list-kind-content')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('YouTube'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('tasklist-content-badge')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('📷'), findsWidgets);
-
-    await tester.tap(find.text('YouTube'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('tasklist-detail-content-marker')),
-      findsOneWidget,
-    );
-  });
 }

@@ -5,8 +5,8 @@ part of 'package:family_money_management_app/main.dart';
 /// family member showing today's schedule across all three calendar layers
 /// (appointments/to-dos/content) plus a live completed-vs-total "star"
 /// progress indicator. No persisted state of its own — everything here is
-/// computed on the fly from the shared [_ThriveHomeState] (`taskLists`,
-/// `events`, `eventOccurrences`).
+/// computed on the fly from the shared [_ThriveHomeState] (`events`,
+/// `eventOccurrences`).
 extension _ThriveKitchenDashboard on _ThriveHomeState {
   void openKitchenDashboard() {
     Navigator.push(
@@ -15,17 +15,10 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     );
   }
 
-  /// Whether [task] (owned by [list]) is due — or, if recurring, has an
-  /// occurrence — on [iso].
-  bool _kitchenTaskDueOn(TaskList list, ListTask task, String iso) {
-    final due = task.due;
-    if (due == null || due.isEmpty) return false;
-    if (task.recur == 'none') return due == iso;
-    return recurringEventDates(
-      taskSyntheticEvent(list, task),
-      iso,
-      iso,
-    ).isNotEmpty;
+  /// Whether [ev] is due — or, if recurring, has an occurrence — on [iso].
+  bool _kitchenEventDueOn(CalendarEvent ev, String iso) {
+    if (ev.recur == 'none') return ev.date == iso;
+    return recurringEventDates(ev, iso, iso).isNotEmpty;
   }
 
   /// Completed-vs-total task/content count for [memberId] on [iso]
@@ -39,12 +32,11 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
   ]) {
     final today = iso ?? todayIso();
     var completed = 0;
-    for (final list in taskLists) {
-      for (final task in list.tasks) {
-        if (task.assignee != memberId) continue;
-        if (!_kitchenTaskDueOn(list, task, today)) continue;
-        if (task.isDoneOn(today)) completed++;
-      }
+    for (final ev in events) {
+      if (ev.layerId == 'appt') continue;
+      if (!ev.attendees.contains(memberId)) continue;
+      if (!_kitchenEventDueOn(ev, today)) continue;
+      if (ev.isDoneOn(today)) completed++;
     }
     final outstanding = eventOccurrences(today, today)
         .where((o) => o.layer != 'appt' && o.ev.attendees.contains(memberId))
@@ -74,7 +66,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   /// [_ThriveHomeState] in the widget tree, so its `setState`-driven
   /// rebuilds (via `mutate()`/`update()`) don't reach this route on their
   /// own. Re-deriving every occurrence/progress value from the same shared,
-  /// mutated-in-place `taskLists`/`events` on a local `setState()` after
+  /// mutated-in-place `events` on a local `setState()` after
   /// each checkbox tap keeps this screen live without any state of its own.
   void _refresh() => setState(() {});
 
@@ -296,7 +288,7 @@ class _KitchenMemberColumn extends StatelessWidget {
   /// Called after any tap on the column's content — cheap to call on every
   /// tap (not just the checkbox's) since it only triggers a `setState()` on
   /// the dashboard route to re-derive occurrences/progress from the shared,
-  /// already-mutated `taskLists` (see [_KitchenDashboardScreenState._refresh]).
+  /// already-mutated `events` (see [_KitchenDashboardScreenState._refresh]).
   final VoidCallback onOccurrenceChanged;
 
   @override
@@ -376,7 +368,7 @@ class _KitchenMemberColumn extends StatelessWidget {
                     // the checkbox `_eventCard` renders for task/content
                     // tiles — without competing for the tap in the gesture
                     // arena. The checkbox's own `onTap` (in `_eventCard`)
-                    // mutates `taskLists` synchronously, so by the time this
+                    // mutates `events` synchronously, so by the time this
                     // pointer-up fires the mutation has already happened;
                     // the microtask just lets that handler run first.
                     onPointerUp: (_) => Future.microtask(onOccurrenceChanged),

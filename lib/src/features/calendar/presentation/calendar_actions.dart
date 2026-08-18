@@ -10,8 +10,6 @@ class CalendarOccurrence {
     required this.date,
     String? spanEnd,
     this.imported = false,
-    this.isTask = false,
-    this.layer = 'appt',
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -23,15 +21,16 @@ class CalendarOccurrence {
   final String spanEnd;
   final bool imported;
 
-  /// True when this occurrence is a task's due date (issue #199) rather
-  /// than a real or imported calendar event. Task occurrences are
-  /// read-only apart from their checkbox, but keep their assignee visible.
-  final bool isTask;
-
-  /// Which calendar layer this occurrence belongs to — a
-  /// [CalendarLayerDef.id] (`appt`, `task`, or any custom layer id) — used
+  /// Which calendar layer this occurrence belongs to — [ev.layerId]
+  /// directly (`appt`, `task`, `content`, or any custom layer id) — used
   /// by the layer-toggle filter and to pick this occurrence's visuals.
-  final String layer;
+  String get layer => ev.layerId;
+
+  /// True when this occurrence is a to-do/content-style event (any layer
+  /// other than the core `appt` layer) rather than a plain appointment.
+  /// Such occurrences get a tappable done checkbox instead of appt-only
+  /// chrome. Never true for imported (read-only) events.
+  bool get isTask => !imported && layer != 'appt';
 
   /// True when this occurrence is a to-do belonging to any layer other
   /// than the core `task`/`appt` layers (e.g. `content` or a custom
@@ -307,29 +306,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     );
   }
 
-  /// Builds the read-only [CalendarEvent] used to render/view a task's due
-  /// date on the calendar (issue #199), keyed by the composite
-  /// `'task_${list.id}_${task.id}'` id. Has no [category], so [evColor]
-  /// resolves its colour from the assignee's member colour, falling back
-  /// to the list's own colour when unassigned.
-  CalendarEvent taskSyntheticEvent(TaskList list, ListTask task) {
-    return CalendarEvent(
-      id: 'task_${list.id}_${task.id}',
-      title: task.title,
-      allDay: true,
-      date: task.due!,
-      color: list.color,
-      attendees: task.assignee != null ? [task.assignee!] : const [],
-      recur: task.recur,
-      recurEvery: task.recurEvery,
-      recurUnit: task.recurUnit,
-      recurWeekdays: task.recurWeekdays,
-      exceptions: task.exceptions,
-      reminder: 'none',
-      createdBy: list.name,
-    );
-  }
-
   Color evColor(CalendarEvent ev) {
     final category = catById(ev.category);
     if (category != null) return category.color;
@@ -387,13 +363,18 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final out = <CalendarOccurrence>[];
     final flt = calFilter;
     final cflt = calCatFilter;
-    final apptLayerOn = layerFilter.contains('appt');
 
-    for (final ev in apptLayerOn ? events : const <CalendarEvent>[]) {
+    // Every layer's items — appointments, to-dos, content, or any custom
+    // layer — are just [CalendarEvent]s tagged with [CalendarEvent.layerId];
+    // a to-do/content-style event that's been completed (`isDoneOn`) drops
+    // out of view exactly like a deleted event would.
+    for (final ev in events) {
+      if (!layerFilter.contains(ev.layerId)) continue;
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
       if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
 
       if (ev.recur == 'none') {
+        if (ev.layerId != 'appt' && ev.done) continue;
         final spanEnd =
             ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0
             ? ev.endDate
@@ -407,6 +388,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       }
 
       for (final d in recurringEventDates(ev, rangeStart, rangeEnd)) {
+        if (ev.layerId != 'appt' && ev.isDoneOn(d)) continue;
         out.add(CalendarOccurrence(ev: ev, date: d));
       }
     }
@@ -414,7 +396,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
     for (final cal
-        in apptLayerOn ? importedCalendars : const <ImportedCalendar>[]) {
+        in layerFilter.contains('appt')
+            ? importedCalendars
+            : const <ImportedCalendar>[]) {
       if (!cal.visible) continue;
       if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
       if (flt.isNotEmpty) {
@@ -429,52 +413,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
               imported: true,
               date: e.date,
               ev: importedSyntheticEvent(cal, e),
-            ),
-          );
-        }
-      }
-    }
-
-    // Tasks with a due date show up on the calendar coloured by their
-    // assignee (issue #199); category filters (tasks have no category)
-    // hide them. Recurring tasks (#208) expand like recurring events, and
-    // completion is tracked per-occurrence instead of hiding the series.
-    for (final list in taskLists) {
-      final layerId = calendarLayers.any((l) => l.id == list.kind)
-          ? list.kind
-          : 'task';
-      if (!layerFilter.contains(layerId)) continue;
-      for (final task in list.tasks) {
-        final due = task.due;
-        if (due == null || due.isEmpty) continue;
-        if (cflt.isNotEmpty) continue;
-        if (flt.isNotEmpty &&
-            !(task.assignee != null && flt.contains(task.assignee))) {
-          continue;
-        }
-        final synth = taskSyntheticEvent(list, task);
-        if (task.recur == 'none') {
-          if (task.done) continue;
-          if (due.compareTo(rangeStart) >= 0 && due.compareTo(rangeEnd) <= 0) {
-            out.add(
-              CalendarOccurrence(
-                isTask: true,
-                layer: layerId,
-                date: due,
-                ev: synth,
-              ),
-            );
-          }
-          continue;
-        }
-        for (final d in recurringEventDates(synth, rangeStart, rangeEnd)) {
-          if (task.isDoneOn(d)) continue;
-          out.add(
-            CalendarOccurrence(
-              isTask: true,
-              layer: layerId,
-              date: d,
-              ev: synth,
             ),
           );
         }
@@ -531,15 +469,18 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   });
 
   /// Removes a non-core layer (a no-op for core layers), reassigning any
-  /// [TaskList] pointing at it back to the core `task` (To-Dos) layer
-  /// first, so no list is left referencing a deleted layer (mirrors the
-  /// design's `removeLayer()`).
+  /// [CalendarEvent]/[EventCategory] pointing at it back to the core `task`
+  /// (To-Dos) layer first, so nothing is left referencing a deleted layer
+  /// (mirrors the design's `removeLayer()`).
   void removeCalendarLayer(String id) {
     final def = layerDefFor(id);
     if (def == null || def.core) return;
     mutate(() {
-      for (final list in taskLists) {
-        if (list.kind == id) list.kind = 'task';
+      for (final ev in events) {
+        if (ev.layerId == id) ev.layerId = 'task';
+      }
+      for (final cat in eventCategories) {
+        if (cat.layerId == id) cat.layerId = 'task';
       }
       calendarLayers.removeWhere((l) => l.id == id);
       layerFilter.remove(id);
@@ -702,66 +643,46 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return null;
   }
 
-  /// Looks up an occurrence's id across real, imported, and task-derived
-  /// events. Real events are mutable; imported and task ones are
-  /// synthesized read-only and can be viewed but never edited/deleted.
-  /// [taskListId] is set (to the owning [TaskList.id]) only when [isTask].
-  ({CalendarEvent? ev, bool imported, bool isTask, String? taskListId})
-  eventOrImportedById(String id) {
+  /// Looks up an occurrence's id across real and imported events. Real
+  /// events (of any layer — appointment, to-do, content, or custom) are
+  /// mutable; imported ones are synthesized read-only and can be viewed but
+  /// never edited/deleted.
+  ({CalendarEvent? ev, bool imported}) eventOrImportedById(String id) {
     final real = eventById(id);
-    if (real != null) {
-      return (ev: real, imported: false, isTask: false, taskListId: null);
-    }
+    if (real != null) return (ev: real, imported: false);
     for (final cal in importedCalendars) {
       for (final e in cal.events) {
         if ('${cal.id}_${e.id}' == id) {
-          return (
-            ev: importedSyntheticEvent(cal, e),
-            imported: true,
-            isTask: false,
-            taskListId: null,
-          );
+          return (ev: importedSyntheticEvent(cal, e), imported: true);
         }
       }
     }
-    for (final list in taskLists) {
-      for (final task in list.tasks) {
-        if ('task_${list.id}_${task.id}' == id) {
-          return (
-            ev: taskSyntheticEvent(list, task),
-            imported: false,
-            isTask: true,
-            taskListId: list.id,
-          );
-        }
-      }
-    }
-    return (ev: null, imported: false, isTask: false, taskListId: null);
+    return (ev: null, imported: false);
   }
 
-  /// Toggles completion of a task/content occurrence tapped from its
+  /// Toggles completion of a to-do/content occurrence tapped from its
   /// calendar checkbox (Month bar or Agenda/day-detail card). No-op for
-  /// non-task occurrences (real/imported events have no checkbox).
+  /// non-task occurrences (appointments/imported events have no checkbox).
+  /// Non-recurring events flip [CalendarEvent.done]; recurring events flip
+  /// only the tapped occurrence's date in [CalendarEvent.doneDates].
   void _toggleOccurrenceDone(CalendarOccurrence o) {
     if (!o.isTask) return;
-    final ids = taskIdsFromOccurrenceId(o.ev.id);
-    if (ids == null) return;
-    toggleTaskOccurrence(ids.listId, ids.taskId, o.date);
+    toggleEventDone(o.ev.id, o.date);
   }
 
-  /// Resolves a task occurrence's synthetic id (`'task_${list.id}_${task.id}'`,
-  /// see [taskSyntheticEvent]) back to its owning list/task ids, for the
-  /// calendar checkbox to toggle completion without re-deriving the id
-  /// format itself.
-  ({String listId, String taskId})? taskIdsFromOccurrenceId(String id) {
-    for (final list in taskLists) {
-      for (final task in list.tasks) {
-        if ('task_${list.id}_${task.id}' == id) {
-          return (listId: list.id, taskId: task.id);
-        }
+  /// Toggles a [CalendarEvent]'s completion state directly — non-recurring
+  /// events flip [CalendarEvent.done], recurring events flip only the
+  /// occurrence on [dateIso] in [CalendarEvent.doneDates].
+  void toggleEventDone(String id, String dateIso) {
+    mutate(() {
+      final ev = eventById(id);
+      if (ev == null) return;
+      if (ev.recur == 'none') {
+        ev.done = !ev.done;
+      } else {
+        ev.doneDates[dateIso] = !(ev.doneDates[dateIso] ?? false);
       }
-    }
-    return null;
+    });
   }
 
   void saveEvent({
@@ -784,6 +705,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<int> recurWeekdays = const [],
     List<String>? exceptions,
     String? createdBy,
+    String layerId = 'appt',
+    bool done = false,
+    Map<String, bool>? doneDates,
   }) {
     final wasEditing = id != null;
     CalendarEvent? saved;
@@ -809,6 +733,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         recurWeekdays: recurWeekdays,
         createdBy: createdBy ?? myId,
         exceptions: exceptions ?? const [],
+        layerId: layerId,
+        done: done,
+        doneDates: doneDates,
       );
       final i = events.indexWhere((x) => x.id == ev.id);
       if (i >= 0) {
@@ -844,6 +771,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<int>? recurWeekdays,
     String? createdBy,
     List<String>? exceptions,
+    String? layerId,
+    bool? done,
+    Map<String, bool>? doneDates,
   }) {
     return CalendarEvent(
       id: id ?? ev.id,
@@ -865,6 +795,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       recurWeekdays: recurWeekdays ?? ev.recurWeekdays,
       createdBy: createdBy ?? ev.createdBy,
       exceptions: exceptions ?? ev.exceptions,
+      layerId: layerId ?? ev.layerId,
+      done: done ?? ev.done,
+      doneDates: doneDates ?? Map<String, bool>.from(ev.doneDates),
     );
   }
 
@@ -961,8 +894,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------- categories
-  void openCategory(EventCategory? cat) {
-    _showSheet((ctx) => _CategorySheet(state: this, category: cat));
+  void openCategory(EventCategory? cat, {String layerId = 'appt'}) {
+    _showSheet(
+      (ctx) => _CategorySheet(state: this, category: cat, layerId: layerId),
+    );
   }
 
   void saveCategory({
@@ -973,6 +908,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? emoji,
     String? picture,
     required List<String> members,
+    String layerId = 'appt',
   }) {
     final wasEditing = id != null;
     if (!isCalendarIdentityColorAvailable(color, exceptCategoryId: id)) {
@@ -988,6 +924,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         emoji: emoji,
         picture: picture,
         members: members,
+        layerId: layerId,
       );
       final i = eventCategories.indexWhere((x) => x.id == cat.id);
       if (i >= 0) {
