@@ -2659,6 +2659,81 @@ class _CategorySheetState extends State<_CategorySheet> {
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
             child: Text(
+              'LAYER',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .3,
+                color: B.muted,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final layer in s.calendarLayers) ...[
+                    GestureDetector(
+                      key: ValueKey('category-layer-${layer.id}'),
+                      onTap: () => setState(() => _layerId = layer.id),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _layerId == layer.id
+                              ? layer.color
+                              : Colors.white,
+                          border: Border.all(
+                            color: _layerId == layer.id ? layer.color : B.line,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            glyphTile(
+                              size: 16,
+                              radius: 5,
+                              picture: layer.picture,
+                              emoji: layer.emoji,
+                              emojiSize: 13,
+                              fallback: ic(
+                                layer.icon,
+                                size: 14,
+                                sw: 2.1,
+                                color: _layerId == layer.id
+                                    ? contrastOn(layer.color)
+                                    : layer.color,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              layer.label,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                color: _layerId == layer.id
+                                    ? contrastOn(layer.color)
+                                    : B.soft2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Text(
               'COLOUR',
               style: const TextStyle(
                 fontSize: 11,

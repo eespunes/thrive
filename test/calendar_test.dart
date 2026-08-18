@@ -2193,6 +2193,36 @@ void main() {
     },
   );
 
+  testWidgets(
+    'a category can be created on a non-appt layer, and only shows up as an '
+    'option for events on that same layer',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+
+      await openCalManage(tester);
+      await tester.tap(find.text('New category'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Chores');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('category-layer-task')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add category'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      await goToCalendar(tester);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      expect(find.text('Chores'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('event-layer-task')));
+      await tester.pumpAndSettle();
+      expect(find.text('Chores'), findsOneWidget);
+    },
+  );
+
   testWidgets('filter sheet shows all 3 layer toggles', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
