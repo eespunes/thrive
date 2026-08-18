@@ -177,6 +177,13 @@ String _shortDateIso(String iso) {
   return _displayDateIso(iso);
 }
 
+/// "Wednesday, 22 Jul" — used for the Agenda view's header subtitle
+/// (mirrors the design's `header()` subtitle for `view==='agenda'`).
+String _prettyWeekdayDateIso(String iso) {
+  final d = _parseIso(iso);
+  return '${_kWeekdaysFull[d.weekday - 1]}, ${d.day} ${kMonthsEn[d.month - 1]}';
+}
+
 String _monthTitleIso(String iso) {
   final d = _parseIso(iso);
   return '${kMonthsEn[d.month - 1]} ${d.year}';

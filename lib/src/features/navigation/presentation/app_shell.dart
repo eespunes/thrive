@@ -165,7 +165,12 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'home':
         return ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
-        return ('Calendar', _monthTitleIso(calAnchor));
+        return (
+          'Calendar',
+          calView == 'agenda'
+              ? _prettyWeekdayDateIso(agendaDay)
+              : _monthTitleIso(calAnchor),
+        );
       case 'lists':
         final tl = openList();
         if (tl != null) {

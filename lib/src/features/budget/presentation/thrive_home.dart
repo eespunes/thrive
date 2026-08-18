@@ -208,6 +208,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
+  String agendaDay = todayIso(); // day shown by Agenda view's week strip
   List<String> calFilter = []; // member id multi-filter
   List<String> calCatFilter = []; // category id multi-filter
   List<String> layerFilter = ['appt', 'task', 'content']; // enabled layers

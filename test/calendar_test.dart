@@ -1297,11 +1297,20 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('recur-delete-one')));
       await tester.pumpAndSettle();
 
-      // Jump to next week — the series continues there.
-      await tester.tap(find.byKey(const ValueKey('nav-lists')));
-      await tester.pumpAndSettle();
-      await goToCalendar(tester);
+      // Today's occurrence is gone from Agenda...
       await setCalView(tester, 'agenda');
+      expect(find.text('Standup'), findsNothing);
+
+      // ...but the series continues: paging Month view forward a week
+      // still shows it (Agenda is single-day now, so the next weekly
+      // occurrence — 7 days out — isn't reachable from its week strip).
+      await setCalView(tester, 'month');
+      await tester.fling(
+        find.byKey(const ValueKey('cal-pager-month')),
+        const Offset(-700, 0),
+        1200,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Standup'), findsWidgets);
     },
   );
@@ -1360,8 +1369,21 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('recur-edit-one')));
       await tester.pumpAndSettle();
 
+      // Today's single occurrence is the renamed exception...
       await setCalView(tester, 'agenda');
       expect(find.text('Standup once'), findsWidgets);
+      expect(find.text('Standup'), findsNothing);
+
+      // ...but the rest of the series keeps its original title (Agenda is
+      // single-day now, so the next weekly occurrence — 7 days out — isn't
+      // reachable from its week strip; check Month view instead).
+      await setCalView(tester, 'month');
+      await tester.fling(
+        find.byKey(const ValueKey('cal-pager-month')),
+        const Offset(-700, 0),
+        1200,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Standup'), findsWidgets);
     },
   );
@@ -1841,27 +1863,86 @@ void main() {
     expect(find.text('Solo task'), findsOneWidget);
   });
 
-  testWidgets('a daily/monthly recurring event expands multiple occurrences', (
+  testWidgets(
+    "a daily recurring event's occurrence appears on multiple days of the "
+    'agenda week strip',
+    (tester) async {
+      // Dated at the Monday start of the current week (rather than "today",
+      // via Quick-Add) so every one of the strip's 7 day-cells this week has
+      // an occurrence, regardless of which weekday the suite happens to run
+      // on — Agenda only ever shows one day at a time now, so multiple
+      // occurrences are checked by tapping between strip cells instead of a
+      // single all-dates-at-once list.
+      final weekStart = startOfWeekForTest(todayIso());
+      final weekEnd = addDaysForTest(weekStart, 6);
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'daily1',
+              title: 'Daily pill',
+              date: weekStart,
+              start: '09:00',
+              end: '09:05',
+              color: kEventColors.first,
+              reminder: 'none',
+              recur: 'daily',
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStart')));
+      await tester.pumpAndSettle();
+      expect(find.text('Daily pill'), findsOneWidget);
+
+      await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekEnd')));
+      await tester.pumpAndSettle();
+      expect(find.text('Daily pill'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a monthly recurring event expands multiple occurrences', (
     tester,
   ) async {
+    // Agenda is single-day now, so a monthly series' next occurrence (a
+    // month out) isn't reachable from the week strip — verified via
+    // Month view paging instead, which already covers cross-month
+    // recurrence expansion.
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Daily pill');
+    await tester.enterText(find.byType(TextField).first, 'Monthly bill');
     await tester.pump();
-    await tester.tap(find.text('Daily'));
+    await tester.tap(find.text('Monthly'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await setCalView(tester, 'agenda');
-    // Over a 160-day agenda window, a daily recurrence shows many times.
-    expect(find.text('Daily pill'), findsAtLeastNWidgets(2));
+    expect(find.text('Monthly bill'), findsWidgets);
+
+    await tester.fling(
+      find.byKey(const ValueKey('cal-pager-month')),
+      const Offset(-700, 0),
+      1200,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Monthly bill'), findsWidgets);
   });
 
   testWidgets('a recurring event stops at its repeat end date', (tester) async {
+    // Dated at the Monday start of the current week (rather than "today")
+    // so the 3-day probe window below always falls within a single week's
+    // agenda strip, regardless of which weekday the suite runs on.
+    final weekStart = startOfWeekForTest(todayIso());
+    final weekStartPlus1 = addDaysForTest(weekStart, 1);
+    final weekStartPlus2 = addDaysForTest(weekStart, 2);
     await pumpApp(
       tester,
       prefs: calendarPrefs(
@@ -1869,8 +1950,8 @@ void main() {
           CalendarEvent(
             id: 'daily-limited',
             title: 'Limited daily',
-            date: todayIso(),
-            endDate: addDaysForTest(todayIso(), 1),
+            date: weekStart,
+            endDate: weekStartPlus1,
             start: '09:00',
             end: '10:00',
             color: kEventColors.first,
@@ -1884,7 +1965,17 @@ void main() {
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
 
-    expect(find.text('Limited daily'), findsNWidgets(2));
+    await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStart')));
+    await tester.pumpAndSettle();
+    expect(find.text('Limited daily'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStartPlus1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Limited daily'), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStartPlus2')));
+    await tester.pumpAndSettle();
+    expect(find.text('Limited daily'), findsNothing);
   });
 
   test('custom weekly recurrence expands selected weekdays by interval', () {
@@ -1909,25 +2000,6 @@ void main() {
       '2026-08-03',
       '2026-08-05',
     ]);
-  });
-
-  testWidgets('a monthly recurring event expands multiple occurrences', (
-    tester,
-  ) async {
-    await pumpApp(tester, landOnDefaultTab: true);
-    await goToCalendar(tester);
-
-    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Monthly bill');
-    await tester.pump();
-    await tester.tap(find.text('Monthly'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-    await tester.pumpAndSettle();
-
-    await setCalView(tester, 'agenda');
-    expect(find.text('Monthly bill'), findsAtLeastNWidgets(2));
   });
 
   testWidgets(
@@ -2764,6 +2836,122 @@ void main() {
         contains('Dashed'),
       );
     });
+
+    testWidgets('the Agenda week strip renders 7 cells for the Mon-Sun week '
+        'containing the selected day', (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      final weekStart = startOfWeekForTest(todayIso());
+      for (var i = 0; i < 7; i++) {
+        expect(
+          find.byKey(
+            ValueKey('cal-week-strip-${addDaysForTest(weekStart, i)}'),
+          ),
+          findsOneWidget,
+        );
+      }
+      // No 8th cell leaks in from an adjacent week.
+      expect(
+        find.byKey(ValueKey('cal-week-strip-${addDaysForTest(weekStart, 7)}')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('tapping a non-selected week-strip cell switches which day\'s '
+        'sections render', (tester) async {
+      final today = todayIso();
+      final tomorrow = addDaysForTest(today, 1);
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'today-only',
+              title: 'Today only appt',
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+            ),
+            CalendarEvent(
+              id: 'tomorrow-only',
+              title: 'Tomorrow only appt',
+              date: tomorrow,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      expect(find.text('Today only appt'), findsOneWidget);
+      expect(find.text('Tomorrow only appt'), findsNothing);
+
+      await tester.tap(find.byKey(ValueKey('cal-week-strip-$tomorrow')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Today only appt'), findsNothing);
+      expect(find.text('Tomorrow only appt'), findsOneWidget);
+    });
+
+    testWidgets(
+      "a week-strip day's dot only shows for a layer with an occurrence "
+      'that day AND enabled in layerFilter',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: [
+              CalendarEvent(
+                id: 'e1',
+                title: 'Team sync',
+                allDay: true,
+                date: today,
+                color: kCatColors.first,
+                attendees: const ['erik'],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+        await setCalView(tester, 'agenda');
+
+        Row dotsRowOf(String iso) => tester.widget<Row>(
+          find.descendant(
+            of: find.byKey(ValueKey('cal-week-strip-$iso')),
+            matching: find.byWidgetPredicate(
+              (w) => w is Row && w.mainAxisSize == MainAxisSize.min,
+            ),
+          ),
+        );
+
+        // The appt layer has an occurrence today, so its dot shows.
+        expect(
+          find.byKey(ValueKey('cal-week-strip-dot-$today-0')),
+          findsOneWidget,
+        );
+        expect(dotsRowOf(today).children.length, 1);
+
+        // Disabling the appt layer chip hides that day's dot even though
+        // the occurrence still exists.
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-appt')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(ValueKey('cal-week-strip-dot-$today-0')),
+          findsNothing,
+        );
+        expect(dotsRowOf(today).children, isEmpty);
+      },
+    );
   });
 }
 

@@ -613,42 +613,139 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   // ------------------------------------------------------------- agenda
+  /// Agenda mode: a Mon-Sun week strip day-picker (`weekStrip()` in the
+  /// design) above a single selected day's (`agendaDay`) 3 gated
+  /// layer-sections (`daySchedule()`), rather than an infinite multi-day
+  /// list. Tapping a strip day-cell switches which day's sections show.
   Widget _calAgenda() {
-    final occ = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 160))
-      ..sort(
-        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
-          b.date + (b.ev.allDay ? '' : b.ev.start),
-        ),
-      );
-    if (occ.isEmpty) {
-      return _emptyState(
-        icon: 'cal',
-        title: 'No upcoming events',
-        sub: 'Your agenda is clear for now.',
-        actionLabel: 'Add event',
-        onAction: () => openEvent(null),
-      );
-    }
-    final groups = <String, List<CalendarOccurrence>>{};
-    for (final o in occ) {
-      groups.putIfAbsent(o.date, () => []).add(o);
-    }
+    final dayOcc = eventOccurrences(agendaDay, agendaDay);
     final today = todayIso();
-    final dates = groups.keys.toList()..sort();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final sections = _agendaDaySections(agendaDay, dayOcc);
+    final hasAny =
+        dayOcc.any((o) => o.layer == 'task' && layerFilter.contains('task')) ||
+        dayOcc.any(
+          (o) => o.layer == 'content' && layerFilter.contains('content'),
+        ) ||
+        dayOcc.any((o) => o.layer == 'appt' && layerFilter.contains('appt'));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _weekStrip(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: !hasAny
+                ? _emptyState(
+                    icon: 'cal',
+                    title: 'No events today',
+                    sub: 'Your agenda is clear for this day.',
+                    actionLabel: 'Add event',
+                    onAction: () => openEvent(null),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _secLabel(
+                        agendaDay == today
+                            ? 'Today · ${_shortDateIso(agendaDay)}'
+                            : _prettyDateIso(agendaDay),
+                      ),
+                      sections,
+                    ],
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Mon-Sun day-picker strip for the week containing [agendaDay] — 7
+  /// cells, each showing the weekday letter, date number, and a row of
+  /// small layer-colour dots for any layer with an occurrence that day
+  /// (gated by `layerFilter`, mirroring `layerEnabled`). The selected cell
+  /// fills solid `B.ink` with white text; today (if not selected) shows its
+  /// weekday letter/number in `B.primary` (`weekStrip()` in the design).
+  Widget _weekStrip() {
+    final weekStart = _startOfWeekIso(agendaDay);
+    final today = todayIso();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
+      child: Row(
         children: [
-          for (final date in dates) ...[
-            _secLabel(
-              date == today
-                  ? 'Today · ${_shortDateIso(date)}'
-                  : _prettyDateIso(date),
+          for (var i = 0; i < 7; i++) ...[
+            if (i != 0) const SizedBox(width: 6),
+            Expanded(
+              child: _weekStripCell(_addDaysIso(weekStart, i), i, today),
             ),
-            _agendaDaySections(date, groups[date]!),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _weekStripCell(String iso, int weekdayIdx, String today) {
+    final selected = iso == agendaDay;
+    final isToday = iso == today;
+    final d = _parseIso(iso);
+    final dayOcc = eventOccurrences(iso, iso);
+    final dotColors = <Color>[
+      for (final (id, _, _, color) in kCalLayers)
+        if (layerFilter.contains(id) && dayOcc.any((o) => o.layer == id)) color,
+    ];
+    return GestureDetector(
+      key: ValueKey('cal-week-strip-$iso'),
+      onTap: () => update(() => agendaDay = iso),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? B.ink : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              kWeekdayLetters[weekdayIdx],
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                color: selected
+                    ? Colors.white
+                    : (isToday ? B.primary : B.muted),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${d.day}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: selected ? Colors.white : (isToday ? B.primary : B.ink),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 4,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var ci = 0; ci < dotColors.length; ci++) ...[
+                    if (ci != 0) const SizedBox(width: 2),
+                    Container(
+                      key: ValueKey('cal-week-strip-dot-$iso-$ci'),
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: selected ? Colors.white : dotColors[ci],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
