@@ -34,7 +34,9 @@ Map<String, Object> _kitchenPrefs({List<CalendarEvent> events = const []}) {
       ),
     ],
   );
-  final ws = Workspace.empty()..events = events;
+  final ws = Workspace.empty()
+    ..events = events
+    ..calendarLayers = kDefaultCalendarLayers();
   return {
     'flutter.$kStorageKeyV4': json.encode({
       'year': 2026,
