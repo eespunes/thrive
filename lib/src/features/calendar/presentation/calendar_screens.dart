@@ -646,10 +646,405 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                   ? 'Today · ${_shortDateIso(date)}'
                   : _prettyDateIso(date),
             ),
-            for (final o in groups[date]!) ...[
-              _eventCard(o),
-              const SizedBox(height: 9),
-            ],
+            _agendaDaySections(date, groups[date]!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Splits a single day's occurrences into the mockup's three fixed-order,
+  /// per-layer sections ("To-Dos" / "Content creation" / "Schedule") —
+  /// each only rendered when its layer chip is enabled AND it has at least
+  /// one occurrence that day (`daySchedule()` in the Calendar Layers
+  /// design).
+  Widget _agendaDaySections(String date, List<CalendarOccurrence> dayOcc) {
+    final tasks = dayOcc.where((o) => o.layer == 'task').toList();
+    final contents = dayOcc.where((o) => o.layer == 'content').toList();
+    final appts = dayOcc.where((o) => o.layer == 'appt').toList()
+      ..sort(
+        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+          b.ev.allDay ? '' : b.ev.start,
+        ),
+      );
+
+    final sections = <Widget>[];
+    if (layerFilter.contains('task') && tasks.isNotEmpty) {
+      sections.add(
+        _agendaSection(
+          key: 'agenda-section-task-$date',
+          label: 'To-Dos',
+          color: const Color(0xff2563eb),
+          rows: [for (final o in tasks) _taskAgendaRow(o)],
+        ),
+      );
+    }
+    if (layerFilter.contains('content') && contents.isNotEmpty) {
+      sections.add(
+        _agendaSection(
+          key: 'agenda-section-content-$date',
+          label: 'Content creation',
+          color: const Color(0xffdb2777),
+          rows: [for (final o in contents) _contentAgendaRow(o)],
+        ),
+      );
+    }
+    if (layerFilter.contains('appt') && appts.isNotEmpty) {
+      sections.add(
+        _agendaSection(
+          key: 'agenda-section-appt-$date',
+          label: 'Schedule',
+          color: B.primary,
+          rows: [for (final o in appts) _apptAgendaRow(o)],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sections,
+    );
+  }
+
+  /// A layer section: dot + uppercase label header (mirrors `sectionLabel()`
+  /// in the mockup) followed by its rows.
+  Widget _agendaSection({
+    required String key,
+    required String label,
+    required Color color,
+    required List<Widget> rows,
+  }) {
+    return Padding(
+      key: ValueKey(key),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                    color: B.soft2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final row in rows)
+            Padding(padding: const EdgeInsets.only(bottom: 8), child: row),
+        ],
+      ),
+    );
+  }
+
+  /// The assignee's member colour for an appointment-layer occurrence's
+  /// solid block background — falls back to [evColor] (category colour or
+  /// the event's own colour) when no attendee resolves to a family member.
+  Color _apptAssigneeColor(CalendarEvent ev) {
+    for (final memberId in ev.attendees) {
+      final member = _memberById(memberId);
+      if (member != null) return member.color;
+    }
+    return evColor(ev);
+  }
+
+  /// Agenda "Schedule" row for an appointment occurrence — a solid block
+  /// filled with the assignee's member colour, a narrow time column, and a
+  /// repeat badge when recurring (`apptRow()` in the design).
+  Widget _apptAgendaRow(CalendarOccurrence o) {
+    final ev = o.ev;
+    final col = _apptAssigneeColor(ev);
+    return GestureDetector(
+      key: ValueKey('agenda-appt-${ev.id}-${o.date}'),
+      onTap: () => openEventView(ev.id, o.date),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+        decoration: BoxDecoration(
+          color: col,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 40,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ev.allDay ? 'All' : ev.start,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    ev.allDay ? 'day' : ev.end,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: .75),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 32,
+              margin: const EdgeInsets.symmetric(horizontal: 11),
+              color: Colors.white.withValues(alpha: .35),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  if (ev.recur != 'none')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ic('repeat', size: 10, sw: 2.6, color: Colors.white),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Repeats ${ev.recur}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white.withValues(alpha: .85),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _attendeeStack(ev.attendees, 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Agenda "To-Dos" row — a white bordered card with a tappable checkbox
+  /// (untouched semantics: tapping calls [_toggleOccurrenceDone], which
+  /// removes the occurrence once its underlying [ListTask] is marked done)
+  /// and a recurrence badge chip (`taskRow()` in the design). [checkColor]
+  /// lets the Kitchen Dashboard fill the checkbox with the member's colour
+  /// instead of the to-do layer's accent; [showAvatar] is turned off there
+  /// too since each column is already scoped to one member.
+  Widget _taskAgendaRow(
+    CalendarOccurrence o, {
+    Color? checkColor,
+    bool showAvatar = true,
+  }) {
+    final ev = o.ev;
+    final accent = checkColor ?? const Color(0xff2563eb);
+    return Container(
+      key: ValueKey('agenda-task-${ev.id}-${o.date}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            key: ValueKey('event-check-${ev.id}-${o.date}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleOccurrenceDone(o),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accent, width: 2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            // The recurrence badge sits below the title in its own row —
+            // rather than sharing the title's line — so it can never force
+            // a fixed-width horizontal overflow when this row is narrow
+            // (e.g. a Kitchen Dashboard member column).
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => openEventView(ev.id, o.date),
+                  child: Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
+                  ),
+                ),
+                if (ev.recur != 'none')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    // `FittedBox` (rather than a bare `Container`/`Row`)
+                    // guarantees this badge never render-overflows however
+                    // narrow its column gets (e.g. a Kitchen Dashboard
+                    // member tile) — it scales itself down to fit instead.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: B.soft,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ic('repeat', size: 9.5, sw: 2.6, color: B.deep),
+                            const SizedBox(width: 3),
+                            Text(
+                              ev.recur,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: B.deep,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (showAvatar) ...[
+            const SizedBox(width: 8),
+            _attendeeStack(ev.attendees, 22),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Agenda "Content creation" row — a white card with a dashed pink
+  /// border, a small camera icon badge, and a pink "Content" label beneath
+  /// the title (`contentRow()` in the design). [checkColor] lets the
+  /// Kitchen Dashboard fill the checkbox with the member's colour instead
+  /// of the content layer's pink accent; [showAvatar] is turned off there
+  /// too since each column is already scoped to one member.
+  Widget _contentAgendaRow(
+    CalendarOccurrence o, {
+    Color? checkColor,
+    bool showAvatar = true,
+  }) {
+    final ev = o.ev;
+    const pink = Color(0xffdb2777);
+    final accent = checkColor ?? pink;
+    return Container(
+      key: ValueKey('agenda-content-${ev.id}-${o.date}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
+      foregroundDecoration: const _DashedBoxDecoration(color: pink, radius: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: const Color(0xfffce7f3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(child: ic('camera', size: 15, sw: 2.1, color: pink)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => openEventView(ev.id, o.date),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Content',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: pink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            key: ValueKey('event-check-${ev.id}-${o.date}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleOccurrenceDone(o),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accent, width: 2),
+              ),
+            ),
+          ),
+          if (showAvatar) ...[
+            const SizedBox(width: 8),
+            _attendeeStack(ev.attendees, 22),
           ],
         ],
       ),

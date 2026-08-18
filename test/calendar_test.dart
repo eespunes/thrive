@@ -2634,6 +2634,136 @@ void main() {
           );
       expect(hasDashedOutline, isTrue);
     });
+
+    testWidgets(
+      'agenda view renders separate labeled sections per layer per day',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: [
+              CalendarEvent(
+                id: 'e1',
+                title: 'Team sync',
+                allDay: true,
+                date: today,
+                color: kCatColors.first,
+                attendees: const ['erik'],
+              ),
+            ],
+            taskLists: [
+              chores(
+                tasks: [
+                  ListTask(
+                    id: 't1',
+                    title: 'Take out bins',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+              content(
+                tasks: [
+                  ListTask(
+                    id: 'c1',
+                    title: 'Film reel',
+                    assignee: 'erik',
+                    due: today,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+        await setCalView(tester, 'agenda');
+
+        expect(find.text('TO-DOS'), findsOneWidget);
+        expect(find.text('CONTENT CREATION'), findsOneWidget);
+        expect(find.text('SCHEDULE'), findsOneWidget);
+        expect(
+          find.byKey(ValueKey('agenda-section-task-$today')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(ValueKey('agenda-section-content-$today')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(ValueKey('agenda-section-appt-$today')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      "an appointment row in agenda shows the member's colour as its block "
+      'background',
+      (tester) async {
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: calendarPrefs(
+            events: [
+              CalendarEvent(
+                id: 'e1',
+                title: 'Team sync',
+                allDay: true,
+                date: today,
+                color: kCatColors.first,
+                attendees: const ['erik'],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await goToCalendar(tester);
+        await setCalView(tester, 'agenda');
+
+        final row = find.byKey(ValueKey('agenda-appt-e1-$today'));
+        expect(row, findsOneWidget);
+        final container = tester.widget<Container>(
+          find.descendant(of: row, matching: find.byType(Container)).first,
+        );
+        final decoration = container.decoration as BoxDecoration;
+        expect(decoration.color, kMemberColors[1]);
+      },
+    );
+
+    testWidgets('a content row in agenda has a dashed border', (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          taskLists: [
+            content(
+              tasks: [
+                ListTask(
+                  id: 'c1',
+                  title: 'Film reel',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      final row = find.byKey(ValueKey('agenda-content-task_tl2_c1-$today'));
+      expect(row, findsOneWidget);
+      final container = tester.widget<Container>(row);
+      expect(
+        container.foregroundDecoration!.runtimeType.toString(),
+        contains('Dashed'),
+      );
+    });
   });
 }
 

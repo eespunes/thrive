@@ -172,12 +172,85 @@ void main() {
 
       // Erik: 1 done ('Take out bins', excluded from the tile list since
       // eventOccurrences() never returns done occurrences) out of 2 total.
-      expect(find.text('1/2 today'), findsOneWidget);
+      expect(find.text('1/2'), findsOneWidget);
       // Eva has nothing assigned today.
-      expect(find.text('0/0 today'), findsOneWidget);
+      expect(find.text('0/0'), findsOneWidget);
       // Only the still-outstanding task renders as a tile.
       expect(find.text('Water plants'), findsOneWidget);
       expect(find.text('Take out bins'), findsNothing);
     },
   );
+
+  testWidgets("the left week panel shows today's appointments while a member's "
+      'right-hand column does not', (tester) async {
+    final today = todayIso();
+    final family = Family(
+      id: 'fam_main',
+      name: 'Janssen family',
+      username: 'janssen',
+      members: [
+        FamilyMember(
+          id: 'me',
+          name: 'Eva Janssen',
+          email: 'eva.janssen@gmail.com',
+          initials: 'EJ',
+          color: kMemberColors[0],
+          role: 'owner',
+        ),
+        FamilyMember(
+          id: 'erik',
+          name: 'Erik Janssen',
+          email: 'erik.janssen@gmail.com',
+          initials: 'EJ',
+          color: kMemberColors[1],
+        ),
+      ],
+    );
+    final ws = Workspace.empty()
+      ..events = [
+        CalendarEvent(
+          id: 'e1',
+          title: 'Football practice',
+          date: today,
+          start: '18:30',
+          end: '20:00',
+          color: kCatColors.first,
+          attendees: const ['erik'],
+        ),
+      ];
+    await pumpApp(
+      tester,
+      prefs: {
+        'flutter.$kStorageKeyV4': json.encode({
+          'year': 2026,
+          'monthIdx': 6,
+          'screen': 'overview',
+          'tab': 'home',
+          'familyId': 'fam_main',
+          'families': [family.toJson()],
+          'workspaces': {'fam_main': ws.toJson()},
+        }),
+      },
+      landOnDefaultTab: true,
+    );
+    await _openKitchenDashboard(tester);
+
+    // The appointment shows up in the left week panel...
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-left-panel')),
+        matching: find.text('Football practice'),
+      ),
+      findsOneWidget,
+    );
+    // ...but not inside Erik's member column, which is now task/content
+    // only.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-column-erik')),
+        matching: find.text('Football practice'),
+      ),
+      findsNothing,
+    );
+  });
 }

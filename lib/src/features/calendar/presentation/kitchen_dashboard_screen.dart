@@ -126,34 +126,159 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
               ),
             ),
             Expanded(
-              child: members.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No family members yet',
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final m in members)
-                            Expanded(
-                              child: _KitchenMemberColumn(
-                                key: ValueKey('kitchen-column-${m.id}'),
-                                state: state,
-                                member: m,
-                                today: today,
-                                onOccurrenceChanged: _refresh,
-                              ),
-                            ),
-                        ],
-                      ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _KitchenLeftPanel(
+                      key: const ValueKey('kitchen-left-panel'),
+                      state: state,
                     ),
+                    Container(
+                      width: 1,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      color: Colors.white.withValues(alpha: .16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: members.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No family members yet',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final m in members)
+                                  Expanded(
+                                    child: _KitchenMemberColumn(
+                                      key: ValueKey('kitchen-column-${m.id}'),
+                                      state: state,
+                                      member: m,
+                                      today: today,
+                                      onOccurrenceChanged: _refresh,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Left panel of the wall-tablet dashboard: "Week of" header plus a
+/// scrollable list of this week's day-groups, each showing that day's
+/// appointment-layer occurrences only (`tabletApp()`'s left column in the
+/// Calendar Layers design) — to-dos/content live exclusively in the member
+/// columns on the right.
+class _KitchenLeftPanel extends StatelessWidget {
+  const _KitchenLeftPanel({super.key, required this.state});
+
+  final _ThriveHomeState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = todayIso();
+    final weekStart = _startOfWeekIso(today);
+    final days = [for (var i = 0; i < 7; i++) _addDaysIso(weekStart, i)];
+    final d = _parseIso(today);
+
+    return SizedBox(
+      width: 230,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'WEEK OF',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .3,
+              color: Colors.white54,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${d.day} ${kMonthsEn[d.month - 1]}',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'WEEKLY SCHEDULE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .3,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView(
+              key: const ValueKey('kitchen-week-schedule'),
+              children: [for (final iso in days) _dayGroup(iso, today)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayGroup(String iso, String today) {
+    final appts =
+        state
+            .eventOccurrences(iso, iso)
+            .where((o) => o.layer == 'appt')
+            .toList()
+          ..sort(
+            (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+              b.ev.allDay ? '' : b.ev.start,
+            ),
+          );
+    if (appts.isEmpty) return const SizedBox.shrink();
+
+    final isToday = iso == today;
+    final d = _parseIso(iso);
+    final weekday = kWeekdayLetters[d.weekday - 1];
+    return Padding(
+      key: ValueKey('kitchen-day-group-$iso'),
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${isToday ? 'Today · ' : ''}$weekday ${d.day}',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .3,
+              color: isToday ? B.primary : Colors.white54,
+            ),
+          ),
+          const SizedBox(height: 6),
+          for (final o in appts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: state._apptAgendaRow(o),
+            ),
+        ],
       ),
     );
   }
@@ -180,10 +305,17 @@ class _KitchenMemberColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Right-panel member columns show today's to-do/content occurrences
+    // only — appointments now live exclusively in the left week panel
+    // (Calendar Layers design: `kColumn()` filters to `task`/`content`).
     final occ =
         state
             .eventOccurrences(today, today)
-            .where((o) => o.ev.attendees.contains(member.id))
+            .where(
+              (o) =>
+                  o.ev.attendees.contains(member.id) &&
+                  (o.layer == 'task' || o.layer == 'content'),
+            )
             .toList()
           ..sort(
             (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
@@ -258,7 +390,17 @@ class _KitchenMemberColumn extends StatelessWidget {
                       key: ValueKey('kitchen-list-${member.id}'),
                       itemCount: occ.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => state._eventCard(occ[i]),
+                      itemBuilder: (context, i) => occ[i].layer == 'content'
+                          ? state._contentAgendaRow(
+                              occ[i],
+                              checkColor: member.color,
+                              showAvatar: false,
+                            )
+                          : state._taskAgendaRow(
+                              occ[i],
+                              checkColor: member.color,
+                              showAvatar: false,
+                            ),
                     ),
                   ),
           ),
@@ -268,8 +410,10 @@ class _KitchenMemberColumn extends StatelessWidget {
   }
 }
 
-/// Star/progress badge showing completed-vs-total tasks/content for a
-/// member today — computed live, no persisted state.
+/// Progress indicator showing completed-vs-total tasks/content for a member
+/// today — computed live, no persisted state. Mirrors `kColumn()`'s header:
+/// a row of 3 stars (filled up to `min(completed, 3)`) plus a "$done/$total"
+/// fraction count, and a thin rounded percentage-fill bar underneath.
 class _KitchenProgressBadge extends StatelessWidget {
   const _KitchenProgressBadge({
     super.key,
@@ -284,32 +428,49 @@ class _KitchenProgressBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allDone = total > 0 && completed == total;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: allDone ? color.withValues(alpha: .14) : B.faint,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            allDone ? Icons.star : Icons.star_border,
-            size: 18,
-            color: allDone ? color : B.muted,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$completed/$total today',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: allDone ? color : B.soft2,
+    final pct = total > 0 ? (completed / total).clamp(0.0, 1.0) : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            for (var i = 0; i < 3; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: 2),
+                child: Icon(
+                  i < completed ? Icons.star : Icons.star_border,
+                  size: 14,
+                  color: i < completed ? color : B.muted,
+                ),
+              ),
+            const Spacer(),
+            Text(
+              '$completed/$total',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: 7,
+            child: Stack(
+              children: [
+                Container(color: B.faint),
+                FractionallySizedBox(
+                  widthFactor: pct,
+                  child: Container(color: color),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
