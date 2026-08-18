@@ -156,10 +156,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                       emojiSize: 18,
                       fallback: Center(
                         child: content
-                            ? const Text(
-                                '📷',
-                                style: TextStyle(fontSize: 16),
-                              )
+                            ? const Text('📷', style: TextStyle(fontSize: 16))
                             : ic(
                                 'tasklist',
                                 size: 17,

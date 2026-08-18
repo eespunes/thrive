@@ -96,47 +96,44 @@ void main() {
     expect(find.text('Take out bins'), findsOneWidget);
   });
 
-  testWidgets(
-    "tapping a task tile's checkbox completes only that occurrence",
-    (tester) async {
-      final today = todayIso();
-      await pumpApp(
-        tester,
-        prefs: _kitchenPrefs(
-          taskLists: [
-            TaskList(
-              id: 'tl1',
-              name: 'Chores',
-              color: kCatColors.first,
-              tasks: [
-                ListTask(
-                  id: 't1',
-                  title: 'Water plants',
-                  assignee: 'erik',
-                  due: today,
-                  recur: 'weekly',
-                ),
-              ],
-            ),
-          ],
-        ),
-        landOnDefaultTab: true,
-      );
-      await _openKitchenDashboard(tester);
+  testWidgets("tapping a task tile's checkbox completes only that occurrence", (
+    tester,
+  ) async {
+    final today = todayIso();
+    await pumpApp(
+      tester,
+      prefs: _kitchenPrefs(
+        taskLists: [
+          TaskList(
+            id: 'tl1',
+            name: 'Chores',
+            color: kCatColors.first,
+            tasks: [
+              ListTask(
+                id: 't1',
+                title: 'Water plants',
+                assignee: 'erik',
+                due: today,
+                recur: 'weekly',
+              ),
+            ],
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await _openKitchenDashboard(tester);
 
-      expect(find.text('Water plants'), findsOneWidget);
-      await tester.tap(
-        find.byKey(ValueKey('event-check-task_tl1_t1-$today')),
-      );
-      await tester.pumpAndSettle();
+    expect(find.text('Water plants'), findsOneWidget);
+    await tester.tap(find.byKey(ValueKey('event-check-task_tl1_t1-$today')));
+    await tester.pumpAndSettle();
 
-      // Today's occurrence is gone from the dashboard now that it's done —
-      // per-occurrence semantics: only the tapped date's completion
-      // changed, not the whole recurring series (verified in depth by
-      // calendar_test.dart's equivalent Month-view checkbox test).
-      expect(find.text('Water plants'), findsNothing);
-    },
-  );
+    // Today's occurrence is gone from the dashboard now that it's done —
+    // per-occurrence semantics: only the tapped date's completion
+    // changed, not the whole recurring series (verified in depth by
+    // calendar_test.dart's equivalent Month-view checkbox test).
+    expect(find.text('Water plants'), findsNothing);
+  });
 
   testWidgets(
     'star/progress indicator reflects completed-vs-total for a member with '

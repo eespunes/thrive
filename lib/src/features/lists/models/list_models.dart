@@ -100,7 +100,8 @@ class ListTask {
 
   /// Whether the occurrence on [iso] is completed. Falls back to [done] for
   /// non-recurring tasks so old data with only a `done` flag keeps working.
-  bool isDoneOn(String iso) => recur == 'none' ? done : (doneDates[iso] ?? false);
+  bool isDoneOn(String iso) =>
+      recur == 'none' ? done : (doneDates[iso] ?? false);
 }
 
 /// A shared to-do list — the `TO-DO` list type in the unified Lists module.

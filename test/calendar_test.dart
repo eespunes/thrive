@@ -1997,8 +1997,6 @@ void main() {
     },
   );
 
-
-
   testWidgets('filter sheet combines member and category filters', (
     tester,
   ) async {
@@ -2139,8 +2137,6 @@ void main() {
       findsOneWidget,
     );
   });
-
-
 
   testWidgets('month picker jumps to a chosen month and back to today', (
     tester,
@@ -2494,9 +2490,7 @@ void main() {
 
         // Turning off content too hides that occurrence, leaving only the
         // appointment — the only remaining enabled layer.
-        await tester.tap(
-          find.byKey(const ValueKey('cal-layer-chip-content')),
-        );
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-content')));
         await tester.pumpAndSettle();
         expect(find.text('Film reel'), findsNothing);
         expect(find.text('Team sync'), findsOneWidget);
@@ -2509,9 +2503,7 @@ void main() {
 
         // Re-enabling brings the hidden occurrences back.
         await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
-        await tester.tap(
-          find.byKey(const ValueKey('cal-layer-chip-content')),
-        );
+        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-content')));
         await tester.pumpAndSettle();
         expect(find.text('Take out bins'), findsOneWidget);
         expect(find.text('Film reel'), findsOneWidget);
@@ -2545,9 +2537,7 @@ void main() {
         await goToCalendar(tester);
 
         expect(find.text('Take out bins'), findsOneWidget);
-        await tester.tap(
-          find.byKey(ValueKey('cal-check-task_tl1_t1-$today')),
-        );
+        await tester.tap(find.byKey(ValueKey('cal-check-task_tl1_t1-$today')));
         await tester.pumpAndSettle();
 
         expect(find.text('Take out bins'), findsNothing);
@@ -2599,54 +2589,51 @@ void main() {
       },
     );
 
-    testWidgets(
-      'content-layer occurrences render with a dashed pink outline, '
-      'distinct from a household task occurrence',
-      (tester) async {
-        final today = todayIso();
-        await pumpApp(
-          tester,
-          prefs: calendarPrefs(
-            events: const [],
-            taskLists: [
-              content(
-                tasks: [
-                  ListTask(
-                    id: 'c1',
-                    title: 'Film reel',
-                    assignee: 'erik',
-                    due: today,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          landOnDefaultTab: true,
-        );
-        await goToCalendar(tester);
+    testWidgets('content-layer occurrences render with a dashed pink outline, '
+        'distinct from a household task occurrence', (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: const [],
+          taskLists: [
+            content(
+              tasks: [
+                ListTask(
+                  id: 'c1',
+                  title: 'Film reel',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
 
-        final bar = find.byWidgetPredicate(
-          (widget) =>
-              widget.key is ValueKey<String> &&
-              (widget.key! as ValueKey<String>).value.startsWith(
-                'cal-bar-task_tl2_c1-',
-              ),
-        );
-        expect(bar, findsOneWidget);
-        final hasDashedOutline = tester
-            .widgetList<Container>(
-              find.descendant(of: bar, matching: find.byType(Container)),
-            )
-            .any(
-              (c) =>
-                  c.foregroundDecoration != null &&
-                  c.foregroundDecoration!.runtimeType.toString().contains(
-                    'Dashed',
-                  ),
-            );
-        expect(hasDashedOutline, isTrue);
-      },
-    );
+      final bar = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'cal-bar-task_tl2_c1-',
+            ),
+      );
+      expect(bar, findsOneWidget);
+      final hasDashedOutline = tester
+          .widgetList<Container>(
+            find.descendant(of: bar, matching: find.byType(Container)),
+          )
+          .any(
+            (c) =>
+                c.foregroundDecoration != null &&
+                c.foregroundDecoration!.runtimeType.toString().contains(
+                  'Dashed',
+                ),
+          );
+      expect(hasDashedOutline, isTrue);
+    });
   });
 }
 

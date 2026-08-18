@@ -841,9 +841,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: isContent
-                            ? const Color(0xfffce7f3)
-                            : B.faint,
+                        color: isContent ? const Color(0xfffce7f3) : B.faint,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -922,7 +920,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 key: key,
                 onTap: openTap,
                 child: Row(
-                  children: [leading, const SizedBox(width: 11), Expanded(child: rest)],
+                  children: [
+                    leading,
+                    const SizedBox(width: 11),
+                    Expanded(child: rest),
+                  ],
                 ),
               );
 

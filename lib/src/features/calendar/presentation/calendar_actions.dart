@@ -412,7 +412,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
-    for (final cal in apptLayerOn ? importedCalendars : const <ImportedCalendar>[]) {
+    for (final cal
+        in apptLayerOn ? importedCalendars : const <ImportedCalendar>[]) {
       if (!cal.visible) continue;
       if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
       if (flt.isNotEmpty) {

@@ -136,13 +136,9 @@ class _NewListSheetState extends State<_NewListSheet> {
                           horizontal: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: _todoKind == 'chore'
-                              ? B.soft
-                              : Colors.white,
+                          color: _todoKind == 'chore' ? B.soft : Colors.white,
                           border: Border.all(
-                            color: _todoKind == 'chore'
-                                ? B.primary
-                                : B.line,
+                            color: _todoKind == 'chore' ? B.primary : B.line,
                           ),
                           borderRadius: BorderRadius.circular(13),
                         ),
@@ -153,9 +149,7 @@ class _NewListSheetState extends State<_NewListSheet> {
                               'tasklist',
                               size: 18,
                               sw: 2.1,
-                              color: _todoKind == 'chore'
-                                  ? B.primary
-                                  : B.soft2,
+                              color: _todoKind == 'chore' ? B.primary : B.soft2,
                             ),
                             const SizedBox(height: 6),
                             Text(
@@ -163,9 +157,7 @@ class _NewListSheetState extends State<_NewListSheet> {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
-                                color: _todoKind == 'chore'
-                                    ? B.deep
-                                    : B.soft2,
+                                color: _todoKind == 'chore' ? B.deep : B.soft2,
                               ),
                             ),
                           ],
@@ -201,10 +193,7 @@ class _NewListSheetState extends State<_NewListSheet> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              '📷',
-                              style: TextStyle(fontSize: 18),
-                            ),
+                            Text('📷', style: TextStyle(fontSize: 18)),
                             const SizedBox(height: 6),
                             Text(
                               'Content Creation',
@@ -308,7 +297,8 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
 
   bool get _editing => widget.task != null;
 
-  int _isoWeekday(String iso) => (DateTime.tryParse(iso) ?? DateTime.now()).weekday;
+  int _isoWeekday(String iso) =>
+      (DateTime.tryParse(iso) ?? DateTime.now()).weekday;
 
   @override
   void initState() {
@@ -450,9 +440,7 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: _recurWeekdays.contains(weekday)
-                        ? B.deep
-                        : B.soft2,
+                    color: _recurWeekdays.contains(weekday) ? B.deep : B.soft2,
                   ),
                 ),
               ),

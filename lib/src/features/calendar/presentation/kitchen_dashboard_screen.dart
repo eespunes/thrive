@@ -46,11 +46,13 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
         if (task.isDoneOn(today)) completed++;
       }
     }
-    final outstanding = eventOccurrences(today, today).where(
-      (o) =>
-          (o.layer == 'task' || o.layer == 'content') &&
-          o.ev.attendees.contains(memberId),
-    ).length;
+    final outstanding = eventOccurrences(today, today)
+        .where(
+          (o) =>
+              (o.layer == 'task' || o.layer == 'content') &&
+              o.ev.attendees.contains(memberId),
+        )
+        .length;
     return (completed: completed, total: completed + outstanding);
   }
 }
@@ -179,9 +181,10 @@ class _KitchenMemberColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final occ =
-        state.eventOccurrences(today, today).where(
-          (o) => o.ev.attendees.contains(member.id),
-        ).toList()
+        state
+            .eventOccurrences(today, today)
+            .where((o) => o.ev.attendees.contains(member.id))
+            .toList()
           ..sort(
             (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
               b.ev.allDay ? '' : b.ev.start,
@@ -250,8 +253,7 @@ class _KitchenMemberColumn extends StatelessWidget {
                     // mutates `taskLists` synchronously, so by the time this
                     // pointer-up fires the mutation has already happened;
                     // the microtask just lets that handler run first.
-                    onPointerUp: (_) =>
-                        Future.microtask(onOccurrenceChanged),
+                    onPointerUp: (_) => Future.microtask(onOccurrenceChanged),
                     child: ListView.separated(
                       key: ValueKey('kitchen-list-${member.id}'),
                       itemCount: occ.length,
