@@ -760,6 +760,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     Map<String, bool>? doneDates,
   }) {
     final wasEditing = id != null;
+    final existing = id == null ? null : eventById(id);
     CalendarEvent? saved;
     mutate(() {
       final effectiveColor = catById(category)?.color ?? color;
@@ -786,6 +787,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         layerId: layerId,
         done: done,
         doneDates: doneDates,
+        kitchenOrigin: existing?.kitchenOrigin ?? false,
+        picture: existing?.picture,
       );
       final i = events.indexWhere((x) => x.id == ev.id);
       if (i >= 0) {
@@ -848,6 +851,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       layerId: layerId ?? ev.layerId,
       done: done ?? ev.done,
       doneDates: doneDates ?? Map<String, bool>.from(ev.doneDates),
+      kitchenOrigin: ev.kitchenOrigin,
+      picture: ev.picture,
     );
   }
 

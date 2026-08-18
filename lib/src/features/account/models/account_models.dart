@@ -229,6 +229,9 @@ class Workspace {
     List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
     List<CalendarLayerDef>? calendarLayers,
+    Map<String, int>? starsMap,
+    this.kitchenEnabled = true,
+    Map<String, bool>? picMembers,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
@@ -240,7 +243,9 @@ class Workspace {
        // to the empty list here; callers that legitimately need the 3
        // built-ins pre-seeded (legacy-data backfill in [Workspace.fromJson],
        // or the bundled first-launch sample) pass them explicitly.
-       calendarLayers = calendarLayers ?? <CalendarLayerDef>[];
+       calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
+       starsMap = starsMap ?? <String, int>{},
+       picMembers = picMembers ?? <String, bool>{};
 
   List<Account> accounts;
   List<Category> cats;
@@ -265,6 +270,17 @@ class Workspace {
   /// days with content need an entry.
   Map<String, DayPlan> weeklyPlan;
 
+  /// Kitchen-dashboard star reward count per member id (0-5). Missing
+  /// memberId means 0. Reset only by the "claim reward" action.
+  Map<String, int> starsMap;
+
+  /// Whether the wall-tablet Kitchen dashboard is enabled for this family.
+  bool kitchenEnabled;
+
+  /// Per-member "Picture mode" override for the Kitchen dashboard (large
+  /// image tile, no text — for pre-readers). Missing memberId means `false`.
+  Map<String, bool> picMembers;
+
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
     'cats': cats.map((c) => c.toJson()).toList(),
@@ -283,6 +299,9 @@ class Workspace {
       for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
     },
     'calendarLayers': calendarLayers.map((l) => l.toJson()).toList(),
+    if (starsMap.isNotEmpty) 'starsMap': starsMap,
+    'kitchenEnabled': kitchenEnabled,
+    if (picMembers.isNotEmpty) 'picMembers': picMembers,
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -348,6 +367,16 @@ class Workspace {
               CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
           ]
         : kDefaultCalendarLayers();
+    final starsMap = <String, int>{
+      for (final entry
+          in (j['starsMap'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: ((entry.value as num?)?.toInt() ?? 0).clamp(0, 5),
+    };
+    final picMembers = <String, bool>{
+      for (final entry
+          in (j['picMembers'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: entry.value == true,
+    };
     return Workspace(
       accounts: accounts,
       cats: cats,
@@ -359,6 +388,9 @@ class Workspace {
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
       calendarLayers: calendarLayers,
+      starsMap: starsMap,
+      kitchenEnabled: j['kitchenEnabled'] != false,
+      picMembers: picMembers,
     );
   }
 

@@ -25,6 +25,8 @@ class CalendarEvent {
     this.layerId = 'appt',
     this.done = false,
     Map<String, bool>? doneDates,
+    this.kitchenOrigin = false,
+    this.picture,
   }) : attendees = attendees ?? <String>['me'],
        recurWeekdays = recurWeekdays ?? <int>[],
        exceptions = exceptions ?? <String>[],
@@ -91,6 +93,20 @@ class CalendarEvent {
   /// task-like event. Mirrors `ListTask.doneDates`.
   Map<String, bool> doneDates;
 
+  /// True only for events created directly on the Kitchen dashboard's
+  /// quick-add sheet (as opposed to the phone's event editor). Kitchen-origin
+  /// items show a remove (×) control on the dashboard and can be deleted from
+  /// there; phone-created items cannot (they're edited/removed from the
+  /// phone's calendar instead). Purely a UI/permission flag — kitchen-origin
+  /// events are otherwise ordinary [CalendarEvent]s, so they render on the
+  /// phone's Agenda/Month views exactly like any other to-do/content item.
+  bool kitchenOrigin;
+
+  /// Optional base64 photo for this item's Kitchen-dashboard picture-mode
+  /// tile (set by a parent after the item is created; see [_GlyphPicker]'s
+  /// picture-encoding pattern). Unused in text mode.
+  String? picture;
+
   /// Whether the occurrence on [iso] is completed. Falls back to [done] for
   /// non-recurring events so old data with only a `done` flag keeps working.
   bool isDoneOn(String iso) =>
@@ -119,6 +135,8 @@ class CalendarEvent {
     if (layerId != 'appt') 'layerId': layerId,
     'done': done,
     if (doneDates.isNotEmpty) 'doneDates': doneDates,
+    if (kitchenOrigin) 'kitchenOrigin': kitchenOrigin,
+    if (picture != null) 'picture': picture,
   };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
@@ -158,6 +176,10 @@ class CalendarEvent {
       for (final entry in (j['doneDates'] as Map? ?? {}).entries)
         entry.key.toString(): entry.value == true,
     },
+    kitchenOrigin: j['kitchenOrigin'] == true,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture'] as String
+        : null,
   );
 }
 

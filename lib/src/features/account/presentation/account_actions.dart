@@ -591,6 +591,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
       importedCalendars = target.importedCalendars;
       weeklyPlan = target.weeklyPlan;
       calendarLayers = target.calendarLayers;
+      starsMap = target.starsMap;
+      kitchenEnabled = target.kitchenEnabled;
+      picMembers = target.picMembers;
       screen = 'overview';
       swipedId = null;
       collapsed = {};

@@ -221,6 +221,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<EventCategory> eventCategories = [];
   List<ImportedCalendar> importedCalendars = [];
   List<CalendarLayerDef> calendarLayers = kDefaultCalendarLayers();
+  Map<String, int> starsMap = {};
+  bool kitchenEnabled = true;
+  Map<String, bool> picMembers = {};
   String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
@@ -554,6 +557,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
     calendarLayers = ws.calendarLayers;
+    starsMap = ws.starsMap;
+    kitchenEnabled = ws.kitchenEnabled;
+    picMembers = ws.picMembers;
     _syncRecurringSeries();
   }
 
@@ -574,6 +580,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         importedCalendars: importedCalendars,
         weeklyPlan: weeklyPlan,
         calendarLayers: calendarLayers,
+        starsMap: starsMap,
+        kitchenEnabled: kitchenEnabled,
+        picMembers: picMembers,
       ),
     };
     families = user != null ? [seedFamily('fam_main', user!, myId)] : [];
@@ -654,6 +663,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       importedCalendars = ws.importedCalendars;
       weeklyPlan = ws.weeklyPlan;
       calendarLayers = ws.calendarLayers;
+      starsMap = ws.starsMap;
+      kitchenEnabled = ws.kitchenEnabled;
+      picMembers = ws.picMembers;
       _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
       ready = true;
@@ -676,6 +688,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
       calendarLayers: calendarLayers,
+      starsMap: starsMap,
+      kitchenEnabled: kitchenEnabled,
+      picMembers: picMembers,
     );
   }
 

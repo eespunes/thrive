@@ -280,4 +280,329 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'tapping a star sets the filled count up to that star, and tapping the '
+    'top filled star again clears one back down',
+    (tester) async {
+      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+      await _openKitchenDashboard(tester);
+
+      await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-stars-erik')),
+          matching: find.byIcon(Icons.star),
+        ),
+        findsNWidgets(3),
+      );
+
+      // Tapping the already-filled top star (3) again clears one back down.
+      await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-stars-erik')),
+          matching: find.byIcon(Icons.star),
+        ),
+        findsNWidgets(2),
+      );
+    },
+  );
+
+  testWidgets('reaching 5/5 stars shows the claim-reward affordance, and '
+      'claiming resets stars to 0', (tester) async {
+    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+    await _openKitchenDashboard(tester);
+
+    await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-5')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('kitchen-claim-erik')), findsOneWidget);
+    expect(find.text('Claim reward!'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('kitchen-claim-erik')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('kitchen-claim-erik')), findsNothing);
+    expect(find.byKey(const ValueKey('kitchen-star-erik-5')), findsOneWidget);
+  });
+
+  testWidgets(
+    'picture mode renders a photo-grid for that member instead of the '
+    'text/checkbox list',
+    (tester) async {
+      final today = todayIso();
+      final family = Family(
+        id: 'fam_main',
+        name: 'Janssen family',
+        username: 'janssen',
+        members: [
+          FamilyMember(
+            id: 'me',
+            name: 'Eva Janssen',
+            email: 'eva.janssen@gmail.com',
+            initials: 'EJ',
+            color: kMemberColors[0],
+            role: 'owner',
+          ),
+          FamilyMember(
+            id: 'erik',
+            name: 'Erik Janssen',
+            email: 'erik.janssen@gmail.com',
+            initials: 'EJ',
+            color: kMemberColors[1],
+          ),
+        ],
+      );
+      final ws = Workspace.empty()
+        ..events = [
+          CalendarEvent(
+            id: 't1',
+            title: 'Take out bins',
+            allDay: true,
+            date: today,
+            color: kCatColors.first,
+            attendees: const ['erik'],
+            layerId: 'task',
+          ),
+          CalendarEvent(
+            id: 't2',
+            title: 'Tidy room',
+            allDay: true,
+            date: today,
+            color: kCatColors.first,
+            attendees: const ['me'],
+            layerId: 'task',
+          ),
+        ]
+        ..picMembers = {'erik': true};
+      await pumpApp(
+        tester,
+        prefs: {
+          'flutter.$kStorageKeyV4': json.encode({
+            'year': 2026,
+            'monthIdx': 6,
+            'screen': 'overview',
+            'tab': 'home',
+            'familyId': 'fam_main',
+            'families': [family.toJson()],
+            'workspaces': {'fam_main': ws.toJson()},
+          }),
+        },
+        landOnDefaultTab: true,
+      );
+      await _openKitchenDashboard(tester);
+
+      // Erik is in picture mode: a photo-grid renders instead of the
+      // text/checkbox list, and the title text is not shown as a label.
+      expect(find.byKey(const ValueKey('kitchen-grid-erik')), findsOneWidget);
+      expect(find.byKey(const ValueKey('kitchen-list-erik')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-column-erik')),
+          matching: find.text('Take out bins'),
+        ),
+        findsNothing,
+      );
+      // Eva stays in the default text mode.
+      expect(find.byKey(const ValueKey('kitchen-list-me')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping the checkmark overlay on a picture-mode tile marks it done',
+    (tester) async {
+      final today = todayIso();
+      final family = Family(
+        id: 'fam_main',
+        name: 'Janssen family',
+        username: 'janssen',
+        members: [
+          FamilyMember(
+            id: 'erik',
+            name: 'Erik Janssen',
+            email: 'erik.janssen@gmail.com',
+            initials: 'EJ',
+            color: kMemberColors[1],
+            role: 'owner',
+          ),
+        ],
+      );
+      final ws = Workspace.empty()
+        ..events = [
+          CalendarEvent(
+            id: 't1',
+            title: 'Take out bins',
+            allDay: true,
+            date: today,
+            color: kCatColors.first,
+            attendees: const ['erik'],
+            layerId: 'task',
+          ),
+        ]
+        ..picMembers = {'erik': true};
+      await pumpApp(
+        tester,
+        prefs: {
+          'flutter.$kStorageKeyV4': json.encode({
+            'year': 2026,
+            'monthIdx': 6,
+            'screen': 'overview',
+            'tab': 'home',
+            'familyId': 'fam_main',
+            'families': [family.toJson()],
+            'workspaces': {'fam_main': ws.toJson()},
+          }),
+        },
+        landOnDefaultTab: true,
+      );
+      await _openKitchenDashboard(tester);
+
+      expect(find.byKey(const ValueKey('kitchen-pic-tile-t1')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('kitchen-pic-check-t1')));
+      await tester.pumpAndSettle();
+
+      // Once done, the occurrence no longer surfaces (mirrors the
+      // text-mode checkbox test above).
+      expect(find.byKey(const ValueKey('kitchen-pic-tile-t1')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'quick-add creates a kitchen-origin item visible immediately in the '
+    "assignee's column, with a remove control, and it also shows up on the "
+    'phone Agenda view',
+    (tester) async {
+      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+      await _openKitchenDashboard(tester);
+
+      await tester.tap(find.byKey(const ValueKey('kitchen-quick-add-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Feed the cat');
+      await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-column-erik')),
+          matching: find.text('Feed the cat'),
+        ),
+        findsOneWidget,
+      );
+
+      // A kitchen-origin item shows a remove (x) control...
+      final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+      final ev = (state as dynamic).events.firstWhere(
+        (e) => e.title == 'Feed the cat',
+      );
+      expect(ev.kitchenOrigin, isTrue);
+      expect(find.byKey(ValueKey('kitchen-remove-${ev.id}')), findsOneWidget);
+
+      // ...and it's a real CalendarEvent, so it also renders on the phone's
+      // Agenda view (reusing the same rendering, not a fork of it).
+      await tester.tap(find.byKey(const ValueKey('kitchen-dashboard-close')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('nav-calendar')));
+      await tester.pumpAndSettle();
+      expect(find.text('Feed the cat'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'deleting a kitchen-origin item removes it, but a phone-created item '
+    'has no remove control and cannot be deleted this way',
+    (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: _kitchenPrefs(
+          events: [
+            CalendarEvent(
+              id: 'phone1',
+              title: 'Homework',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+              layerId: 'task',
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _openKitchenDashboard(tester);
+
+      // A phone-created item has no remove control.
+      expect(find.byKey(const ValueKey('kitchen-remove-phone1')), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('kitchen-quick-add-fab')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Feed the cat');
+      await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+      final ev = (state as dynamic).events.firstWhere(
+        (e) => e.title == 'Feed the cat',
+      );
+      await tester.tap(find.byKey(ValueKey('kitchen-remove-${ev.id}')));
+      await tester.pumpAndSettle();
+      expect(find.text('Feed the cat'), findsNothing);
+      // The phone-created item is untouched.
+      expect(find.text('Homework'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'disabling the kitchen display globally hides the "Kitchen dashboard" '
+    'row from More, and re-tapping it re-enables the display',
+    (tester) async {
+      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      expect(find.text('Kitchen dashboard'), findsOneWidget);
+      expect(find.text('Wall-tablet family view'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('cal-manage-kitchen-enabled')),
+      );
+      await tester.pumpAndSettle();
+      // Dismiss the settings bottom sheet by tapping the scrim above it.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Wall-tablet family view'), findsNothing);
+      expect(find.text('Disabled — tap to re-enable'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('more-kitchen')));
+      await tester.pumpAndSettle();
+      expect(find.text('Wall-tablet family view'), findsOneWidget);
+    },
+  );
+
+  testWidgets('per-member picture-mode toggle in settings persists', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('more-callayers')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('cal-manage-picmode-erik')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('cal-manage-picmode-erik')));
+    await tester.pumpAndSettle();
+
+    final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+    expect((state as dynamic).picMembers['erik'], isTrue);
+  });
 }
