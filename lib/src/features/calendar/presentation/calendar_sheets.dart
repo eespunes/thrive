@@ -3234,6 +3234,38 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
         ),
         const SizedBox(height: 16),
         const Text(
+          'LAYERS',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .3,
+            color: B.muted,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 20),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (id, label, icon, color) in kCalLayers)
+                _chip(
+                  key: ValueKey('cal-filter-layer-$id'),
+                  leading: ic(
+                    icon,
+                    size: 14,
+                    sw: 2.3,
+                    color: s.layerFilter.contains(id) ? color : B.soft2,
+                  ),
+                  label: label,
+                  on: s.layerFilter.contains(id),
+                  color: color,
+                  onTap: () => setState(() => s.toggleLayerFilter(id)),
+                ),
+            ],
+          ),
+        ),
+        const Text(
           'FAMILY MEMBERS',
           style: TextStyle(
             fontSize: 11,
@@ -3283,38 +3315,6 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
                   on: s.calCatFilter.contains(c.id),
                   color: c.color,
                   onTap: () => setState(() => s.toggleCalCategoryFilter(c.id)),
-                ),
-            ],
-          ),
-        ),
-        const Text(
-          'LAYERS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .3,
-            color: B.muted,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 20),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final (id, label, icon, color) in kCalLayers)
-                _chip(
-                  key: ValueKey('cal-filter-layer-$id'),
-                  leading: ic(
-                    icon,
-                    size: 14,
-                    sw: 2.3,
-                    color: s.layerFilter.contains(id) ? color : B.soft2,
-                  ),
-                  label: label,
-                  on: s.layerFilter.contains(id),
-                  color: color,
-                  onTap: () => setState(() => s.toggleLayerFilter(id)),
                 ),
             ],
           ),
