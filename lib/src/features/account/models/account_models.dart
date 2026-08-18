@@ -235,9 +235,12 @@ class Workspace {
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
        weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
-       calendarLayers = (calendarLayers == null || calendarLayers.isEmpty)
-           ? kDefaultCalendarLayers()
-           : calendarLayers;
+       // A brand-new workspace starts with NO layers — the user builds their
+       // own set via "+ Add layer" (issue #203-#211). We only ever default
+       // to the empty list here; callers that legitimately need the 3
+       // built-ins pre-seeded (legacy-data backfill in [Workspace.fromJson],
+       // or the bundled first-launch sample) pass them explicitly.
+       calendarLayers = calendarLayers ?? <CalendarLayerDef>[];
 
   List<Account> accounts;
   List<Category> cats;
@@ -249,9 +252,13 @@ class Workspace {
   List<ImportedCalendar> importedCalendars;
 
   /// User-customizable calendar layers (built-ins + any custom ones), in
-  /// display order. Always seeded with the 3 built-in defaults when absent
-  /// or empty (see the constructor and [Workspace.fromJson]) so every
-  /// existing family keeps today's exact 3 layers with zero visible change.
+  /// display order. A brand-new workspace starts with none — the user adds
+  /// their own. [Workspace.fromJson] backfills the 3 legacy built-ins only
+  /// when the `calendarLayers` key was never present in the saved data at
+  /// all (i.e. saved by an app version before layers existed), so every
+  /// pre-existing family keeps today's exact layers with zero visible
+  /// change; an explicitly-empty saved list (a family that already adopted
+  /// this feature and has no layers) stays empty.
   List<CalendarLayerDef> calendarLayers;
 
   /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
@@ -292,10 +299,10 @@ class Workspace {
         Category.fromJson(Map<String, dynamic>.from(c as Map)),
     ];
     final data = <int, Map<String, MonthData>>{};
-    (j['data'] as Map<String, dynamic>? ?? {}).forEach((yr, months) {
+    Map<String, dynamic>.from((j['data'] as Map?) ?? {}).forEach((yr, months) {
       final yKey = int.tryParse(yr) ?? 2026;
       final map = <String, MonthData>{};
-      (months as Map<String, dynamic>).forEach((mk, md) {
+      Map<String, dynamic>.from(months as Map).forEach((mk, md) {
         map[mk] = MonthData.fromJson(Map<String, dynamic>.from(md as Map));
       });
       data[yKey] = map;
@@ -328,15 +335,19 @@ class Workspace {
           Map<String, dynamic>.from(entry.value as Map),
         ),
     };
-    // Absent or empty `calendarLayers` (every family's workspace saved
-    // before layers became customizable) is backfilled with today's exact
-    // 3 built-in defaults — see [Workspace]'s constructor, which applies
-    // the same fallback.
-    final rawLayers = j['calendarLayers'] as List?;
-    final calendarLayers = <CalendarLayerDef>[
-      for (final l in (rawLayers ?? const []))
-        CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
-    ];
+    // Only a completely MISSING `calendarLayers` key (a workspace saved by an
+    // app version before layers existed at all) is backfilled with the 3
+    // legacy built-in defaults, so those pre-existing families see zero
+    // visible change. Once a workspace has round-tripped through this
+    // feature the key is always present, so a deliberately-empty saved list
+    // (a family that created and later deleted every layer, or simply never
+    // added one) must stay empty rather than being re-seeded.
+    final calendarLayers = j.containsKey('calendarLayers')
+        ? <CalendarLayerDef>[
+            for (final l in (j['calendarLayers'] as List? ?? const []))
+              CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
+          ]
+        : kDefaultCalendarLayers();
     return Workspace(
       accounts: accounts,
       cats: cats,

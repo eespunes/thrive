@@ -11,7 +11,6 @@ void main() {
         title: 'Take out bins',
         done: true,
         assignee: 'm1',
-        due: '2026-08-01',
         createdBy: 'me',
         completedBy: 'm1',
       );
@@ -22,7 +21,6 @@ void main() {
       expect(restored.title, 'Take out bins');
       expect(restored.done, isTrue);
       expect(restored.assignee, 'm1');
-      expect(restored.due, '2026-08-01');
       expect(restored.createdBy, 'me');
       expect(restored.completedBy, 'm1');
     });
@@ -33,57 +31,25 @@ void main() {
       expect(t.title, '');
       expect(t.done, isFalse);
       expect(t.assignee, isNull);
-      expect(t.due, isNull);
       expect(t.createdBy, isNull);
       expect(t.completedBy, isNull);
     });
 
-    test('fromJson treats an empty due string as no due date', () {
-      final t = ListTask.fromJson(const {'due': ''});
-      expect(t.due, isNull);
-    });
-
-    test('round-trips recurrence and per-occurrence doneDates', () {
-      final t = ListTask(
-        id: 't1',
-        title: 'Water plants',
-        due: '2026-08-01',
-        recur: 'custom',
-        recurEvery: 2,
-        recurUnit: 'day',
-        recurWeekdays: [2, 4],
-        exceptions: ['2026-08-08'],
-        doneDates: {'2026-08-01': true},
-      );
-
-      final restored = ListTask.fromJson(t.toJson());
-
-      expect(restored.recur, 'custom');
-      expect(restored.recurEvery, 2);
-      expect(restored.recurUnit, 'day');
-      expect(restored.recurWeekdays, [2, 4]);
-      expect(restored.exceptions, ['2026-08-08']);
-      expect(restored.doneDates, {'2026-08-01': true});
-    });
-
-    test('fromJson defaults recurUnit to week when missing/empty', () {
-      final t = ListTask.fromJson(const {'recurUnit': ''});
-      expect(t.recurUnit, 'week');
-    });
-
-    test('isDoneOn falls back to done for a non-recurring task and reads '
-        'doneDates for a recurring one', () {
-      final oneOff = ListTask(id: 't1', title: 'A', done: true);
-      expect(oneOff.isDoneOn('2026-08-01'), isTrue);
-
-      final recurring = ListTask(
-        id: 't2',
-        title: 'B',
-        recur: 'weekly',
-        doneDates: {'2026-08-01': true},
-      );
-      expect(recurring.isDoneOn('2026-08-01'), isTrue);
-      expect(recurring.isDoneOn('2026-08-08'), isFalse);
+    test('fromJson ignores legacy due/recurrence fields from old data '
+        'instead of crashing', () {
+      final t = ListTask.fromJson(const {
+        'id': 't1',
+        'title': 'Legacy task',
+        'due': '2026-08-01',
+        'recur': 'weekly',
+        'recurEvery': 2,
+        'recurUnit': 'day',
+        'recurWeekdays': [2, 4],
+        'exceptions': ['2026-08-08'],
+        'doneDates': {'2026-08-01': true},
+      });
+      expect(t.id, 't1');
+      expect(t.title, 'Legacy task');
     });
   });
 

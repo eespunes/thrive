@@ -195,110 +195,85 @@ void main() {
     },
   );
 
-  testWidgets(
-    'assign a task to a member and pick its due date via the native picker',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
+  testWidgets('assign a task to a member', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
 
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out bins');
-      await tester.pump();
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out bins');
+    await tester.pump();
 
-      // Assign to the signed-in member (the only one seeded by default).
-      await tester.tap(find.text('Eva Janssen'));
-      await tester.pump();
+    // Assign to the signed-in member (the only one seeded by default).
+    await tester.tap(find.text('Eva Janssen'));
+    await tester.pump();
 
-      // Open the native date picker instead of relying on the toggle's
-      // "defaults to today" shortcut.
-      await tester.tap(find.text('Due date'));
-      await tester.pumpAndSettle();
-      final now = DateTime.now();
-      final todayIsoText =
-          '${now.year.toString().padLeft(4, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}-'
-          '${now.day.toString().padLeft(2, '0')}';
-      await tester.tap(find.text(todayIsoText));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Add task').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out bins'), findsOneWidget);
+  });
 
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out bins'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'add a task with a due date, edit it, un-complete it, then delete it',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
-
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out bins');
-      await tester.pump();
-      // The "Due date" toggle defaults to today — no need to open the
-      // native date picker to have a valid due date set.
-      await tester.tap(find.text('Due date'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out bins'), findsOneWidget);
-
-      // Edit: reopen the sheet and change the title (saveTask's editing
-      // branch, task still has a due date -> reschedule).
-      await tester.tap(find.text('Take out bins'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out trash');
-      await tester.pump();
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
-      expect(find.text('Take out trash'), findsOneWidget);
-
-      // Toggle done (cancels reminder), then toggle again (reschedules,
-      // since it still has a due date).
-      await tester.tap(findCheckbox('task-check-'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('COMPLETED'), findsOneWidget);
-      await tester.tap(findCheckbox('task-check-'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('COMPLETED'), findsNothing);
-
-      // Delete the task itself (cancels its reminder).
-      await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').first, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out trash'), findsNothing);
-    },
-  );
-
-  testWidgets('deleting a list with tasks cancels their reminders', (
+  testWidgets('add a task, edit it, un-complete it, then delete it', (
     tester,
   ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out bins');
+    await tester.pump();
+    await tester.tap(find.text('Add task').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out bins'), findsOneWidget);
+
+    // Edit: reopen the sheet and change the title (saveTask's editing
+    // branch).
+    await tester.tap(find.text('Take out bins'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out trash');
+    await tester.pump();
+    await tester.tap(find.text('Save task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Take out trash'), findsOneWidget);
+
+    // Toggle done, then toggle again.
+    await tester.tap(findCheckbox('task-check-'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('COMPLETED'), findsOneWidget);
+    await tester.tap(findCheckbox('task-check-'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('COMPLETED'), findsNothing);
+
+    // Delete the task itself.
+    await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out trash'), findsNothing);
+  });
+
+  testWidgets('deleting a list with tasks removes them', (tester) async {
     await pumpApp(tester);
     await goToLists(tester);
 
@@ -388,149 +363,4 @@ void main() {
     expect(find.text('Pharmacy'), findsNothing);
     expect(find.text('No lists yet'), findsOneWidget);
   });
-
-  testWidgets(
-    'create a weekly recurring task with specific weekdays persists',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
-
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Water plants');
-      await tester.pump();
-
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('task-recur-weekly')),
-      );
-      await tester.tap(find.byKey(const ValueKey('task-recur-weekly')));
-      await tester.pumpAndSettle();
-      // Switching to weekly defaults the weekday picker to today's weekday.
-      // Toggle on whichever of Mon (1) / Wed (3) isn't already selected,
-      // then toggle off today's default if it's neither of those two —
-      // weekday chips are pure toggles, so the exact sequence depends on
-      // today's date.
-      final defaultWeekday = DateTime.now().weekday;
-      for (final day in const [1, 3]) {
-        if (day != defaultWeekday) {
-          final f = find.byKey(ValueKey('task-recur-weekday-$day'));
-          await tester.ensureVisible(f);
-          await tester.tap(f);
-          await tester.pumpAndSettle();
-        }
-      }
-      if (defaultWeekday != 1 && defaultWeekday != 3) {
-        final f = find.byKey(ValueKey('task-recur-weekday-$defaultWeekday'));
-        await tester.ensureVisible(f);
-        await tester.tap(f);
-        await tester.pumpAndSettle();
-      }
-
-      await tester.ensureVisible(find.text('Add task').last);
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Water plants'), findsOneWidget);
-
-      // Reopen the task and confirm recur/recurWeekdays round-tripped.
-      await tester.tap(find.text('Water plants'));
-      await tester.pumpAndSettle();
-      expect(chipActive(tester, const ValueKey('task-recur-weekly')), isTrue);
-      expect(
-        chipActive(tester, const ValueKey('task-recur-weekday-1')),
-        isTrue,
-      );
-      expect(
-        chipActive(tester, const ValueKey('task-recur-weekday-3')),
-        isTrue,
-      );
-      expect(
-        chipActive(tester, const ValueKey('task-recur-weekday-2')),
-        isFalse,
-      );
-    },
-  );
-
-  testWidgets(
-    'editing a recurring task updates its recurEvery/recurWeekdays without '
-    'affecting other tasks',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
-
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
-
-      // Task A: will become the recurring task we edit.
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out bins');
-      await tester.pump();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('task-recur-custom')),
-      );
-      await tester.tap(find.byKey(const ValueKey('task-recur-custom')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Add task').last);
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-
-      // Task B: a plain, non-recurring task that must stay untouched.
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Vacuum');
-      await tester.pump();
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-
-      // Re-open task A and bump "every" to 3, add Friday (5).
-      await tester.tap(find.text('Take out bins'));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('task-recur-every-3')),
-      );
-      await tester.tap(find.byKey(const ValueKey('task-recur-every-3')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('task-recur-weekday-5')),
-      );
-      await tester.tap(find.byKey(const ValueKey('task-recur-weekday-5')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
-
-      // Task A: reopen and confirm the new every/weekday values stuck.
-      await tester.tap(find.text('Take out bins'));
-      await tester.pumpAndSettle();
-      expect(chipActive(tester, const ValueKey('task-recur-custom')), isTrue);
-      expect(chipActive(tester, const ValueKey('task-recur-every-3')), isTrue);
-      expect(
-        chipActive(tester, const ValueKey('task-recur-weekday-5')),
-        isTrue,
-      );
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-
-      // Task B stayed non-recurring throughout.
-      await tester.tap(find.text('Vacuum'));
-      await tester.pumpAndSettle();
-      expect(chipActive(tester, const ValueKey('task-recur-none')), isTrue);
-    },
-  );
 }

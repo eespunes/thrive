@@ -23,9 +23,10 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
 
   /// Completed-vs-total task/content count for [memberId] on [iso]
   /// (defaults to today), for the star/progress indicator. `total` includes
-  /// both what's already done (`completed`) and what's still outstanding
-  /// (surfaced via [eventOccurrences], which already excludes done
-  /// occurrences).
+  /// both what's already done (`completed`) and what's still outstanding —
+  /// [eventOccurrences] no longer excludes done occurrences (issue:
+  /// calendar layers done-but-visible), so `outstanding` explicitly filters
+  /// them back out here to avoid double-counting.
   ({int completed, int total}) kitchenMemberProgress(
     String memberId, [
     String? iso,
@@ -39,7 +40,10 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
       if (ev.isDoneOn(today)) completed++;
     }
     final outstanding = eventOccurrences(today, today)
-        .where((o) => o.layer != 'appt' && o.ev.attendees.contains(memberId))
+        .where(
+          (o) =>
+              o.layer != 'appt' && o.ev.attendees.contains(memberId) && !o.done,
+        )
         .length;
     return (completed: completed, total: completed + outstanding);
   }
@@ -300,7 +304,10 @@ class _KitchenMemberColumn extends StatelessWidget {
         state
             .eventOccurrences(today, today)
             .where(
-              (o) => o.ev.attendees.contains(member.id) && o.layer != 'appt',
+              (o) =>
+                  o.ev.attendees.contains(member.id) &&
+                  o.layer != 'appt' &&
+                  !o.done,
             )
             .toList()
           ..sort(

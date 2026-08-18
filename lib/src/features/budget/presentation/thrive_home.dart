@@ -176,6 +176,21 @@ class ThriveDebugController {
   List<CalendarEvent> get events => _s.events;
   List<TaskList> get taskLists => _s.taskLists;
   List<ShoppingList> get shoppingLists => _s.shoppingLists;
+  List<CalendarLayerDef> get calendarLayers => _s.calendarLayers;
+  List<EventCategory> get eventCategories => _s.eventCategories;
+  void addCalendarLayer({
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) => _s.addCalendarLayer(
+    label: label,
+    icon: icon,
+    emoji: emoji,
+    picture: picture,
+    color: color,
+  );
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
@@ -216,6 +231,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
+  final PageController calWeekPageController = PageController(
+    initialPage: 10000,
+  );
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -284,6 +302,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
     calPageController.dispose();
+    calWeekPageController.dispose();
     super.dispose();
   }
 
@@ -445,14 +464,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted tasks and calendar events.
+  /// Re-derives pending reminders from persisted calendar events.
   Future<void> _rescheduleReminders() async {
-    for (final l in taskLists) {
-      for (final t in l.tasks) {
-        if (t.done || (t.due ?? '').isEmpty) continue;
-        await NotificationService.instance.scheduleTaskReminder(t);
-      }
-    }
     final importedEvents = [
       for (final cal in importedCalendars)
         if (cal.visible && cal.reminder != 'none')

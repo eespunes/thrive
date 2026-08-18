@@ -30,14 +30,13 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   }
 
   Widget _buildHomeDashboard() {
-    final dueSoon = <(TaskList, ListTask)>[];
+    final openTasks = <(TaskList, ListTask)>[];
     for (final l in taskLists) {
       for (final t in l.tasks) {
-        if (!t.done) dueSoon.add((l, t));
+        if (!t.done) openTasks.add((l, t));
       }
     }
-    dueSoon.sort((a, b) => (a.$2.due ?? '9999').compareTo(b.$2.due ?? '9999'));
-    final topDue = dueSoon.take(4).toList();
+    final topDue = openTasks.take(4).toList();
     final c = compute(monthIdx);
     final todayEv = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 6))
       ..sort(
@@ -64,7 +63,7 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                 ),
         ),
         _homeCard(
-          title: 'Tasks due soon',
+          title: 'Open tasks',
           icon: 'tasklist',
           onOpen: () => goTab('lists'),
           body: topDue.isEmpty
@@ -468,7 +467,6 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   }
 
   Widget _miniTaskRow(TaskList list, ListTask t, {required bool border}) {
-    final dl = _dueLabel(t.due);
     return Container(
       decoration: BoxDecoration(
         border: border ? const Border(top: BorderSide(color: B.faint)) : null,
@@ -517,36 +515,14 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                       color: B.ink,
                     ),
                   ),
-                  Row(
-                    children: [
-                      Text(
-                        list.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: B.soft2,
-                        ),
-                      ),
-                      if (dl != null) ...[
-                        const Text(
-                          ' · ',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: B.soft2,
-                          ),
-                        ),
-                        Text(
-                          dl.$1,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: dl.$2,
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    list.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: B.soft2,
+                    ),
                   ),
                 ],
               ),

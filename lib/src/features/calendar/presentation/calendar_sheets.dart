@@ -2443,6 +2443,18 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
           ),
           if (showLayers) ...[
             sectionLabel('LAYERS'),
+            if (s.calendarLayers.isEmpty && !_addingLayer)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'No layers yet — add one to start organizing your calendar.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: B.muted,
+                  ),
+                ),
+              ),
             for (var i = 0; i < s.calendarLayers.length; i++)
               layerRow(s.calendarLayers[i], i),
             if (_addingLayer)
@@ -3624,7 +3636,15 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final layer in s.calendarLayers)
+              // Falls back to the 3 built-in layer definitions when
+              // [calendarLayers] hasn't been seeded yet (a legacy/new
+              // workspace with zero layer definitions) — the filter chips
+              // (and `layerFilter`, which already defaults to all 3 ids)
+              // must still work even before any layer has been customized.
+              for (final layer
+                  in s.calendarLayers.isEmpty
+                      ? kDefaultCalendarLayers()
+                      : s.calendarLayers)
                 _chip(
                   key: ValueKey('cal-filter-layer-${layer.id}'),
                   leading: glyphTile(

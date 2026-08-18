@@ -168,7 +168,7 @@ extension _ThriveAppShell on _ThriveHomeState {
         return (
           'Calendar',
           calView == 'agenda'
-              ? _prettyWeekdayDateIso(agendaDay)
+              ? _weekNumberLabelIso(agendaDay)
               : _monthTitleIso(calAnchor),
         );
       case 'lists':

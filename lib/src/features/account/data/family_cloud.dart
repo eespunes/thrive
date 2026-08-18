@@ -120,6 +120,12 @@ Future<Workspace> buildSampleWorkspace() async {
     accounts: defaultAccounts(),
     cats: cats,
     data: {2026: yearMap},
+    // Unlike a genuinely new family (which starts with zero calendar
+    // layers, see [Workspace]'s constructor), this bundled first-launch
+    // sample is deliberately pre-populated demo content (issue #119) so a
+    // brand-new install isn't an empty shell — seed the 3 legacy layers too
+    // so the demo calendar data reads sensibly out of the box.
+    calendarLayers: kDefaultCalendarLayers(),
   );
 }
 

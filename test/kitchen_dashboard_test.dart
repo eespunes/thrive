@@ -128,6 +128,42 @@ void main() {
   });
 
   testWidgets(
+    'a content-layer occurrence renders in its member column with the '
+    "dashboard's checkColor/no-avatar tile styling, and its checkbox "
+    'completes it',
+    (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: _kitchenPrefs(
+          events: [
+            CalendarEvent(
+              id: 'c1',
+              title: 'Film reel',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+              layerId: 'content',
+              recur: 'weekly',
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _openKitchenDashboard(tester);
+
+      expect(find.text('Film reel'), findsOneWidget);
+      await tester.tap(find.byKey(ValueKey('event-check-c1-$today')));
+      await tester.pumpAndSettle();
+
+      // Same per-occurrence-done semantics as a task tile: the completed
+      // occurrence drops off today's column.
+      expect(find.text('Film reel'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'star/progress indicator reflects completed-vs-total for a member with '
     'some tasks done and some not today',
     (tester) async {

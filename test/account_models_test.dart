@@ -92,4 +92,57 @@ void main() {
       },
     );
   });
+
+  group('Workspace calendarLayers (issue #203-#211)', () {
+    test('a brand-new workspace starts with zero calendar layers', () {
+      final ws = Workspace(accounts: const [], cats: const [], data: const {});
+      expect(ws.calendarLayers, isEmpty);
+    });
+
+    test('Workspace.empty() (a newly created family) has zero layers', () {
+      expect(Workspace.empty().calendarLayers, isEmpty);
+    });
+
+    test('fromJson backfills the 3 legacy built-ins only when the '
+        'calendarLayers key is completely absent (pre-layers save)', () {
+      final ws = Workspace.fromJson({
+        'accounts': [],
+        'cats': [],
+        'data': <String, dynamic>{},
+        // No 'calendarLayers' key at all.
+      });
+      expect(ws.calendarLayers.map((l) => l.id), ['appt', 'task', 'content']);
+    });
+
+    test('fromJson respects an explicitly-empty saved calendarLayers list '
+        'instead of re-seeding the 3 built-ins', () {
+      final ws = Workspace.fromJson({
+        'accounts': [],
+        'cats': [],
+        'data': <String, dynamic>{},
+        'calendarLayers': [],
+      });
+      expect(ws.calendarLayers, isEmpty);
+    });
+
+    test(
+      'fromJson round-trips a non-empty saved calendarLayers list as-is',
+      () {
+        final ws = Workspace.fromJson({
+          'accounts': [],
+          'cats': [],
+          'data': <String, dynamic>{},
+          'calendarLayers': [
+            CalendarLayerDef(
+              id: 'custom',
+              label: 'Custom',
+              icon: 'star',
+              color: kMemberColors[0],
+            ).toJson(),
+          ],
+        });
+        expect(ws.calendarLayers.map((l) => l.id), ['custom']);
+      },
+    );
+  });
 }

@@ -74,15 +74,8 @@ extension _ThriveListActions on _ThriveHomeState {
     String? id,
     required String title,
     String? assignee,
-    String? due,
-    String recur = 'none',
-    int recurEvery = 1,
-    String recurUnit = 'week',
-    List<int>? recurWeekdays,
   }) {
     final wasEditing = id != null;
-    final weekdays = recurWeekdays ?? const <int>[];
-    ListTask? saved;
     mutate(() {
       final l = openListById(listId);
       if (l == null) return;
@@ -91,12 +84,6 @@ extension _ThriveListActions on _ThriveHomeState {
           if (t.id == id) {
             t.title = title.trim().isEmpty ? 'Untitled' : title.trim();
             t.assignee = assignee;
-            t.due = due;
-            t.recur = recur;
-            t.recurEvery = recurEvery;
-            t.recurUnit = recurUnit;
-            t.recurWeekdays = weekdays.toList();
-            saved = t;
             break;
           }
         }
@@ -105,28 +92,14 @@ extension _ThriveListActions on _ThriveHomeState {
           id: uid(),
           title: title.trim().isEmpty ? 'Untitled' : title.trim(),
           assignee: assignee,
-          due: due,
           createdBy: myId,
-          recur: recur,
-          recurEvery: recurEvery,
-          recurUnit: recurUnit,
-          recurWeekdays: weekdays.toList(),
         );
         l.tasks.add(t);
-        saved = t;
       }
     }, () => flash(wasEditing ? 'Task updated' : 'Task added'));
-    if (saved != null) {
-      if ((saved!.due ?? '').isNotEmpty) {
-        NotificationService.instance.scheduleTaskReminder(saved!);
-      } else {
-        NotificationService.instance.cancelTaskReminder(saved!.id);
-      }
-    }
   }
 
   void toggleTask(String listId, String taskId) {
-    ListTask? toggled;
     mutate(() {
       final l = openListById(listId);
       if (l == null) return;
@@ -134,17 +107,10 @@ extension _ThriveListActions on _ThriveHomeState {
         if (t.id == taskId) {
           t.done = !t.done;
           t.completedBy = t.done ? myId : null;
-          toggled = t;
           break;
         }
       }
     });
-    if (toggled == null) return;
-    if (toggled!.done) {
-      NotificationService.instance.cancelTaskReminder(taskId);
-    } else if ((toggled!.due ?? '').isNotEmpty) {
-      NotificationService.instance.scheduleTaskReminder(toggled!);
-    }
   }
 
   void deleteTask(String listId, String taskId) {
@@ -152,18 +118,13 @@ extension _ThriveListActions on _ThriveHomeState {
       final l = openListById(listId);
       l?.tasks.removeWhere((t) => t.id == taskId);
     }, () => flash('Task deleted'));
-    NotificationService.instance.cancelTaskReminder(taskId);
   }
 
   void deleteTaskList(String listId) {
-    final removedIds = openListById(listId)?.tasks.map((t) => t.id).toList();
     mutate(() {
       taskLists.removeWhere((l) => l.id == listId);
     }, () => flash('List deleted'));
     update(() => openTaskList = null);
-    for (final id in removedIds ?? const <String>[]) {
-      NotificationService.instance.cancelTaskReminder(id);
-    }
   }
 
   TaskList? openListById(String id) {

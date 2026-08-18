@@ -10,6 +10,7 @@ class CalendarOccurrence {
     required this.date,
     String? spanEnd,
     this.imported = false,
+    this.done = false,
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -20,6 +21,15 @@ class CalendarOccurrence {
   /// multi-day span (`ev.endDate`).
   final String spanEnd;
   final bool imported;
+
+  /// True when the underlying to-do/content-style event (or, for a
+  /// recurring event, this specific occurrence date) has been marked done.
+  /// A done occurrence is still returned/rendered — never filtered out —
+  /// with a done visual treatment applied by the caller (strikethrough
+  /// title + faded opacity), mirroring how completed tasks used to behave
+  /// in Lists before Lists was decoupled from the calendar. Always false
+  /// for plain appointments and imported events.
+  final bool done;
 
   /// Which calendar layer this occurrence belongs to — [ev.layerId]
   /// directly (`appt`, `task`, `content`, or any custom layer id) — used
@@ -140,7 +150,9 @@ String _addDaysIso(String iso, int n) =>
 String _addMonthsIso(String iso, int n) {
   final d = _parseIso(iso);
   final total = d.month - 1 + n;
-  final y = d.year + total ~/ 12;
+  // Use floor division so negative offsets correctly roll the year
+  // backward (Dart's `~/` truncates toward zero, not floor).
+  final y = d.year + (total < 0 ? (total - 11) ~/ 12 : total ~/ 12);
   final m = total % 12 + 1;
   final lastDay = DateTime.utc(y, m + 1, 0).day;
   return _isoOf(y, m, d.day > lastDay ? lastDay : d.day);
@@ -170,11 +182,16 @@ String _shortDateIso(String iso) {
   return _displayDateIso(iso);
 }
 
-/// "Wednesday, 22 Jul" — used for the Agenda view's header subtitle
-/// (mirrors the design's `header()` subtitle for `view==='agenda'`).
-String _prettyWeekdayDateIso(String iso) {
+/// "Week 22" — used for the Agenda view's header subtitle instead of the
+/// selected day's weekday/date, per ISO-8601 week numbering (weeks start on
+/// Monday; week 1 is the week containing the year's first Thursday).
+String _weekNumberLabelIso(String iso) {
   final d = _parseIso(iso);
-  return '${_kWeekdaysFull[d.weekday - 1]}, ${d.day} ${kMonthsEn[d.month - 1]}';
+  final thursday = d.add(Duration(days: 4 - (d.weekday == 0 ? 7 : d.weekday)));
+  final firstDayOfYear = DateTime(thursday.year, 1, 1);
+  final weekNumber =
+      ((thursday.difference(firstDayOfYear).inDays) / 7).floor() + 1;
+  return 'Week $weekNumber';
 }
 
 String _monthTitleIso(String iso) {
@@ -366,15 +383,17 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
     // Every layer's items — appointments, to-dos, content, or any custom
     // layer — are just [CalendarEvent]s tagged with [CalendarEvent.layerId];
-    // a to-do/content-style event that's been completed (`isDoneOn`) drops
-    // out of view exactly like a deleted event would.
+    // a to-do/content-style event that's been completed (`isDoneOn`) STAYS
+    // in view (never filtered out, like a deleted event would be) — it's
+    // tagged `done: true` instead, so the caller can render it with a done
+    // visual treatment (strikethrough + faded) while keeping the
+    // checkbox/tap-to-toggle interaction available.
     for (final ev in events) {
       if (!layerFilter.contains(ev.layerId)) continue;
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
       if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
 
       if (ev.recur == 'none') {
-        if (ev.layerId != 'appt' && ev.done) continue;
         final spanEnd =
             ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0
             ? ev.endDate
@@ -382,14 +401,26 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         if (spanEnd.compareTo(rangeStart) >= 0 &&
             ev.date.compareTo(rangeEnd) <= 0 &&
             !ev.exceptions.contains(ev.date)) {
-          out.add(CalendarOccurrence(ev: ev, date: ev.date, spanEnd: spanEnd));
+          out.add(
+            CalendarOccurrence(
+              ev: ev,
+              date: ev.date,
+              spanEnd: spanEnd,
+              done: ev.layerId != 'appt' && ev.done,
+            ),
+          );
         }
         continue;
       }
 
       for (final d in recurringEventDates(ev, rangeStart, rangeEnd)) {
-        if (ev.layerId != 'appt' && ev.isDoneOn(d)) continue;
-        out.add(CalendarOccurrence(ev: ev, date: d));
+        out.add(
+          CalendarOccurrence(
+            ev: ev,
+            date: d,
+            done: ev.layerId != 'appt' && ev.isDoneOn(d),
+          ),
+        );
       }
     }
 
@@ -432,6 +463,16 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   /// Appends a new, non-core, enabled-by-default calendar layer (mirrors
   /// the design's `addLayer()`).
+  ///
+  /// If this is the workspace's very FIRST layer ever (i.e. [calendarLayers]
+  /// was empty beforehand), every existing [CalendarEvent]/[EventCategory]
+  /// is retroactively reassigned to it. This matters for families whose data
+  /// predates layers entirely — their events/categories only carry the
+  /// model's implicit `'appt'` fallback [layerId], which no longer
+  /// corresponds to any real [CalendarLayerDef] once a brand-new workspace
+  /// starts with zero layers — so nothing becomes orphaned/invisible the
+  /// moment layers go from "doesn't exist as a concept" to "exists" (mirrors
+  /// [removeCalendarLayer]'s reassign-on-delete logic below).
   void addCalendarLayer({
     required String label,
     required String icon,
@@ -440,6 +481,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required Color color,
   }) {
     mutate(() {
+      final wasEmpty = calendarLayers.isEmpty;
       final id = uid();
       calendarLayers.add(
         CalendarLayerDef(
@@ -452,6 +494,14 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         ),
       );
       layerFilter.add(id);
+      if (wasEmpty) {
+        for (final ev in events) {
+          ev.layerId = id;
+        }
+        for (final cat in eventCategories) {
+          cat.layerId = id;
+        }
+      }
     }, () => flash('Layer added'));
   }
 
