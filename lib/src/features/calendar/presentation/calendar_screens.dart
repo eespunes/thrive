@@ -276,12 +276,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         // calendar layers). Real/imported appointments keep the original
         // solid-colour block look.
         if (o.isTask) {
-          // Household to-dos (`kind: 'chore'`) keep the original solid
+          // Core To-Dos (`kind: 'task'`) keep the original solid
           // assignee/list-colour fill so the existing "coloured by
-          // assignee" behaviour (issue #199) is unchanged; content-layer
-          // occurrences instead use a transparent fill with a dashed pink
-          // outline, matching the Calendar Layers design.
-          final accent = o.isContent ? const Color(0xffdb2777) : col;
+          // assignee" behaviour (issue #199) is unchanged; any other
+          // layer's occurrences instead use a transparent fill with a
+          // dashed outline in that layer's own colour, matching the
+          // Calendar Layers design.
+          final accent = o.isContent
+              ? (layerDefFor(o.layer)?.color ?? const Color(0xffdb2777))
+              : col;
           final fg = o.isContent ? accent : contrastOn(col);
           return Opacity(
             key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
@@ -554,12 +557,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final dayOcc = eventOccurrences(agendaDay, agendaDay);
     final today = todayIso();
     final sections = _agendaDaySections(agendaDay, dayOcc);
-    final hasAny =
-        dayOcc.any((o) => o.layer == 'task' && layerFilter.contains('task')) ||
-        dayOcc.any(
-          (o) => o.layer == 'content' && layerFilter.contains('content'),
-        ) ||
-        dayOcc.any((o) => o.layer == 'appt' && layerFilter.contains('appt'));
+    final hasAny = dayOcc.any((o) => layerFilter.contains(o.layer));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -622,8 +620,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final d = _parseIso(iso);
     final dayOcc = eventOccurrences(iso, iso);
     final dotColors = <Color>[
-      for (final (id, _, _, color) in kCalLayers)
-        if (layerFilter.contains(id) && dayOcc.any((o) => o.layer == id)) color,
+      for (final layer in calendarLayers)
+        if (layerFilter.contains(layer.id) &&
+            dayOcc.any((o) => o.layer == layer.id))
+          layer.color,
     ];
     return GestureDetector(
       key: ValueKey('cal-week-strip-$iso'),
@@ -689,45 +689,49 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   /// one occurrence that day (`daySchedule()` in the Calendar Layers
   /// design).
   Widget _agendaDaySections(String date, List<CalendarOccurrence> dayOcc) {
-    final tasks = dayOcc.where((o) => o.layer == 'task').toList();
-    final contents = dayOcc.where((o) => o.layer == 'content').toList();
-    final appts = dayOcc.where((o) => o.layer == 'appt').toList()
-      ..sort(
-        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-          b.ev.allDay ? '' : b.ev.start,
-        ),
-      );
-
     final sections = <Widget>[];
-    if (layerFilter.contains('task') && tasks.isNotEmpty) {
-      sections.add(
-        _agendaSection(
-          key: 'agenda-section-task-$date',
-          label: 'To-Dos',
-          color: const Color(0xff2563eb),
-          rows: [for (final o in tasks) _taskAgendaRow(o)],
-        ),
-      );
-    }
-    if (layerFilter.contains('content') && contents.isNotEmpty) {
-      sections.add(
-        _agendaSection(
-          key: 'agenda-section-content-$date',
-          label: 'Content creation',
-          color: const Color(0xffdb2777),
-          rows: [for (final o in contents) _contentAgendaRow(o)],
-        ),
-      );
-    }
-    if (layerFilter.contains('appt') && appts.isNotEmpty) {
-      sections.add(
-        _agendaSection(
-          key: 'agenda-section-appt-$date',
-          label: 'Schedule',
-          color: B.primary,
-          rows: [for (final o in appts) _apptAgendaRow(o)],
-        ),
-      );
+    for (final layer in calendarLayers) {
+      if (!layerFilter.contains(layer.id)) continue;
+      final occ = dayOcc.where((o) => o.layer == layer.id).toList();
+      if (occ.isEmpty) continue;
+
+      if (layer.id == 'appt') {
+        occ.sort(
+          (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
+            b.ev.allDay ? '' : b.ev.start,
+          ),
+        );
+        sections.add(
+          _agendaSection(
+            key: 'agenda-section-appt-$date',
+            // The appt layer's section keeps its own fixed "Schedule"
+            // label rather than [CalendarLayerDef.label] — real
+            // appointments aren't literally "Appointments" as a
+            // to-do-shaped row.
+            label: 'Schedule',
+            color: layer.color,
+            rows: [for (final o in occ) _apptAgendaRow(o)],
+          ),
+        );
+      } else if (layer.id == 'task') {
+        sections.add(
+          _agendaSection(
+            key: 'agenda-section-task-$date',
+            label: layer.label,
+            color: layer.color,
+            rows: [for (final o in occ) _taskAgendaRow(o)],
+          ),
+        );
+      } else {
+        sections.add(
+          _agendaSection(
+            key: 'agenda-section-${layer.id}-$date',
+            label: layer.label,
+            color: layer.color,
+            rows: [for (final o in occ) _contentAgendaRow(o, layer: layer)],
+          ),
+        );
+      }
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1011,9 +1015,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     CalendarOccurrence o, {
     Color? checkColor,
     bool showAvatar = true,
+    CalendarLayerDef? layer,
   }) {
     final ev = o.ev;
-    const pink = Color(0xffdb2777);
+    final def = layer ?? layerDefFor(o.layer);
+    final pink = def?.color ?? const Color(0xffdb2777);
     final accent = checkColor ?? pink;
     return Container(
       key: ValueKey('agenda-content-${ev.id}-${o.date}'),
@@ -1022,17 +1028,31 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         color: Colors.white,
         borderRadius: BorderRadius.all(Radius.circular(14)),
       ),
-      foregroundDecoration: const _DashedBoxDecoration(color: pink, radius: 14),
+      foregroundDecoration: _DashedBoxDecoration(color: pink, radius: 14),
       child: Row(
         children: [
           Container(
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: const Color(0xfffce7f3),
+              color: pink.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(child: ic('camera', size: 15, sw: 2.1, color: pink)),
+            child: glyphTile(
+              size: 30,
+              radius: 10,
+              picture: def?.picture,
+              emoji: def?.emoji,
+              emojiSize: 16,
+              fallback: Center(
+                child: ic(
+                  def?.icon ?? 'camera',
+                  size: 15,
+                  sw: 2.1,
+                  color: pink,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1053,8 +1073,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    'Content',
+                  Text(
+                    def?.label ?? 'Content',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -1096,7 +1116,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final imp = o.imported;
     final isTask = o.isTask;
     final isContent = o.isContent;
-    final accent = isContent ? const Color(0xffdb2777) : col;
+    final layerDef = isContent ? layerDefFor(o.layer) : null;
+    final accent = isContent
+        ? (layerDef?.color ?? const Color(0xffdb2777))
+        : col;
 
     // Task/content occurrences get a tappable checkbox as their leading
     // widget instead of the plain colour strip, so completion can be
@@ -1273,21 +1296,25 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: isContent ? const Color(0xfffce7f3) : B.faint,
+                        color: isContent
+                            ? accent.withValues(alpha: .12)
+                            : B.faint,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           ic(
-                            isContent ? 'camera' : 'tasklist',
+                            isContent
+                                ? (layerDef?.icon ?? 'camera')
+                                : 'tasklist',
                             size: 10,
                             sw: 2.4,
                             color: isContent ? accent : B.soft2,
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            isContent ? 'Content' : 'Task',
+                            isContent ? (layerDef?.label ?? 'Content') : 'Task',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,

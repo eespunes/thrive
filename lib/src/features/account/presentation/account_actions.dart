@@ -590,6 +590,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       eventCategories = target.eventCategories;
       importedCalendars = target.importedCalendars;
       weeklyPlan = target.weeklyPlan;
+      calendarLayers = target.calendarLayers;
       screen = 'overview';
       swipedId = null;
       collapsed = {};

@@ -176,6 +176,92 @@ class EventCategory {
   );
 }
 
+/// A user-customizable calendar layer definition — drives the calendar's
+/// layer-toggle chips/sections, the Agenda view's section order, week-strip
+/// dots and Month-view bar colours. The 3 built-ins (`appt`/`task`/
+/// `content`) are [core] — they can be toggled/reordered but not deleted.
+/// Order in [Workspace.calendarLayers] IS the display order (mirrors the
+/// design's `layerDefs`/`moveLayer`).
+class CalendarLayerDef {
+  CalendarLayerDef({
+    required this.id,
+    required this.label,
+    required this.icon,
+    this.emoji,
+    this.picture,
+    required this.color,
+    this.core = false,
+  });
+
+  String id;
+  String label;
+
+  /// Legacy stroke-icon name, rendered only as the fallback when no
+  /// [emoji]/[picture] is set (matches [EventCategory.icon]).
+  String icon;
+
+  /// Optional emoji shown instead of the icon.
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/icon.
+  String? picture;
+  Color color;
+
+  /// True for the 3 built-in layers (`appt`/`task`/`content`), which can be
+  /// toggled/reordered but never deleted.
+  bool core;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'icon': icon,
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
+    'color': color.toARGB32(),
+    'core': core,
+  };
+
+  factory CalendarLayerDef.fromJson(Map<String, dynamic> j) => CalendarLayerDef(
+    id: (j['id'] ?? uid()).toString(),
+    label: (j['label'] ?? 'Layer').toString(),
+    icon: (j['icon'] ?? 'cal').toString(),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture']
+        : null,
+    color: Color((j['color'] as num?)?.toInt() ?? 0xff475569),
+    core: j['core'] == true,
+  );
+}
+
+/// The 3 built-in calendar layers, in their original order/colours — used
+/// both as the seed for brand-new workspaces and to backfill any legacy
+/// workspace saved before layers became customizable (see
+/// `Workspace.fromJson`).
+List<CalendarLayerDef> kDefaultCalendarLayers() => [
+  CalendarLayerDef(
+    id: 'appt',
+    label: 'Appointments',
+    icon: 'cal',
+    color: B.primary,
+    core: true,
+  ),
+  CalendarLayerDef(
+    id: 'task',
+    label: 'To-Dos',
+    icon: 'check',
+    color: const Color(0xff2563eb),
+    core: true,
+  ),
+  CalendarLayerDef(
+    id: 'content',
+    label: 'Content',
+    icon: 'camera',
+    color: const Color(0xffdb2777),
+    core: true,
+  ),
+];
+
 /// A single read-only event inside an [ImportedCalendar].
 class ImportedCalendarEvent {
   ImportedCalendarEvent({

@@ -112,7 +112,7 @@ class TaskList {
     required this.color,
     this.emoji,
     this.picture,
-    this.kind = 'chore',
+    this.kind = 'task',
     List<ListTask>? tasks,
   }) : tasks = tasks ?? <ListTask>[];
 
@@ -126,9 +126,9 @@ class TaskList {
   /// Optional base64 picture shown instead of the emoji/icon.
   String? picture;
 
-  /// `chore` (household to-dos, the default) or `content` (content-creation
-  /// schedule — filming/editing/posting). Both render as the calendar's
-  /// task-style cards, distinguished only by which layer they belong to.
+  /// The [CalendarLayerDef.id] this list's tasks belong to on the calendar —
+  /// `task` (the core To-Dos layer, the default) or any other layer id,
+  /// built-in (`content`) or custom.
   String kind;
 
   List<ListTask> tasks;
@@ -139,7 +139,7 @@ class TaskList {
     'color': color.toARGB32(),
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
-    if (kind != 'chore') 'kind': kind,
+    if (kind != 'task') 'kind': kind,
     'tasks': tasks.map((t) => t.toJson()).toList(),
   };
 
@@ -151,7 +151,12 @@ class TaskList {
     picture: (j['picture'] as String?)?.isNotEmpty == true
         ? j['picture']
         : null,
-    kind: (j['kind'] as String?) == 'content' ? 'content' : 'chore',
+    // Legacy `'chore'` (the old default) and missing/empty both map to the
+    // core `task` layer id; any other non-empty string — including the old
+    // `'content'` and custom layer ids — passes through unchanged.
+    kind: ((j['kind'] as String?)?.isNotEmpty ?? false)
+        ? (j['kind'] == 'chore' ? 'task' : j['kind'] as String)
+        : 'task',
     tasks: [
       for (final t in (j['tasks'] as List? ?? []))
         ListTask.fromJson(Map<String, dynamic>.from(t as Map)),

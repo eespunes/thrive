@@ -47,11 +47,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
       }
     }
     final outstanding = eventOccurrences(today, today)
-        .where(
-          (o) =>
-              (o.layer == 'task' || o.layer == 'content') &&
-              o.ev.attendees.contains(memberId),
-        )
+        .where((o) => o.layer != 'appt' && o.ev.attendees.contains(memberId))
         .length;
     return (completed: completed, total: completed + outstanding);
   }
@@ -312,9 +308,7 @@ class _KitchenMemberColumn extends StatelessWidget {
         state
             .eventOccurrences(today, today)
             .where(
-              (o) =>
-                  o.ev.attendees.contains(member.id) &&
-                  (o.layer == 'task' || o.layer == 'content'),
+              (o) => o.ev.attendees.contains(member.id) && o.layer != 'appt',
             )
             .toList()
           ..sort(
@@ -390,7 +384,7 @@ class _KitchenMemberColumn extends StatelessWidget {
                       key: ValueKey('kitchen-list-${member.id}'),
                       itemCount: occ.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => occ[i].layer == 'content'
+                      itemBuilder: (context, i) => occ[i].layer != 'task'
                           ? state._contentAgendaRow(
                               occ[i],
                               checkColor: member.color,

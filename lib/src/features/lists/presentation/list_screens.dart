@@ -105,10 +105,12 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  bool _isContentList(TaskList list) => list.kind == 'content';
+  bool _isContentList(TaskList list) => list.kind != 'task';
 
   Widget _taskListCard(TaskList list, List<ListTask> tasks) {
     final content = _isContentList(list);
+    final layerDef = content ? layerDefFor(list.kind) : null;
+    final badgeColor = layerDef?.color ?? const Color(0xffdb2777);
     final open = tasks.where((t) => !t.done).length;
     final done = tasks.length - open;
     final preview = tasks.where((t) => !t.done).take(3).toList();
@@ -129,10 +131,8 @@ extension _ThriveListScreens on _ThriveHomeState {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
           decoration: BoxDecoration(
-            color: content
-                ? _kContentPink.withValues(alpha: .04)
-                : Colors.white,
-            border: Border.all(color: content ? _kContentPink : B.line),
+            color: content ? badgeColor.withValues(alpha: .04) : Colors.white,
+            border: Border.all(color: content ? badgeColor : B.line),
             borderRadius: BorderRadius.circular(16),
             boxShadow: cardShadow(),
           ),
@@ -155,14 +155,12 @@ extension _ThriveListScreens on _ThriveHomeState {
                       emoji: list.emoji,
                       emojiSize: 18,
                       fallback: Center(
-                        child: content
-                            ? const Text('📷', style: TextStyle(fontSize: 16))
-                            : ic(
-                                'tasklist',
-                                size: 17,
-                                sw: 2.1,
-                                color: Colors.white,
-                              ),
+                        child: ic(
+                          content ? (layerDef?.icon ?? 'camera') : 'tasklist',
+                          size: 17,
+                          sw: 2.1,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -196,17 +194,20 @@ extension _ThriveListScreens on _ThriveHomeState {
                               ),
                               decoration: BoxDecoration(
                                 color: content
-                                    ? _kContentPink.withValues(alpha: .12)
+                                    ? badgeColor.withValues(alpha: .12)
                                     : B.soft,
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
-                                content ? '📷 CONTENT' : 'TO-DO',
+                                content
+                                    ? '${layerDef?.emoji ?? '📷'} '
+                                          '${(layerDef?.label ?? 'Content').toUpperCase()}'
+                                    : 'TO-DO',
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: .4,
-                                  color: content ? _kContentPink : B.deep,
+                                  color: content ? badgeColor : B.deep,
                                 ),
                               ),
                             ),
@@ -503,20 +504,28 @@ extension _ThriveListScreens on _ThriveHomeState {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
-              color: _kContentPink.withValues(alpha: .08),
-              border: Border.all(color: _kContentPink.withValues(alpha: .3)),
+              color: (layerDefFor(l.kind)?.color ?? const Color(0xffdb2777))
+                  .withValues(alpha: .08),
+              border: Border.all(
+                color: (layerDefFor(l.kind)?.color ?? const Color(0xffdb2777))
+                    .withValues(alpha: .3),
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                const Text('📷', style: TextStyle(fontSize: 15)),
+                Text(
+                  layerDefFor(l.kind)?.emoji ?? '📷',
+                  style: const TextStyle(fontSize: 15),
+                ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Content creation list',
+                Text(
+                  '${layerDefFor(l.kind)?.label ?? 'Content'} list',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: _kContentPink,
+                    color:
+                        layerDefFor(l.kind)?.color ?? const Color(0xffdb2777),
                   ),
                 ),
               ],

@@ -956,6 +956,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     eventCategories = ws.eventCategories;
     importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
+    calendarLayers = ws.calendarLayers;
   }
 
   /// One-time migration for workspace data (calendar events, tasks, shopping

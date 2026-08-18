@@ -11,7 +11,7 @@ class CalendarOccurrence {
     String? spanEnd,
     this.imported = false,
     this.isTask = false,
-    this.isContent = false,
+    this.layer = 'appt',
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -28,13 +28,15 @@ class CalendarOccurrence {
   /// read-only apart from their checkbox, but keep their assignee visible.
   final bool isTask;
 
-  /// True when this occurrence is a content-creation task (a [TaskList]
-  /// with `kind: 'content'`) rather than a household chore.
-  final bool isContent;
+  /// Which calendar layer this occurrence belongs to — a
+  /// [CalendarLayerDef.id] (`appt`, `task`, or any custom layer id) — used
+  /// by the layer-toggle filter and to pick this occurrence's visuals.
+  final String layer;
 
-  /// Which calendar layer this occurrence belongs to — one of
-  /// `appt|task|content` — used by the layer-toggle filter.
-  String get layer => isContent ? 'content' : (isTask ? 'task' : 'appt');
+  /// True when this occurrence is a to-do belonging to any layer other
+  /// than the core `task`/`appt` layers (e.g. `content` or a custom
+  /// layer) — drives the "content-style" dashed-border card treatment.
+  bool get isContent => isTask && layer != 'task';
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
@@ -106,14 +108,6 @@ const List<Color> kCatColors = [
 ];
 
 const List<Color> kEventColors = kCatColors;
-
-/// (layerId, label, icon, accent color) for the calendar's layer-toggle
-/// chips, matching the design's `LAYERS` list (Calendar Layers mockup).
-const List<(String, String, String, Color)> kCalLayers = [
-  ('appt', 'Appointments', 'cal', B.primary),
-  ('task', 'To-Dos', 'check', Color(0xff2563eb)),
-  ('content', 'Content', 'camera', Color(0xffdb2777)),
-];
 
 /// (label, colour) for each import provider. `google`/`apple` account sync
 /// isn't implemented (#161) — ICS/web-link is the only real import path.
@@ -446,7 +440,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // hide them. Recurring tasks (#208) expand like recurring events, and
     // completion is tracked per-occurrence instead of hiding the series.
     for (final list in taskLists) {
-      final layerId = list.kind == 'content' ? 'content' : 'task';
+      final layerId = calendarLayers.any((l) => l.id == list.kind)
+          ? list.kind
+          : 'task';
       if (!layerFilter.contains(layerId)) continue;
       for (final task in list.tasks) {
         final due = task.due;
@@ -463,7 +459,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
             out.add(
               CalendarOccurrence(
                 isTask: true,
-                isContent: list.kind == 'content',
+                layer: layerId,
                 date: due,
                 ev: synth,
               ),
@@ -476,7 +472,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
           out.add(
             CalendarOccurrence(
               isTask: true,
-              isContent: list.kind == 'content',
+              layer: layerId,
               date: d,
               ev: synth,
             ),
@@ -486,6 +482,76 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }
     return out;
   }
+
+  /// Looks up a [CalendarLayerDef] by id, or `null` if it no longer exists
+  /// (e.g. stale data referencing a deleted layer).
+  CalendarLayerDef? layerDefFor(String id) {
+    for (final l in calendarLayers) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
+
+  /// Appends a new, non-core, enabled-by-default calendar layer (mirrors
+  /// the design's `addLayer()`).
+  void addCalendarLayer({
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) {
+    mutate(() {
+      final id = uid();
+      calendarLayers.add(
+        CalendarLayerDef(
+          id: id,
+          label: label.trim().isEmpty ? 'Layer' : label.trim(),
+          icon: icon,
+          emoji: emoji,
+          picture: picture,
+          color: color,
+        ),
+      );
+      layerFilter.add(id);
+    }, () => flash('Layer added'));
+  }
+
+  /// Swaps the layer at [id]'s position with the adjacent one in
+  /// [direction] (-1 = up, +1 = down); a no-op at either end (mirrors the
+  /// design's `moveLayer()`).
+  void moveCalendarLayer(String id, int direction) => mutate(() {
+    final i = calendarLayers.indexWhere((l) => l.id == id);
+    if (i < 0) return;
+    final j = i + direction;
+    if (j < 0 || j >= calendarLayers.length) return;
+    final tmp = calendarLayers[i];
+    calendarLayers[i] = calendarLayers[j];
+    calendarLayers[j] = tmp;
+  });
+
+  /// Removes a non-core layer (a no-op for core layers), reassigning any
+  /// [TaskList] pointing at it back to the core `task` (To-Dos) layer
+  /// first, so no list is left referencing a deleted layer (mirrors the
+  /// design's `removeLayer()`).
+  void removeCalendarLayer(String id) {
+    final def = layerDefFor(id);
+    if (def == null || def.core) return;
+    mutate(() {
+      for (final list in taskLists) {
+        if (list.kind == id) list.kind = 'task';
+      }
+      calendarLayers.removeWhere((l) => l.id == id);
+      layerFilter.remove(id);
+    }, () => flash('Layer deleted'));
+  }
+
+  /// Toggles a calendar layer's visibility. [CalendarLayerDef] itself only
+  /// defines which layers exist plus their order/colour/icon/label —
+  /// [layerFilter] membership is the single source of truth for whether a
+  /// layer is currently visible (reuses [toggleLayerFilter]'s "can't
+  /// disable the last layer" guard).
+  void toggleCalendarLayerEnabled(String id) => toggleLayerFilter(id);
 
   /// The 42-cell (6x7) month grid starting on the Monday on/before the 1st.
   List<String> monthGrid(String anchor) {

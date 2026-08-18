@@ -1079,6 +1079,59 @@ void main() {
     expect(find.text('Imported training'), findsNothing);
   });
 
+  testWidgets("assigning a category to an imported calendar hands it that "
+      "category's colour", (tester) async {
+    final work = EventCategory(
+      id: 'work',
+      name: 'Work',
+      color: kCatColors.first,
+      icon: 'briefcase',
+    );
+    final imported = ImportedCalendar(
+      id: 'training-feed',
+      name: 'Training',
+      provider: 'ics',
+      color: kCatColors[1],
+      url: 'https://example.com/training.ics',
+      autoSync: false,
+    );
+    await pumpApp(
+      tester,
+      prefs: calendarPrefs(
+        events: const [],
+        categories: [work],
+        importedCalendars: [imported],
+      ),
+      landOnDefaultTab: true,
+    );
+    await openCalManage(tester, imports: true);
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+
+    // Picking a category hides the free colour swatches and shows the
+    // "controls this calendar colour" note instead.
+    await tester.tap(find.text('Work').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('controls this calendar colour'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Save calendar'));
+    await tester.pumpAndSettle();
+    final marker = tester.widget<Container>(
+      find.byKey(const ValueKey('imp-marker-training-feed')),
+    );
+    expect(marker.color, kCatColors.first);
+
+    // Clearing the category ("None") brings the swatches back.
+    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None'));
+    await tester.pumpAndSettle();
+    expect(find.text('Colors'), findsOneWidget);
+  });
+
   testWidgets('changing an imported calendar reminder persists it', (
     tester,
   ) async {
@@ -2076,9 +2129,12 @@ void main() {
 
     await openCalFilters(tester);
     expect(find.text('LAYERS'), findsOneWidget);
-    for (final (id, label, _, _) in kCalLayers) {
-      expect(find.byKey(ValueKey('cal-filter-layer-$id')), findsOneWidget);
-      expect(find.text(label), findsOneWidget);
+    for (final layer in kDefaultCalendarLayers()) {
+      expect(
+        find.byKey(ValueKey('cal-filter-layer-${layer.id}')),
+        findsOneWidget,
+      );
+      expect(find.text(layer.label), findsOneWidget);
     }
   });
 
@@ -2770,7 +2826,7 @@ void main() {
         await setCalView(tester, 'agenda');
 
         expect(find.text('TO-DOS'), findsOneWidget);
-        expect(find.text('CONTENT CREATION'), findsOneWidget);
+        expect(find.text('CONTENT'), findsOneWidget);
         expect(find.text('SCHEDULE'), findsOneWidget);
         expect(
           find.byKey(ValueKey('agenda-section-task-$today')),
@@ -2975,6 +3031,179 @@ void main() {
           findsNothing,
         );
         expect(dotsRowOf(today).children, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Calendar layers settings: add a custom layer, use it for a new '
+      'list, reorder the layer, then delete it (reassigning the list back '
+      'to To-Dos)',
+      (tester) async {
+        await pumpApp(tester, landOnDefaultTab: true);
+
+        await tester.tap(find.byKey(const ValueKey('nav-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('more-callayers')));
+        await tester.pumpAndSettle();
+
+        // Only the 3 built-ins have no delete ("x") button — they're core.
+        expect(
+          find.byKey(const ValueKey('cal-manage-layer-delete-appt')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('cal-manage-layer-delete-task')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey('cal-manage-layer-delete-content')),
+          findsNothing,
+        );
+        // The first layer's up-arrow is a no-op at the top.
+        await tester.tap(
+          find.byKey(const ValueKey('cal-manage-layer-up-appt')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Appointments'), findsOneWidget);
+
+        // Open the add-layer form, pick a non-default icon/colour, and
+        // submit.
+        await tester.ensureVisible(find.text('+ Add layer'));
+        await tester.tap(find.text('+ Add layer'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, 'Workouts');
+        await tester.pump();
+        final iconChoice = find.byKey(const ValueKey('new-layer-icon-star'));
+        await tester.ensureVisible(iconChoice);
+        await tester.tap(iconChoice);
+        await tester.pumpAndSettle();
+        final colorChoice = find.byKey(
+          ValueKey('new-layer-color-${kCatColors[2].toARGB32()}'),
+        );
+        await tester.ensureVisible(colorChoice);
+        await tester.tap(colorChoice);
+        await tester.pumpAndSettle();
+        final submitBtn = find.text('Add layer');
+        await tester.ensureVisible(submitBtn);
+        await tester.tap(submitBtn);
+        await tester.pumpAndSettle();
+
+        // The form resets and the new layer now shows in the list, with a
+        // switch (enabled by default) and up/down/delete controls.
+        expect(find.text('+ Add layer'), findsOneWidget);
+        expect(find.text('Workouts'), findsOneWidget);
+        final deleteBtn = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'cal-manage-layer-delete-',
+              ),
+        );
+        expect(deleteBtn, findsOneWidget);
+        final upBtn = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'cal-manage-layer-up-',
+              ) &&
+              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-content'),
+        );
+        final downBtn = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'cal-manage-layer-down-',
+              ) &&
+              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-content'),
+        );
+        expect(upBtn, findsOneWidget);
+        expect(downBtn, findsOneWidget);
+
+        // "Workouts" was appended last, so moving it up then back down
+        // exercises both the working move (not the no-op at an end) and
+        // its round-trip.
+        await tester.ensureVisible(find.text('Workouts'));
+        final workoutsYBefore = tester.getTopLeft(find.text('Workouts')).dy;
+        await tester.ensureVisible(upBtn);
+        await tester.tap(upBtn);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Workouts'));
+        expect(
+          tester.getTopLeft(find.text('Workouts')).dy,
+          lessThan(workoutsYBefore),
+        );
+        await tester.ensureVisible(downBtn);
+        await tester.tap(downBtn);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Workouts'));
+        expect(tester.getTopLeft(find.text('Workouts')).dy, workoutsYBefore);
+
+        // Disable then re-enable it via its switch.
+        final switchBtn = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'cal-manage-layer-switch-',
+              ) &&
+              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
+              !(w.key! as ValueKey<String>).value.endsWith('-content'),
+        );
+        await tester.ensureVisible(switchBtn);
+        await tester.tap(switchBtn);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(switchBtn);
+        await tester.tap(switchBtn);
+        await tester.pumpAndSettle();
+
+        // Dismiss the layers settings sheet before switching tabs.
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
+        // Create a to-do list on the new "Workouts" layer.
+        await tester.tap(find.byKey(const ValueKey('nav-lists')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('New list'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, 'Gym plan');
+        await tester.pump();
+        final workoutsChip = find.text('Workouts');
+        await tester.ensureVisible(workoutsChip);
+        await tester.tap(workoutsChip);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Create list'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Gym plan'), findsOneWidget);
+        expect(find.textContaining('WORKOUTS'), findsOneWidget);
+
+        // Deleting the layer reassigns "Gym plan" back to the core To-Dos
+        // layer instead of leaving it pointed at a deleted layer.
+        await tester.tap(find.byKey(const ValueKey('nav-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('more-callayers')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(deleteBtn);
+        await tester.tap(deleteBtn);
+        await tester.pumpAndSettle();
+        expect(find.text('Delete'), findsOneWidget);
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle();
+        expect(find.text('Workouts'), findsNothing);
+
+        // Dismiss the layers settings sheet before switching tabs.
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('nav-lists')));
+        await tester.pumpAndSettle();
+        expect(find.text('Gym plan'), findsOneWidget);
+        expect(find.textContaining('WORKOUTS'), findsNothing);
+        expect(find.text('TO-DO'), findsOneWidget);
       },
     );
   });

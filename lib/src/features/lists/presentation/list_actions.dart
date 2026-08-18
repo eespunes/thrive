@@ -55,7 +55,7 @@ extension _ThriveListActions on _ThriveHomeState {
     Color color, {
     String? emoji,
     String? picture,
-    String kind = 'chore',
+    String kind = 'task',
   }) {
     mutate(() {
       taskLists.add(

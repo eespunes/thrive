@@ -50,6 +50,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             sub: 'Appointments, to-dos & content',
             onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
           ),
+          _moreRow(
+            key: 'more-kitchen',
+            icon: 'columns',
+            title: 'Kitchen dashboard',
+            sub: 'Wall-tablet family view',
+            onTap: openKitchenDashboard,
+          ),
         ]),
         const SizedBox(height: 18),
         _moreSecLabel('Money'),

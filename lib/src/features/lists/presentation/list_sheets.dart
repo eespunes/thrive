@@ -20,8 +20,6 @@ class _NewListSheet extends StatefulWidget {
   State<_NewListSheet> createState() => _NewListSheetState();
 }
 
-const Color _kContentPink = Color(0xffdb2777);
-
 class _NewListSheetState extends State<_NewListSheet> {
   late String _kind;
   late final TextEditingController _name;
@@ -29,9 +27,10 @@ class _NewListSheetState extends State<_NewListSheet> {
   String? _emoji;
   String? _picture;
 
-  /// `chore` (regular to-do list) or `content` (content-creation schedule).
-  /// Only meaningful when [_kind] is `todo`.
-  String _todoKind = 'chore';
+  /// The [CalendarLayerDef.id] this to-do list belongs to on the calendar —
+  /// any non-`appt` entry in `state.calendarLayers`. Only meaningful when
+  /// [_kind] is `todo`. Defaults to the core `task` (To-Dos) layer.
+  String _todoKind = 'task';
 
   @override
   void initState() {
@@ -123,93 +122,70 @@ class _NewListSheetState extends State<_NewListSheet> {
           ),
           if (!shopping)
             _sheetField(
-              'Type',
-              Row(
+              'Calendar layer',
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      key: const ValueKey('new-list-kind-chore'),
-                      onTap: () => setState(() => _todoKind = 'chore'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _todoKind == 'chore' ? B.soft : Colors.white,
-                          border: Border.all(
-                            color: _todoKind == 'chore' ? B.primary : B.line,
+                  for (final layer in widget.state.calendarLayers)
+                    if (layer.id != 'appt')
+                      GestureDetector(
+                        key: ValueKey('new-list-kind-${layer.id}'),
+                        onTap: () => setState(() {
+                          _todoKind = layer.id;
+                          _color = layer.color;
+                          _emoji = layer.emoji;
+                          _picture = layer.picture;
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 12,
                           ),
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ic(
-                              'tasklist',
-                              size: 18,
-                              sw: 2.1,
-                              color: _todoKind == 'chore' ? B.primary : B.soft2,
+                          decoration: BoxDecoration(
+                            color: _todoKind == layer.id
+                                ? layer.color.withValues(alpha: .1)
+                                : Colors.white,
+                            border: Border.all(
+                              color: _todoKind == layer.id
+                                  ? layer.color
+                                  : B.line,
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Chore list',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: _todoKind == 'chore' ? B.deep : B.soft2,
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              glyphTile(
+                                size: 18,
+                                radius: 6,
+                                picture: layer.picture,
+                                emoji: layer.emoji,
+                                emojiSize: 14,
+                                fallback: ic(
+                                  layer.icon,
+                                  size: 16,
+                                  sw: 2.1,
+                                  color: _todoKind == layer.id
+                                      ? layer.color
+                                      : B.soft2,
+                                ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Text(
+                                layer.label,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: _todoKind == layer.id
+                                      ? B.deep
+                                      : B.soft2,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      key: const ValueKey('new-list-kind-content'),
-                      onTap: () => setState(() {
-                        _todoKind = 'content';
-                        _color = _kContentPink;
-                        _emoji = '📷';
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _todoKind == 'content'
-                              ? _kContentPink.withValues(alpha: .1)
-                              : Colors.white,
-                          border: Border.all(
-                            color: _todoKind == 'content'
-                                ? _kContentPink
-                                : B.line,
-                          ),
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('📷', style: TextStyle(fontSize: 18)),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Content Creation',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                                color: _todoKind == 'content'
-                                    ? _kContentPink
-                                    : B.soft2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

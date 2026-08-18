@@ -165,7 +165,7 @@ void main() {
       expect(find.text('Appointments'), findsOneWidget);
       expect(find.text('To-Dos'), findsOneWidget);
       expect(find.text('Content'), findsOneWidget);
-      expect(find.text('Open kitchen dashboard'), findsOneWidget);
+      expect(find.text('+ Add layer'), findsOneWidget);
 
       // The switch reflects `layerFilter` membership for the layer.
       var taskSwitch = tester.widget<Switch>(

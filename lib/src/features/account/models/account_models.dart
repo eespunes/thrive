@@ -228,12 +228,16 @@ class Workspace {
     List<EventCategory>? eventCategories,
     List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
+    List<CalendarLayerDef>? calendarLayers,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
-       weeklyPlan = weeklyPlan ?? <String, DayPlan>{};
+       weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
+       calendarLayers = (calendarLayers == null || calendarLayers.isEmpty)
+           ? kDefaultCalendarLayers()
+           : calendarLayers;
 
   List<Account> accounts;
   List<Category> cats;
@@ -243,6 +247,12 @@ class Workspace {
   List<CalendarEvent> events;
   List<EventCategory> eventCategories;
   List<ImportedCalendar> importedCalendars;
+
+  /// User-customizable calendar layers (built-ins + any custom ones), in
+  /// display order. Always seeded with the 3 built-in defaults when absent
+  /// or empty (see the constructor and [Workspace.fromJson]) so every
+  /// existing family keeps today's exact 3 layers with zero visible change.
+  List<CalendarLayerDef> calendarLayers;
 
   /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
   /// days with content need an entry.
@@ -265,6 +275,7 @@ class Workspace {
     'weeklyPlan': {
       for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
     },
+    'calendarLayers': calendarLayers.map((l) => l.toJson()).toList(),
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -317,6 +328,15 @@ class Workspace {
           Map<String, dynamic>.from(entry.value as Map),
         ),
     };
+    // Absent or empty `calendarLayers` (every family's workspace saved
+    // before layers became customizable) is backfilled with today's exact
+    // 3 built-in defaults — see [Workspace]'s constructor, which applies
+    // the same fallback.
+    final rawLayers = j['calendarLayers'] as List?;
+    final calendarLayers = <CalendarLayerDef>[
+      for (final l in (rawLayers ?? const []))
+        CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
+    ];
     return Workspace(
       accounts: accounts,
       cats: cats,
@@ -327,6 +347,7 @@ class Workspace {
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
+      calendarLayers: calendarLayers,
     );
   }
 
