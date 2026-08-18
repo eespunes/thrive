@@ -2069,6 +2069,19 @@ void main() {
     },
   );
 
+  testWidgets('filter sheet shows all 3 layer toggles', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+    await setCalView(tester, 'agenda');
+
+    await openCalFilters(tester);
+    expect(find.text('LAYERS'), findsOneWidget);
+    for (final (id, label, _, _) in kCalLayers) {
+      expect(find.byKey(ValueKey('cal-filter-layer-$id')), findsOneWidget);
+      expect(find.text(label), findsOneWidget);
+    }
+  });
+
   testWidgets('filter sheet combines member and category filters', (
     tester,
   ) async {
@@ -2505,82 +2518,86 @@ void main() {
       tasks: tasks,
     );
 
-    testWidgets(
-      'layer chips independently hide appointment/task/content occurrences, '
-      'and the last enabled layer cannot be disabled',
-      (tester) async {
-        final today = todayIso();
-        await pumpApp(
-          tester,
-          prefs: calendarPrefs(
-            events: [
-              CalendarEvent(
-                id: 'e1',
-                title: 'Team sync',
-                allDay: true,
-                date: today,
-                color: kCatColors.first,
-              ),
-            ],
-            taskLists: [
-              chores(
-                tasks: [
-                  ListTask(
-                    id: 't1',
-                    title: 'Take out bins',
-                    assignee: 'erik',
-                    due: today,
-                  ),
-                ],
-              ),
-              content(
-                tasks: [
-                  ListTask(
-                    id: 'c1',
-                    title: 'Film reel',
-                    assignee: 'erik',
-                    due: today,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          landOnDefaultTab: true,
-        );
-        await goToCalendar(tester);
+    testWidgets('filter sheet layer toggles independently hide '
+        'appointment/task/content occurrences, and the last enabled layer '
+        'cannot be disabled', (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Team sync',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+            ),
+          ],
+          taskLists: [
+            chores(
+              tasks: [
+                ListTask(
+                  id: 't1',
+                  title: 'Take out bins',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+            content(
+              tasks: [
+                ListTask(
+                  id: 'c1',
+                  title: 'Film reel',
+                  assignee: 'erik',
+                  due: today,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
 
-        expect(find.text('Team sync'), findsOneWidget);
-        expect(find.text('Take out bins'), findsOneWidget);
-        expect(find.text('Film reel'), findsOneWidget);
+      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.text('Take out bins'), findsOneWidget);
+      expect(find.text('Film reel'), findsOneWidget);
 
-        // Turning off the to-dos layer hides only the chore occurrence.
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
-        await tester.pumpAndSettle();
-        expect(find.text('Take out bins'), findsNothing);
-        expect(find.text('Team sync'), findsOneWidget);
-        expect(find.text('Film reel'), findsOneWidget);
+      // Layer toggles now live in the filter sheet, not header chips.
+      await openCalFilters(tester);
+      expect(find.text('LAYERS'), findsOneWidget);
 
-        // Turning off content too hides that occurrence, leaving only the
-        // appointment — the only remaining enabled layer.
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-content')));
-        await tester.pumpAndSettle();
-        expect(find.text('Film reel'), findsNothing);
-        expect(find.text('Team sync'), findsOneWidget);
+      // Turning off the to-dos layer hides only the chore occurrence.
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
+      await tester.pumpAndSettle();
+      expect(find.text('Take out bins'), findsNothing);
+      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.text('Film reel'), findsOneWidget);
 
-        // Tapping the last remaining enabled layer's chip must be ignored —
-        // at least one layer always stays visible.
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-appt')));
-        await tester.pumpAndSettle();
-        expect(find.text('Team sync'), findsOneWidget);
+      // Turning off content too hides that occurrence, leaving only the
+      // appointment — the only remaining enabled layer.
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-content')));
+      await tester.pumpAndSettle();
+      expect(find.text('Film reel'), findsNothing);
+      expect(find.text('Team sync'), findsOneWidget);
 
-        // Re-enabling brings the hidden occurrences back.
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-content')));
-        await tester.pumpAndSettle();
-        expect(find.text('Take out bins'), findsOneWidget);
-        expect(find.text('Film reel'), findsOneWidget);
-      },
-    );
+      // Tapping the last remaining enabled layer's chip must be ignored —
+      // at least one layer always stays visible.
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-appt')));
+      await tester.pumpAndSettle();
+      expect(find.text('Team sync'), findsOneWidget);
+
+      // Re-enabling brings the hidden occurrences back.
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-content')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Show all events'));
+      await tester.pumpAndSettle();
+      expect(find.text('Take out bins'), findsOneWidget);
+      expect(find.text('Film reel'), findsOneWidget);
+    });
 
     testWidgets(
       "checking a non-recurring task's box marks it done and removes it "
@@ -2801,6 +2818,11 @@ void main() {
         );
         final decoration = container.decoration as BoxDecoration;
         expect(decoration.color, kMemberColors[1]);
+        // The block has a soft drop shadow tinted with its own background
+        // colour (mockup's `apptRow` box-shadow), not a plain flat card.
+        expect(decoration.boxShadow, isNotNull);
+        expect(decoration.boxShadow, isNotEmpty);
+        expect(decoration.boxShadow!.first.color, isNot(Colors.transparent));
       },
     );
 
@@ -2938,11 +2960,14 @@ void main() {
         );
         expect(dotsRowOf(today).children.length, 1);
 
-        // Disabling the appt layer chip hides that day's dot even though
+        // Disabling the appt layer hides that day's dot even though
         // the occurrence still exists.
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-task')));
+        await openCalFilters(tester);
+        await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('cal-layer-chip-appt')));
+        await tester.tap(find.byKey(const ValueKey('cal-filter-layer-appt')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Show all events'));
         await tester.pumpAndSettle();
 
         expect(

@@ -43,6 +43,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
             trail: _moreMeta('$impCount calendar${impCount == 1 ? '' : 's'}'),
           ),
+          _moreRow(
+            key: 'more-callayers',
+            icon: 'filter',
+            title: 'Calendar layers',
+            sub: 'Appointments, to-dos & content',
+            onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
+          ),
         ]),
         const SizedBox(height: 18),
         _moreSecLabel('Money'),

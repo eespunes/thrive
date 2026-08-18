@@ -1642,7 +1642,7 @@ class _CalendarManageSheet extends StatefulWidget {
   State<_CalendarManageSheet> createState() => _CalendarManageSheetState();
 }
 
-enum _CalManageMode { categories, imports }
+enum _CalManageMode { categories, imports, layers }
 
 class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   final Set<String> _syncing = {};
@@ -2076,6 +2076,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
 
     final showCats = widget.mode == _CalManageMode.categories;
     final showImports = widget.mode == _CalManageMode.imports;
+    final showLayers = widget.mode == _CalManageMode.layers;
 
     Widget sectionLabel(String text) => Padding(
       padding: const EdgeInsets.only(top: 20, bottom: 9),
@@ -2090,15 +2091,81 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       ),
     );
 
+    Widget layerRow((String, String, String, Color) layer) {
+      final (id, label, icon, color) = layer;
+      final on = s.layerFilter.contains(id);
+      return Padding(
+        key: ValueKey('cal-manage-layer-$id'),
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: B.line),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(child: ic(icon, size: 15, sw: 2.3, color: color)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: B.ink,
+                  ),
+                ),
+              ),
+              Switch(
+                key: ValueKey('cal-manage-layer-switch-$id'),
+                value: on,
+                onChanged: (_) => setState(() => s.toggleLayerFilter(id)),
+                activeTrackColor: color,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sheetHead(
             context,
-            showCats ? 'Categories' : 'Imported calendars',
-            showCats ? 'Colours, icons & member colours' : 'Feeds & sync',
+            showCats
+                ? 'Categories'
+                : showImports
+                ? 'Imported calendars'
+                : 'Calendar layers',
+            showCats
+                ? 'Colours, icons & member colours'
+                : showImports
+                ? 'Feeds & sync'
+                : 'Toggle which layers are visible on your calendar',
           ),
+          if (showLayers) ...[
+            sectionLabel('LAYERS'),
+            for (final layer in kCalLayers) layerRow(layer),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('Open kitchen dashboard', () {
+                Navigator.of(context).pop();
+                s.openKitchenDashboard();
+              }, icon: 'columns'),
+            ),
+          ],
           if (showCats) ...[
             sectionLabel('CATEGORIES'),
             if (cats.isEmpty)
@@ -2169,24 +2236,25 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
               }, icon: 'download'),
             ),
           ],
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ic('cleft', size: 13, sw: 2.4, color: B.muted),
-                const SizedBox(width: 6),
-                const Text(
-                  'Swipe left to delete',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: B.muted,
+          if (!showLayers)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ic('cleft', size: 13, sw: 2.4, color: B.muted),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Swipe left to delete',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: B.muted,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -3215,6 +3283,38 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
                   on: s.calCatFilter.contains(c.id),
                   color: c.color,
                   onTap: () => setState(() => s.toggleCalCategoryFilter(c.id)),
+                ),
+            ],
+          ),
+        ),
+        const Text(
+          'LAYERS',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .3,
+            color: B.muted,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 20),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (id, label, icon, color) in kCalLayers)
+                _chip(
+                  key: ValueKey('cal-filter-layer-$id'),
+                  leading: ic(
+                    icon,
+                    size: 14,
+                    sw: 2.3,
+                    color: s.layerFilter.contains(id) ? color : B.soft2,
+                  ),
+                  label: label,
+                  on: s.layerFilter.contains(id),
+                  color: color,
+                  onTap: () => setState(() => s.toggleLayerFilter(id)),
                 ),
             ],
           ),

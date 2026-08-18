@@ -152,6 +152,41 @@ void main() {
   });
 
   testWidgets(
+    'More → Calendar layers opens the layers management sheet and its '
+    'toggles drive layerFilter',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
+      expect(find.text('Calendar layers'), findsWidgets);
+      expect(find.text('Appointments'), findsOneWidget);
+      expect(find.text('To-Dos'), findsOneWidget);
+      expect(find.text('Content'), findsOneWidget);
+      expect(find.text('Open kitchen dashboard'), findsOneWidget);
+
+      // The switch reflects `layerFilter` membership for the layer.
+      var taskSwitch = tester.widget<Switch>(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      expect(taskSwitch.value, isTrue);
+
+      // Disabling the to-dos layer here drives the same `layerFilter` the
+      // calendar's filter sheet reads from.
+      await tester.tap(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      await tester.pumpAndSettle();
+      taskSwitch = tester.widget<Switch>(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      expect(taskSwitch.value, isFalse);
+    },
+  );
+
+  testWidgets(
     'Quick-Add FAB on Home opens the chooser with Event/Task/Shopping rows',
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);

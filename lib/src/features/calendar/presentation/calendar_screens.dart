@@ -101,7 +101,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _layerFilterChips(),
         Expanded(
           child: switch (calView) {
             'agenda' => _calAgenda(),
@@ -115,72 +114,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           },
         ),
       ],
-    );
-  }
-
-  /// Row of 3 pill chips toggling `layerFilter` membership for the
-  /// appointments/to-dos/content layers (Calendar Layers design). At least
-  /// one layer always stays enabled — [toggleLayerFilter] ignores a tap
-  /// that would empty the list.
-  Widget _layerFilterChips() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        children: [
-          for (final (id, label, icon, color) in kCalLayers) ...[
-            if (id != kCalLayers.first.$1) const SizedBox(width: 8),
-            Expanded(
-              child: GestureDetector(
-                key: ValueKey('cal-layer-chip-$id'),
-                onTap: () => toggleLayerFilter(id),
-                child: Builder(
-                  builder: (context) {
-                    final on = layerFilter.contains(id);
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: on ? color : Colors.white,
-                        border: Border.all(
-                          color: on ? color : B.line,
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ic(
-                            icon,
-                            size: 13,
-                            sw: 2.3,
-                            color: on ? Colors.white : color,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              label,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: on ? Colors.white : B.soft2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -633,7 +566,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         _weekStrip(),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
             child: !hasAny
                 ? _emptyState(
                     icon: 'cal',
@@ -875,6 +808,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         decoration: BoxDecoration(
           color: col,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: col.withValues(alpha: .45),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: [
