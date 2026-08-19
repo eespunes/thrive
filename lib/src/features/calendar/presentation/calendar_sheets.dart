@@ -3805,14 +3805,16 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
             runSpacing: 8,
             children: [
               for (final c in s.eventCategories)
-                _chip(
-                  key: ValueKey('cal-filter-cat-${c.id}'),
-                  leading: categoryGlyph(c, size: 15, iconColor: c.color),
-                  label: c.name,
-                  on: s.calCatFilter.contains(c.id),
-                  color: c.color,
-                  onTap: () => setState(() => s.toggleCalCategoryFilter(c.id)),
-                ),
+                if (s.layerFilter.contains(c.layerId))
+                  _chip(
+                    key: ValueKey('cal-filter-cat-${c.id}'),
+                    leading: categoryGlyph(c, size: 15, iconColor: c.color),
+                    label: c.name,
+                    on: s.calCatFilter.contains(c.id),
+                    color: c.color,
+                    onTap: () =>
+                        setState(() => s.toggleCalCategoryFilter(c.id)),
+                  ),
             ],
           ),
         ),

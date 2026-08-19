@@ -2351,6 +2351,47 @@ void main() {
   });
 
   testWidgets(
+    'filter sheet only lists categories belonging to a currently-enabled '
+    'layer, and disabling a layer clears any of its category filters',
+    (tester) async {
+      final work = EventCategory(
+        id: 'work',
+        name: 'Work',
+        color: kCatColors.first,
+        icon: 'briefcase',
+        layerId: 'appt',
+      );
+      final chores = EventCategory(
+        id: 'chores',
+        name: 'Chores',
+        color: kCatColors[1],
+        icon: 'home',
+        layerId: 'task',
+      );
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(categories: [work, chores], events: const []),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      await openCalFilters(tester);
+      expect(find.byKey(const ValueKey('cal-filter-cat-work')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('cal-filter-cat-chores')),
+        findsOneWidget,
+      );
+
+      // Disabling the 'task' layer hides its category from the list.
+      await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('cal-filter-cat-work')), findsOneWidget);
+      expect(find.byKey(const ValueKey('cal-filter-cat-chores')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'member filter keeps imported events when their category has that member',
     (tester) async {
       final school = EventCategory(

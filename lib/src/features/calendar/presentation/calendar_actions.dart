@@ -571,6 +571,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     if (layerFilter.contains(layerId)) {
       if (layerFilter.length <= 1) return;
       layerFilter.remove(layerId);
+      calCatFilter.removeWhere(
+        (catId) => catById(catId)?.layerId == layerId,
+      );
     } else {
       layerFilter.add(layerId);
     }
