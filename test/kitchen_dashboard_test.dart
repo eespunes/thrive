@@ -560,23 +560,20 @@ void main() {
   );
 
   testWidgets(
-    'disabling the kitchen display globally hides the "Kitchen dashboard" '
-    'row from More, and re-tapping it re-enables the display',
+    'a disabled kitchen display shows a re-enable prompt on the "Kitchen '
+    'dashboard" More row, and tapping it re-enables the display',
     (tester) async {
-      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('nav-more')));
-      await tester.pumpAndSettle();
-      expect(find.text('Kitchen dashboard'), findsOneWidget);
-      expect(find.text('Wall-tablet family view'), findsOneWidget);
+      final prefs = _kitchenPrefs();
+      final decoded =
+          json.decode(prefs['flutter.$kStorageKeyV4'] as String)
+              as Map<String, dynamic>;
+      final workspaces = decoded['workspaces'] as Map<String, dynamic>;
+      final ws = workspaces['fam_main'] as Map<String, dynamic>;
+      ws['kitchenEnabled'] = false;
+      prefs['flutter.$kStorageKeyV4'] = json.encode(decoded);
 
-      await tester.tap(find.byKey(const ValueKey('more-callayers')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('cal-manage-kitchen-enabled')),
-      );
-      await tester.pumpAndSettle();
-      // Dismiss the settings bottom sheet by tapping the scrim above it.
-      await tester.tapAt(const Offset(10, 10));
+      await pumpApp(tester, prefs: prefs, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
 
       expect(find.text('Wall-tablet family view'), findsNothing);
@@ -588,23 +585,24 @@ void main() {
     },
   );
 
-  testWidgets('per-member picture-mode toggle in settings persists', (
-    tester,
-  ) async {
-    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('nav-more')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-callayers')));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'the calendar layers settings sheet no longer shows kitchen-display or '
+    'picture-mode toggles',
+    (tester) async {
+      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('cal-manage-picmode-erik')),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const ValueKey('cal-manage-picmode-erik')));
-    await tester.pumpAndSettle();
-
-    final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
-    expect((state as dynamic).picMembers['erik'], isTrue);
-  });
+      expect(
+        find.byKey(const ValueKey('cal-manage-kitchen-enabled')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('cal-manage-picmode-erik')),
+        findsNothing,
+      );
+    },
+  );
 }

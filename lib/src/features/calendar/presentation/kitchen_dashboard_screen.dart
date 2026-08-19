@@ -33,10 +33,6 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
   /// text/checkbox rows. Missing memberId defaults to `false`.
   bool pictureModeFor(String memberId) => picMembers[memberId] ?? false;
 
-  void setPictureMode(String memberId, bool value) {
-    mutate(() => picMembers[memberId] = value);
-  }
-
   // --------------------------------------------------------- star rewards
 
   /// Current star count (0-5) for [memberId]. Missing memberId means 0.
