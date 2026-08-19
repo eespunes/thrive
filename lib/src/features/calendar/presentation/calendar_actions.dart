@@ -10,7 +10,7 @@ class CalendarOccurrence {
     required this.date,
     String? spanEnd,
     this.imported = false,
-    this.isTask = false,
+    this.done = false,
   }) : spanEnd = spanEnd ?? date;
   final CalendarEvent ev;
 
@@ -22,10 +22,29 @@ class CalendarOccurrence {
   final String spanEnd;
   final bool imported;
 
-  /// True when this occurrence is a task's due date (issue #199) rather
-  /// than a real or imported calendar event. Task occurrences are
-  /// read-only, like imported ones, but keep their assignee visible.
-  final bool isTask;
+  /// True when the underlying to-do/content-style event (or, for a
+  /// recurring event, this specific occurrence date) has been marked done.
+  /// A done occurrence is still returned/rendered — never filtered out —
+  /// with a done visual treatment applied by the caller (strikethrough
+  /// title + faded opacity), mirroring how completed tasks used to behave
+  /// in Lists before Lists was decoupled from the calendar. Always false
+  /// for plain appointments and imported events.
+  final bool done;
+
+  /// Which calendar layer this occurrence belongs to — [ev.layerId]
+  /// directly (`appt`, `task`, `content`, or any custom layer id) — used
+  /// by the layer-toggle filter and to pick this occurrence's visuals.
+  String get layer => ev.layerId;
+
+  /// True when this occurrence is a to-do event, regardless of calendar
+  /// layer. Such occurrences get a tappable done checkbox instead of
+  /// appointment-only chrome. Never true for imported (read-only) events.
+  bool get isTask => !imported && ev.todo;
+
+  /// True when this occurrence is a to-do belonging to any layer other
+  /// than the default `task`/`appt` layers (e.g. `content` or a custom
+  /// layer) — drives the "content-style" dashed-border card treatment.
+  bool get isContent => isTask && layer != 'task';
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
@@ -130,7 +149,9 @@ String _addDaysIso(String iso, int n) =>
 String _addMonthsIso(String iso, int n) {
   final d = _parseIso(iso);
   final total = d.month - 1 + n;
-  final y = d.year + total ~/ 12;
+  // Use floor division so negative offsets correctly roll the year
+  // backward (Dart's `~/` truncates toward zero, not floor).
+  final y = d.year + (total < 0 ? (total - 11) ~/ 12 : total ~/ 12);
   final m = total % 12 + 1;
   final lastDay = DateTime.utc(y, m + 1, 0).day;
   return _isoOf(y, m, d.day > lastDay ? lastDay : d.day);
@@ -160,23 +181,21 @@ String _shortDateIso(String iso) {
   return _displayDateIso(iso);
 }
 
+/// "Week 22" — used for the Agenda view's header subtitle instead of the
+/// selected day's weekday/date, per ISO-8601 week numbering (weeks start on
+/// Monday; week 1 is the week containing the year's first Thursday).
+String _weekNumberLabelIso(String iso) {
+  final d = _parseIso(iso);
+  final thursday = d.add(Duration(days: 4 - (d.weekday == 0 ? 7 : d.weekday)));
+  final firstDayOfYear = DateTime(thursday.year, 1, 1);
+  final weekNumber =
+      ((thursday.difference(firstDayOfYear).inDays) / 7).floor() + 1;
+  return 'Week $weekNumber';
+}
+
 String _monthTitleIso(String iso) {
   final d = _parseIso(iso);
   return '${kMonthsEn[d.month - 1]} ${d.year}';
-}
-
-/// Parses `HH:MM` into minutes-since-midnight; empty/invalid → 0.
-int _toMinutes(String hhmm) {
-  if (hhmm.isEmpty) return 0;
-  final parts = hhmm.split(':');
-  if (parts.length != 2) return 0;
-  return (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
-}
-
-int _timedEventEndMinutes(CalendarEvent ev) {
-  final start = _toMinutes(ev.start);
-  final explicitEnd = ev.end.isNotEmpty ? _toMinutes(ev.end) : start + 60;
-  return explicitEnd <= start ? start + 60 : explicitEnd;
 }
 
 String _weekRangeIso(String weekStartIso) {
@@ -303,28 +322,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     );
   }
 
-  /// Builds the read-only [CalendarEvent] used to render/view a task's due
-  /// date on the calendar (issue #199), keyed by the composite
-  /// `'task_${list.id}_${task.id}'` id. Has no [category], so [evColor]
-  /// resolves its colour from the assignee's member colour, falling back
-  /// to the list's own colour when unassigned.
-  CalendarEvent taskSyntheticEvent(TaskList list, ListTask task) {
-    return CalendarEvent(
-      id: 'task_${list.id}_${task.id}',
-      title: task.title,
-      allDay: true,
-      date: task.due!,
-      color: list.color,
-      attendees: task.assignee != null ? [task.assignee!] : const [],
-      recur: 'none',
-      reminder: 'none',
-      createdBy: list.name,
-    );
-  }
-
   Color evColor(CalendarEvent ev) {
     final category = catById(ev.category);
     if (category != null) return category.color;
+    if (ev.color != kEventColors.first) return ev.color;
     for (final memberId in ev.attendees) {
       final member = _memberById(memberId);
       if (member != null) return member.color;
@@ -380,7 +381,16 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final flt = calFilter;
     final cflt = calCatFilter;
 
+    // Every layer's items — appointments, to-dos, content, or any custom
+    // layer — are just [CalendarEvent]s tagged with [CalendarEvent.layerId];
+    // a to-do/content-style event that's been completed (`isDoneOn`) STAYS
+    // in view (never filtered out, like a deleted event would be) — it's
+    // tagged `done: true` instead, so the caller can render it with a done
+    // visual treatment (strikethrough + faded) while keeping the
+    // checkbox/tap-to-toggle interaction available.
     for (final ev in events) {
+      if (ev.kitchenOrigin) continue;
+      if (!layerFilter.contains(ev.layerId)) continue;
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
       if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
 
@@ -392,19 +402,31 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         if (spanEnd.compareTo(rangeStart) >= 0 &&
             ev.date.compareTo(rangeEnd) <= 0 &&
             !ev.exceptions.contains(ev.date)) {
-          out.add(CalendarOccurrence(ev: ev, date: ev.date, spanEnd: spanEnd));
+          out.add(
+            CalendarOccurrence(
+              ev: ev,
+              date: ev.date,
+              spanEnd: spanEnd,
+              done: ev.todo && ev.done,
+            ),
+          );
         }
         continue;
       }
 
       for (final d in recurringEventDates(ev, rangeStart, rangeEnd)) {
-        out.add(CalendarOccurrence(ev: ev, date: d));
+        out.add(
+          CalendarOccurrence(ev: ev, date: d, done: ev.todo && ev.isDoneOn(d)),
+        );
       }
     }
 
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
-    for (final cal in importedCalendars) {
+    for (final cal
+        in layerFilter.contains('appt')
+            ? importedCalendars
+            : const <ImportedCalendar>[]) {
       if (!cal.visible) continue;
       if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
       if (flt.isNotEmpty) {
@@ -424,32 +446,139 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         }
       }
     }
-
-    // Tasks with a due date show up on the calendar coloured by their
-    // assignee (issue #199); completed tasks and category filters (tasks
-    // have no category) both hide them.
-    for (final list in taskLists) {
-      for (final task in list.tasks) {
-        final due = task.due;
-        if (due == null || due.isEmpty || task.done) continue;
-        if (cflt.isNotEmpty) continue;
-        if (flt.isNotEmpty &&
-            !(task.assignee != null && flt.contains(task.assignee))) {
-          continue;
-        }
-        if (due.compareTo(rangeStart) >= 0 && due.compareTo(rangeEnd) <= 0) {
-          out.add(
-            CalendarOccurrence(
-              isTask: true,
-              date: due,
-              ev: taskSyntheticEvent(list, task),
-            ),
-          );
-        }
-      }
-    }
     return out;
   }
+
+  /// Looks up a [CalendarLayerDef] by id, or `null` if it no longer exists
+  /// (e.g. stale data referencing a deleted layer).
+  CalendarLayerDef? layerDefFor(String id) {
+    for (final l in calendarLayers) {
+      if (l.id == id) return l;
+    }
+    return null;
+  }
+
+  /// Appends a new enabled-by-default calendar layer (mirrors the design's
+  /// `addLayer()`).
+  ///
+  /// If this is the workspace's very FIRST layer ever (i.e. [calendarLayers]
+  /// was empty beforehand), every existing [CalendarEvent]/[EventCategory]
+  /// is retroactively reassigned to it. This matters for families whose data
+  /// predates layers entirely — their events/categories only carry the
+  /// model's implicit `'appt'` fallback [layerId], which no longer
+  /// corresponds to any real [CalendarLayerDef] once a brand-new workspace
+  /// starts with zero layers — so nothing becomes orphaned/invisible the
+  /// moment layers go from "doesn't exist as a concept" to "exists" (mirrors
+  /// [removeCalendarLayer]'s reassign-on-delete logic below).
+  void addCalendarLayer({
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) {
+    mutate(() {
+      final wasEmpty = calendarLayers.isEmpty;
+      final id = uid();
+      calendarLayers.add(
+        CalendarLayerDef(
+          id: id,
+          label: label.trim().isEmpty ? 'Layer' : label.trim(),
+          icon: icon,
+          emoji: emoji,
+          picture: picture,
+          color: color,
+        ),
+      );
+      layerFilter.add(id);
+      kitchenLayerFilter.add(id);
+      if (wasEmpty) {
+        for (final ev in events) {
+          if (ev.kitchenOrigin) continue;
+          ev.layerId = id;
+        }
+        for (final cat in eventCategories) {
+          cat.layerId = id;
+        }
+      }
+    }, () => flash('Layer added'));
+  }
+
+  /// Updates an existing layer's label/icon/emoji/picture/colour in place
+  /// (tapped from its row, mirroring how tapping a category opens it for
+  /// editing) — a no-op if [id] no longer exists.
+  void updateCalendarLayer({
+    required String id,
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) {
+    final def = layerDefFor(id);
+    if (def == null) return;
+    mutate(() {
+      def.label = label.trim().isEmpty ? 'Layer' : label.trim();
+      def.icon = icon;
+      def.emoji = emoji;
+      def.picture = picture;
+      def.color = color;
+    });
+  }
+
+  /// Swaps the layer at [id]'s position with the adjacent one in
+  /// [direction] (-1 = up, +1 = down); a no-op at either end (mirrors the
+  /// design's `moveLayer()`).
+  void moveCalendarLayer(String id, int direction) => mutate(() {
+    final i = calendarLayers.indexWhere((l) => l.id == id);
+    if (i < 0) return;
+    final j = i + direction;
+    if (j < 0 || j >= calendarLayers.length) return;
+    final tmp = calendarLayers[i];
+    calendarLayers[i] = calendarLayers[j];
+    calendarLayers[j] = tmp;
+  });
+
+  bool canDeleteCalendarLayer(CalendarLayerDef layer) => true;
+
+  String _calendarLayerDeleteFallback(String deletedId) {
+    final remaining = [
+      for (final layer in calendarLayers)
+        if (layer.id != deletedId) layer.id,
+    ];
+    if (remaining.contains('task')) return 'task';
+    if (remaining.contains('appt')) return 'appt';
+    if (remaining.isNotEmpty) return remaining.first;
+    return 'appt';
+  }
+
+  /// Removes a deletable layer, reassigning any [CalendarEvent]/
+  /// [EventCategory] pointing at it to the best remaining layer first, so
+  /// nothing is left referencing a deleted layer.
+  void removeCalendarLayer(String id) {
+    final def = layerDefFor(id);
+    if (def == null || !canDeleteCalendarLayer(def)) return;
+    final fallbackLayerId = _calendarLayerDeleteFallback(id);
+    mutate(() {
+      for (final ev in events) {
+        if (ev.kitchenOrigin) continue;
+        if (ev.layerId == id) ev.layerId = fallbackLayerId;
+      }
+      for (final cat in eventCategories) {
+        if (cat.layerId == id) cat.layerId = fallbackLayerId;
+      }
+      calendarLayers.removeWhere((l) => l.id == id);
+      layerFilter.remove(id);
+      kitchenLayerFilter.remove(id);
+    }, () => flash('Layer deleted'));
+  }
+
+  /// Toggles a calendar layer's visibility. [CalendarLayerDef] itself only
+  /// defines which layers exist plus their order/colour/icon/label —
+  /// [layerFilter] membership is the single source of truth for whether a
+  /// layer is currently visible (reuses [toggleLayerFilter]'s "can't
+  /// disable the last layer" guard).
+  void toggleCalendarLayerEnabled(String id) => toggleLayerFilter(id);
 
   /// The 42-cell (6x7) month grid starting on the Monday on/before the 1st.
   List<String> monthGrid(String anchor) {
@@ -468,11 +597,21 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   void setCalView(String v) => update(() {
     calView = v;
-    if (v == 'week' || v == 'family') {
-      calWeekTimelineCentered = false;
-    }
   });
   void setCalSel(String iso) => update(() => calSel = iso);
+
+  /// Toggles a calendar layer (`appt|task|content`) on/off in [layerFilter].
+  /// At least one layer must stay enabled — a tap that would empty the list
+  /// (removing the last remaining layer) is ignored.
+  void toggleLayerFilter(String layerId) => mutate(() {
+    if (layerFilter.contains(layerId)) {
+      if (layerFilter.length <= 1) return;
+      layerFilter.remove(layerId);
+      calCatFilter.removeWhere((catId) => catById(catId)?.layerId == layerId);
+    } else {
+      layerFilter.add(layerId);
+    }
+  });
 
   void toggleCalMemberFilter(String memberId) => update(() {
     if (!calFilter.remove(memberId)) calFilter.add(memberId);
@@ -490,15 +629,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     _showSheet((ctx) => _CalMonthPickerSheet(state: this));
   }
 
-  void openCalWeekPicker() {
-    _showSheet((ctx) => _CalWeekPickerSheet(state: this));
-  }
-
   void openCalPeriodPicker() {
-    if (calView == 'week' || calView == 'family') {
-      openCalWeekPicker();
-      return;
-    }
     openCalMonthPicker();
   }
 
@@ -581,52 +712,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return (lanes: lanes, overflow: overflow);
   }
 
-  /// Overlap-aware column packing for Week-view timed events on a single
-  /// day: assigns each occurrence a `col`/`cols` (total columns in its
-  /// overlap cluster) so overlapping blocks split the day column's width.
-  List<({CalendarOccurrence o, int col, int cols})> packTimedColumns(
-    List<CalendarOccurrence> timed,
-  ) {
-    final starts = [for (final o in timed) _toMinutes(o.ev.start)];
-    final ends = [for (final o in timed) _timedEventEndMinutes(o.ev)];
-    final cols = List<int>.filled(timed.length, 0);
-    final active = <(int col, int end)>[];
-    for (var i = 0; i < timed.length; i++) {
-      active.removeWhere((a) => a.$2 <= starts[i]);
-      var col = 0;
-      final used = active.map((a) => a.$1).toSet();
-      while (used.contains(col)) {
-        col++;
-      }
-      cols[i] = col;
-      active.add((col, ends[i]));
-    }
-    final total = List<int>.filled(timed.length, 1);
-    for (var i = 0; i < timed.length; i++) {
-      var m = cols[i] + 1;
-      for (var j = 0; j < timed.length; j++) {
-        if (starts[j] < ends[i] && ends[j] > starts[i]) {
-          m = m > cols[j] + 1 ? m : cols[j] + 1;
-        }
-      }
-      total[i] = m;
-    }
-    // Normalize each overlap cluster to the same column count.
-    for (var i = 0; i < timed.length; i++) {
-      var m = total[i];
-      for (var j = 0; j < timed.length; j++) {
-        if (starts[j] < ends[i] && ends[j] > starts[i]) {
-          m = m > total[j] ? m : total[j];
-        }
-      }
-      total[i] = m;
-    }
-    return [
-      for (var i = 0; i < timed.length; i++)
-        (o: timed[i], col: cols[i], cols: total[i]),
-    ];
-  }
-
   // -------------------------------------------------------------- events
   void openEvent(CalendarEvent? ev, [String? date]) {
     _showSheet(
@@ -645,41 +730,46 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return null;
   }
 
-  /// Looks up an occurrence's id across real, imported, and task-derived
-  /// events. Real events are mutable; imported and task ones are
-  /// synthesized read-only and can be viewed but never edited/deleted.
-  /// [taskListId] is set (to the owning [TaskList.id]) only when [isTask].
-  ({CalendarEvent? ev, bool imported, bool isTask, String? taskListId})
-  eventOrImportedById(String id) {
+  /// Looks up an occurrence's id across real and imported events. Real
+  /// events (of any layer — appointment, to-do, content, or custom) are
+  /// mutable; imported ones are synthesized read-only and can be viewed but
+  /// never edited/deleted.
+  ({CalendarEvent? ev, bool imported}) eventOrImportedById(String id) {
     final real = eventById(id);
-    if (real != null) {
-      return (ev: real, imported: false, isTask: false, taskListId: null);
-    }
+    if (real != null) return (ev: real, imported: false);
     for (final cal in importedCalendars) {
       for (final e in cal.events) {
         if ('${cal.id}_${e.id}' == id) {
-          return (
-            ev: importedSyntheticEvent(cal, e),
-            imported: true,
-            isTask: false,
-            taskListId: null,
-          );
+          return (ev: importedSyntheticEvent(cal, e), imported: true);
         }
       }
     }
-    for (final list in taskLists) {
-      for (final task in list.tasks) {
-        if ('task_${list.id}_${task.id}' == id) {
-          return (
-            ev: taskSyntheticEvent(list, task),
-            imported: false,
-            isTask: true,
-            taskListId: list.id,
-          );
-        }
+    return (ev: null, imported: false);
+  }
+
+  /// Toggles completion of a to-do/content occurrence tapped from its
+  /// calendar checkbox (Month bar or Agenda/day-detail card). No-op for
+  /// non-task occurrences (appointments/imported events have no checkbox).
+  /// Non-recurring events flip [CalendarEvent.done]; recurring events flip
+  /// only the tapped occurrence's date in [CalendarEvent.doneDates].
+  void _toggleOccurrenceDone(CalendarOccurrence o) {
+    if (!o.isTask) return;
+    toggleEventDone(o.ev.id, o.date);
+  }
+
+  /// Toggles a [CalendarEvent]'s completion state directly — non-recurring
+  /// events flip [CalendarEvent.done], recurring events flip only the
+  /// occurrence on [dateIso] in [CalendarEvent.doneDates].
+  void toggleEventDone(String id, String dateIso) {
+    mutate(() {
+      final ev = eventById(id);
+      if (ev == null) return;
+      if (ev.recur == 'none') {
+        ev.done = !ev.done;
+      } else {
+        ev.doneDates[dateIso] = !(ev.doneDates[dateIso] ?? false);
       }
-    }
-    return (ev: null, imported: false, isTask: false, taskListId: null);
+    });
   }
 
   void saveEvent({
@@ -702,8 +792,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<int> recurWeekdays = const [],
     List<String>? exceptions,
     String? createdBy,
+    String layerId = 'appt',
+    bool todo = false,
+    bool done = false,
+    Map<String, bool>? doneDates,
   }) {
     final wasEditing = id != null;
+    final existing = id == null ? null : eventById(id);
     CalendarEvent? saved;
     mutate(() {
       final effectiveColor = catById(category)?.color ?? color;
@@ -727,6 +822,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         recurWeekdays: recurWeekdays,
         createdBy: createdBy ?? myId,
         exceptions: exceptions ?? const [],
+        layerId: layerId,
+        todo: todo,
+        done: done,
+        doneDates: doneDates,
+        kitchenOrigin: existing?.kitchenOrigin ?? false,
+        picture: existing?.picture,
+        emoji: existing?.emoji,
       );
       final i = events.indexWhere((x) => x.id == ev.id);
       if (i >= 0) {
@@ -762,6 +864,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<int>? recurWeekdays,
     String? createdBy,
     List<String>? exceptions,
+    String? layerId,
+    bool? todo,
+    bool? done,
+    Map<String, bool>? doneDates,
   }) {
     return CalendarEvent(
       id: id ?? ev.id,
@@ -783,6 +889,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       recurWeekdays: recurWeekdays ?? ev.recurWeekdays,
       createdBy: createdBy ?? ev.createdBy,
       exceptions: exceptions ?? ev.exceptions,
+      layerId: layerId ?? ev.layerId,
+      todo: todo ?? ev.todo,
+      done: done ?? ev.done,
+      doneDates: doneDates ?? Map<String, bool>.from(ev.doneDates),
+      kitchenOrigin: ev.kitchenOrigin,
+      picture: ev.picture,
+      emoji: ev.emoji,
     );
   }
 
@@ -879,8 +992,14 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------- categories
-  void openCategory(EventCategory? cat) {
-    _showSheet((ctx) => _CategorySheet(state: this, category: cat));
+  void openCategory(EventCategory? cat, {String layerId = 'appt'}) {
+    _showSheet(
+      (ctx) => _CategorySheet(state: this, category: cat, layerId: layerId),
+    );
+  }
+
+  void openCalendarLayer(CalendarLayerDef layer) {
+    _showSheet((ctx) => _LayerSheet(state: this, layer: layer));
   }
 
   void saveCategory({
@@ -891,6 +1010,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? emoji,
     String? picture,
     required List<String> members,
+    String layerId = 'appt',
   }) {
     final wasEditing = id != null;
     if (!isCalendarIdentityColorAvailable(color, exceptCategoryId: id)) {
@@ -906,6 +1026,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         emoji: emoji,
         picture: picture,
         members: members,
+        layerId: layerId,
       );
       final i = eventCategories.indexWhere((x) => x.id == cat.id);
       if (i >= 0) {

@@ -8,7 +8,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     expect(find.text('Hi, Eva'), findsOneWidget);
     expect(find.text('All caught up. Nice work!'), findsOneWidget);
-    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
   });
 
   testWidgets('tapping each bottom nav tab switches the shown screen', (
@@ -20,10 +20,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('cal-month-title')), findsOneWidget);
     expect(find.byKey(const ValueKey('cal-header-view')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
     expect(find.text('No lists yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-finance')));
     await tester.pumpAndSettle();
@@ -38,7 +40,32 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-home')));
     await tester.pumpAndSettle();
     expect(find.text('Hi, Eva'), findsOneWidget);
-    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
+  });
+
+  testWidgets('bottom navigation and FAB respect the phone system inset', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(bottom: 96);
+    addTearDown(tester.view.resetPadding);
+
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-calendar')));
+    await tester.pumpAndSettle();
+
+    final nav = tester.widget<Container>(
+      find.byKey(const ValueKey('app-bottom-nav')),
+    );
+    final navPadding = nav.padding as EdgeInsets;
+    expect(navPadding.bottom, 48);
+
+    final fabPositioned = tester.widget<Positioned>(
+      find.ancestor(
+        of: find.byKey(const ValueKey('quickadd-fab')),
+        matching: find.byType(Positioned),
+      ),
+    );
+    expect(fabPositioned.bottom, 140);
   });
 
   testWidgets('More hub renders every row in order', (tester) async {
@@ -152,187 +179,51 @@ void main() {
   });
 
   testWidgets(
-    'Quick-Add FAB on Home opens the chooser with Event/Task/Shopping rows',
+    'More → Calendar layers opens the layers management sheet and its '
+    'toggles drive layerFilter',
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
 
-      expect(find.text('What would you like to add?'), findsOneWidget);
-      expect(find.byKey(const ValueKey('quickadd-event')), findsOneWidget);
-      expect(find.byKey(const ValueKey('quickadd-task')), findsOneWidget);
-      expect(find.byKey(const ValueKey('quickadd-shopping')), findsOneWidget);
-    },
-  );
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
+      expect(find.text('Calendar layers'), findsWidgets);
+      expect(find.text('Appointments'), findsOneWidget);
+      expect(find.text('To-Dos'), findsOneWidget);
+      expect(find.text('Content'), findsOneWidget);
+      expect(find.text('+ Add layer'), findsOneWidget);
 
-  testWidgets('Quick-Add chooser → Event opens the event editor', (
-    tester,
-  ) async {
-    await pumpApp(tester, landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-    await tester.pumpAndSettle();
+      // The switch reflects `layerFilter` membership for the layer.
+      var taskSwitch = tester.widget<Switch>(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      expect(taskSwitch.value, isTrue);
 
-    await tester.tap(find.byKey(const ValueKey('quickadd-event')));
-    await tester.pumpAndSettle();
-    expect(find.text('New event'), findsOneWidget);
-  });
-
-  testWidgets(
-    'Quick-Add chooser → Task prompts to create a list when none exist yet',
-    (tester) async {
-      await pumpApp(tester, landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
-      await tester.pumpAndSettle();
-      // Lands on the Lists tab with the "new list" sheet open.
-      expect(find.text('New list'), findsWidgets);
-    },
-  );
-
-  testWidgets(
-    'Quick-Add chooser → Shopping item prompts to create a list when none '
-    'exist yet',
-    (tester) async {
-      await pumpApp(tester, landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
-      await tester.pumpAndSettle();
-      expect(find.text('New list'), findsWidgets);
-    },
-  );
-
-  testWidgets(
-    'Quick-Add chooser → Task goes straight to the single to-do list',
-    (tester) async {
-      await pumpApp(tester, landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('nav-lists')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('nav-home')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
-      await tester.pumpAndSettle();
-
-      // Lands directly on the "Household" list's task sheet, skipping any
-      // picker since it's the only to-do list.
-      expect(find.text('Household'), findsWidgets);
-      expect(find.text('Add task'), findsWidgets);
-    },
-  );
-
-  testWidgets(
-    'Quick-Add chooser → Task shows a picker when multiple to-do lists exist',
-    (tester) async {
-      await pumpApp(tester, landOnDefaultTab: true);
-      await tester.tap(find.byKey(const ValueKey('nav-lists')));
-      await tester.pumpAndSettle();
-
-      for (final name in ['Household', 'Errands']) {
-        await tester.tap(find.text('New list'));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).first, name);
-        await tester.pump();
-        await tester.tap(find.text('Create list'));
-        await tester.pumpAndSettle();
-      }
-
-      await tester.tap(find.byKey(const ValueKey('nav-home')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('quickadd-task')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Add a task'), findsOneWidget);
-      expect(find.text('Which list should it go on?'), findsOneWidget);
+      // Disabling the to-dos layer here drives the same `layerFilter` the
+      // calendar's filter sheet reads from.
       await tester.tap(
-        find
-            .byWidgetPredicate(
-              (w) =>
-                  w is GestureDetector &&
-                  w.key is ValueKey<String> &&
-                  (w.key as ValueKey<String>).value.startsWith('pick-list-'),
-            )
-            .last,
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Errands'), findsWidgets);
+      taskSwitch = tester.widget<Switch>(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      expect(taskSwitch.value, isFalse);
+
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
+      await rebootApp(tester);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
+
+      taskSwitch = tester.widget<Switch>(
+        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
+      );
+      expect(taskSwitch.value, isFalse);
     },
   );
-
-  testWidgets('Quick-Add chooser → Shopping item goes straight to the single '
-      'shopping list', (tester) async {
-    await pumpApp(tester, landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('nav-lists')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Shopping'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Supermarket');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('nav-home')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Supermarket'), findsWidgets);
-  });
-
-  testWidgets('Quick-Add chooser → Shopping item shows a picker when multiple '
-      'shopping lists exist', (tester) async {
-    await pumpApp(tester, landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('nav-lists')));
-    await tester.pumpAndSettle();
-
-    for (final name in ['Supermarket', 'Pharmacy']) {
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Shopping'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, name);
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-    }
-
-    await tester.tap(find.byKey(const ValueKey('nav-home')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Add a shopping item'), findsOneWidget);
-    expect(find.text('Which list should it go on?'), findsOneWidget);
-    await tester.tap(
-      find
-          .byWidgetPredicate(
-            (w) =>
-                w is GestureDetector &&
-                w.key is ValueKey<String> &&
-                (w.key as ValueKey<String>).value.startsWith('pick-list-'),
-          )
-          .last,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Pharmacy'), findsWidgets);
-  });
 }

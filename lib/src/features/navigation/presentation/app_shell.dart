@@ -30,7 +30,13 @@ extension _ThriveAppShell on _ThriveHomeState {
       key == tab ||
       (key == 'more' && const {'more', 'weekly', 'finsettings'}.contains(tab));
 
+  double _bottomSystemInset(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return math.max(media.padding.bottom, media.viewPadding.bottom);
+  }
+
   Widget _buildNav() {
+    final bottomInset = _bottomSystemInset(context);
     const items = [
       ('home', 'Home', 'home'),
       ('calendar', 'Calendar', 'cal'),
@@ -38,78 +44,73 @@ extension _ThriveAppShell on _ThriveHomeState {
       ('finance', 'Finance', 'wallet'),
       ('more', 'More', 'menu'),
     ];
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: B.line)),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x40101828),
-              blurRadius: 22,
-              spreadRadius: -18,
-              offset: Offset(0, -8),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          children: [
-            for (final (key, label, icon) in items)
-              Expanded(
-                child: GestureDetector(
-                  key: ValueKey('nav-$key'),
-                  onTap: () => goTab(key),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 9, 0, 5),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ic(
-                          icon,
-                          size: 22,
-                          sw: _navActive(key) ? 2.3 : 1.9,
+    return Container(
+      key: const ValueKey('app-bottom-nav'),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: B.line)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x40101828),
+            blurRadius: 22,
+            spreadRadius: -18,
+            offset: Offset(0, -8),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(4, 0, 4, bottomInset),
+      child: Row(
+        children: [
+          for (final (key, label, icon) in items)
+            Expanded(
+              child: GestureDetector(
+                key: ValueKey('nav-$key'),
+                onTap: () => goTab(key),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 9, 0, 5),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ic(
+                        icon,
+                        size: 22,
+                        sw: _navActive(key) ? 2.3 : 1.9,
+                        color: _navActive(key)
+                            ? B.primary
+                            : const Color(0xff9aa6b4),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: _navActive(key)
+                              ? FontWeight.w800
+                              : FontWeight.w600,
                           color: _navActive(key)
                               ? B.primary
                               : const Color(0xff9aa6b4),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          label,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: _navActive(key)
-                                ? FontWeight.w800
-                                : FontWeight.w600,
-                            color: _navActive(key)
-                                ? B.primary
-                                : const Color(0xff9aa6b4),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
 
-  /// Quick-Add FAB. Only shown on `home`/`calendar`/`lists`, matching the
-  /// design's `renderFab(tab)` map. `calendar` opens the event editor
-  /// directly and `lists` opens the right sheet for whatever's currently in
-  /// view (mirrors `renderFab`'s handlers); every other tab (currently just
-  /// `home`) opens the Quick-Add chooser (#162) so the user can still add an
-  /// event, task, or shopping item from there.
-  Widget? _buildFab() {
-    if (!const {'home', 'calendar', 'lists'}.contains(tab)) return null;
+  /// Quick-Add FAB. Only shown on `calendar`/`lists`: calendar opens the
+  /// event editor directly, and lists opens the right sheet for whatever's
+  /// currently in view.
+  Widget? _buildFab({double bottomSystemInset = 0}) {
+    if (!const {'calendar', 'lists'}.contains(tab)) return null;
     return Positioned(
       right: 18,
-      bottom: 92,
+      bottom: 92 + bottomSystemInset,
       child: GestureDetector(
         key: const ValueKey('quickadd-fab'),
         onTap: _onFabTap,
@@ -165,10 +166,12 @@ extension _ThriveAppShell on _ThriveHomeState {
       case 'home':
         return ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
-        final subtitle = (calView == 'week' || calView == 'family')
-            ? _weekRangeIso(_startOfWeekIso(calAnchor))
-            : _monthTitleIso(calAnchor);
-        return ('Calendar', subtitle);
+        return (
+          'Calendar',
+          calView == 'agenda'
+              ? _weekNumberLabelIso(agendaDay)
+              : _monthTitleIso(calAnchor),
+        );
       case 'lists':
         final tl = openList();
         if (tl != null) {

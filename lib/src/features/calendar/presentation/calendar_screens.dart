@@ -3,35 +3,15 @@ part of 'package:family_money_management_app/main.dart';
 /// (value, label, icon) for each calendar view, in picker order.
 const List<(String, String, String)> kCalViews = [
   ('month', 'Month', 'grid'),
-  ('week', 'Week', 'columns'),
-  ('family', 'Family', 'users'),
   ('agenda', 'Agenda', 'list'),
 ];
 
-/// The Calendar tab (#152): Month/Week/Family/Agenda views over the shared
+/// The Calendar tab (#152): Month/Agenda views over the shared
 /// family [_ThriveHomeState.events], ported from the design's
-/// `renderCalendar()` / `monthView()` / `weekView()` / `familyView()` /
-/// `agendaView()` / `eventCard()`.
+/// `renderCalendar()` / `monthView()` / `agendaView()` / `eventCard()`.
 extension _ThriveCalendarScreens on _ThriveHomeState {
   static const double _calendarFadedOpacity = .45;
-  static const Color _calendarTodayFill = Color(0xfff0fbfa);
   static const Color _calendarHeaderBorderColor = Color(0xffd5dce8);
-
-  // Week view's day-head (weekday letter + date circle) is always the same
-  // fixed content, so its rendered height is constant; the all-day strip's
-  // height is fixed (not min-) so it never grows past this regardless of
-  // event count. Both `_calWeek` and `_withStickyWeekHours` reference these
-  // so the sticky hour-number gutter always lines up with the real grid
-  // (issue #190).
-  static const double _calWeekDayHeadHeight = 58;
-  static const double _calWeekAllDayStripHeight = 54;
-
-  // Family view's day-head height (weekday letter + date circle, same fixed
-  // content as week view) and each member row's fixed cell height, shared by
-  // `_calFamily` and `_withStickyFamilyMembers` so the member gutter always
-  // lines up with the real per-day grid rows (issue #190).
-  static const double _calFamilyDayHeadHeight = 58;
-  static const double _calFamilyRowHeight = 58;
 
   static const int _calendarPageCenter = 10000;
 
@@ -117,30 +97,23 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   Widget _buildCalendar() {
-    return switch (calView) {
-      'week' => _withStickyWeekHours(
-        _calPagedView(
-          axis: Axis.horizontal,
-          periodForOffset: (offset) => _addDaysIso(calAnchor, 7 * offset),
-          pageBuilder: _calWeek,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: switch (calView) {
+            'agenda' => _calAgenda(),
+            _ => _withStickyMonthWeekdays(
+              _calPagedView(
+                axis: Axis.horizontal,
+                periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
+                pageBuilder: _calMonth,
+              ),
+            ),
+          },
         ),
-      ),
-      'family' => _withStickyFamilyMembers(
-        _calPagedView(
-          axis: Axis.horizontal,
-          periodForOffset: (offset) => _addDaysIso(calAnchor, 7 * offset),
-          pageBuilder: _calFamily,
-        ),
-      ),
-      'agenda' => _calAgenda(),
-      _ => _withStickyMonthWeekdays(
-        _calPagedView(
-          axis: Axis.horizontal,
-          periodForOffset: (offset) => _addMonthsIso(calAnchor, offset),
-          pageBuilder: _calMonth,
-        ),
-      ),
-    };
+      ],
+    );
   }
 
   Widget _calPagedView({
@@ -163,7 +136,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         }
         update(() {
           calAnchor = nextAnchor;
-          calWeekTimelineCentered = false;
         });
       },
       itemBuilder: (context, index) {
@@ -238,238 +210,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  Widget _withStickyWeekHours(Widget child) {
-    const gutter = 42.0;
-    const visibleHours = 8.0;
-    const headerHeight = _calWeekDayHeadHeight;
-    const pinnedHeight = _calWeekAllDayStripHeight;
-    final hours = [for (var h = 0; h < 24; h++) h];
-
-    // True `Row` sibling (gutter column + the swipeable pager), matching
-    // `_withStickyFamilyMembers`'s pattern, rather than a `Stack`/`Positioned`
-    // overlay on top of the pager. `_calWeek`'s pages no longer reserve
-    // their own leading gutter-width space, so this is now the ONLY place
-    // that space is reserved — with a `Stack`/`Positioned` overlay, each
-    // week page still had to bake in its own blank gutter placeholder to
-    // keep its day columns aligned with the overlay, which showed up as a
-    // stray blank strip mid-screen while horizontally swiping between two
-    // partially-visible weeks (issue #190).
-    return Row(
-      children: [
-        Container(
-          key: const ValueKey('cal-sticky-week-hours'),
-          width: gutter,
-          color: Colors.white,
-          child: Column(
-            children: [
-              Container(
-                height: headerHeight,
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: _calendarHeaderBorderColor),
-                  ),
-                ),
-              ),
-              Container(
-                height: pinnedHeight,
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: B.line)),
-                ),
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final viewportHeight = constraints.maxHeight;
-                    final rowH = viewportHeight / visibleHours;
-                    final gridH = hours.length * rowH;
-                    final maxScroll = (gridH - viewportHeight).clamp(
-                      0.0,
-                      double.infinity,
-                    );
-                    final offset = calWeekHourOffset
-                        .clamp(0.0, maxScroll)
-                        .toDouble();
-                    // `gridH` is taller than the viewport (24 hours vs.
-                    // `visibleHours`), but `Expanded` gives this
-                    // LayoutBuilder a TIGHT height constraint, so a
-                    // plain `SizedBox(height: gridH)` would get clamped
-                    // back down to `viewportHeight` (its child's real
-                    // height is capped to the incoming tight
-                    // constraint), silently discarding every hour
-                    // beyond the first sliver. `OverflowBox` lets the
-                    // inner content lay out at its true `gridH` height
-                    // regardless of the tight parent constraint, while
-                    // the outer `ClipRect` still clips it back down to
-                    // the visible viewport.
-                    return ClipRect(
-                      child: OverflowBox(
-                        minHeight: gridH,
-                        maxHeight: gridH,
-                        alignment: Alignment.topCenter,
-                        child: Transform.translate(
-                          offset: Offset(0, -offset),
-                          child: SizedBox(
-                            height: gridH,
-                            child: Stack(
-                              children: [
-                                // Row divider lines matching the real
-                                // hour-grid's `Container(height: rowH,
-                                // border: Border(top: B.line))` column
-                                // (see the `cal-week-hour-$i` grid
-                                // below), so the gutter reads as part
-                                // of the same grid instead of floating
-                                // text with no row separation (#190).
-                                Column(
-                                  children: [
-                                    for (var i = 0; i < hours.length; i++)
-                                      Container(
-                                        height: rowH,
-                                        decoration: const BoxDecoration(
-                                          border: Border(
-                                            top: BorderSide(color: B.line),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                for (final hour in hours)
-                                  Positioned(
-                                    top: hour * rowH + 2,
-                                    right: 6,
-                                    child: Text(
-                                      '${hour.toString().padLeft(2, '0')}:00',
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        color: B.muted,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          // Mirrors the real hour-grid's vertical scroll offset into
-          // `calWeekHourOffset` via notification bubbling rather than
-          // reading `calWeekTimelineController.offset` directly — the
-          // controller is shared across every week page's scroll view (so
-          // `PageView.builder` keeping neighboring pages mounted means more
-          // than one position is usually attached, making `.offset`
-          // unusable/undefined). Filtering on `Axis.vertical` also excludes
-          // the pager's own horizontal scroll notifications, which
-          // otherwise bubble through here too (issue #190).
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.vertical) {
-                final next = notification.metrics.pixels;
-                if (next != calWeekHourOffset) {
-                  update(() => calWeekHourOffset = next);
-                }
-              }
-              return false;
-            },
-            child: child,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Wraps the family pager with the member list fixed to the left, as a
-  /// true `Row` sibling rather than a `Stack`/`Positioned` overlay drawn on
-  /// top of it. Each family page (`_calFamily`) only renders the per-day
-  /// columns (no leading member-name cell), so there is no second, non-sticky
-  /// copy of the member column able to surface while paging horizontally
-  /// between weeks (issue #190).
-  Widget _withStickyFamilyMembers(Widget child) {
-    const gutter = 84.0;
-    final members = curFamily()?.members ?? const <FamilyMember>[];
-
-    return Row(
-      children: [
-        Container(
-          key: const ValueKey('cal-sticky-family-members'),
-          width: gutter,
-          color: Colors.white,
-          child: Column(
-            children: [
-              Container(
-                height: _calFamilyDayHeadHeight,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 4),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: _calendarHeaderBorderColor),
-                  ),
-                ),
-                child: const Text(
-                  'MEMBER',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.soft2,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < members.length; i++)
-                        Container(
-                          height: _calFamilyRowHeight,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              top: i == 0
-                                  ? BorderSide.none
-                                  : const BorderSide(color: B.line),
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 6,
-                            horizontal: 4,
-                          ),
-                          child: Row(
-                            children: [
-                              _memberAvatar(members[i].id, size: 24),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  members[i].name,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: B.ink,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(child: child),
-      ],
-    );
-  }
-
   // -------------------------------------------------------------- month
   Widget _calMonth(String anchor) {
     final grid = monthGrid(anchor);
@@ -521,6 +261,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       final packed = packWeekLanes(occ, ws, we);
       final inCurrentMonth = [for (final iso in row) isInCurrentMonth(iso)];
 
+      // Every occurrence's Month-view bar uses the exact same visual
+      // treatment now — a solid colour-filled block, regardless of which
+      // calendar layer it belongs to (issue: calendar layers uniform
+      // rendering) — rather than appointments getting a solid block while
+      // task/content occurrences got a distinct outlined/dashed pill.
+      // To-do/content-style occurrences (`o.isTask`) still get a small
+      // leading checkbox that toggles completion independently of the
+      // day-detail tap; a done occurrence stays on the calendar (never
+      // removed) but shows a strikethrough label and reduced opacity.
       Widget bar(CalendarOccurrence o, int cs, int ce, {bool faded = false}) {
         final col = evColor(o.ev);
         final barFg = contrastOn(col);
@@ -529,6 +278,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         final right = o.spanEnd.compareTo(we) > 0;
         final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
         final span = ce - cs + 1;
+        final done = o.done;
+
         return LayoutBuilder(
           builder: (context, constraints) {
             // Tapping an event bar (single- or multi-day) always opens the
@@ -549,7 +300,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
               onTapUp: (details) => openDetailForTap(details.localPosition.dx),
               child: Opacity(
-                opacity: faded ? _calendarFadedOpacity : 1,
+                opacity: (faded || done) ? _calendarFadedOpacity : 1,
                 child: Container(
                   margin: const EdgeInsets.symmetric(
                     horizontal: 1,
@@ -569,7 +320,22 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (category != null) ...[
+                      if (o.isTask)
+                        GestureDetector(
+                          key: ValueKey('cal-check-${o.ev.id}-${o.date}'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _toggleOccurrenceDone(o),
+                          child: Container(
+                            width: 9,
+                            height: 9,
+                            margin: const EdgeInsets.only(right: 3),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: barFg, width: 1.2),
+                            ),
+                          ),
+                        )
+                      else if (category != null) ...[
                         categoryGlyph(category, size: 10, iconColor: barFg),
                         const SizedBox(width: 3),
                       ] else if (!o.isMultiDay)
@@ -592,6 +358,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                             fontWeight: FontWeight.w800,
                             height: 1,
                             color: barFg,
+                            decoration: done
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
                           ),
                         ),
                       ),
@@ -734,670 +503,233 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  // --------------------------------------------------------------- week
-  // --------------------------------------------------------------- week
-  Widget _calWeek(String anchor) {
-    const visibleHours = 8.0;
-    final ws = _startOfWeekIso(anchor);
-    final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
+  // ------------------------------------------------------------- agenda
+  /// Agenda mode: a Mon-Sun week strip day-picker (`weekStrip()` in the
+  /// design) above a single selected day's (`agendaDay`) 3 gated
+  /// layer-sections (`daySchedule()`), rather than an infinite multi-day
+  /// list. Tapping a strip day-cell switches which day's sections show.
+  Widget _calAgenda() {
+    final dayOcc = eventOccurrences(agendaDay, agendaDay);
     final today = todayIso();
-    final now = DateTime.now();
-    final currentDayElapsed = (now.hour * 60 + now.minute) / 60;
-
-    bool isPastDay(String iso) => iso.compareTo(today) < 0;
-
-    bool isPastOccurrence(CalendarOccurrence o, String iso) {
-      if (iso.compareTo(today) < 0) return true;
-      if (iso.compareTo(today) > 0 || o.ev.allDay || o.isMultiDay) {
-        return false;
-      }
-      return _timedEventEndMinutes(o.ev) <= now.hour * 60 + now.minute;
-    }
-
-    final dayHead = Row(
+    final sections = _agendaDaySections(agendaDay, dayOcc);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
-          Expanded(
-            child: Container(
-              key: ValueKey('cal-week-day-head-${days[dayIndex]}'),
-              // Fixed height matching `_calWeekDayHeadHeight` used by the
-              // sticky hour gutter (issue #190).
-              height: _calWeekDayHeadHeight,
-              clipBehavior: Clip.hardEdge,
-              decoration: BoxDecoration(
-                color: isPastDay(days[dayIndex]) ? B.faint : Colors.white,
-                border: Border(
-                  bottom: const BorderSide(color: _calendarHeaderBorderColor),
-                  left: dayIndex == 0
-                      ? BorderSide.none
-                      : const BorderSide(color: _calendarHeaderBorderColor),
+        _weekStripPager(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _secLabel(
+                  agendaDay == today
+                      ? 'Today · ${_shortDateIso(agendaDay)}'
+                      : _prettyDateIso(agendaDay),
                 ),
-              ),
-              foregroundDecoration: days[dayIndex] == today
-                  ? BoxDecoration(
-                      border: Border.all(color: B.primary, width: 1.4),
-                    )
-                  : null,
-              child: Builder(
-                builder: (_) {
-                  final d = _parseIso(days[dayIndex]);
-                  final isToday = days[dayIndex] == today;
-                  final faded = isPastDay(days[dayIndex]);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Column(
-                      children: [
-                        Opacity(
-                          opacity: faded ? _calendarFadedOpacity : 1,
-                          child: Text(
-                            kWeekdayLetters[d.weekday - 1],
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: isToday ? B.primary : B.soft2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Opacity(
-                          opacity: faded ? _calendarFadedOpacity : 1,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: isToday ? B.primary : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${d.day}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: isToday ? Colors.white : B.ink,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                sections,
+              ],
             ),
-          ),
-      ],
-    );
-
-    final allDayByDay = [
-      for (final iso in days)
-        eventOccurrences(
-          iso,
-          iso,
-        ).where((o) => o.ev.allDay || o.isMultiDay).toList(),
-    ];
-    final allStrip = Row(
-      children: [
-        for (var dayIndex = 0; dayIndex < allDayByDay.length; dayIndex++)
-          Expanded(
-            child: Container(
-              // Fixed (not min-) height so this strip's rendered height
-              // always matches `_withStickyWeekHours`'s pinnedHeight
-              // constant exactly, regardless of how many all-day events a
-              // given week has — otherwise the sticky hour-number gutter
-              // drifts out of alignment with the real hour rows (#190).
-              height: _calWeekAllDayStripHeight,
-              clipBehavior: Clip.hardEdge,
-              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-              decoration: BoxDecoration(
-                border: Border(
-                  left: dayIndex == 0
-                      ? BorderSide.none
-                      : const BorderSide(color: B.line),
-                ),
-              ),
-              child: Column(
-                children: [
-                  for (final o in allDayByDay[dayIndex].take(3))
-                    GestureDetector(
-                      key: ValueKey(
-                        'cal-pinned-week-${o.ev.id}-${days[dayIndex]}',
-                      ),
-                      onTap: () => openEventView(o.ev.id, o.date),
-                      child: Opacity(
-                        opacity: isPastOccurrence(o, days[dayIndex])
-                            ? _calendarFadedOpacity
-                            : 1,
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 2),
-                          width: double.infinity,
-                          height: 14,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: evColor(o.ev),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (catById(o.ev.category) case final cat?) ...[
-                                categoryGlyph(
-                                  cat,
-                                  size: 9,
-                                  iconColor: contrastOn(evColor(o.ev)),
-                                ),
-                                const SizedBox(width: 3),
-                              ],
-                              Flexible(
-                                child: Text(
-                                  o.ev.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w800,
-                                    color: contrastOn(evColor(o.ev)),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-
-    final hours = [for (var h = 0; h < 24; h++) h];
-
-    Widget dayCol(String iso, int dayIndex, double rowH, double gridH) {
-      final timed =
-          eventOccurrences(
-            iso,
-            iso,
-          ).where((o) => !o.ev.allDay && !o.isMultiDay).toList()..sort(
-            (a, b) => _toMinutes(a.ev.start).compareTo(_toMinutes(b.ev.start)),
-          );
-      final laid = packTimedColumns(timed);
-      final isToday = iso == today;
-      final isPast = isPastDay(iso);
-      return Expanded(
-        child: Container(
-          key: ValueKey('cal-week-day-col-$iso'),
-          decoration: BoxDecoration(
-            color: isPast
-                ? B.faint
-                : (isToday ? _calendarTodayFill : Colors.transparent),
-            border: Border(
-              left: dayIndex == 0
-                  ? BorderSide.none
-                  : const BorderSide(color: B.line),
-            ),
-          ),
-          foregroundDecoration: isToday
-              ? BoxDecoration(border: Border.all(color: B.primary, width: 1.4))
-              : null,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final colW = constraints.maxWidth;
-              return Stack(
-                children: [
-                  if (isToday)
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: (currentDayElapsed * rowH).clamp(0.0, gridH),
-                      child: const IgnorePointer(
-                        key: ValueKey('cal-week-today-past-hours'),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(color: B.faint),
-                        ),
-                      ),
-                    ),
-                  // Hour-line dividers must be redrawn on top of any
-                  // OPAQUE per-day fill (today's tint or a past day's
-                  // `B.faint` background), since both fully occlude the
-                  // shared hour-line grid painted behind the day columns.
-                  // Previously only `isToday` did this, so past days'
-                  // opaque fill silently hid the grid lines entirely.
-                  if (isToday || isPast)
-                    IgnorePointer(
-                      child: Column(
-                        key: ValueKey(
-                          isToday
-                              ? 'cal-week-today-hour-lines'
-                              : 'cal-week-past-hour-lines-$iso',
-                        ),
-                        children: [
-                          for (var i = 0; i < hours.length; i++)
-                            Container(
-                              height: rowH,
-                              decoration: const BoxDecoration(
-                                border: Border(top: BorderSide(color: B.line)),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  for (final item in laid)
-                    Builder(
-                      builder: (_) {
-                        final o = item.o;
-                        final col = evColor(o.ev);
-                        final fg = contrastOn(col);
-                        final top = _toMinutes(o.ev.start) / 60 * rowH;
-                        final endMin = _timedEventEndMinutes(o.ev);
-                        final h =
-                            ((endMin - _toMinutes(o.ev.start)) / 60 * rowH)
-                                .clamp(20.0, gridH);
-                        final w = colW / item.cols;
-                        final titleMaxLines = ((h - 4) / (9.5 * 1.05))
-                            .floor()
-                            .clamp(1, 60);
-                        final category = catById(o.ev.category);
-                        return Positioned(
-                          top: top,
-                          height: h,
-                          left: item.col * w,
-                          width: w,
-                          child: GestureDetector(
-                            key: ValueKey('cal-timed-${o.ev.id}'),
-                            onTap: () => openEventView(o.ev.id, o.date),
-                            child: Opacity(
-                              opacity: isPastOccurrence(o, iso)
-                                  ? _calendarFadedOpacity
-                                  : 1,
-                              child: Container(
-                                margin: const EdgeInsets.only(right: 2),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: col,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: category == null
-                                    ? Text(
-                                        o.ev.title,
-                                        softWrap: true,
-                                        overflow: TextOverflow.clip,
-                                        maxLines: titleMaxLines,
-                                        style: TextStyle(
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.w800,
-                                          height: 1.05,
-                                          color: fg,
-                                        ),
-                                      )
-                                    : Text.rich(
-                                        TextSpan(
-                                          children: [
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
-                                              child: categoryGlyph(
-                                                category,
-                                                size: 9,
-                                                iconColor: fg,
-                                              ),
-                                            ),
-                                            TextSpan(text: ' ${o.ev.title}'),
-                                          ],
-                                        ),
-                                        softWrap: true,
-                                        overflow: TextOverflow.clip,
-                                        maxLines: titleMaxLines,
-                                        style: TextStyle(
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.w800,
-                                          height: 1.05,
-                                          color: fg,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  if (isToday)
-                    Positioned(
-                      top: (now.hour * 60 + now.minute) / 60 * rowH,
-                      left: 0,
-                      right: 0,
-                      child: IgnorePointer(
-                        child: Container(
-                          height: 2,
-                          color: const Color(0xffe11d48),
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
           ),
         ),
+      ],
+    );
+  }
+
+  List<CalendarLayerDef> _agendaLayerDefs(List<CalendarOccurrence> dayOcc) {
+    final base = calendarLayers.isEmpty
+        ? kDefaultCalendarLayers()
+        : calendarLayers;
+    final out = <CalendarLayerDef>[
+      for (final layer in base)
+        if (layerFilter.contains(layer.id)) layer,
+    ];
+    final seen = {for (final layer in out) layer.id};
+    for (final o in dayOcc) {
+      if (!layerFilter.contains(o.layer) || seen.contains(o.layer)) continue;
+      out.add(
+        layerDefFor(o.layer) ??
+            CalendarLayerDef(
+              id: o.layer,
+              label: 'Layer',
+              icon: 'cal',
+              color: evColor(o.ev),
+            ),
       );
+      seen.add(o.layer);
     }
+    return out;
+  }
 
-    final controller = calWeekTimelineController;
+  int _compareAgendaOccurrences(CalendarOccurrence a, CalendarOccurrence b) {
+    final time = (a.ev.allDay ? '' : a.ev.start).compareTo(
+      b.ev.allDay ? '' : b.ev.start,
+    );
+    if (time != 0) return time;
+    return a.ev.title.compareTo(b.ev.title);
+  }
 
-    return Container(
-      color: Colors.white,
-      child: Column(
+  /// Mon-Sun day-picker strip for the week containing [agendaDay] — 7
+  /// cells, each showing the weekday letter, date number, and a row of
+  /// small layer-colour dots for any layer with an occurrence that day
+  /// (gated by `layerFilter`, mirroring `layerEnabled`). The selected cell
+  /// fills solid `B.ink` with white text; today (if not selected) shows its
+  /// weekday letter/number in `B.primary` (`weekStrip()` in the design).
+  /// Swipeable pager over Mon-Sun weeks, so the user can navigate to the
+  /// next/previous week; the first day of each page is always Monday.
+  /// Swiping settles `agendaDay` on the Monday of the newly-shown week
+  /// (mirrors `_calPagedView`'s month-paging pattern).
+  Widget _weekStripPager() {
+    return SizedBox(
+      height: 78,
+      child: PageView.builder(
+        key: const ValueKey('cal-week-pager'),
+        controller: calWeekPageController,
+        pageSnapping: true,
+        physics: const PageScrollPhysics(),
+        onPageChanged: (page) {
+          final offset = page - _calendarPageCenter;
+          if (offset == 0) return;
+          final weekStart = _startOfWeekIso(agendaDay);
+          final nextWeekStart = _addDaysIso(weekStart, offset * 7);
+          if (calWeekPageController.hasClients) {
+            calWeekPageController.jumpToPage(_calendarPageCenter);
+          }
+          update(() => agendaDay = nextWeekStart);
+        },
+        itemBuilder: (context, index) {
+          final offset = index - _calendarPageCenter;
+          final weekStart = _addDaysIso(_startOfWeekIso(agendaDay), offset * 7);
+          return _weekStrip(weekStart);
+        },
+      ),
+    );
+  }
+
+  Widget _weekStrip(String weekStart) {
+    final today = todayIso();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
+      child: Row(
         children: [
-          dayHead,
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: B.line)),
+          for (var i = 0; i < 7; i++) ...[
+            if (i != 0) const SizedBox(width: 6),
+            Expanded(
+              child: _weekStripCell(_addDaysIso(weekStart, i), i, today),
             ),
-            child: allStrip,
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final viewportHeight = constraints.maxHeight;
-                final rowH = viewportHeight / visibleHours;
-                final gridH = hours.length * rowH;
-                if (!calWeekTimelineCentered) {
-                  calWeekTimelineCentered = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted || !controller.hasClients) return;
-                    final currentHour = now.hour + now.minute / 60;
-                    final target = (currentHour * rowH).clamp(
-                      0.0,
-                      gridH - viewportHeight,
-                    );
-                    controller.jumpTo(target);
-                  });
-                }
-                return SingleChildScrollView(
-                  key: const ValueKey('cal-timeline-week'),
-                  controller: controller,
-                  child: SizedBox(
-                    key: const ValueKey('cal-hour-grid-week'),
-                    height: gridH,
-                    // No leading gutter-width placeholder here: this page's
-                    // day-column grid now spans the full pager width, with
-                    // the hour gutter reserved once by `_withStickyWeekHours`
-                    // as a true sibling column outside the `PageView`. A
-                    // per-page blank gutter used to be baked into every
-                    // week's `Row`, which showed up as a stray blank strip
-                    // mid-screen while horizontally swiping between weeks,
-                    // since two pages are partially visible at once during
-                    // the transition (issue #190).
-                    child: Stack(
-                      children: [
-                        Column(
-                          children: [
-                            for (var i = 0; i < hours.length; i++)
-                              Container(
-                                key: ValueKey('cal-week-hour-$i'),
-                                height: rowH,
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(color: B.line),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            for (
-                              var dayIndex = 0;
-                              dayIndex < days.length;
-                              dayIndex++
-                            )
-                              dayCol(days[dayIndex], dayIndex, rowH, gridH),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------- family
-  Widget _calFamily(String anchor) {
-    final ws = _startOfWeekIso(anchor);
-    final days = [for (var i = 0; i < 7; i++) _addDaysIso(ws, i)];
-    final today = todayIso();
-    final members = curFamily()?.members ?? const <FamilyMember>[];
-
-    bool isPastDay(String iso) => iso.compareTo(today) < 0;
-
-    // The "MEMBER" label lives once in the fixed gutter built by
-    // `_withStickyFamilyMembers` — this per-page header only renders the
-    // day-of-week cells so it can't surface a second, non-sticky copy while
-    // paging horizontally between weeks (issue #190).
-    Widget head() {
-      return Row(
-        children: [
-          for (var dayIndex = 0; dayIndex < days.length; dayIndex++)
-            Expanded(
-              child: Container(
-                key: ValueKey('cal-family-day-head-${days[dayIndex]}'),
-                // Fixed height matching `_calFamilyDayHeadHeight` used by
-                // the sticky member gutter's header cell (issue #190).
-                height: _calFamilyDayHeadHeight,
-                clipBehavior: Clip.hardEdge,
-                decoration: BoxDecoration(
-                  color: isPastDay(days[dayIndex]) ? B.faint : Colors.white,
-                  border: const Border(
-                    left: BorderSide(color: _calendarHeaderBorderColor),
-                    bottom: BorderSide(color: _calendarHeaderBorderColor),
-                  ),
-                ),
-                foregroundDecoration: days[dayIndex] == today
-                    ? BoxDecoration(
-                        border: Border.all(color: B.primary, width: 1.4),
-                      )
-                    : null,
-                child: Builder(
-                  builder: (_) {
-                    final d = _parseIso(days[dayIndex]);
-                    final isToday = days[dayIndex] == today;
-                    final faded = isPastDay(days[dayIndex]);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Column(
-                        children: [
-                          Opacity(
-                            opacity: faded ? _calendarFadedOpacity : 1,
-                            child: Text(
-                              kWeekdayLetters[d.weekday - 1],
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w800,
-                                color: isToday ? B.primary : B.soft2,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Opacity(
-                            opacity: faded ? _calendarFadedOpacity : 1,
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isToday ? B.primary : Colors.transparent,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Text(
-                                '${d.day}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: isToday ? Colors.white : B.ink,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+  Widget _weekStripCell(String iso, int weekdayIdx, String today) {
+    final selected = iso == agendaDay;
+    final isToday = iso == today;
+    final d = _parseIso(iso);
+    final dayOcc = eventOccurrences(iso, iso);
+    // Built straight from the day's occurrences (gated by `layerFilter`)
+    // rather than by iterating [calendarLayers] — so a dot still shows for
+    // a layer with an occurrence that day (e.g. plain appointments) even
+    // when [calendarLayers] hasn't been seeded yet (a legacy/new
+    // workspace with zero layer definitions).
+    final seenLayers = <String>{};
+    final dotColors = <Color>[
+      for (final o in dayOcc)
+        if (layerFilter.contains(o.layer) && seenLayers.add(o.layer))
+          layerDefFor(o.layer)?.color ?? evColor(o.ev),
+    ];
+    return GestureDetector(
+      key: ValueKey('cal-week-strip-$iso'),
+      onTap: () => update(() => agendaDay = iso),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? B.ink : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              kWeekdayLetters[weekdayIdx],
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                color: selected
+                    ? Colors.white
+                    : (isToday ? B.primary : B.muted),
               ),
             ),
-        ],
-      );
-    }
-
-    Widget memberRow(FamilyMember m, bool top) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: top ? BorderSide.none : BorderSide(color: B.line),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final iso in days)
-              Expanded(
-                child: Builder(
-                  builder: (_) {
-                    final isPast = isPastDay(iso);
-                    final evs =
-                        eventOccurrences(
-                            iso,
-                            iso,
-                          ).where((o) => o.ev.attendees.contains(m.id)).toList()
-                          ..sort(
-                            (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-                              b.ev.allDay ? '' : b.ev.start,
-                            ),
-                          );
-                    return Container(
-                      key: ValueKey('cal-family-cell-${m.id}-$iso'),
-                      // Fixed (not min-) height matching `_calFamilyRowHeight`
-                      // used by the sticky member gutter's row, so the two
-                      // never drift out of sync as event counts vary
-                      // (issue #190). Content is capped at 3 events + an
-                      // overflow label, which always fits within this
-                      // height; `clipBehavior` guards edge cases.
-                      height: _calFamilyRowHeight,
-                      clipBehavior: Clip.hardEdge,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        border: const Border(left: BorderSide(color: B.line)),
-                        color: isPast
-                            ? B.faint
-                            : (iso == today ? _calendarTodayFill : null),
-                      ),
-                      foregroundDecoration: iso == today
-                          ? BoxDecoration(
-                              border: Border.all(color: B.primary, width: 1.4),
-                            )
-                          : null,
-                      child: Column(
-                        children: [
-                          for (final o in evs.take(3))
-                            GestureDetector(
-                              key: ValueKey(
-                                'cal-family-${m.id}-${o.ev.id}-$iso',
-                              ),
-                              onTap: () => openEventView(o.ev.id, iso),
-                              child: Opacity(
-                                opacity: isPast ? _calendarFadedOpacity : 1,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 2),
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: evColor(o.ev),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      if (catById(o.ev.category)
-                                          case final cat?) ...[
-                                        categoryGlyph(
-                                          cat,
-                                          size: 9,
-                                          iconColor: contrastOn(evColor(o.ev)),
-                                        ),
-                                        const SizedBox(width: 2),
-                                      ],
-                                      Flexible(
-                                        child: Text(
-                                          o.ev.allDay
-                                              ? o.ev.title
-                                              : '${o.ev.start} ${o.ev.title}',
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                          style: TextStyle(
-                                            fontSize: 8,
-                                            fontWeight: FontWeight.w800,
-                                            color: contrastOn(evColor(o.ev)),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (evs.length > 3)
-                            Text(
-                              '+${evs.length - 3}',
-                              style: const TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
-                                color: B.muted,
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+            const SizedBox(height: 2),
+            Text(
+              '${d.day}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: selected ? Colors.white : (isToday ? B.primary : B.ink),
               ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 4,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var ci = 0; ci < dotColors.length; ci++) ...[
+                    if (ci != 0) const SizedBox(width: 2),
+                    Container(
+                      key: ValueKey('cal-week-strip-dot-$iso-$ci'),
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: selected ? Colors.white : dotColors[ci],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
+  Widget _agendaLayerHeader(CalendarLayerDef layer, String date) {
     return Container(
-      color: Colors.white,
-      child: Column(
+      key: ValueKey('agenda-layer-header-${layer.id}-$date'),
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Row(
         children: [
-          // No extra padding/border here: each day-head cell built by
-          // `head()` already has a fixed height (`_calFamilyDayHeadHeight`)
-          // and its own bottom border, matching the sticky member gutter's
-          // header cell exactly. Wrapping padding previously added 16px on
-          // top of that fixed height (plus a second border), which the
-          // gutter didn't have — throwing the whole grid out of alignment
-          // with the member rows below (issue #190).
-          head(),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: layer.color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: glyphTile(
+              size: 24,
+              radius: 8,
+              picture: layer.picture,
+              emoji: layer.emoji,
+              emojiSize: 13,
+              fallback: Center(
+                child: ic(layer.icon, size: 13, sw: 2.3, color: layer.color),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  for (var i = 0; i < members.length; i++)
-                    memberRow(members[i], i == 0),
-                ],
+            child: Text(
+              layer.label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: B.ink,
               ),
             ),
           ),
@@ -1406,44 +738,458 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  // ------------------------------------------------------------- agenda
-  Widget _calAgenda() {
-    final occ = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 160))
-      ..sort(
-        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
-          b.date + (b.ev.allDay ? '' : b.ev.start),
+  Widget _agendaLayerEmpty(CalendarLayerDef layer, String date) {
+    return Container(
+      key: ValueKey('agenda-layer-empty-${layer.id}-$date'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+      decoration: BoxDecoration(
+        color: B.faint,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: B.line),
+      ),
+      child: const Text(
+        'No events yet',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: B.muted,
         ),
-      );
-    if (occ.isEmpty) {
+      ),
+    );
+  }
+
+  /// A single day's occurrences grouped by the enabled calendar layers in
+  /// their saved order. Each visible layer renders a header and either its
+  /// time-sorted rows or an empty state, while every actual occurrence keeps
+  /// the same solid agenda row style regardless of layer.
+  Widget _agendaDaySections(String date, List<CalendarOccurrence> dayOcc) {
+    final layers = _agendaLayerDefs(dayOcc);
+    if (layers.isEmpty) {
       return _emptyState(
         icon: 'cal',
-        title: 'No upcoming events',
-        sub: 'Your agenda is clear for now.',
+        title: 'No layers enabled',
+        sub: 'Turn on a calendar layer to see its agenda.',
         actionLabel: 'Add event',
         onAction: () => openEvent(null),
       );
     }
-    final groups = <String, List<CalendarOccurrence>>{};
-    for (final o in occ) {
-      groups.putIfAbsent(o.date, () => []).add(o);
-    }
-    final today = todayIso();
-    final dates = groups.keys.toList()..sort();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final date in dates) ...[
-            _secLabel(
-              date == today
-                  ? 'Today · ${_shortDateIso(date)}'
-                  : _prettyDateIso(date),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final layer in layers) ...[
+          _agendaLayerHeader(layer, date),
+          Builder(
+            builder: (context) {
+              final rows = dayOcc.where((o) => o.layer == layer.id).toList()
+                ..sort(_compareAgendaOccurrences);
+              if (rows.isEmpty) return _agendaLayerEmpty(layer, date);
+              return Column(
+                children: [
+                  for (final o in rows) ...[
+                    _apptAgendaRow(o),
+                    if (o != rows.last) const SizedBox(height: 8),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Agenda row for ANY occurrence, regardless of layer — a solid block
+  /// filled with the resolved event colour, a narrow time column, and a repeat
+  /// badge when recurring (`apptRow()` in the design). Colour priority is
+  /// category, explicit event colour, then assigned member fallback.
+  Widget _apptAgendaRow(
+    CalendarOccurrence o, {
+    bool popSheetFirst = false,
+    String rowKeyPrefix = 'agenda-appt',
+    VoidCallback? onToggleDone,
+  }) {
+    final ev = o.ev;
+    final col = evColor(ev);
+    final fg = contrastOn(col);
+    final cat = catById(ev.category);
+    final isTodo = o.isTask;
+    final done = o.done;
+    return Builder(
+      builder: (context) {
+        void openTap() {
+          if (popSheetFirst) Navigator.of(context).pop();
+          openEventView(ev.id, o.date);
+        }
+
+        return Opacity(
+          opacity: done ? _calendarFadedOpacity : 1,
+          child: GestureDetector(
+            key: ValueKey('$rowKeyPrefix-${ev.id}-${o.date}'),
+            onTap: openTap,
+            child: Container(
+              key: ValueKey('$rowKeyPrefix-surface-${ev.id}-${o.date}'),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+              decoration: BoxDecoration(
+                color: col,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  if (isTodo)
+                    GestureDetector(
+                      key: ValueKey('event-check-${ev.id}-${o.date}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        _toggleOccurrenceDone(o);
+                        onToggleDone?.call();
+                      },
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: done ? fg.withValues(alpha: .22) : null,
+                          border: Border.all(color: fg, width: 2),
+                        ),
+                        child: done
+                            ? Icon(Icons.check, size: 14, color: fg)
+                            : null,
+                      ),
+                    ),
+                  SizedBox(
+                    width: 40,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            ev.allDay ? 'All' : ev.start,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.05,
+                            ).copyWith(color: fg),
+                          ),
+                          Text(
+                            ev.allDay ? 'day' : ev.end,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              height: 1.05,
+                              color: fg.withValues(alpha: .75),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 32,
+                    margin: const EdgeInsets.symmetric(horizontal: 11),
+                    color: fg.withValues(alpha: .35),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            if (cat != null) ...[
+                              Container(
+                                key: ValueKey(
+                                  'agenda-title-category-${ev.id}-${o.date}',
+                                ),
+                                width: 20,
+                                height: 20,
+                                margin: const EdgeInsets.only(right: 7),
+                                decoration: BoxDecoration(
+                                  color: fg.withValues(alpha: .18),
+                                  borderRadius: BorderRadius.circular(7),
+                                  border: Border.all(
+                                    color: fg.withValues(alpha: .28),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: categoryGlyph(
+                                    cat,
+                                    size: 14,
+                                    iconColor: fg,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            Expanded(
+                              child: Text(
+                                ev.title,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: fg,
+                                  decoration: done
+                                      ? TextDecoration.lineThrough
+                                      : TextDecoration.none,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (ev.recur != 'none')
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ic('repeat', size: 10, sw: 2.6, color: fg),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Repeats ${ev.recur}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: fg.withValues(alpha: .85),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (ev.attendees.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    KeyedSubtree(
+                      key: ValueKey('agenda-attendees-${ev.id}-${o.date}'),
+                      child: _attendeeStack(
+                        ev.attendees,
+                        22,
+                        maxShown: ev.attendees.length,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            for (final o in groups[date]!) ...[
-              _eventCard(o),
-              const SizedBox(height: 9),
-            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Agenda "To-Dos" row — a white bordered card with a tappable checkbox
+  /// (untouched semantics: tapping calls [_toggleOccurrenceDone], which
+  /// removes the occurrence once its underlying [CalendarEvent] is marked
+  /// done) and a recurrence badge chip (`taskRow()` in the design). [checkColor]
+  /// lets the Kitchen Dashboard fill the checkbox with the member's colour
+  /// instead of the to-do layer's accent; [showAvatar] is turned off there
+  /// too since each column is already scoped to one member.
+  // ignore: unused_element
+  Widget _taskAgendaRow(
+    CalendarOccurrence o, {
+    Color? checkColor,
+    bool showAvatar = true,
+  }) {
+    final ev = o.ev;
+    final accent = checkColor ?? const Color(0xff2563eb);
+    return Container(
+      key: ValueKey('agenda-task-${ev.id}-${o.date}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            key: ValueKey('event-check-${ev.id}-${o.date}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleOccurrenceDone(o),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accent, width: 2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            // The recurrence badge sits below the title in its own row —
+            // rather than sharing the title's line — so it can never force
+            // a fixed-width horizontal overflow when this row is narrow
+            // (e.g. a Kitchen Dashboard member column).
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => openEventView(ev.id, o.date),
+                  child: Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
+                  ),
+                ),
+                if (ev.recur != 'none')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    // `FittedBox` (rather than a bare `Container`/`Row`)
+                    // guarantees this badge never render-overflows however
+                    // narrow its column gets (e.g. a Kitchen Dashboard
+                    // member tile) — it scales itself down to fit instead.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: B.soft,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ic('repeat', size: 9.5, sw: 2.6, color: B.deep),
+                            const SizedBox(width: 3),
+                            Text(
+                              ev.recur,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: B.deep,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (showAvatar) ...[
+            const SizedBox(width: 8),
+            _attendeeStack(ev.attendees, 22),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Agenda "Content creation" row — a white card with a dashed pink
+  /// border, a small camera icon badge, and a pink "Content" label beneath
+  /// the title (`contentRow()` in the design). [checkColor] lets the
+  /// Kitchen Dashboard fill the checkbox with the member's colour instead
+  /// of the content layer's pink accent; [showAvatar] is turned off there
+  /// too since each column is already scoped to one member.
+  // ignore: unused_element
+  Widget _contentAgendaRow(
+    CalendarOccurrence o, {
+    Color? checkColor,
+    bool showAvatar = true,
+    CalendarLayerDef? layer,
+  }) {
+    final ev = o.ev;
+    final def = layer ?? layerDefFor(o.layer);
+    final pink = def?.color ?? const Color(0xffdb2777);
+    final accent = checkColor ?? pink;
+    return Container(
+      key: ValueKey('agenda-content-${ev.id}-${o.date}'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+      ),
+      foregroundDecoration: _DashedBoxDecoration(color: pink, radius: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: pink.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: glyphTile(
+              size: 30,
+              radius: 10,
+              picture: def?.picture,
+              emoji: def?.emoji,
+              emojiSize: 16,
+              fallback: Center(
+                child: ic(
+                  def?.icon ?? 'camera',
+                  size: 15,
+                  sw: 2.1,
+                  color: pink,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => openEventView(ev.id, o.date),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ev.title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    def?.label ?? 'Content',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: pink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            key: ValueKey('event-check-${ev.id}-${o.date}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _toggleOccurrenceDone(o),
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accent, width: 2),
+              ),
+            ),
+          ),
+          if (showAvatar) ...[
+            const SizedBox(width: 8),
+            _attendeeStack(ev.attendees, 22),
           ],
         ],
       ),
@@ -1451,234 +1197,22 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------------- card
-  Widget _eventCard(CalendarOccurrence o, {bool popSheetFirst = false}) {
-    final ev = o.ev;
-    final col = evColor(ev);
-    final cat = catById(ev.category);
-    final imp = o.imported;
-    final isTask = o.isTask;
-
-    final inner = Row(
-      children: [
-        Container(
-          width: 4,
-          constraints: const BoxConstraints(minHeight: 34),
-          decoration: BoxDecoration(
-            color: col,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  if (cat != null) ...[
-                    Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: col,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: categoryGlyph(
-                        cat,
-                        size: 18,
-                        iconColor: contrastOn(col),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                  Flexible(
-                    child: Text(
-                      ev.title,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 3),
-              Wrap(
-                spacing: 6,
-                runSpacing: 2,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ic(
-                        o.isMultiDay ? 'cal' : 'clock',
-                        size: 12,
-                        sw: 2.2,
-                        color: B.muted,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        o.isMultiDay
-                            ? '${_shortDateIso(o.date)} – ${_shortDateIso(o.spanEnd)}'
-                            : (ev.allDay
-                                  ? 'All day'
-                                  : '${ev.start}${ev.end.isNotEmpty ? '–${ev.end}' : ''}'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: B.soft2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (ev.location.isNotEmpty)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ic('mappin', size: 12, sw: 2.2, color: B.muted),
-                        const SizedBox(width: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 120),
-                          child: Text(
-                            ev.location,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: B.soft2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  if (ev.recur != 'none')
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: B.soft,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ic('repeat', size: 10, sw: 2.4, color: B.deep),
-                          const SizedBox(width: 3),
-                          Text(
-                            ev.recur,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: B.deep,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (imp)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: B.faint,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ic('download', size: 10, sw: 2.4, color: B.soft2),
-                          const SizedBox(width: 3),
-                          Text(
-                            ev.createdBy ?? 'Imported',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: B.soft2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (isTask)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: B.faint,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ic('tasklist', size: 10, sw: 2.4, color: B.soft2),
-                          const SizedBox(width: 3),
-                          const Text(
-                            'Task',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              color: B.soft2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        if (!imp) ...[
-          const SizedBox(width: 8),
-          _attendeeStack(ev.attendees, 24),
-        ],
-      ],
-    );
-
-    final key = ValueKey('event-${ev.id}-${o.date}');
-    final decoration = BoxDecoration(
-      color: imp ? const Color(0xfffbfcfd) : Colors.white,
-      border: Border.all(color: B.line),
-      borderRadius: BorderRadius.circular(14),
-      boxShadow: cardShadow(),
-    );
-
-    return Builder(
-      builder: (context) => GestureDetector(
-        key: key,
-        onTap: () {
-          // From the day-detail sheet: pop it first so the event view opens
-          // as a single sheet, not stacked on top of a now-stale one that
-          // would otherwise still show pre-edit data once dismissed
-          // (issue #198).
-          if (popSheetFirst) Navigator.of(context).pop();
-          openEventView(ev.id, o.date);
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-          decoration: decoration,
-          child: inner,
-        ),
-      ),
-    );
-  }
+  Widget _eventCard(
+    CalendarOccurrence o, {
+    bool popSheetFirst = false,
+    VoidCallback? onToggleDone,
+  }) => _apptAgendaRow(
+    o,
+    popSheetFirst: popSheetFirst,
+    rowKeyPrefix: 'event',
+    onToggleDone: onToggleDone,
+  );
 
   /// A small overlapping avatar stack for event attendees, mirroring the
   /// design's `mStack()`. Calendar-only (Lists never needed multi-avatar
   /// overlap since tasks have a single assignee).
-  Widget _attendeeStack(List<String> memberIds, double size) {
-    final shown = memberIds.take(3).toList();
+  Widget _attendeeStack(List<String> memberIds, double size, {int? maxShown}) {
+    final shown = memberIds.take(maxShown ?? 3).toList();
     if (shown.isEmpty) return const SizedBox.shrink();
     return SizedBox(
       width: size + (shown.length - 1) * size * 0.6,
@@ -1699,5 +1233,61 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         ],
       ),
     );
+  }
+}
+
+/// A dashed rounded-rect border, painted as a [foregroundDecoration] —
+/// content-layer occurrences (Month bars, Agenda/day-detail cards) use this
+/// to stand out from the solid borders/fills of real appointments and
+/// household task pills (Calendar Layers design).
+class _DashedBoxDecoration extends Decoration {
+  const _DashedBoxDecoration({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+  final double strokeWidth = 1.2;
+  final double dashWidth = 3;
+  final double gapWidth = 2;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _DashedBoxPainter(this);
+}
+
+class _DashedBoxPainter extends BoxPainter {
+  _DashedBoxPainter(this.decoration);
+  final _DashedBoxDecoration decoration;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
+    final size = configuration.size ?? Size.zero;
+    if (size.isEmpty) return;
+    final paint = Paint()
+      ..color = decoration.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = decoration.strokeWidth;
+    final inset = decoration.strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      offset.dx + inset,
+      offset.dy + inset,
+      size.width - decoration.strokeWidth,
+      size.height - decoration.strokeWidth,
+    );
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(decoration.radius),
+    );
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = distance + decoration.dashWidth;
+        canvas.drawPath(
+          metric.extractPath(distance, next.clamp(0, metric.length)),
+          paint,
+        );
+        distance = next + decoration.gapWidth;
+      }
+    }
   }
 }

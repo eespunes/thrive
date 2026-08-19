@@ -265,6 +265,30 @@ void main() {
       expect(find.text('FB'), findsNothing);
     });
 
+    testWidgets('glyphTile renders a data-url picture over the fallback', (
+      tester,
+    ) async {
+      const png =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+          '+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: glyphTile(
+                size: 40,
+                radius: 8,
+                picture: 'data:image/png;base64,$png',
+                fallback: const Text('FB'),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.text('FB'), findsNothing);
+    });
+
     test('Category and Account persist emoji/picture across JSON', () {
       final c = Category(
         key: 'k',

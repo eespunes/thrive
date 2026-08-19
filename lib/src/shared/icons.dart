@@ -151,6 +151,13 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M8 2v4'],
     ['path', 'M3 10h18'],
   ],
+  'camera': [
+    [
+      'path',
+      'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z',
+    ],
+    ['circle', 12, 13, 3.5],
+  ],
   'sliders': [
     ['path', 'M4 21v-7'],
     ['path', 'M4 10V3'],

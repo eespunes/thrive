@@ -176,6 +176,22 @@ class ThriveDebugController {
   List<CalendarEvent> get events => _s.events;
   List<TaskList> get taskLists => _s.taskLists;
   List<ShoppingList> get shoppingLists => _s.shoppingLists;
+  List<CalendarLayerDef> get calendarLayers => _s.calendarLayers;
+  List<String> get layerFilter => _s.layerFilter;
+  List<EventCategory> get eventCategories => _s.eventCategories;
+  void addCalendarLayer({
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) => _s.addCalendarLayer(
+    label: label,
+    icon: icon,
+    emoji: emoji,
+    picture: picture,
+    color: color,
+  );
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
@@ -205,24 +221,24 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<CalendarEvent> events = [];
   List<EventCategory> eventCategories = [];
   List<ImportedCalendar> importedCalendars = [];
-  String calView = 'month'; // month | week | family | agenda
+  List<CalendarLayerDef> calendarLayers = kDefaultCalendarLayers();
+  Map<String, int> starsMap = {};
+  bool kitchenEnabled = true;
+  Map<String, bool> picMembers = {};
+  List<String> kitchenLayerFilter = ['appt', 'task', 'content'];
+  String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
+  String agendaDay = todayIso(); // day shown by Agenda view's week strip
   List<String> calFilter = []; // member id multi-filter
   List<String> calCatFilter = []; // category id multi-filter
+  List<String> layerFilter = ['appt', 'task', 'content']; // enabled layers
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
-  final ScrollController calWeekTimelineController = ScrollController();
-  bool calWeekTimelineCentered = false;
-  // Tracks the week view's vertical hour-grid scroll offset so the sticky
-  // hour-number gutter (`_withStickyWeekHours`) can mirror it via a
-  // `NotificationListener` instead of reading `calWeekTimelineController`
-  // directly — the latter throws/falls back to 0 once more than one page's
-  // scroll view is attached to the shared controller, which happens
-  // routinely since `PageView.builder` keeps neighboring week pages mounted
-  // (issue #190).
-  double calWeekHourOffset = 0;
+  final PageController calWeekPageController = PageController(
+    initialPage: 10000,
+  );
   Map<String, bool> collapsed = {};
   String? swipedId;
   String? toast;
@@ -291,7 +307,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
     calPageController.dispose();
-    calWeekTimelineController.dispose();
+    calWeekPageController.dispose();
     super.dispose();
   }
 
@@ -453,14 +469,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted tasks and calendar events.
+  /// Re-derives pending reminders from persisted calendar events.
   Future<void> _rescheduleReminders() async {
-    for (final l in taskLists) {
-      for (final t in l.tasks) {
-        if (t.done || (t.due ?? '').isEmpty) continue;
-        await NotificationService.instance.scheduleTaskReminder(t);
-      }
-    }
     final importedEvents = [
       for (final cal in importedCalendars)
         if (cal.visible && cal.reminder != 'none')
@@ -548,6 +558,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     eventCategories = ws.eventCategories;
     importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
+    calendarLayers = ws.calendarLayers;
+    starsMap = ws.starsMap;
+    kitchenEnabled = ws.kitchenEnabled;
+    picMembers = ws.picMembers;
+    kitchenLayerFilter = ws.kitchenLayerFilter;
+    layerFilter = _savedLayerFilter(saved['layerFilter']);
     _syncRecurringSeries();
   }
 
@@ -567,6 +583,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         eventCategories: eventCategories,
         importedCalendars: importedCalendars,
         weeklyPlan: weeklyPlan,
+        calendarLayers: calendarLayers,
+        starsMap: starsMap,
+        kitchenEnabled: kitchenEnabled,
+        picMembers: picMembers,
+        kitchenLayerFilter: kitchenLayerFilter,
       ),
     };
     families = user != null ? [seedFamily('fam_main', user!, myId)] : [];
@@ -631,6 +652,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     tab = kValidTabs.contains(t) ? t : 'home';
   }
 
+  List<String> _savedLayerFilter(Object? raw) {
+    final restored = <String>[
+      for (final id in (raw as List? ?? const []))
+        if (id.toString().trim().isNotEmpty) id.toString(),
+    ];
+    return restored.isEmpty ? <String>['appt', 'task', 'content'] : restored;
+  }
+
   Future<void> _seedFromAsset() async {
     // First launch with no stored state: seed the bundled sample budget so the
     // app isn't empty. Newly *created* families start blank (see issue #119).
@@ -646,6 +675,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       eventCategories = ws.eventCategories;
       importedCalendars = ws.importedCalendars;
       weeklyPlan = ws.weeklyPlan;
+      calendarLayers = ws.calendarLayers;
+      starsMap = ws.starsMap;
+      kitchenEnabled = ws.kitchenEnabled;
+      picMembers = ws.picMembers;
+      kitchenLayerFilter = ws.kitchenLayerFilter;
       _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
       ready = true;
@@ -667,6 +701,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
+      calendarLayers: calendarLayers,
+      starsMap: starsMap,
+      kitchenEnabled: kitchenEnabled,
+      picMembers: picMembers,
+      kitchenLayerFilter: kitchenLayerFilter,
     );
   }
 
@@ -694,6 +733,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'monthIdx': monthIdx,
       'screen': screen,
       'tab': tab,
+      'layerFilter': layerFilter,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {
@@ -1226,6 +1266,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       _didSyncImportsOnOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
     }
+    final bottomSystemInset = shellReady ? _bottomSystemInset(context) : 0.0;
     return Scaffold(
       backgroundColor: B.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is
@@ -1261,10 +1302,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 36,
+                bottom: 36 + bottomSystemInset,
                 child: Center(child: _buildToast()),
               ),
-            ?(shellReady ? _buildFab() : null),
+            ?(shellReady
+                ? _buildFab(bottomSystemInset: bottomSystemInset)
+                : null),
             // Auth gate: covers the app until a user is signed in.
             if (authOpen) Positioned.fill(child: _AuthScreen(state: this)),
             // While a signed-in user's cloud families are still loading, show a

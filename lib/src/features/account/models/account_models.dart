@@ -228,12 +228,27 @@ class Workspace {
     List<EventCategory>? eventCategories,
     List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
+    List<CalendarLayerDef>? calendarLayers,
+    Map<String, int>? starsMap,
+    this.kitchenEnabled = true,
+    Map<String, bool>? picMembers,
+    List<String>? kitchenLayerFilter,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
-       weeklyPlan = weeklyPlan ?? <String, DayPlan>{};
+       weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
+       // A brand-new workspace starts with NO layers — the user builds their
+       // own set via "+ Add layer" (issue #203-#211). We only ever default
+       // to the empty list here; callers that legitimately need the 3
+       // built-ins pre-seeded (legacy-data backfill in [Workspace.fromJson],
+       // or the bundled first-launch sample) pass them explicitly.
+       calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
+       starsMap = starsMap ?? <String, int>{},
+       picMembers = picMembers ?? <String, bool>{},
+       kitchenLayerFilter =
+           kitchenLayerFilter ?? <String>['appt', 'task', 'content'];
 
   List<Account> accounts;
   List<Category> cats;
@@ -244,9 +259,35 @@ class Workspace {
   List<EventCategory> eventCategories;
   List<ImportedCalendar> importedCalendars;
 
+  /// User-customizable calendar layers (built-ins + any custom ones), in
+  /// display order. A brand-new workspace starts with none — the user adds
+  /// their own. [Workspace.fromJson] backfills the 3 legacy built-ins only
+  /// when the `calendarLayers` key was never present in the saved data at
+  /// all (i.e. saved by an app version before layers existed), so every
+  /// pre-existing family keeps today's exact layers with zero visible
+  /// change; an explicitly-empty saved list (a family that already adopted
+  /// this feature and has no layers) stays empty.
+  List<CalendarLayerDef> calendarLayers;
+
   /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
   /// days with content need an entry.
   Map<String, DayPlan> weeklyPlan;
+
+  /// Kitchen-dashboard star reward count per member id (0-5). Missing
+  /// memberId means 0. Reset only by the "claim reward" action.
+  Map<String, int> starsMap;
+
+  /// Whether the wall-tablet Kitchen dashboard is enabled for this family.
+  bool kitchenEnabled;
+
+  /// Per-member "Picture mode" override for the Kitchen dashboard (large
+  /// image tile, no text — for pre-readers). Missing memberId means `false`.
+  Map<String, bool> picMembers;
+
+  /// Kitchen-dashboard layer visibility, independent from the phone
+  /// calendar's [layerFilter]. Controls every calendar layer shown on the
+  /// wall display; kitchen-origin items are layerless and always independent.
+  List<String> kitchenLayerFilter;
 
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
@@ -265,6 +306,11 @@ class Workspace {
     'weeklyPlan': {
       for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
     },
+    'calendarLayers': calendarLayers.map((l) => l.toJson()).toList(),
+    if (starsMap.isNotEmpty) 'starsMap': starsMap,
+    'kitchenEnabled': kitchenEnabled,
+    if (picMembers.isNotEmpty) 'picMembers': picMembers,
+    'kitchenLayerFilter': kitchenLayerFilter,
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -281,10 +327,10 @@ class Workspace {
         Category.fromJson(Map<String, dynamic>.from(c as Map)),
     ];
     final data = <int, Map<String, MonthData>>{};
-    (j['data'] as Map<String, dynamic>? ?? {}).forEach((yr, months) {
+    Map<String, dynamic>.from((j['data'] as Map?) ?? {}).forEach((yr, months) {
       final yKey = int.tryParse(yr) ?? 2026;
       final map = <String, MonthData>{};
-      (months as Map<String, dynamic>).forEach((mk, md) {
+      Map<String, dynamic>.from(months as Map).forEach((mk, md) {
         map[mk] = MonthData.fromJson(Map<String, dynamic>.from(md as Map));
       });
       data[yKey] = map;
@@ -317,6 +363,38 @@ class Workspace {
           Map<String, dynamic>.from(entry.value as Map),
         ),
     };
+    // Only a completely MISSING `calendarLayers` key (a workspace saved by an
+    // app version before layers existed at all) is backfilled with the 3
+    // legacy built-in defaults, so those pre-existing families see zero
+    // visible change. Once a workspace has round-tripped through this
+    // feature the key is always present, so a deliberately-empty saved list
+    // (a family that created and later deleted every layer, or simply never
+    // added one) must stay empty rather than being re-seeded.
+    final calendarLayers = j.containsKey('calendarLayers')
+        ? <CalendarLayerDef>[
+            for (final l in (j['calendarLayers'] as List? ?? const []))
+              CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
+          ]
+        : kDefaultCalendarLayers();
+    final defaultKitchenLayerFilter = calendarLayers.isNotEmpty
+        ? [for (final layer in calendarLayers) layer.id]
+        : <String>['appt', 'task', 'content'];
+    final kitchenLayerFilter = j.containsKey('kitchenLayerFilter')
+        ? [
+            for (final id in (j['kitchenLayerFilter'] as List? ?? const []))
+              id.toString(),
+          ]
+        : defaultKitchenLayerFilter;
+    final starsMap = <String, int>{
+      for (final entry
+          in (j['starsMap'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: ((entry.value as num?)?.toInt() ?? 0).clamp(0, 5),
+    };
+    final picMembers = <String, bool>{
+      for (final entry
+          in (j['picMembers'] as Map<String, dynamic>? ?? {}).entries)
+        entry.key: entry.value == true,
+    };
     return Workspace(
       accounts: accounts,
       cats: cats,
@@ -327,6 +405,11 @@ class Workspace {
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
+      calendarLayers: calendarLayers,
+      starsMap: starsMap,
+      kitchenEnabled: j['kitchenEnabled'] != false,
+      picMembers: picMembers,
+      kitchenLayerFilter: kitchenLayerFilter,
     );
   }
 

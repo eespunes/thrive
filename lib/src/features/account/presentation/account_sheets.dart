@@ -611,24 +611,18 @@ class _FamilySheet extends StatefulWidget {
 }
 
 class _FamilySheetState extends State<_FamilySheet> {
-  String? _editId; // member being edited inline
   bool _invite = false;
   bool _addNoEmail = false;
   late TextEditingController _rename;
-  final _mName = TextEditingController();
-  final _mEmail = TextEditingController();
   final _iName = TextEditingController();
   final _iEmail = TextEditingController();
   final _aName = TextEditingController();
-  final _mEmailFocus = FocusNode();
   final _iEmailFocus = FocusNode();
 
-  // Avatar picture/emoji for the "add member" and inline "edit member" forms
+  // Avatar picture/emoji for the "add member" form
   // (login-less members, e.g. kids, can't set their own profile picture).
   String? _aPhoto;
   String? _aEmoji;
-  String? _mPhoto;
-  String? _mEmoji;
 
   _ThriveHomeState get s => widget.state;
 
@@ -641,12 +635,9 @@ class _FamilySheetState extends State<_FamilySheet> {
   @override
   void dispose() {
     _rename.dispose();
-    _mName.dispose();
-    _mEmail.dispose();
     _iName.dispose();
     _iEmail.dispose();
     _aName.dispose();
-    _mEmailFocus.dispose();
     _iEmailFocus.dispose();
     super.dispose();
   }
@@ -692,7 +683,7 @@ class _FamilySheetState extends State<_FamilySheet> {
                       const SizedBox(width: 5),
                       const Flexible(
                         child: Text(
-                          'Tap a member to edit · remove with the trash icon',
+                          'Tap a member to edit · swipe to remove',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -827,7 +818,6 @@ class _FamilySheetState extends State<_FamilySheet> {
                   onTap: () {
                     s.switchFamily(x.id);
                     setState(() {
-                      _editId = null;
                       _invite = false;
                       _rename.text = s.curFamily()?.name ?? '';
                     });
@@ -967,148 +957,15 @@ class _FamilySheetState extends State<_FamilySheet> {
         owner &&
         !isMe &&
         (m.uid == null || m.status == 'invited' || m.email.trim().isEmpty);
-    if (_editId == m.id) {
-      final valid =
-          _mName.text.trim().isNotEmpty &&
-          (_mEmail.text.trim().isEmpty || _validEmail(_mEmail.text));
-      return Container(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-        decoration: const BoxDecoration(
-          color: B.soft,
-          border: Border(top: BorderSide(color: B.faint)),
-        ),
-        child: Column(
-          children: [
-            if (!isMe && m.uid == null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Center(
-                  child: _GlyphPicker(
-                    emoji: _mEmoji,
-                    picture: _mPhoto,
-                    onChanged: ({emoji, picture}) => setState(() {
-                      _mEmoji = emoji;
-                      _mPhoto = picture;
-                    }),
-                  ),
-                ),
-              ),
-            _sheetField(
-              'Name',
-              _sheetInput(
-                _mName,
-                hint: 'Name',
-                textInputAction: TextInputAction.next,
-                onSubmitted: (_) => _mEmailFocus.requestFocus(),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            _sheetField(
-              'Email',
-              _sheetInput(
-                _mEmail,
-                hint: 'email (optional — leave blank for no login)',
-                focusNode: _mEmailFocus,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  if (valid) {
-                    s.editMember(
-                      m.id,
-                      _mName.text.trim(),
-                      _mEmail.text.trim(),
-                      photo: _mPhoto,
-                      emoji: _mEmoji,
-                      photoTouched: !isMe && m.uid == null,
-                      emojiTouched: !isMe && m.uid == null,
-                    );
-                    setState(() => _editId = null);
-                  }
-                },
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _editId = null),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: B.line),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: B.text,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: GestureDetector(
-                    key: const ValueKey('member-save'),
-                    onTap: valid
-                        ? () {
-                            s.editMember(
-                              m.id,
-                              _mName.text.trim(),
-                              _mEmail.text.trim(),
-                              photo: _mPhoto,
-                              emoji: _mEmoji,
-                              photoTouched: !isMe && m.uid == null,
-                              emojiTouched: !isMe && m.uid == null,
-                            );
-                            setState(() => _editId = null);
-                          }
-                        : null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      decoration: BoxDecoration(
-                        color: valid ? B.primary : const Color(0xffcbd3dc),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Save',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
     final pill = s.memberPill(m.role, m.status);
     final canEdit = isMe || editableByOwner || isLoginLess;
     // Anyone can remove a login-less member on their behalf (they can't
     // remove themselves), same reasoning as editing them above.
     final canRemove = !isMe && (owner || isLoginLess);
-    return GestureDetector(
-      key: ValueKey('member-${m.id}'),
+    final inner = GestureDetector(
+      key: ValueKey('member-edit-${m.id}'),
       onTap: canEdit
-          ? () => setState(() {
-              _editId = m.id;
-              _mName.text = m.name;
-              _mEmail.text = m.email;
-              _mPhoto = m.photo;
-              _mEmoji = m.emoji;
-            })
+          ? () => _openMemberEditSheet(m, canEditAvatar: !isMe && m.uid == null)
           : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1210,35 +1067,40 @@ class _FamilySheetState extends State<_FamilySheet> {
                 ),
               ),
             ),
-            if (canRemove) ...[
-              const SizedBox(width: 8),
-              GestureDetector(
-                key: ValueKey('member-remove-${m.id}'),
-                onTap: () => s.askDelete(
-                  m.name,
-                  'This person will lose access to the ${f.name} workspace.',
-                  () {
-                    s.removeMember(m.id);
-                    setState(() {});
-                  },
-                ),
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: B.faint,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: ic('trash', size: 15, sw: 2.2, color: B.red),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
+    if (!canRemove) return inner;
+    return _SwipeRow(
+      key: ValueKey('member-${m.id}'),
+      open: s.swipedId == 'member-${m.id}',
+      onOpenChanged: (open) =>
+          s.update(() => s.swipedId = open ? 'member-${m.id}' : null),
+      onDelete: () => s.askDelete(
+        m.name,
+        'This person will lose access to the ${f.name} workspace.',
+        () {
+          s.removeMember(m.id);
+          setState(() {});
+        },
+      ),
+      child: inner,
+    );
+  }
+
+  Future<void> _openMemberEditSheet(
+    FamilyMember member, {
+    required bool canEditAvatar,
+  }) async {
+    await s._showSheet(
+      (context) => _MemberEditSheet(
+        state: s,
+        member: member,
+        canEditAvatar: canEditAvatar,
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   Widget _inviteCard() {
@@ -1459,6 +1321,162 @@ class _FamilySheetState extends State<_FamilySheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberEditSheet extends StatefulWidget {
+  const _MemberEditSheet({
+    required this.state,
+    required this.member,
+    required this.canEditAvatar,
+  });
+
+  final _ThriveHomeState state;
+  final FamilyMember member;
+  final bool canEditAvatar;
+
+  @override
+  State<_MemberEditSheet> createState() => _MemberEditSheetState();
+}
+
+class _MemberEditSheetState extends State<_MemberEditSheet> {
+  late final TextEditingController _name;
+  late final TextEditingController _email;
+  final _emailFocus = FocusNode();
+  String? _photo;
+  String? _emoji;
+
+  bool get _valid =>
+      _name.text.trim().isNotEmpty &&
+      (_email.text.trim().isEmpty || _kEmailRe.hasMatch(_email.text.trim()));
+
+  @override
+  void initState() {
+    super.initState();
+    final member = widget.member;
+    _name = TextEditingController(text: member.name);
+    _email = TextEditingController(text: member.email);
+    _photo = member.photo;
+    _emoji = member.emoji;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _emailFocus.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_valid) return;
+    widget.state.editMember(
+      widget.member.id,
+      _name.text.trim(),
+      _email.text.trim(),
+      photo: _photo,
+      emoji: _emoji,
+      photoTouched: widget.canEditAvatar,
+      emojiTouched: widget.canEditAvatar,
+    );
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sheetHead(context, 'Edit member'),
+          if (widget.canEditAvatar)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Center(
+                child: _GlyphPicker(
+                  emoji: _emoji,
+                  picture: _photo,
+                  onChanged: ({emoji, picture}) => setState(() {
+                    _emoji = emoji;
+                    _photo = picture;
+                  }),
+                ),
+              ),
+            ),
+          _sheetField(
+            'Name',
+            _sheetInput(
+              _name,
+              hint: 'Name',
+              textInputAction: TextInputAction.next,
+              onSubmitted: (_) => _emailFocus.requestFocus(),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          _sheetField(
+            'Email',
+            _sheetInput(
+              _email,
+              hint: 'email (optional — leave blank for no login)',
+              focusNode: _emailFocus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _save(),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: B.line),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: B.text,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: GestureDetector(
+                  key: const ValueKey('member-save'),
+                  onTap: _valid ? _save : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: _valid ? B.primary : const Color(0xffcbd3dc),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'Save',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                       ),

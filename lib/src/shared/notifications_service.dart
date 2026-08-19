@@ -1,22 +1,17 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Local time of day a task due-date reminder fires on the due date.
-const int kTaskReminderHour = 9;
-
-/// Minimal surface `list_actions.dart` schedules/cancels task reminders
-/// through, so tests can substitute a fake instead of hitting the real
-/// `flutter_local_notifications` platform channel (#154).
+/// Minimal surface `thrive_home.dart` schedules/cancels calendar event
+/// reminders through, so tests can substitute a fake instead of hitting the
+/// real `flutter_local_notifications` platform channel (#154).
 abstract class NotificationScheduler {
-  Future<void> scheduleTaskReminder(ListTask task);
-  Future<void> cancelTaskReminder(String taskId);
   Future<void> scheduleEventReminder(CalendarEvent event);
   Future<void> cancelEventReminder(String eventId);
   Future<void> syncEventReminders(Iterable<CalendarEvent> events);
 }
 
-/// Local notifications for task due dates and calendar event reminders.
-/// Wraps every plugin call in try/catch: a missing platform channel (tests,
-/// unsupported platform) or denied permission never blocks saving user data.
+/// Local notifications for calendar event reminders. Wraps every plugin call
+/// in try/catch: a missing platform channel (tests, unsupported platform) or
+/// denied permission never blocks saving user data.
 class NotificationService implements NotificationScheduler {
   NotificationService._();
 
@@ -65,59 +60,11 @@ class NotificationService implements NotificationScheduler {
     pendingNotificationDeepLink.value = payload;
   }
 
-  /// Stable notification id derived from the task's string id.
-  int _notificationId(String taskId) => taskId.hashCode & 0x7fffffff;
+  /// Stable notification id derived from a string key.
+  int _notificationId(String key) => key.hashCode & 0x7fffffff;
 
   int _eventNotificationId(String eventId, String date) =>
       _notificationId('event:$eventId:$date');
-
-  @override
-  Future<void> scheduleTaskReminder(ListTask task) async {
-    if (!_initialized) return;
-    final due = task.due;
-    if (due == null || due.isEmpty) return;
-    final date = DateTime.tryParse(due);
-    if (date == null) return;
-    try {
-      final granted = await _requestPermission();
-      if (!granted) return;
-      final when = tz.TZDateTime.local(
-        date.year,
-        date.month,
-        date.day,
-        kTaskReminderHour,
-      );
-      if (when.isBefore(tz.TZDateTime.now(tz.local))) return;
-      await _plugin.zonedSchedule(
-        _notificationId(task.id),
-        task.title,
-        'Due today',
-        when,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'task_reminders',
-            'Task reminders',
-            importance: Importance.defaultImportance,
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: 'task:${task.id}',
-      );
-    } catch (e) {
-      debugPrint('[notifications] schedule failed: $e');
-    }
-  }
-
-  @override
-  Future<void> cancelTaskReminder(String taskId) async {
-    if (!_initialized) return;
-    try {
-      await _plugin.cancel(_notificationId(taskId));
-    } catch (e) {
-      debugPrint('[notifications] cancel failed: $e');
-    }
-  }
 
   @override
   Future<void> scheduleEventReminder(CalendarEvent event) async {

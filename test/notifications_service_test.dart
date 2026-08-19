@@ -1,10 +1,10 @@
 // Exercises `NotificationService` (lib/src/shared/notifications_service.dart)
 // directly against fake platform channels, since it's normally swapped out
-// behind `NotificationScheduler` in widget tests (see calendar_test.dart /
-// list_actions.dart usages). Covers init, permission requests, task/event
-// scheduling (including recurring occurrences, exceptions, reminder-body
-// formatting) and cancellation — all the branches that don't fire in the
-// higher-level widget tests because those substitute a fake scheduler.
+// behind `NotificationScheduler` in widget tests (see calendar_test.dart
+// usages). Covers init, permission requests, event scheduling (including
+// recurring occurrences, exceptions, reminder-body formatting) and
+// cancellation — all the branches that don't fire in the higher-level widget
+// tests because those substitute a fake scheduler.
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 // The plugin normally registers its method-channel platform implementation
@@ -108,10 +108,6 @@ void main() {
     () async {
       // Deliberately skip NotificationService.init() to hit the `!_initialized`
       // guard clauses across every public method.
-      await NotificationService.instance.scheduleTaskReminder(
-        ListTask(id: 't1', title: 'x', due: '2099-01-01'),
-      );
-      await NotificationService.instance.cancelTaskReminder('t1');
       await NotificationService.instance.scheduleEventReminder(event());
       await NotificationService.instance.cancelEventReminder('ev1');
       await NotificationService.instance.syncEventReminders([event()]);
@@ -134,54 +130,6 @@ void main() {
           throw PlatformException(code: 'error');
         });
     await NotificationService.refreshTimeZone();
-  });
-
-  test('scheduleTaskReminder schedules a zonedSchedule call for a task '
-      'with a future due date', () async {
-    await NotificationService.init();
-    final future = DateTime.now().add(const Duration(days: 5));
-    final due =
-        '${future.year.toString().padLeft(4, '0')}-'
-        '${future.month.toString().padLeft(2, '0')}-'
-        '${future.day.toString().padLeft(2, '0')}';
-    await NotificationService.instance.scheduleTaskReminder(
-      ListTask(id: 't1', title: 'Take out the bins', due: due),
-    );
-    expect(
-      scheduledCalls.where((c) => c.method == 'zonedSchedule'),
-      isNotEmpty,
-    );
-  });
-
-  test('scheduleTaskReminder is a no-op for a task with no due date, an '
-      'unparseable due date, or a due date already in the past', () async {
-    await NotificationService.init();
-    await NotificationService.instance.scheduleTaskReminder(
-      ListTask(id: 't1', title: 'No due date'),
-    );
-    await NotificationService.instance.scheduleTaskReminder(
-      ListTask(id: 't2', title: 'Bad due date', due: 'not-a-date'),
-    );
-    await NotificationService.instance.scheduleTaskReminder(
-      ListTask(id: 't3', title: 'Past due date', due: '2000-01-01'),
-    );
-    expect(scheduledCalls, isEmpty);
-  });
-
-  test('cancelTaskReminder cancels by the task-derived id', () async {
-    await NotificationService.init();
-    await NotificationService.instance.cancelTaskReminder('t1');
-    expect(cancelledIds, isNotEmpty);
-  });
-
-  test('cancelTaskReminder swallows a plugin failure', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(_pluginChannel, (call) async {
-          if (call.method == 'initialize') return true;
-          throw PlatformException(code: 'error');
-        });
-    await NotificationService.init();
-    await NotificationService.instance.cancelTaskReminder('t1');
   });
 
   test('a notification tap dispatched by the plugin updates the pending '
@@ -325,24 +273,6 @@ void main() {
       event(id: 'ev-bad-suffix', reminder: '2z', start: '09:00'),
     );
     expect(scheduledCalls.length, greaterThanOrEqualTo(8));
-  });
-
-  test('scheduleTaskReminder swallows a plugin failure', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(_pluginChannel, (call) async {
-          if (call.method == 'initialize') return true;
-          if (call.method == 'requestNotificationsPermission') return true;
-          throw PlatformException(code: 'error');
-        });
-    await NotificationService.init();
-    final future = DateTime.now().add(const Duration(days: 5));
-    final due =
-        '${future.year.toString().padLeft(4, '0')}-'
-        '${future.month.toString().padLeft(2, '0')}-'
-        '${future.day.toString().padLeft(2, '0')}';
-    await NotificationService.instance.scheduleTaskReminder(
-      ListTask(id: 't1', title: 'x', due: due),
-    );
   });
 
   test('scheduleEventReminder swallows a plugin failure', () async {

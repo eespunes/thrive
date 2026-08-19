@@ -22,9 +22,17 @@ class CalendarEvent {
     List<int>? recurWeekdays,
     this.createdBy,
     List<String>? exceptions,
+    this.layerId = 'appt',
+    this.todo = false,
+    this.done = false,
+    Map<String, bool>? doneDates,
+    this.kitchenOrigin = false,
+    this.picture,
+    this.emoji,
   }) : attendees = attendees ?? <String>['me'],
        recurWeekdays = recurWeekdays ?? <int>[],
-       exceptions = exceptions ?? <String>[];
+       exceptions = exceptions ?? <String>[],
+       doneDates = doneDates ?? <String, bool>{};
 
   String id;
   String title;
@@ -70,6 +78,48 @@ class CalendarEvent {
   /// ISO dates removed from a recurring series (single-occurrence deletes).
   List<String> exceptions;
 
+  /// The [CalendarLayerDef.id] this event belongs to — `appt` (the default,
+  /// preserving pre-layers behaviour), `task`, `content`, or any custom
+  /// layer id. Kitchen-origin-only items may use an empty layer id because
+  /// they are independent from the phone calendar.
+  String layerId;
+
+  /// Whether this event behaves like a to-do (checkbox + completion), while
+  /// [layerId] remains purely organizational. Older saved items without this
+  /// flag are migrated in [fromJson] from the historic To-Dos layer.
+  bool todo;
+
+  /// Completion state for a non-recurring to-do event. For a recurring event,
+  /// completion is tracked per-occurrence in [doneDates] instead — this field
+  /// is ignored in that case. Meaningless for plain appointments but harmless.
+  bool done;
+
+  /// ISO date -> completed, for occurrence completion of a recurring
+  /// task-like event. Mirrors `ListTask.doneDates`.
+  Map<String, bool> doneDates;
+
+  /// True only for events created directly on the Kitchen dashboard's
+  /// quick-add sheet (as opposed to the phone's event editor). Kitchen-origin
+  /// items show a remove (×) control on the dashboard and can be deleted from
+  /// there; phone-created items cannot (they're edited/removed from the
+  /// phone's calendar instead). Purely a UI/permission flag — kitchen-origin
+  /// events are otherwise ordinary [CalendarEvent]s, but phone calendar
+  /// views skip them so kitchen-only chores remain independent.
+  bool kitchenOrigin;
+
+  /// Optional base64 photo for this item's Kitchen-dashboard picture-mode
+  /// tile. Like category visuals, [picture] wins over [emoji].
+  String? picture;
+
+  /// Optional emoji for this item's Kitchen-dashboard picture-mode tile.
+  /// Mutually exclusive with [picture] in the shared glyph picker.
+  String? emoji;
+
+  /// Whether the occurrence on [iso] is completed. Falls back to [done] for
+  /// non-recurring events so old data with only a `done` flag keeps working.
+  bool isDoneOn(String iso) =>
+      recur == 'none' ? done : (doneDates[iso] ?? false);
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
@@ -90,6 +140,13 @@ class CalendarEvent {
     if (recurWeekdays.isNotEmpty) 'recurWeekdays': recurWeekdays,
     if (createdBy != null) 'createdBy': createdBy,
     'exceptions': exceptions,
+    if (layerId.isNotEmpty && layerId != 'appt') 'layerId': layerId,
+    if (todo) 'todo': todo,
+    'done': done,
+    if (doneDates.isNotEmpty) 'doneDates': doneDates,
+    if (kitchenOrigin) 'kitchenOrigin': kitchenOrigin,
+    if (picture != null) 'picture': picture,
+    if (emoji != null) 'emoji': emoji,
   };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
@@ -121,6 +178,28 @@ class CalendarEvent {
     exceptions: [
       for (final e in (j['exceptions'] as List? ?? [])) e.toString(),
     ],
+    layerId: j['kitchenOrigin'] == true
+        ? ''
+        : ((j['layerId'] as String?)?.isNotEmpty == true
+              ? j['layerId'] as String
+              : 'appt'),
+    todo:
+        j['todo'] == true ||
+        (j['todo'] == null &&
+            j['kitchenOrigin'] != true &&
+            j['layerId'] == 'task'),
+    done: j['done'] == true,
+    doneDates: {
+      for (final entry in (j['doneDates'] as Map? ?? {}).entries)
+        entry.key.toString(): entry.value == true,
+    },
+    kitchenOrigin: j['kitchenOrigin'] == true,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture'] as String
+        : null,
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true
+        ? j['emoji'] as String
+        : null,
   );
 }
 
@@ -134,11 +213,18 @@ class EventCategory {
     this.emoji,
     this.picture,
     List<String>? members,
+    this.layerId = 'appt',
   }) : members = members ?? <String>[];
 
   String id;
   String name;
   Color color;
+
+  /// The [CalendarLayerDef.id] this category is scoped to — categories are
+  /// layer-scoped, so the event editor only offers categories whose
+  /// [layerId] matches the event's selected layer. Defaults to `appt` for
+  /// backward compatibility with categories saved before layer-scoping.
+  String layerId;
 
   /// Legacy stroke-icon name, rendered only as the fallback when no
   /// [emoji]/[picture] is set (matches the budget block picker, issue #131).
@@ -161,6 +247,7 @@ class EventCategory {
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
     'members': members,
+    if (layerId != 'appt') 'layerId': layerId,
   };
 
   factory EventCategory.fromJson(Map<String, dynamic> j) => EventCategory(
@@ -173,8 +260,95 @@ class EventCategory {
         ? j['picture']
         : null,
     members: [for (final m in (j['members'] as List? ?? [])) m.toString()],
+    layerId: (j['layerId'] as String?)?.isNotEmpty == true
+        ? j['layerId'] as String
+        : 'appt',
   );
 }
+
+/// A user-customizable calendar layer definition — drives the calendar's
+/// layer-toggle chips/sections, the Agenda view's section order, week-strip
+/// dots and Month-view bar colours. The 3 built-ins (`appt`/`task`/
+/// `content`) are only default starter layers; they are not protected from
+/// editing or deletion.
+/// Order in [Workspace.calendarLayers] IS the display order (mirrors the
+/// design's `layerDefs`/`moveLayer`).
+class CalendarLayerDef {
+  CalendarLayerDef({
+    required this.id,
+    required this.label,
+    required this.icon,
+    this.emoji,
+    this.picture,
+    required this.color,
+    this.core = false,
+  });
+
+  String id;
+  String label;
+
+  /// Legacy stroke-icon name, rendered only as the fallback when no
+  /// [emoji]/[picture] is set (matches [EventCategory.icon]).
+  String icon;
+
+  /// Optional emoji shown instead of the icon.
+  String? emoji;
+
+  /// Optional base64 picture shown instead of the emoji/icon.
+  String? picture;
+  Color color;
+
+  /// Legacy flag kept for old saved payloads. New and restored layers are
+  /// treated as user-manageable, so this is always false going forward.
+  bool core;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'label': label,
+    'icon': icon,
+    if (emoji != null) 'emoji': emoji,
+    if (picture != null) 'picture': picture,
+    'color': color.toARGB32(),
+    'core': core,
+  };
+
+  factory CalendarLayerDef.fromJson(Map<String, dynamic> j) => CalendarLayerDef(
+    id: (j['id'] ?? uid()).toString(),
+    label: (j['label'] ?? 'Layer').toString(),
+    icon: (j['icon'] ?? 'cal').toString(),
+    emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
+    picture: (j['picture'] as String?)?.isNotEmpty == true
+        ? j['picture']
+        : null,
+    color: Color((j['color'] as num?)?.toInt() ?? 0xff475569),
+    core: false,
+  );
+}
+
+/// The 3 built-in calendar layers, in their original order/colours — used
+/// both as the seed for brand-new workspaces and to backfill any legacy
+/// workspace saved before layers became customizable (see
+/// `Workspace.fromJson`).
+List<CalendarLayerDef> kDefaultCalendarLayers() => [
+  CalendarLayerDef(
+    id: 'appt',
+    label: 'Appointments',
+    icon: 'cal',
+    color: B.primary,
+  ),
+  CalendarLayerDef(
+    id: 'task',
+    label: 'To-Dos',
+    icon: 'check',
+    color: const Color(0xff2563eb),
+  ),
+  CalendarLayerDef(
+    id: 'content',
+    label: 'Content',
+    icon: 'camera',
+    color: const Color(0xffdb2777),
+  ),
+];
 
 /// A single read-only event inside an [ImportedCalendar].
 class ImportedCalendarEvent {

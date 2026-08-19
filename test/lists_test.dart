@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_money_management_app/main.dart';
+
 import 'helpers.dart';
+
+/// Whether the chip/toggle `GestureDetector` at [key] renders "active"
+/// (its descendant `Container`'s border uses [B.primary]).
+bool chipActive(WidgetTester tester, Key key) {
+  final container = tester.widget<Container>(
+    find
+        .descendant(of: find.byKey(key), matching: find.byType(Container))
+        .first,
+  );
+  final deco = container.decoration! as BoxDecoration;
+  final border = deco.border;
+  if (border is Border) return border.top.color == B.primary;
+  return false;
+}
 
 /// The glyph picker's emoji field opens the in-app emoji picker from its `+`
 /// tile. The Recents tab starts empty, so we hop to Smileys (tab 1) and tap
@@ -179,110 +195,85 @@ void main() {
     },
   );
 
-  testWidgets(
-    'assign a task to a member and pick its due date via the native picker',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
+  testWidgets('assign a task to a member', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
 
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out bins');
-      await tester.pump();
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out bins');
+    await tester.pump();
 
-      // Assign to the signed-in member (the only one seeded by default).
-      await tester.tap(find.text('Eva Janssen'));
-      await tester.pump();
+    // Assign to the signed-in member (the only one seeded by default).
+    await tester.tap(find.text('Eva Janssen'));
+    await tester.pump();
 
-      // Open the native date picker instead of relying on the toggle's
-      // "defaults to today" shortcut.
-      await tester.tap(find.text('Due date'));
-      await tester.pumpAndSettle();
-      final now = DateTime.now();
-      final todayIsoText =
-          '${now.year.toString().padLeft(4, '0')}-'
-          '${now.month.toString().padLeft(2, '0')}-'
-          '${now.day.toString().padLeft(2, '0')}';
-      await tester.tap(find.text(todayIsoText));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Add task').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out bins'), findsOneWidget);
+  });
 
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out bins'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'add a task with a due date, edit it, un-complete it, then delete it',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
-
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Household'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Add task'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out bins');
-      await tester.pump();
-      // The "Due date" toggle defaults to today — no need to open the
-      // native date picker to have a valid due date set.
-      await tester.tap(find.text('Due date'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add task').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out bins'), findsOneWidget);
-
-      // Edit: reopen the sheet and change the title (saveTask's editing
-      // branch, task still has a due date -> reschedule).
-      await tester.tap(find.text('Take out bins'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Take out trash');
-      await tester.pump();
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
-      expect(find.text('Take out trash'), findsOneWidget);
-
-      // Toggle done (cancels reminder), then toggle again (reschedules,
-      // since it still has a due date).
-      await tester.tap(findCheckbox('task-check-'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('COMPLETED'), findsOneWidget);
-      await tester.tap(findCheckbox('task-check-'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('COMPLETED'), findsNothing);
-
-      // Delete the task itself (cancels its reminder).
-      await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').first, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Take out trash'), findsNothing);
-    },
-  );
-
-  testWidgets('deleting a list with tasks cancels their reminders', (
+  testWidgets('add a task, edit it, un-complete it, then delete it', (
     tester,
   ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+
+    await tester.tap(find.text('New list'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.pump();
+    await tester.tap(find.text('Create list'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Household'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add task'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out bins');
+    await tester.pump();
+    await tester.tap(find.text('Add task').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out bins'), findsOneWidget);
+
+    // Edit: reopen the sheet and change the title (saveTask's editing
+    // branch).
+    await tester.tap(find.text('Take out bins'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Take out trash');
+    await tester.pump();
+    await tester.tap(find.text('Save task'));
+    await tester.pumpAndSettle();
+    expect(find.text('Take out trash'), findsOneWidget);
+
+    // Toggle done, then toggle again.
+    await tester.tap(findCheckbox('task-check-'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('COMPLETED'), findsOneWidget);
+    await tester.tap(findCheckbox('task-check-'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('COMPLETED'), findsNothing);
+
+    // Delete the task itself.
+    await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Take out trash'), findsNothing);
+  });
+
+  testWidgets('deleting a list with tasks removes them', (tester) async {
     await pumpApp(tester);
     await goToLists(tester);
 

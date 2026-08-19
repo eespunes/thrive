@@ -4,6 +4,12 @@ part of 'package:family_money_management_app/main.dart';
 /// uploaded [picture] (base64) wins, then an [emoji], otherwise [fallback]
 /// (a legacy stroke icon or a colored initials tile). The result fills a
 /// [size]×[size] box clipped to [radius] (pass `size / 2` for a circle).
+Uint8List _decodeStoredPicture(String picture) {
+  final raw = picture.trim();
+  final comma = raw.startsWith('data:image/') ? raw.indexOf(',') : -1;
+  return base64Decode(comma >= 0 ? raw.substring(comma + 1) : raw);
+}
+
 Widget glyphTile({
   required double size,
   required double radius,
@@ -17,11 +23,12 @@ Widget glyphTile({
       return ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: Image.memory(
-          base64Decode(picture),
+          _decodeStoredPicture(picture),
           width: size,
           height: size,
           fit: BoxFit.cover,
           gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback,
         ),
       );
     } catch (_) {
@@ -829,6 +836,13 @@ class _SwipeRowState extends State<_SwipeRow>
 
   @override
   Widget build(BuildContext context) {
+    final deleteKey = widget.key is ValueKey<String>
+        ? ValueKey('${(widget.key! as ValueKey<String>).value}-delete')
+        : null;
+    final showDeleteAction = widget.open || _dx < 0;
+    final reveal = widget.open
+        ? 1.0
+        : (_dx.abs() / _actionWidth).clamp(0.0, 1.0);
     return Container(
       decoration: widget.topBorder
           ? const BoxDecoration(
@@ -844,29 +858,39 @@ class _SwipeRowState extends State<_SwipeRow>
               bottom: 0,
               right: 0,
               width: _actionWidth,
-              child: GestureDetector(
-                onTap: widget.onDelete,
-                child: Container(
-                  color: B.red,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ic('trash', size: 16, sw: 2.2, color: Colors.white),
-                      const SizedBox(height: 3),
-                      const Text(
-                        'Delete',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+              child: IgnorePointer(
+                ignoring: !showDeleteAction,
+                child: Opacity(
+                  opacity: reveal,
+                  child: GestureDetector(
+                    key: showDeleteAction ? deleteKey : null,
+                    onTap: widget.onDelete,
+                    child: Container(
+                      color: B.red,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ic('trash', size: 16, sw: 2.2, color: Colors.white),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Delete',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
             GestureDetector(
+              onHorizontalDragStart: (_) {
+                if (_dx == 0) setState(() => _dx = -1);
+              },
               onHorizontalDragUpdate: (d) => _onMove(d.primaryDelta ?? 0),
               onHorizontalDragEnd: _onEnd,
               child: AnimatedContainer(

@@ -7,20 +7,19 @@ class ListTask {
     required this.title,
     this.done = false,
     this.assignee,
-    this.due,
     this.createdBy,
     this.completedBy,
   });
 
   String id;
   String title;
+
+  /// Completion state for the task.
   bool done;
 
   /// Family member id this task is assigned to, or `null` for unassigned.
   String? assignee;
 
-  /// ISO `YYYY-MM-DD` due date, or `null` for no due date.
-  String? due;
   String? createdBy;
 
   /// Family member id who checked the task off, cleared when un-checked.
@@ -31,19 +30,19 @@ class ListTask {
     'title': title,
     'done': done,
     if (assignee != null) 'assignee': assignee,
-    if (due != null) 'due': due,
     if (createdBy != null) 'createdBy': createdBy,
     if (completedBy != null) 'completedBy': completedBy,
   };
 
+  /// Lists no longer support due dates or recurrence (Calendar Layers moved
+  /// scheduled to-dos to real `CalendarEvent`s). Old serialized data that
+  /// still has `due`/`recur`/etc. fields is simply ignored here rather than
+  /// crashing on load.
   factory ListTask.fromJson(Map<String, dynamic> j) => ListTask(
     id: (j['id'] ?? uid()).toString(),
     title: (j['title'] ?? '').toString(),
     done: j['done'] == true,
     assignee: j['assignee']?.toString(),
-    due: (j['due']?.toString().isNotEmpty ?? false)
-        ? j['due'].toString()
-        : null,
     createdBy: j['createdBy']?.toString(),
     completedBy: j['completedBy']?.toString(),
   );

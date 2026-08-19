@@ -11,7 +11,6 @@ void main() {
         title: 'Take out bins',
         done: true,
         assignee: 'm1',
-        due: '2026-08-01',
         createdBy: 'me',
         completedBy: 'm1',
       );
@@ -22,7 +21,6 @@ void main() {
       expect(restored.title, 'Take out bins');
       expect(restored.done, isTrue);
       expect(restored.assignee, 'm1');
-      expect(restored.due, '2026-08-01');
       expect(restored.createdBy, 'me');
       expect(restored.completedBy, 'm1');
     });
@@ -33,14 +31,25 @@ void main() {
       expect(t.title, '');
       expect(t.done, isFalse);
       expect(t.assignee, isNull);
-      expect(t.due, isNull);
       expect(t.createdBy, isNull);
       expect(t.completedBy, isNull);
     });
 
-    test('fromJson treats an empty due string as no due date', () {
-      final t = ListTask.fromJson(const {'due': ''});
-      expect(t.due, isNull);
+    test('fromJson ignores legacy due/recurrence fields from old data '
+        'instead of crashing', () {
+      final t = ListTask.fromJson(const {
+        'id': 't1',
+        'title': 'Legacy task',
+        'due': '2026-08-01',
+        'recur': 'weekly',
+        'recurEvery': 2,
+        'recurUnit': 'day',
+        'recurWeekdays': [2, 4],
+        'exceptions': ['2026-08-08'],
+        'doneDates': {'2026-08-01': true},
+      });
+      expect(t.id, 't1');
+      expect(t.title, 'Legacy task');
     });
   });
 
@@ -50,6 +59,7 @@ void main() {
         id: 'l1',
         name: 'Household',
         color: kMemberColors[1],
+        emoji: '🧹',
         tasks: [ListTask(id: 't1', title: 'Vacuum')],
       );
 
@@ -58,8 +68,20 @@ void main() {
       expect(restored.id, 'l1');
       expect(restored.name, 'Household');
       expect(restored.color, kMemberColors[1]);
+      expect(restored.emoji, '🧹');
       expect(restored.tasks, hasLength(1));
       expect(restored.tasks.first.title, 'Vacuum');
+    });
+
+    test('round-trips a picture', () {
+      final list = TaskList(
+        id: 'l1',
+        name: 'Household',
+        color: kMemberColors[1],
+        picture: 'base64==',
+      );
+      final restored = TaskList.fromJson(list.toJson());
+      expect(restored.picture, 'base64==');
     });
 
     test('fromJson fills sensible defaults when fields are missing', () {

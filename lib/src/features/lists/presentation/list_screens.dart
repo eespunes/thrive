@@ -35,20 +35,6 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  /// (label, color) for a due date relative to today, mirrors `dueLabel()`.
-  (String, Color)? _dueLabel(String? due) {
-    if (due == null || due.isEmpty) return null;
-    final d = DateTime.tryParse(due);
-    if (d == null) return null;
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final diff = DateTime(d.year, d.month, d.day).difference(todayDate).inDays;
-    if (diff < 0) return ('Overdue', B.red);
-    if (diff == 0) return ('Today', B.amberText);
-    if (diff == 1) return ('Tomorrow', B.soft2);
-    return ('${kMonthsShort[d.month - 1]} ${d.day}', B.soft2);
-  }
-
   // ---------------------------------------------------------------- hub
   Widget _buildListsHub() {
     final tl = openList();
@@ -370,12 +356,10 @@ extension _ThriveListScreens on _ThriveHomeState {
 
   // ---------------------------------------------------------- todo detail
   Widget _taskListDetail(TaskList l) {
-    final open = l.tasks.where((t) => !t.done).toList()
-      ..sort((a, b) => (a.due ?? '9999').compareTo(b.due ?? '9999'));
+    final open = l.tasks.where((t) => !t.done).toList();
     final done = l.tasks.where((t) => t.done).toList();
 
     Widget row(ListTask t) {
-      final dl = _dueLabel(t.due);
       final completer = t.done ? _memberById(t.completedBy) : null;
       final inner = Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
@@ -434,23 +418,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    if (dl != null && !t.done)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ic('clock', size: 11, sw: 2.3, color: dl.$2),
-                          const SizedBox(width: 3),
-                          Text(
-                            dl.$1,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: dl.$2,
-                            ),
-                          ),
-                        ],
-                      )
-                    else if (t.done && completer != null)
+                    if (t.done && completer != null)
                       Text(
                         'Done by ${completer.name}',
                         style: const TextStyle(

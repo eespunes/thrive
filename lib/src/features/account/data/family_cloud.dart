@@ -120,6 +120,12 @@ Future<Workspace> buildSampleWorkspace() async {
     accounts: defaultAccounts(),
     cats: cats,
     data: {2026: yearMap},
+    // Unlike a genuinely new family (which starts with zero calendar
+    // layers, see [Workspace]'s constructor), this bundled first-launch
+    // sample is deliberately pre-populated demo content (issue #119) so a
+    // brand-new install isn't an empty shell — seed the 3 legacy layers too
+    // so the demo calendar data reads sensibly out of the box.
+    calendarLayers: kDefaultCalendarLayers(),
   );
 }
 
@@ -296,6 +302,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
         screen = rawScreen;
       }
+      layerFilter = _savedLayerFilter(userData['layerFilter']);
     }
     _migrateLegacyMeIdsAll(meUid);
   }
@@ -427,6 +434,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'year': year,
       'monthIdx': monthIdx,
       'screen': screen,
+      'layerFilter': layerFilter,
       'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -956,6 +964,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     eventCategories = ws.eventCategories;
     importedCalendars = ws.importedCalendars;
     weeklyPlan = ws.weeklyPlan;
+    calendarLayers = ws.calendarLayers;
+    starsMap = ws.starsMap;
+    kitchenEnabled = ws.kitchenEnabled;
+    picMembers = ws.picMembers;
+    kitchenLayerFilter = ws.kitchenLayerFilter;
   }
 
   /// One-time migration for workspace data (calendar events, tasks, shopping

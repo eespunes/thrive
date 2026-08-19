@@ -129,26 +129,10 @@ class _NewListSheetState extends State<_NewListSheet> {
           if (!shopping)
             _sheetField(
               'Color',
-              Wrap(
-                spacing: 9,
-                runSpacing: 9,
-                children: [
-                  for (final c in _kListColors)
-                    GestureDetector(
-                      onTap: () => setState(() => _color = c),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: c,
-                          borderRadius: BorderRadius.circular(11),
-                          border: _color == c
-                              ? Border.all(color: B.ink, width: 2)
-                              : null,
-                        ),
-                      ),
-                    ),
-                ],
+              _MoreColorsToggle(
+                quickColors: _kListColors,
+                selected: _color,
+                onChanged: (c) => setState(() => _color = c),
               ),
             ),
           _primaryBtn('Create list', () {
@@ -174,8 +158,8 @@ class _NewListSheetState extends State<_NewListSheet> {
   }
 }
 
-/// "New task" / "Edit task" sheet — title, assignee, due date. Ported from
-/// the design's `sheetTaskEdit()`.
+/// "New task" / "Edit task" sheet — title, assignee. Ported from the
+/// design's `sheetTaskEdit()`.
 class _TaskEditSheet extends StatefulWidget {
   const _TaskEditSheet({required this.state, required this.listId, this.task});
   final _ThriveHomeState state;
@@ -189,8 +173,6 @@ class _TaskEditSheet extends StatefulWidget {
 class _TaskEditSheetState extends State<_TaskEditSheet> {
   late final TextEditingController _title;
   String? _assignee;
-  bool _hasDue = false;
-  String _due = todayIso();
 
   bool get _editing => widget.task != null;
 
@@ -200,8 +182,6 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
     final t = widget.task;
     _title = TextEditingController(text: t?.title ?? '');
     _assignee = t?.assignee;
-    _hasDue = (t?.due ?? '').isNotEmpty;
-    _due = t?.due ?? todayIso();
   }
 
   @override
@@ -275,58 +255,6 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
               ],
             ),
           ),
-          _toggleRow(
-            'Due date',
-            _hasDue,
-            () => setState(() => _hasDue = !_hasDue),
-            activeColor: B.primary,
-          ),
-          if (_hasDue) ...[
-            const SizedBox(height: 13),
-            GestureDetector(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: DateTime.tryParse(_due) ?? DateTime.now(),
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2100),
-                );
-                if (picked != null) {
-                  setState(() {
-                    _due =
-                        '${picked.year.toString().padLeft(4, '0')}-'
-                        '${picked.month.toString().padLeft(2, '0')}-'
-                        '${picked.day.toString().padLeft(2, '0')}';
-                  });
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: B.line),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    ic('cal', size: 15, sw: 2.2, color: B.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      _due,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 13),
           _primaryBtn(_editing ? 'Save task' : 'Add task', () {
             widget.state.saveTask(
@@ -334,7 +262,6 @@ class _TaskEditSheetState extends State<_TaskEditSheet> {
               id: widget.task?.id,
               title: _title.text,
               assignee: _assignee,
-              due: _hasDue ? _due : null,
             );
             Navigator.of(context).pop();
           }, enabled: valid),

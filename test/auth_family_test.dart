@@ -245,6 +245,7 @@ void main() {
       await inviteLisa(tester);
       await tester.tap(find.text('Lisa Janssen').last);
       await tester.pumpAndSettle();
+      expect(find.text('Edit member'), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, 'lisab@email.com');
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('member-save')));
@@ -261,7 +262,20 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Role updated'), findsOneWidget);
 
-      await tester.tap(keyStartsWith('member-remove-').first);
+      final lisaId = thriveDebug
+          .curFamily()!
+          .members
+          .firstWhere((m) => m.name == 'Lisa Janssen')
+          .id;
+      await tester.drag(
+        find.byKey(ValueKey('member-$lisaId')),
+        const Offset(-220, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('member-$lisaId-delete')),
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete').last);
       await tester.pumpAndSettle();
@@ -306,6 +320,7 @@ void main() {
       await inviteLisa(tester);
       await tester.tap(find.text('Lisa Janssen').last);
       await tester.pumpAndSettle();
+      expect(find.text('Edit member'), findsOneWidget);
       expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
@@ -355,9 +370,10 @@ void main() {
         (m) => m.name == 'Emma Bakker',
       );
 
-      // Tap the row to enter inline edit mode.
+      // Tap the row to open the member edit popup.
       await tester.tap(find.text('Emma Bakker'));
       await tester.pumpAndSettle();
+      expect(find.text('Edit member'), findsOneWidget);
       expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
 
       // Pick an emoji through the in-app picker (issue precedent from
@@ -406,9 +422,10 @@ void main() {
       me.role = 'member';
       expect(thriveDebug.amOwner(), isFalse);
 
-      // A non-owner can still open the inline edit for a login-less member...
+      // A non-owner can still open the edit popup for a login-less member...
       await tester.tap(find.text('Emma Bakker'));
       await tester.pumpAndSettle();
+      expect(find.text('Edit member'), findsOneWidget);
       expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
       await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
       await tester.pump();
@@ -429,7 +446,15 @@ void main() {
           .members
           .firstWhere((m) => m.name == 'Emma B.')
           .id;
-      await tester.tap(find.byKey(ValueKey('member-remove-$emmaId')));
+      await tester.drag(
+        find.byKey(ValueKey('member-$emmaId')),
+        const Offset(-220, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey('member-$emmaId-delete')),
+        warnIfMissed: false,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete').last);
       await tester.pumpAndSettle();
