@@ -302,6 +302,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (const {'overview', 'stats', 'settings'}.contains(rawScreen)) {
         screen = rawScreen;
       }
+      layerFilter = _savedLayerFilter(userData['layerFilter']);
     }
     _migrateLegacyMeIdsAll(meUid);
   }
@@ -433,6 +434,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'year': year,
       'monthIdx': monthIdx,
       'screen': screen,
+      'layerFilter': layerFilter,
       'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -966,6 +968,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     starsMap = ws.starsMap;
     kitchenEnabled = ws.kitchenEnabled;
     picMembers = ws.picMembers;
+    kitchenLayerFilter = ws.kitchenLayerFilter;
   }
 
   /// One-time migration for workspace data (calendar events, tasks, shopping

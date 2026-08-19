@@ -36,14 +36,13 @@ class CalendarOccurrence {
   /// by the layer-toggle filter and to pick this occurrence's visuals.
   String get layer => ev.layerId;
 
-  /// True when this occurrence is a to-do/content-style event (any layer
-  /// other than the core `appt` layer) rather than a plain appointment.
-  /// Such occurrences get a tappable done checkbox instead of appt-only
-  /// chrome. Never true for imported (read-only) events.
-  bool get isTask => !imported && layer != 'appt';
+  /// True when this occurrence is a to-do event, regardless of calendar
+  /// layer. Such occurrences get a tappable done checkbox instead of
+  /// appointment-only chrome. Never true for imported (read-only) events.
+  bool get isTask => !imported && ev.todo;
 
   /// True when this occurrence is a to-do belonging to any layer other
-  /// than the core `task`/`appt` layers (e.g. `content` or a custom
+  /// than the default `task`/`appt` layers (e.g. `content` or a custom
   /// layer) — drives the "content-style" dashed-border card treatment.
   bool get isContent => isTask && layer != 'task';
 
@@ -326,6 +325,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   Color evColor(CalendarEvent ev) {
     final category = catById(ev.category);
     if (category != null) return category.color;
+    if (ev.color != kEventColors.first) return ev.color;
     for (final memberId in ev.attendees) {
       final member = _memberById(memberId);
       if (member != null) return member.color;
@@ -389,6 +389,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // visual treatment (strikethrough + faded) while keeping the
     // checkbox/tap-to-toggle interaction available.
     for (final ev in events) {
+      if (ev.kitchenOrigin) continue;
       if (!layerFilter.contains(ev.layerId)) continue;
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
       if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
@@ -406,7 +407,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
               ev: ev,
               date: ev.date,
               spanEnd: spanEnd,
-              done: ev.layerId != 'appt' && ev.done,
+              done: ev.todo && ev.done,
             ),
           );
         }
@@ -415,11 +416,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
       for (final d in recurringEventDates(ev, rangeStart, rangeEnd)) {
         out.add(
-          CalendarOccurrence(
-            ev: ev,
-            date: d,
-            done: ev.layerId != 'appt' && ev.isDoneOn(d),
-          ),
+          CalendarOccurrence(ev: ev, date: d, done: ev.todo && ev.isDoneOn(d)),
         );
       }
     }
@@ -461,8 +458,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return null;
   }
 
-  /// Appends a new, non-core, enabled-by-default calendar layer (mirrors
-  /// the design's `addLayer()`).
+  /// Appends a new enabled-by-default calendar layer (mirrors the design's
+  /// `addLayer()`).
   ///
   /// If this is the workspace's very FIRST layer ever (i.e. [calendarLayers]
   /// was empty beforehand), every existing [CalendarEvent]/[EventCategory]
@@ -494,8 +491,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         ),
       );
       layerFilter.add(id);
+      kitchenLayerFilter.add(id);
       if (wasEmpty) {
         for (final ev in events) {
+          if (ev.kitchenOrigin) continue;
           ev.layerId = id;
         }
         for (final cat in eventCategories) {
@@ -503,6 +502,28 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         }
       }
     }, () => flash('Layer added'));
+  }
+
+  /// Updates an existing layer's label/icon/emoji/picture/colour in place
+  /// (tapped from its row, mirroring how tapping a category opens it for
+  /// editing) — a no-op if [id] no longer exists.
+  void updateCalendarLayer({
+    required String id,
+    required String label,
+    required String icon,
+    String? emoji,
+    String? picture,
+    required Color color,
+  }) {
+    final def = layerDefFor(id);
+    if (def == null) return;
+    mutate(() {
+      def.label = label.trim().isEmpty ? 'Layer' : label.trim();
+      def.icon = icon;
+      def.emoji = emoji;
+      def.picture = picture;
+      def.color = color;
+    });
   }
 
   /// Swaps the layer at [id]'s position with the adjacent one in
@@ -518,22 +539,37 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     calendarLayers[j] = tmp;
   });
 
-  /// Removes a non-core layer (a no-op for core layers), reassigning any
-  /// [CalendarEvent]/[EventCategory] pointing at it back to the core `task`
-  /// (To-Dos) layer first, so nothing is left referencing a deleted layer
-  /// (mirrors the design's `removeLayer()`).
+  bool canDeleteCalendarLayer(CalendarLayerDef layer) => true;
+
+  String _calendarLayerDeleteFallback(String deletedId) {
+    final remaining = [
+      for (final layer in calendarLayers)
+        if (layer.id != deletedId) layer.id,
+    ];
+    if (remaining.contains('task')) return 'task';
+    if (remaining.contains('appt')) return 'appt';
+    if (remaining.isNotEmpty) return remaining.first;
+    return 'appt';
+  }
+
+  /// Removes a deletable layer, reassigning any [CalendarEvent]/
+  /// [EventCategory] pointing at it to the best remaining layer first, so
+  /// nothing is left referencing a deleted layer.
   void removeCalendarLayer(String id) {
     final def = layerDefFor(id);
-    if (def == null || def.core) return;
+    if (def == null || !canDeleteCalendarLayer(def)) return;
+    final fallbackLayerId = _calendarLayerDeleteFallback(id);
     mutate(() {
       for (final ev in events) {
-        if (ev.layerId == id) ev.layerId = 'task';
+        if (ev.kitchenOrigin) continue;
+        if (ev.layerId == id) ev.layerId = fallbackLayerId;
       }
       for (final cat in eventCategories) {
-        if (cat.layerId == id) cat.layerId = 'task';
+        if (cat.layerId == id) cat.layerId = fallbackLayerId;
       }
       calendarLayers.removeWhere((l) => l.id == id);
       layerFilter.remove(id);
+      kitchenLayerFilter.remove(id);
     }, () => flash('Layer deleted'));
   }
 
@@ -567,7 +603,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// Toggles a calendar layer (`appt|task|content`) on/off in [layerFilter].
   /// At least one layer must stay enabled — a tap that would empty the list
   /// (removing the last remaining layer) is ignored.
-  void toggleLayerFilter(String layerId) => update(() {
+  void toggleLayerFilter(String layerId) => mutate(() {
     if (layerFilter.contains(layerId)) {
       if (layerFilter.length <= 1) return;
       layerFilter.remove(layerId);
@@ -757,6 +793,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<String>? exceptions,
     String? createdBy,
     String layerId = 'appt',
+    bool todo = false,
     bool done = false,
     Map<String, bool>? doneDates,
   }) {
@@ -786,10 +823,12 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         createdBy: createdBy ?? myId,
         exceptions: exceptions ?? const [],
         layerId: layerId,
+        todo: todo,
         done: done,
         doneDates: doneDates,
         kitchenOrigin: existing?.kitchenOrigin ?? false,
         picture: existing?.picture,
+        emoji: existing?.emoji,
       );
       final i = events.indexWhere((x) => x.id == ev.id);
       if (i >= 0) {
@@ -826,6 +865,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? createdBy,
     List<String>? exceptions,
     String? layerId,
+    bool? todo,
     bool? done,
     Map<String, bool>? doneDates,
   }) {
@@ -850,10 +890,12 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       createdBy: createdBy ?? ev.createdBy,
       exceptions: exceptions ?? ev.exceptions,
       layerId: layerId ?? ev.layerId,
+      todo: todo ?? ev.todo,
       done: done ?? ev.done,
       doneDates: doneDates ?? Map<String, bool>.from(ev.doneDates),
       kitchenOrigin: ev.kitchenOrigin,
       picture: ev.picture,
+      emoji: ev.emoji,
     );
   }
 
@@ -954,6 +996,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     _showSheet(
       (ctx) => _CategorySheet(state: this, category: cat, layerId: layerId),
     );
+  }
+
+  void openCalendarLayer(CalendarLayerDef layer) {
+    _showSheet((ctx) => _LayerSheet(state: this, layer: layer));
   }
 
   void saveCategory({

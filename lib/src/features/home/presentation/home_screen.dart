@@ -10,11 +10,16 @@ const List<String> _kWeekdaysFull = [
   'Sunday',
 ];
 
-/// The Home dashboard (#158): today & upcoming, tasks due soon, a shopping
+const double _kHomeTodayEventRowHeight = 66;
+const double _kHomeTodayEventGap = 8;
+const double _kHomeTaskRowHeight = 56;
+const double _kHomeTaskGap = 0;
+
+/// The Home dashboard (#158): today's events, tasks due soon, a shopping
 /// glance, tonight's dinner and the projected balance. Ported from the
 /// design's `renderHome()` / `homeCard()` / `glanceCard()` / `miniTaskRow()`.
 ///
-/// Today & upcoming events, tasks, shopping, today's dinner (#157) and
+/// Today's events, tasks, shopping, today's dinner (#157) and
 /// projected balance are all real.
 extension _ThriveHomeScreen on _ThriveHomeState {
   String firstName() {
@@ -30,49 +35,82 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   }
 
   Widget _buildHomeDashboard() {
+    final myTaskAssignees = _homeCurrentUserMemberIds();
     final openTasks = <(TaskList, ListTask)>[];
     for (final l in taskLists) {
       for (final t in l.tasks) {
-        if (!t.done) openTasks.add((l, t));
+        if (!t.done && myTaskAssignees.contains(t.assignee)) {
+          openTasks.add((l, t));
+        }
       }
     }
-    final topDue = openTasks.take(4).toList();
     final c = compute(monthIdx);
-    final todayEv = eventOccurrences(todayIso(), _addDaysIso(todayIso(), 6))
-      ..sort(
-        (a, b) => (a.date + (a.ev.allDay ? '' : a.ev.start)).compareTo(
-          b.date + (b.ev.allDay ? '' : b.ev.start),
-        ),
-      );
-    final topEvents = todayEv.take(3).toList();
+    final todayEvents = _homeTodayEvents();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
       children: [
         _homeCard(
-          title: 'Today & upcoming',
+          title: "Today's events",
           icon: 'cal',
           onOpen: () => goTab('calendar'),
-          body: topEvents.isEmpty
+          body: todayEvents.isEmpty
               ? _emptyRow('Nothing scheduled — enjoy the calm.')
-              : Column(
-                  children: [
-                    for (var i = 0; i < topEvents.length; i++)
-                      _miniEventRow(topEvents[i], border: i > 0),
-                  ],
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: _homeTodayEventsViewportHeight(todayEvents),
+                  ),
+                  child: SingleChildScrollView(
+                    key: const ValueKey('home-today-events-scroll'),
+                    child: Column(
+                      key: const ValueKey('home-today-events-list'),
+                      children: [
+                        for (var i = 0; i < todayEvents.length; i++) ...[
+                          SizedBox(
+                            height: _kHomeTodayEventRowHeight,
+                            child: _apptAgendaRow(
+                              todayEvents[i],
+                              rowKeyPrefix: 'home-event',
+                            ),
+                          ),
+                          if (i != todayEvents.length - 1)
+                            const SizedBox(height: _kHomeTodayEventGap),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
         ),
         _homeCard(
           title: 'Open tasks',
           icon: 'tasklist',
           onOpen: () => goTab('lists'),
-          body: topDue.isEmpty
+          body: openTasks.isEmpty
               ? _emptyRow('All caught up. Nice work!')
-              : Column(
-                  children: [
-                    for (var i = 0; i < topDue.length; i++)
-                      _miniTaskRow(topDue[i].$1, topDue[i].$2, border: i > 0),
-                  ],
+              : ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: _homeTaskViewportHeight(openTasks),
+                  ),
+                  child: SingleChildScrollView(
+                    key: const ValueKey('home-tasks-scroll'),
+                    child: Column(
+                      key: const ValueKey('home-tasks-list'),
+                      children: [
+                        for (var i = 0; i < openTasks.length; i++) ...[
+                          SizedBox(
+                            height: _kHomeTaskRowHeight,
+                            child: _miniTaskRow(
+                              openTasks[i].$1,
+                              openTasks[i].$2,
+                              border: i > 0,
+                            ),
+                          ),
+                          if (i != openTasks.length - 1)
+                            const SizedBox(height: _kHomeTaskGap),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
         ),
         Padding(
@@ -365,105 +403,71 @@ extension _ThriveHomeScreen on _ThriveHomeState {
     ),
   );
 
-  Widget _miniEventRow(CalendarOccurrence o, {required bool border}) {
-    final ev = o.ev;
-    final category = catById(ev.category);
-    final color = evColor(ev);
+  double _homeTodayEventsViewportHeight(List<CalendarOccurrence> events) {
+    final visibleRows = events.length < 3 ? events.length : 3;
+    final visibleGaps = visibleRows > 0 ? visibleRows - 1 : 0;
+    return visibleRows * _kHomeTodayEventRowHeight +
+        visibleGaps * _kHomeTodayEventGap;
+  }
+
+  double _homeTaskViewportHeight(List<(TaskList, ListTask)> tasks) {
+    final visibleRows = tasks.length < 3 ? tasks.length : 3;
+    final visibleGaps = visibleRows > 0 ? visibleRows - 1 : 0;
+    return visibleRows * _kHomeTaskRowHeight + visibleGaps * _kHomeTaskGap;
+  }
+
+  List<CalendarOccurrence> _homeTodayEvents() {
     final today = todayIso();
-    final timing = o.isMultiDay
-        ? '${o.date == today ? 'Today' : _shortDateIso(o.date)} – '
-              '${_shortDateIso(o.spanEnd)}'
-        : '${o.date == today ? 'Today' : _shortDateIso(o.date)} · '
-              '${ev.allDay ? 'All day' : ev.start}';
-    return GestureDetector(
-      key: ValueKey('home-event-${ev.id}-${o.date}'),
-      onTap: () => openEventView(ev.id, o.date),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          border: border ? const Border(top: BorderSide(color: B.faint)) : null,
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Row(
-          children: [
-            Container(
-              key: ValueKey('home-event-accent-${ev.id}'),
-              width: 4,
-              constraints: const BoxConstraints(minHeight: 34),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      if (category != null) ...[
-                        Container(
-                          key: ValueKey('home-event-visual-${ev.id}'),
-                          width: 18,
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: color,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: categoryGlyph(
-                            category,
-                            size: 18,
-                            iconColor: contrastOn(color),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Flexible(
-                        child: Text(
-                          ev.title,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: B.ink,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      ic(
-                        o.isMultiDay ? 'cal' : 'clock',
-                        size: 12,
-                        sw: 2.2,
-                        color: B.muted,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          timing,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: B.soft2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            _attendeeStack(ev.attendees, 22),
-          ],
-        ),
-      ),
-    );
+    final now = DateTime.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+    return (eventOccurrences(today, today)..sort(_compareAgendaOccurrences))
+        .where((o) => _homeOccurrenceIsNotPast(o, today, nowMinutes))
+        .toList();
+  }
+
+  bool _homeOccurrenceIsNotPast(
+    CalendarOccurrence occurrence,
+    String today,
+    int nowMinutes,
+  ) {
+    final ev = occurrence.ev;
+    if (occurrence.isMultiDay && occurrence.spanEnd.compareTo(today) > 0) {
+      return true;
+    }
+    if (ev.allDay) return true;
+    final compareTime = ev.end.isNotEmpty ? ev.end : ev.start;
+    final eventMinutes = _homeTimeToMinutes(compareTime);
+    if (eventMinutes == null) return true;
+    return eventMinutes >= nowMinutes;
+  }
+
+  Set<String> _homeCurrentUserMemberIds() {
+    final ids = <String>{myId, 'me'};
+    final email = user?.email.trim().toLowerCase() ?? '';
+    if (email.isNotEmpty) ids.add(email);
+    for (final member in curFamily()?.members ?? const <FamilyMember>[]) {
+      final memberEmail = member.email.trim().toLowerCase();
+      if (member.id == myId ||
+          member.uid == myId ||
+          (email.isNotEmpty && memberEmail == email)) {
+        ids.add(member.id);
+        if (member.uid != null && member.uid!.trim().isNotEmpty) {
+          ids.add(member.uid!.trim());
+        }
+        if (memberEmail.isNotEmpty) ids.add(memberEmail);
+      }
+    }
+    return ids;
+  }
+
+  int? _homeTimeToMinutes(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return hour * 60 + minute;
   }
 
   Widget _miniTaskRow(TaskList list, ListTask t, {required bool border}) {

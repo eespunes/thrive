@@ -96,15 +96,10 @@ void main() {
   testWidgets('edit an existing account', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    final editBtns = find.byIcon(Icons.edit);
-    // The mini buttons use custom icons, so tap via the account row edit.
-    // Fall back: open account sheet by tapping the first 'edit' painter is hard;
-    // instead just ensure account list is present.
     expect(find.text("Eva's account"), findsWidgets);
-    if (editBtns.evaluate().isNotEmpty) {
-      await tester.tap(editBtns.first);
-      await tester.pumpAndSettle();
-    }
+    await tester.tap(find.byKey(const ValueKey('acc-edit-eva')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit account'), findsOneWidget);
   });
 
   testWidgets('add a new budget block with this-month-only + until', (

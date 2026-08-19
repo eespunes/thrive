@@ -78,6 +78,7 @@ Map<String, Object> calendarPrefs({
   List<EventCategory> categories = const [],
   List<ImportedCalendar> importedCalendars = const [],
   List<TaskList> taskLists = const [],
+  List<String>? layerFilter,
 }) {
   final family = Family(
     id: 'fam_main',
@@ -106,17 +107,17 @@ Map<String, Object> calendarPrefs({
     ..eventCategories = categories
     ..importedCalendars = importedCalendars
     ..taskLists = taskLists;
-  return {
-    'flutter.$kStorageKeyV4': json.encode({
-      'year': 2026,
-      'monthIdx': 6,
-      'screen': 'overview',
-      'tab': 'home',
-      'familyId': 'fam_main',
-      'families': [family.toJson()],
-      'workspaces': {'fam_main': ws.toJson()},
-    }),
+  final payload = <String, Object>{
+    'year': 2026,
+    'monthIdx': 6,
+    'screen': 'overview',
+    'tab': 'home',
+    'familyId': 'fam_main',
+    'families': [family.toJson()],
+    'workspaces': {'fam_main': ws.toJson()},
   };
+  if (layerFilter != null) payload['layerFilter'] = layerFilter;
+  return {'flutter.$kStorageKeyV4': json.encode(payload)};
 }
 
 String addDaysForTest(String iso, int n) {
@@ -451,7 +452,7 @@ void main() {
     );
   });
 
-  testWidgets('month events use solid colors and category visuals', (
+  testWidgets('month events use flat solid colors and category visuals', (
     tester,
   ) async {
     const categoryColor = Color(0xff0f9d6a);
@@ -506,7 +507,7 @@ void main() {
       'one': categoryColor,
       'two': categoryColor,
       'plain': plainColor,
-      'member': kMemberColors[1],
+      'member': plainColor,
     }.entries) {
       final id = entry.key;
       final bar = find.byWidgetPredicate(
@@ -521,16 +522,19 @@ void main() {
           findsOneWidget,
         );
       }
-      final usesCategoryColor = tester
+      final matchingDecorations = tester
           .widgetList<Container>(
             find.descendant(of: bar, matching: find.byType(Container)),
           )
-          .any(
+          .map((container) => container.decoration)
+          .whereType<BoxDecoration>()
+          .where(
             (container) =>
-                container.decoration is BoxDecoration &&
-                (container.decoration! as BoxDecoration).color == entry.value,
-          );
-      expect(usesCategoryColor, isTrue);
+                container.color == entry.value &&
+                (container.boxShadow?.isNotEmpty != true),
+          )
+          .toList();
+      expect(matchingDecorations, isNotEmpty);
     }
   });
 
@@ -887,8 +891,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Bars in the month grid also render event titles (in white, size 9)
-      // behind the sheet, so match on the sheet's larger event-card title
-      // style to check what's actually listed inside the day-detail sheet.
+      // behind the sheet, so match on the sheet's larger agenda-style title
+      // to check what's actually listed inside the day-detail sheet.
       bool isCardTitle(Widget w) => w is Text && w.style?.fontSize == 13.5;
       expect(
         find.byWidgetPredicate(
@@ -896,6 +900,13 @@ void main() {
         ),
         findsOneWidget,
       );
+      final row = find.byKey(ValueKey('event-other-event-$otherDay'));
+      expect(row, findsOneWidget);
+      final container = tester.widget<Container>(
+        find.descendant(of: row, matching: find.byType(Container)).first,
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, const Color(0xffef4444));
       expect(
         find.byWidgetPredicate(
           (w) => isCardTitle(w) && (w as Text).data == 'Today only event',
@@ -921,6 +932,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Dentist'), findsWidgets);
+  });
+
+  testWidgets('event editor can create a to-do event on any selected layer', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToCalendar(tester);
+
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('event-kind-event')), findsOneWidget);
+    expect(find.byKey(const ValueKey('event-kind-todo')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('event-kind-todo')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('event-layer-content')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Return library book');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+    await tester.pumpAndSettle();
+
+    final ev = thriveDebug.events.singleWhere(
+      (e) => e.title == 'Return library book',
+    );
+    expect(ev.layerId, 'content');
+    expect(ev.todo, isTrue);
+
+    await setCalView(tester, 'agenda');
+    expect(find.text('Return library book'), findsOneWidget);
+    expect(find.text('Content'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('event-check-${ev.id}-${todayIso()}')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('All-day toggle hides the start/end time fields', (tester) async {
@@ -2281,11 +2327,12 @@ void main() {
     await openCalFilters(tester);
     expect(find.text('LAYERS'), findsOneWidget);
     for (final layer in kDefaultCalendarLayers()) {
+      final chip = find.byKey(ValueKey('cal-filter-layer-${layer.id}'));
+      expect(chip, findsOneWidget);
       expect(
-        find.byKey(ValueKey('cal-filter-layer-${layer.id}')),
+        find.descendant(of: chip, matching: find.text(layer.label)),
         findsOneWidget,
       );
-      expect(find.text(layer.label), findsOneWidget);
     }
   });
 
@@ -2438,38 +2485,42 @@ void main() {
     },
   );
 
-  testWidgets('multi-day event renders as a month span and shows date range', (
-    tester,
-  ) async {
-    final end = addDaysForTest(todayIso(), 2);
-    await pumpApp(
-      tester,
-      prefs: calendarPrefs(
-        events: [
-          CalendarEvent(
-            id: 'span1',
-            title: 'Grandparents visiting',
-            allDay: true,
-            date: todayIso(),
-            endDate: end,
-            color: kEventColors[3],
-            attendees: ['me', 'erik'],
-          ),
-        ],
-      ),
-      landOnDefaultTab: true,
-    );
-    await goToCalendar(tester);
+  testWidgets(
+    'multi-day event renders as a month span and agenda-style detail',
+    (tester) async {
+      final end = addDaysForTest(todayIso(), 2);
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'span1',
+              title: 'Grandparents visiting',
+              allDay: true,
+              date: todayIso(),
+              endDate: end,
+              color: kEventColors[3],
+              attendees: ['me', 'erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
 
-    expect(find.text('Grandparents visiting'), findsOneWidget);
-    await tester.tap(find.text('Grandparents visiting'));
-    await tester.pumpAndSettle();
+      expect(find.text('Grandparents visiting'), findsOneWidget);
+      await tester.tap(find.text('Grandparents visiting'));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.text('${shortDateForTest(todayIso())} – ${shortDateForTest(end)}'),
-      findsOneWidget,
-    );
-  });
+      final row = find.byKey(ValueKey('event-span1-${todayIso()}'));
+      expect(row, findsOneWidget);
+      final container = tester.widget<Container>(
+        find.descendant(of: row, matching: find.byType(Container)).first,
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, kEventColors[3]);
+    },
+  );
 
   testWidgets('month picker jumps to a chosen month and back to today', (
     tester,
@@ -2641,6 +2692,7 @@ void main() {
               color: kCatColors.first,
               attendees: const ['erik'],
               layerId: 'task',
+              todo: true,
             ),
           ],
         ),
@@ -2688,6 +2740,7 @@ void main() {
                 color: kCatColors.first,
                 attendees: const ['erik'],
                 layerId: 'task',
+                todo: true,
                 done: true,
               ),
             ],
@@ -2718,6 +2771,7 @@ void main() {
               color: kCatColors.first,
               attendees: const ['erik'],
               layerId: 'task',
+              todo: true,
             ),
           ],
         ),
@@ -2730,10 +2784,8 @@ void main() {
       expect(find.text('Delete'), findsOneWidget);
     });
 
-    testWidgets('a content-layer occurrence in the day-detail sheet shows the '
-        'dashed-card/content-badge treatment and its checkbox toggles done', (
-      tester,
-    ) async {
+    testWidgets('a content-layer occurrence in the day-detail sheet uses the '
+        'agenda row style without a checkbox', (tester) async {
       final today = todayIso();
       await pumpApp(
         tester,
@@ -2762,13 +2814,56 @@ void main() {
         (w) => w is Text && w.data == 'Film reel' && w.style?.fontSize == 13.5,
       );
       expect(cardTitle, findsOneWidget);
-      expect(find.text('Content'), findsWidgets);
+      expect(find.byKey(ValueKey('event-c1-$today')), findsOneWidget);
+      expect(find.byKey(ValueKey('event-check-c1-$today')), findsNothing);
+    });
 
-      await tester.tap(find.byKey(ValueKey('event-check-c1-$today')));
+    testWidgets('a to-do can be completed from the Month day-detail sheet', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 't1',
+              title: 'Take out bins',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+              layerId: 'task',
+              todo: true,
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+
+      await tester.tap(find.byKey(ValueKey('cal-day-$today')));
       await tester.pumpAndSettle();
 
-      // The occurrence stays in the sheet, now with a done treatment.
-      expect(cardTitle, findsOneWidget);
+      final row = find.byKey(ValueKey('event-t1-$today'));
+      final checkbox = find.byKey(ValueKey('event-check-t1-$today'));
+      expect(row, findsOneWidget);
+      expect(checkbox, findsOneWidget);
+
+      await tester.tap(checkbox);
+      await tester.pumpAndSettle();
+
+      expect(thriveDebug.events.singleWhere((e) => e.id == 't1').done, isTrue);
+      expect(row, findsOneWidget);
+      final sheetTitle = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              w.data == 'Take out bins' &&
+              w.style?.fontSize == 13.5,
+        ),
+      );
+      expect(sheetTitle.style?.decoration, TextDecoration.lineThrough);
     });
   });
 
@@ -2796,6 +2891,7 @@ void main() {
               color: kCatColors[1],
               attendees: const ['erik'],
               layerId: 'task',
+              todo: true,
             ),
             CalendarEvent(
               id: 'c1',
@@ -2868,6 +2964,7 @@ void main() {
                 color: kCatColors.first,
                 attendees: const ['erik'],
                 layerId: 'task',
+                todo: true,
               ),
             ],
           ),
@@ -2904,6 +3001,7 @@ void main() {
                 color: kCatColors.first,
                 attendees: const ['erik'],
                 layerId: 'task',
+                todo: true,
                 recur: 'weekly',
               ),
             ],
@@ -2985,15 +3083,14 @@ void main() {
             .any(
               (c) =>
                   c.decoration is BoxDecoration &&
-                  (c.decoration! as BoxDecoration).color == kMemberColors[1],
+                  (c.decoration! as BoxDecoration).color == kCatColors[2],
             );
         expect(usesSolidFill, isTrue);
       },
     );
 
-    testWidgets('agenda view renders every occurrence for a day in ONE flat, '
-        'time-sorted list, all with the same uniform row style, regardless '
-        'of layer (calendar layers uniform rendering)', (tester) async {
+    testWidgets('agenda view groups the day by enabled layers and keeps '
+        'uniform row styling inside each layer', (tester) async {
       final today = todayIso();
       await pumpApp(
         tester,
@@ -3038,28 +3135,82 @@ void main() {
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
 
-      // No per-layer section labels/keys any more — every occurrence
-      // renders as an `agenda-appt-*` row, the same style used for plain
-      // appointments.
-      expect(find.text('TO-DOS'), findsNothing);
-      expect(find.text('CONTENT'), findsNothing);
-      expect(find.text('SCHEDULE'), findsNothing);
+      expect(
+        find.byKey(ValueKey('agenda-layer-header-appt-$today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('agenda-layer-header-task-$today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('agenda-layer-header-content-$today')),
+        findsOneWidget,
+      );
+      expect(find.text('Appointments'), findsOneWidget);
+      expect(find.text('To-Dos'), findsOneWidget);
+      expect(find.text('Content'), findsOneWidget);
       expect(find.byKey(ValueKey('agenda-appt-e1-$today')), findsOneWidget);
       expect(find.byKey(ValueKey('agenda-appt-t1-$today')), findsOneWidget);
       expect(find.byKey(ValueKey('agenda-appt-c1-$today')), findsOneWidget);
 
-      // All 3 occurrences appear in one time-sorted list: Team sync
-      // (09:00) above Take out bins (10:00) above Film reel (11:00).
-      final teamSyncY = tester.getTopLeft(find.text('Team sync')).dy;
-      final binsY = tester.getTopLeft(find.text('Take out bins')).dy;
-      final filmY = tester.getTopLeft(find.text('Film reel')).dy;
-      expect(teamSyncY, lessThan(binsY));
-      expect(binsY, lessThan(filmY));
+      final appointmentsY = tester
+          .getTopLeft(find.byKey(ValueKey('agenda-layer-header-appt-$today')))
+          .dy;
+      final taskY = tester
+          .getTopLeft(find.byKey(ValueKey('agenda-layer-header-task-$today')))
+          .dy;
+      final contentY = tester
+          .getTopLeft(
+            find.byKey(ValueKey('agenda-layer-header-content-$today')),
+          )
+          .dy;
+      expect(appointmentsY, lessThan(taskY));
+      expect(taskY, lessThan(contentY));
+    });
+
+    testWidgets('agenda enabled layers show an empty state when that layer '
+        'has no events for the selected day', (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          layerFilter: const ['appt', 'task'],
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Team sync',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      expect(find.byKey(ValueKey('agenda-appt-e1-$today')), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('agenda-layer-empty-task-$today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('agenda-layer-empty-content-$today')),
+        findsNothing,
+      );
+      expect(find.text('No events yet'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('agenda-layer-header-content-$today')),
+        findsNothing,
+      );
     });
 
     testWidgets(
-      "an appointment row in agenda shows the member's colour as its block "
-      'background',
+      "an appointment row in agenda falls back to the member's colour when "
+      'the event colour is still default',
       (tester) async {
         final today = todayIso();
         await pumpApp(
@@ -3088,17 +3239,76 @@ void main() {
         );
         final decoration = container.decoration as BoxDecoration;
         expect(decoration.color, kMemberColors[1]);
-        // The block has a soft drop shadow tinted with its own background
-        // colour (mockup's `apptRow` box-shadow), not a plain flat card.
-        expect(decoration.boxShadow, isNotNull);
-        expect(decoration.boxShadow, isNotEmpty);
-        expect(decoration.boxShadow!.first.color, isNot(Colors.transparent));
+        expect(decoration.boxShadow?.isNotEmpty ?? false, isFalse);
+        expect(
+          find.byKey(ValueKey('agenda-attendees-e1-$today')),
+          findsOneWidget,
+        );
+        expect(find.text('Erik Janssen'), findsNothing);
       },
     );
 
+    testWidgets('agenda event text contrasts against the event colour', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Bright event',
+              allDay: true,
+              date: today,
+              color: const Color(0xfffde047),
+              attendees: const [],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      final title = tester.widget<Text>(find.text('Bright event'));
+      expect(title.style?.color, B.ink);
+    });
+
+    testWidgets('agenda event colour wins over assigned person colour', (
+      tester,
+    ) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Blue event',
+              allDay: true,
+              date: today,
+              color: kCatColors[2],
+              attendees: const ['erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      final row = find.byKey(ValueKey('agenda-appt-e1-$today'));
+      final container = tester.widget<Container>(
+        find.descendant(of: row, matching: find.byType(Container)).first,
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, kCatColors[2]);
+    });
+
     testWidgets(
       'a content-layer row in agenda uses the same uniform appointment-row '
-      'style as any other layer, with a done checkbox (no dashed border)',
+      'style as any other normal event, without a done checkbox',
       (tester) async {
         final today = todayIso();
         await pumpApp(
@@ -3127,9 +3337,68 @@ void main() {
           find.descendant(of: row, matching: find.byType(Container)).first,
         );
         expect(container.foregroundDecoration, isNull);
-        expect(find.byKey(ValueKey('event-check-c1-$today')), findsOneWidget);
+        expect(find.byKey(ValueKey('event-check-c1-$today')), findsNothing);
+        expect(
+          find.byKey(ValueKey('agenda-attendees-c1-$today')),
+          findsOneWidget,
+        );
       },
     );
+
+    testWidgets('a categorized event row in agenda shows its category', (
+      tester,
+    ) async {
+      final today = todayIso();
+      final activity = EventCategory(
+        id: 'activity',
+        name: 'Activity',
+        color: kCatColors.last,
+        icon: 'star',
+      );
+      await pumpApp(
+        tester,
+        prefs: calendarPrefs(
+          categories: [activity],
+          events: [
+            CalendarEvent(
+              id: 'e1',
+              title: 'Football',
+              allDay: true,
+              date: today,
+              category: activity.id,
+              color: kCatColors.first,
+              attendees: const ['me', 'erik'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await goToCalendar(tester);
+      await setCalView(tester, 'agenda');
+
+      expect(find.byKey(ValueKey('agenda-appt-e1-$today')), findsOneWidget);
+      final container = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byKey(ValueKey('agenda-appt-e1-$today')),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, activity.color);
+      expect(
+        find.byKey(ValueKey('agenda-title-category-e1-$today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(ValueKey('agenda-attendees-e1-$today')),
+        findsOneWidget,
+      );
+      expect(find.text('Eva Janssen'), findsNothing);
+      expect(find.text('Erik Janssen'), findsNothing);
+      expect(find.byKey(ValueKey('event-check-e1-$today')), findsNothing);
+    });
 
     testWidgets('the Agenda week strip renders 7 cells for the Mon-Sun week '
         'containing the selected day', (tester) async {
@@ -3251,10 +3520,11 @@ void main() {
     );
 
     testWidgets(
-      'Calendar layers settings: add a custom layer, use it for a new '
-      'list, reorder the layer, then delete it (reassigning the list back '
-      'to To-Dos)',
+      'Calendar layers settings: add a custom layer, edit it, use it for '
+      'a new event, reorder it, then swipe-delete it (reassigning the '
+      'event back to To-Dos)',
       (tester) async {
+        final today = todayIso();
         await pumpApp(tester, landOnDefaultTab: true);
 
         await tester.tap(find.byKey(const ValueKey('nav-more')));
@@ -3262,60 +3532,48 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('more-callayers')));
         await tester.pumpAndSettle();
 
-        // Only the 3 built-ins have no delete ("x") button — they're core.
+        // Default layers behave like any other layer and can be swiped to
+        // delete.
         expect(
-          find.byKey(const ValueKey('cal-manage-layer-delete-appt')),
-          findsNothing,
+          find.byKey(const ValueKey('cal-manage-layer-appt')),
+          findsOneWidget,
         );
-        expect(
-          find.byKey(const ValueKey('cal-manage-layer-delete-task')),
-          findsNothing,
-        );
-        expect(
-          find.byKey(const ValueKey('cal-manage-layer-delete-content')),
-          findsNothing,
-        );
-        // The first layer's up-arrow is a no-op at the top.
+
+        // The first layer's up-arrow is a no-op at the top; tapping it must
+        // not open the row's edit form (that's a distinct tap target).
         await tester.tap(
           find.byKey(const ValueKey('cal-manage-layer-up-appt')),
         );
         await tester.pumpAndSettle();
         expect(find.text('Appointments'), findsOneWidget);
+        expect(find.text('Edit layer'), findsNothing);
 
-        // Open the add-layer form, pick a non-default icon/colour, and
-        // submit.
+        // Open the add-layer form. Layers use the shared app colour picker
+        // and the shared emoji/picture picker; the old icon grid is gone.
         await tester.ensureVisible(find.text('+ Add layer'));
         await tester.tap(find.text('+ Add layer'));
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).first, 'Workouts');
         await tester.pump();
-        final iconChoice = find.byKey(const ValueKey('new-layer-icon-star'));
-        await tester.ensureVisible(iconChoice);
-        await tester.tap(iconChoice);
+        expect(find.text('ICON'), findsNothing);
+        await tester.ensureVisible(find.text('Colors'));
+        await tester.tap(find.text('Colors'));
         await tester.pumpAndSettle();
-        final colorChoice = find.byKey(
-          ValueKey('new-layer-color-${kCatColors[2].toARGB32()}'),
-        );
-        await tester.ensureVisible(colorChoice);
-        await tester.tap(colorChoice);
-        await tester.pumpAndSettle();
+        expect(find.text('Palette'), findsOneWidget);
+        expect(find.text('RGB / Hex'), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const ValueKey('glyph-upload')));
+        expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
+        expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
         final submitBtn = find.text('Add layer');
         await tester.ensureVisible(submitBtn);
         await tester.tap(submitBtn);
         await tester.pumpAndSettle();
 
         // The form resets and the new layer now shows in the list, with a
-        // switch (enabled by default) and up/down/delete controls.
+        // switch (enabled by default) and up/down controls; no inline
+        // delete "x" any more (that moved to swipe + the edit form).
         expect(find.text('+ Add layer'), findsOneWidget);
         expect(find.text('Workouts'), findsOneWidget);
-        final deleteBtn = find.byWidgetPredicate(
-          (w) =>
-              w.key is ValueKey<String> &&
-              (w.key! as ValueKey<String>).value.startsWith(
-                'cal-manage-layer-delete-',
-              ),
-        );
-        expect(deleteBtn, findsOneWidget);
         final upBtn = find.byWidgetPredicate(
           (w) =>
               w.key is ValueKey<String> &&
@@ -3376,67 +3634,133 @@ void main() {
         await tester.tap(switchBtn);
         await tester.pumpAndSettle();
 
-        // Dismiss the layers settings sheet before switching tabs.
-        await tester.tapAt(const Offset(10, 10));
+        // Tapping the row opens it for editing, pre-filled — rename it and
+        // save.
+        await tester.ensureVisible(find.text('Workouts'));
+        await tester.tap(find.text('Workouts'));
         await tester.pumpAndSettle();
-
-        // Create a calendar event directly on the new "Workouts" layer via
-        // the event editor's layer picker (to-do/content items are just
-        // CalendarEvents tagged with a layerId — there's no separate
-        // Lists-driven creation flow any more).
-        await goToCalendar(tester);
-        await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField).first, 'Gym session');
+        expect(find.text('Edit layer'), findsOneWidget);
+        expect(find.text('ICON'), findsNothing);
+        expect(find.text('Colors'), findsOneWidget);
+        expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
+        expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
+        await tester.enterText(find.byType(TextField).first, 'Fitness');
         await tester.pump();
-        final workoutsChip = find.text('Workouts');
-        await tester.ensureVisible(workoutsChip);
-        await tester.tap(workoutsChip);
+        final saveBtn = find.byKey(const ValueKey('sheet-confirm'));
+        await tester.ensureVisible(saveBtn);
+        await tester.tap(saveBtn);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-        await tester.pumpAndSettle();
-
-        await setCalView(tester, 'agenda');
-        expect(find.text('Gym session'), findsOneWidget);
-        // Agenda has no per-layer section labels any more, but the
-        // occurrence is on a non-appt layer, so it still gets a done
-        // checkbox (the uniform row's only layer-dependent element).
-        expect(
-          find.byWidgetPredicate(
-            (w) =>
-                w.key is ValueKey<String> &&
-                (w.key! as ValueKey<String>).value.startsWith('event-check-'),
-          ),
-          findsOneWidget,
-        );
-
-        // Deleting the layer reassigns "Gym session" back to the core
-        // To-Dos layer instead of leaving it pointed at a deleted layer.
-        await tester.tap(find.byKey(const ValueKey('nav-more')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('more-callayers')));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(deleteBtn);
-        await tester.tap(deleteBtn);
-        await tester.pumpAndSettle();
-        expect(find.text('Delete'), findsOneWidget);
-        await tester.tap(find.text('Delete'));
-        await tester.pumpAndSettle();
+        expect(find.text('Fitness'), findsOneWidget);
         expect(find.text('Workouts'), findsNothing);
 
         // Dismiss the layers settings sheet before switching tabs.
         await tester.tapAt(const Offset(10, 10));
         await tester.pumpAndSettle();
 
+        // Create a calendar event directly on the renamed "Fitness" layer
+        // via the event editor's layer picker (to-do/content items are
+        // just CalendarEvents tagged with a layerId — there's no separate
+        // Lists-driven creation flow any more).
+        await goToCalendar(tester);
+        await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).first, 'Gym session');
+        await tester.pump();
+        final fitnessChip = find.text('Fitness');
+        await tester.ensureVisible(fitnessChip);
+        await tester.tap(fitnessChip);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+        await tester.pumpAndSettle();
+
+        await setCalView(tester, 'agenda');
+        expect(find.text('Gym session'), findsOneWidget);
+        // A custom-layer normal event renders in its layer section without
+        // a done checkbox.
+        expect(find.text('Fitness'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w.key is ValueKey<String> &&
+                (w.key! as ValueKey<String>).value.startsWith('event-check-'),
+          ),
+          findsNothing,
+        );
+
+        // Deleting the layer via swipe-to-delete (same pattern as
+        // categories) reassigns "Gym session" back to To-Dos instead of
+        // leaving it pointed at a deleted layer.
+        await tester.tap(find.byKey(const ValueKey('nav-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('more-callayers')));
+        await tester.pumpAndSettle();
+        final fitnessLayerId = thriveDebug.calendarLayers
+            .singleWhere((layer) => layer.label == 'Fitness')
+            .id;
+        final fitnessRow = find.byKey(
+          ValueKey('cal-manage-layer-$fitnessLayerId'),
+        );
+        await tester.ensureVisible(fitnessRow);
+        await tester.drag(fitnessRow, const Offset(-220, 0));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(ValueKey('cal-manage-layer-$fitnessLayerId-delete')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete').last);
+        await tester.pumpAndSettle();
+        expect(fitnessRow, findsNothing);
+
+        // Dismiss the layers settings sheet before switching tabs.
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+
         await goToCalendar(tester);
         await setCalView(tester, 'agenda');
-        // Agenda has no per-layer sections any more — the reassigned
-        // occurrence just renders as a uniform agenda row, same as any
-        // other layer's.
+        // The deleted custom layer no longer has a section; the reassigned
+        // occurrence renders in the To-Dos section with the uniform agenda
+        // row style.
         expect(find.text('Gym session'), findsOneWidget);
-        expect(find.textContaining('WORKOUTS'), findsNothing);
+        expect(find.text('Fitness'), findsNothing);
+        expect(
+          find.byKey(ValueKey('agenda-layer-header-task-$today')),
+          findsOneWidget,
+        );
       },
     );
+
+    testWidgets('default calendar layers can be swipe-deleted', (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('more-callayers')));
+      await tester.pumpAndSettle();
+
+      for (final id in ['appt', 'task', 'content']) {
+        final row = find.byKey(ValueKey('cal-manage-layer-$id'));
+        expect(row, findsOneWidget);
+        await tester.ensureVisible(row);
+        await tester.drag(row, const Offset(-220, 0));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('cal-manage-layer-$id-delete')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Delete').last);
+        await tester.pumpAndSettle();
+
+        expect(row, findsNothing);
+        expect(
+          thriveDebug.calendarLayers.any((layer) => layer.id == id),
+          isFalse,
+        );
+        expect(thriveDebug.layerFilter.contains(id), isFalse);
+      }
+
+      expect(
+        find.text('No layers yet — add one to start organizing your calendar.'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('creating the very first layer retroactively reassigns every '
         'pre-existing event/category (simulates a family whose data predates '

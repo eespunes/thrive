@@ -7,9 +7,25 @@ void main() {
   testWidgets('delete an account from settings with confirm', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.byKey(const ValueKey('acc-del-eva')));
+    expect(find.byKey(const ValueKey('acc-eva-delete')), findsNothing);
+    final accountSwipe = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('acc-eva'))),
+    );
+    await accountSwipe.moveBy(const Offset(-24, 0));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('acc-eva-delete')), findsOneWidget);
+    await accountSwipe.moveBy(const Offset(-196, 0));
+    await accountSwipe.up();
     await tester.pumpAndSettle();
-    expect(find.text('Delete'), findsWidgets);
+    await tester.tap(
+      find.byKey(const ValueKey('acc-eva-delete')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Items paid from this account will move to your last account.'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();
   });
@@ -32,9 +48,27 @@ void main() {
   testWidgets('delete a block from settings with confirm', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.byKey(const ValueKey('blk-del-health')));
+    expect(find.byKey(const ValueKey('blk-health-delete')), findsNothing);
+    final blockSwipe = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('blk-health'))),
+    );
+    await blockSwipe.moveBy(const Offset(-24, 0));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('blk-health-delete')), findsOneWidget);
+    await blockSwipe.moveBy(const Offset(-196, 0));
+    await blockSwipe.up();
     await tester.pumpAndSettle();
-    expect(find.text('Delete'), findsWidgets);
+    await tester.tap(
+      find.byKey(const ValueKey('blk-health-delete')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'It stays in any closed months. Open months lose this block and its items.',
+      ),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();
   });

@@ -975,8 +975,12 @@ extension _ThriveScreens on _ThriveHomeState {
     final accRows = <Widget>[];
     for (int idx = 0; idx < accounts.length; idx++) {
       final a = accounts[idx];
-      accRows.add(
-        Container(
+      final inner = GestureDetector(
+        key: ValueKey('acc-edit-${a.key}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => openAccountSheet(mode: 'edit', key: a.key),
+        child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: B.faint)),
@@ -1040,24 +1044,21 @@ extension _ThriveScreens on _ThriveHomeState {
                   ],
                 ),
               ),
-              _miniBtn(
-                'edit',
-                B.soft2,
-                () => openAccountSheet(mode: 'edit', key: a.key),
-                key: ValueKey('acc-edit-${a.key}'),
-              ),
-              if (accounts.length > 1) ...[
-                const SizedBox(width: 6),
-                _miniBtn(
-                  'trash',
-                  B.red,
-                  () => deleteAccount(a.key),
-                  key: ValueKey('acc-del-${a.key}'),
-                ),
-              ],
             ],
           ),
         ),
+      );
+      accRows.add(
+        accounts.length > 1
+            ? _SwipeRow(
+                key: ValueKey('acc-${a.key}'),
+                open: swipedId == 'acc-${a.key}',
+                onOpenChanged: (open) =>
+                    update(() => swipedId = open ? 'acc-${a.key}' : null),
+                onDelete: () => deleteAccount(a.key),
+                child: inner,
+              )
+            : inner,
       );
     }
     accRows.add(
@@ -1068,8 +1069,12 @@ extension _ThriveScreens on _ThriveHomeState {
     final blockRows = <Widget>[];
     for (int idx = 0; idx < cats.length; idx++) {
       final c = cats[idx];
-      blockRows.add(
-        Container(
+      final inner = GestureDetector(
+        key: ValueKey('blk-edit-${c.key}'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => openBlockSheet(mode: 'edit', key: c.key),
+        child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: B.faint)),
@@ -1174,24 +1179,21 @@ extension _ThriveScreens on _ThriveHomeState {
                   ],
                 ),
               ),
-              _miniBtn(
-                'edit',
-                B.soft2,
-                () => openBlockSheet(mode: 'edit', key: c.key),
-                key: ValueKey('blk-edit-${c.key}'),
-              ),
-              if (cats.length > 1) ...[
-                const SizedBox(width: 6),
-                _miniBtn(
-                  'trash',
-                  B.red,
-                  () => deleteBlock(c.key),
-                  key: ValueKey('blk-del-${c.key}'),
-                ),
-              ],
             ],
           ),
         ),
+      );
+      blockRows.add(
+        cats.length > 1
+            ? _SwipeRow(
+                key: ValueKey('blk-${c.key}'),
+                open: swipedId == 'blk-${c.key}',
+                onOpenChanged: (open) =>
+                    update(() => swipedId = open ? 'blk-${c.key}' : null),
+                onDelete: () => deleteBlock(c.key),
+                child: inner,
+              )
+            : inner,
       );
     }
     blockRows.add(
@@ -1247,22 +1249,6 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _miniBtn(String icon, Color color, VoidCallback onTap, {Key? key}) {
-    return GestureDetector(
-      key: key,
-      onTap: onTap,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: B.faint,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(child: ic(icon, size: 15, sw: 2.2, color: color)),
-      ),
     );
   }
 

@@ -77,9 +77,10 @@ class _EventEditSheetState extends State<_EventEditSheet> {
 
   /// The [CalendarLayerDef.id] this event belongs to — `appt` (default),
   /// `task`, `content`, or any custom layer id. Drives which categories are
-  /// offered below (categories are layer-scoped) and which rendering style
-  /// (checkbox vs plain appointment) this event gets on the calendar.
+  /// offered below (categories are layer-scoped). To-do behavior is tracked
+  /// separately in [_todo].
   late String _layerId;
+  late bool _todo;
 
   bool get _editing => widget.event != null;
 
@@ -113,6 +114,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _recurWeekdays = (e?.recurWeekdays ?? const <int>[]).toList();
     if (_recurWeekdays.isEmpty) _recurWeekdays = [_parseIso(_date).weekday];
     _layerId = e?.layerId ?? 'appt';
+    _todo = e?.todo ?? false;
   }
 
   @override
@@ -291,6 +293,83 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     );
   }
 
+  void _setLayerId(String layerId) {
+    _layerId = layerId;
+    if (_category != null &&
+        widget.state.catById(_category)?.layerId != layerId) {
+      _category = null;
+    }
+  }
+
+  Widget _eventKindToggle() {
+    Widget option({
+      required String key,
+      required String label,
+      required String icon,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey(key),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            decoration: BoxDecoration(
+              color: selected ? B.primary : Colors.white,
+              border: Border.all(color: selected ? B.primary : B.line),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ic(
+                  icon,
+                  size: 16,
+                  sw: 2.3,
+                  color: selected ? Colors.white : B.soft2,
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: selected ? Colors.white : B.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        option(
+          key: 'event-kind-event',
+          label: 'Event',
+          icon: 'cal',
+          selected: !_todo,
+          onTap: () => setState(() => _todo = false),
+        ),
+        const SizedBox(width: 8),
+        option(
+          key: 'event-kind-todo',
+          label: 'To-do',
+          icon: 'check',
+          selected: _todo,
+          onTap: () => setState(() => _todo = true),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
@@ -324,6 +403,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         exceptions: widget.event?.exceptions,
         createdBy: widget.event?.createdBy,
         layerId: _layerId,
+        todo: _todo,
         done: widget.event?.done ?? false,
         doneDates: widget.event?.doneDates,
       );
@@ -360,6 +440,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
         exceptions: widget.event?.exceptions,
         createdBy: widget.event?.createdBy,
         layerId: edited.layerId,
+        todo: edited.todo,
         done: edited.done,
         doneDates: edited.doneDates,
       );
@@ -390,6 +471,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                     onChanged: (_) => setState(() {}),
                   ),
                 ),
+                _sheetField('Type', _eventKindToggle()),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 7),
                   child: Text(
@@ -412,11 +494,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
                           GestureDetector(
                             key: ValueKey('event-layer-${layer.id}'),
                             onTap: () => setState(() {
-                              _layerId = layer.id;
-                              if (_category != null &&
-                                  s.catById(_category)?.layerId != _layerId) {
-                                _category = null;
-                              }
+                              _setLayerId(layer.id);
                             }),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -1709,7 +1787,6 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   // ------------------------------------------------------- add-layer form
   bool _addingLayer = false;
   late final TextEditingController _newLayerName;
-  String _newLayerIcon = kCatIconsList.first;
   Color _newLayerColor = kCatColors.first;
   String? _newLayerEmoji;
   String? _newLayerPicture;
@@ -2170,115 +2247,135 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       ),
     );
 
-    Widget layerRow(CalendarLayerDef layer, int index) {
-      final on = s.layerFilter.contains(layer.id);
-      final isFirst = index == 0;
-      final isLast = index == s.calendarLayers.length - 1;
-      return Padding(
-        key: ValueKey('cal-manage-layer-${layer.id}'),
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: layer.color.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(10),
+    void openLayerForEdit(CalendarLayerDef layer) {
+      Navigator.of(context).pop();
+      s.openCalendarLayer(layer);
+    }
+
+    Widget layerReorderArrows(int index) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          key: ValueKey('cal-manage-layer-up-${s.calendarLayers[index].id}'),
+          onTap: index == 0
+              ? null
+              : () => setState(
+                  () => s.moveCalendarLayer(s.calendarLayers[index].id, -1),
                 ),
-                child: glyphTile(
-                  size: 30,
-                  radius: 10,
-                  picture: layer.picture,
-                  emoji: layer.emoji,
-                  emojiSize: 16,
-                  fallback: Center(
-                    child: ic(
-                      layer.icon,
-                      size: 15,
-                      sw: 2.3,
-                      color: layer.color,
-                    ),
-                  ),
-                ),
+          child: SizedBox(
+            width: 20,
+            height: 15,
+            child: Center(
+              child: ic(
+                'cup',
+                size: 14,
+                sw: 2.6,
+                color: index == 0 ? const Color(0xffd2d8e1) : B.soft2,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  layer.label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.ink,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                key: ValueKey('cal-manage-layer-up-${layer.id}'),
-                onTap: isFirst
-                    ? null
-                    : () => setState(() => s.moveCalendarLayer(layer.id, -1)),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Transform.rotate(
-                    angle: math.pi,
-                    child: ic(
-                      'down',
-                      size: 15,
-                      sw: 2.3,
-                      color: isFirst ? B.faint : B.soft2,
-                    ),
-                  ),
-                ),
-              ),
-              GestureDetector(
-                key: ValueKey('cal-manage-layer-down-${layer.id}'),
-                onTap: isLast
-                    ? null
-                    : () => setState(() => s.moveCalendarLayer(layer.id, 1)),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: ic(
-                    'down',
-                    size: 15,
-                    sw: 2.3,
-                    color: isLast ? B.faint : B.soft2,
-                  ),
-                ),
-              ),
-              Switch(
-                key: ValueKey('cal-manage-layer-switch-${layer.id}'),
-                value: on,
-                onChanged: (_) =>
-                    setState(() => s.toggleCalendarLayerEnabled(layer.id)),
-                activeTrackColor: layer.color,
-              ),
-              if (!layer.core)
-                GestureDetector(
-                  key: ValueKey('cal-manage-layer-delete-${layer.id}'),
-                  onTap: () {
-                    s.askDelete(
-                      layer.label,
-                      'Any lists using this layer move back to To-Dos.',
-                      () => setState(() => s.removeCalendarLayer(layer.id)),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 2),
-                    child: ic('x', size: 14, sw: 2.3, color: B.muted),
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
+        GestureDetector(
+          key: ValueKey('cal-manage-layer-down-${s.calendarLayers[index].id}'),
+          onTap: index == s.calendarLayers.length - 1
+              ? null
+              : () => setState(
+                  () => s.moveCalendarLayer(s.calendarLayers[index].id, 1),
+                ),
+          child: SizedBox(
+            width: 20,
+            height: 15,
+            child: Center(
+              child: ic(
+                'cdown',
+                size: 14,
+                sw: 2.6,
+                color: index == s.calendarLayers.length - 1
+                    ? const Color(0xffd2d8e1)
+                    : B.soft2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    Widget layerRow(CalendarLayerDef layer, int index) {
+      final on = s.layerFilter.contains(layer.id);
+      final row = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: B.line),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          children: [
+            layerReorderArrows(index),
+            const SizedBox(width: 9),
+            Expanded(
+              child: GestureDetector(
+                key: ValueKey('cal-manage-layer-edit-${layer.id}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => openLayerForEdit(layer),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: layer.color,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: glyphTile(
+                        size: 30,
+                        radius: 10,
+                        picture: layer.picture,
+                        emoji: layer.emoji,
+                        emojiSize: 17,
+                        fallback: const SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        layer.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Switch(
+              key: ValueKey('cal-manage-layer-switch-${layer.id}'),
+              value: on,
+              onChanged: (_) =>
+                  setState(() => s.toggleCalendarLayerEnabled(layer.id)),
+              activeTrackColor: layer.color,
+            ),
+          ],
+        ),
+      );
+      if (!s.canDeleteCalendarLayer(layer)) return row;
+      return _SwipeRow(
+        key: ValueKey('cal-manage-layer-${layer.id}'),
+        open: s.swipedId == 'cal-manage-layer-${layer.id}',
+        onOpenChanged: (o) => s.update(
+          () => s.swipedId = o ? 'cal-manage-layer-${layer.id}' : null,
+        ),
+        onDelete: () => s.askDelete(
+          layer.label,
+          'Any events using this layer move to another layer.',
+          () => setState(() => s.removeCalendarLayer(layer.id)),
+        ),
+        borderRadius: 13,
+        child: row,
       );
     }
 
@@ -2304,94 +2401,16 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Text(
-                  'ICON',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.muted,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final icon in kCatIconsList)
-                      GestureDetector(
-                        key: ValueKey('new-layer-icon-$icon'),
-                        onTap: () => setState(() => _newLayerIcon = icon),
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: _newLayerIcon == icon
-                                ? B.soft
-                                : Colors.white,
-                            border: Border.all(
-                              color: _newLayerIcon == icon ? B.primary : B.line,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: ic(
-                              icon,
-                              size: 15,
-                              sw: 2.2,
-                              color: _newLayerIcon == icon
-                                  ? B.primary
-                                  : B.soft2,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: Text(
-                  'COLOUR',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.muted,
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Wrap(
-                  spacing: 9,
-                  runSpacing: 9,
-                  children: [
-                    for (final c in kCatColors)
-                      GestureDetector(
-                        key: ValueKey('new-layer-color-${c.toARGB32()}'),
-                        onTap: () => setState(() => _newLayerColor = c),
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: c,
-                            borderRadius: BorderRadius.circular(10),
-                            border: _newLayerColor == c
-                                ? Border.all(color: B.ink, width: 2)
-                                : null,
-                          ),
-                        ),
-                      ),
-                  ],
+              _sheetField(
+                'Color',
+                _BudgetColorPicker(
+                  quickColors: kCatColors,
+                  selected: _newLayerColor,
+                  onChanged: (color) => setState(() => _newLayerColor = color),
                 ),
               ),
               _sheetField(
-                'Emoji or picture (optional)',
+                'Emoji or picture',
                 _GlyphPicker(
                   emoji: _newLayerEmoji,
                   picture: _newLayerPicture,
@@ -2404,7 +2423,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
               _primaryBtn('Add layer', () {
                 s.addCalendarLayer(
                   label: _newLayerName.text,
-                  icon: _newLayerIcon,
+                  icon: 'cal',
                   emoji: _newLayerEmoji,
                   picture: _newLayerPicture,
                   color: _newLayerColor,
@@ -2412,7 +2431,6 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 setState(() {
                   _addingLayer = false;
                   _newLayerName.clear();
-                  _newLayerIcon = kCatIconsList.first;
                   _newLayerColor = kCatColors.first;
                   _newLayerEmoji = null;
                   _newLayerPicture = null;
@@ -2456,7 +2474,10 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 ),
               ),
             for (var i = 0; i < s.calendarLayers.length; i++)
-              layerRow(s.calendarLayers[i], i),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: layerRow(s.calendarLayers[i], i),
+              ),
             if (_addingLayer)
               addLayerForm()
             else
@@ -2464,7 +2485,13 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 padding: const EdgeInsets.only(top: 2),
                 child: _addButtonForSheet(
                   '+ Add layer',
-                  () => setState(() => _addingLayer = true),
+                  () => setState(() {
+                    _addingLayer = true;
+                    _newLayerName.clear();
+                    _newLayerColor = kCatColors.first;
+                    _newLayerEmoji = null;
+                    _newLayerPicture = null;
+                  }),
                 ),
               ),
           ],
@@ -2592,6 +2619,139 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// "Edit layer" sheet. Opened from the layer settings list so save remains
+/// pinned beside the close button instead of scrolling inside the manager.
+class _LayerSheet extends StatefulWidget {
+  const _LayerSheet({required this.state, required this.layer});
+  final _ThriveHomeState state;
+  final CalendarLayerDef layer;
+
+  @override
+  State<_LayerSheet> createState() => _LayerSheetState();
+}
+
+class _LayerSheetState extends State<_LayerSheet> {
+  late final TextEditingController _name;
+  late Color _color;
+  String? _emoji;
+  String? _picture;
+
+  @override
+  void initState() {
+    super.initState();
+    final layer = widget.layer;
+    _name = TextEditingController(text: layer.label);
+    _color = layer.color;
+    _emoji = layer.emoji;
+    _picture = layer.picture;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.state;
+    final layer = widget.layer;
+    final valid = _name.text.trim().isNotEmpty;
+
+    void saveLayer() {
+      s.updateCalendarLayer(
+        id: layer.id,
+        label: _name.text,
+        icon: 'cal',
+        emoji: _emoji,
+        picture: _picture,
+        color: _color,
+      );
+      Navigator.of(context).pop();
+      s.openCalendarManageSheet(mode: _CalManageMode.layers);
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sheetHeadWithTick(
+          context,
+          'Edit layer',
+          onConfirm: saveLayer,
+          confirmEnabled: valid,
+        ),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetField(
+                  'Label',
+                  _sheetInput(
+                    _name,
+                    hint: 'e.g. Workouts',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                _sheetField(
+                  'Color',
+                  _BudgetColorPicker(
+                    quickColors: kCatColors,
+                    selected: _color,
+                    onChanged: (color) => setState(() => _color = color),
+                  ),
+                ),
+                _sheetField(
+                  'Emoji or picture',
+                  _GlyphPicker(
+                    emoji: _emoji,
+                    picture: _picture,
+                    onChanged: ({String? emoji, String? picture}) {
+                      _emoji = emoji;
+                      _picture = picture;
+                    },
+                  ),
+                ),
+                if (s.canDeleteCalendarLayer(layer))
+                  GestureDetector(
+                    key: ValueKey('cal-manage-layer-delete-${layer.id}'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      s.askDelete(
+                        _name.text,
+                        'Any events using this layer move to another layer.',
+                        () {
+                          s.removeCalendarLayer(layer.id);
+                          s.openCalendarManageSheet(
+                            mode: _CalManageMode.layers,
+                          );
+                        },
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
+                      child: Text(
+                        'Delete layer',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: B.red,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -3441,78 +3601,125 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
   }
 }
 
-/// View-switcher sheet — Month/Agenda, ported from `viewSheet()`.
+/// View-switcher sheet — Month/Agenda plus the Kitchen dashboard entry point.
 class _ViewPickerSheet extends StatelessWidget {
   const _ViewPickerSheet({required this.state});
   final _ThriveHomeState state;
 
   @override
   Widget build(BuildContext context) {
+    Widget row({
+      required Key key,
+      required String icon,
+      required String label,
+      String? sub,
+      required bool on,
+      required VoidCallback onTap,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: GestureDetector(
+          key: key,
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: on ? B.soft : Colors.white,
+              border: Border.all(color: on ? B.primary : B.line),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: on ? B.primary : B.faint,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Center(
+                    child: ic(
+                      icon,
+                      size: 17,
+                      sw: 2.2,
+                      color: on ? Colors.white : B.soft2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: on ? B.deep : B.ink,
+                        ),
+                      ),
+                      if (sub != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          sub,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: B.soft2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (on) ic('check', size: 19, sw: 2.6, color: B.primary),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sheetHead(context, 'View'),
         for (final (value, label, icon) in kCalViews)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Builder(
-              builder: (_) {
-                final on = state.calView == value;
-                return GestureDetector(
-                  key: ValueKey('cal-view-$value'),
-                  onTap: () {
-                    state.setCalView(value);
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 13,
-                    ),
-                    decoration: BoxDecoration(
-                      color: on ? B.soft : Colors.white,
-                      border: Border.all(color: on ? B.primary : B.line),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: on ? B.primary : B.faint,
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: Center(
-                            child: ic(
-                              icon,
-                              size: 17,
-                              sw: 2.2,
-                              color: on ? Colors.white : B.soft2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w800,
-                              color: on ? B.deep : B.ink,
-                            ),
-                          ),
-                        ),
-                        if (on)
-                          ic('check', size: 19, sw: 2.6, color: B.primary),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+          Builder(
+            builder: (_) {
+              final on = state.calView == value;
+              return row(
+                key: ValueKey('cal-view-$value'),
+                icon: icon,
+                label: label,
+                on: on,
+                onTap: () {
+                  state.setCalView(value);
+                  Navigator.of(context).pop();
+                },
+              );
+            },
           ),
+        row(
+          key: const ValueKey('cal-view-kitchen-dashboard'),
+          icon: 'columns',
+          label: 'Kitchen dashboard',
+          sub: state.kitchenEnabled
+              ? 'Wall-tablet family view'
+              : 'Disabled - tap to re-enable',
+          on: false,
+          onTap: () {
+            Navigator.of(context).pop();
+            if (state.kitchenEnabled) {
+              state.openKitchenDashboard();
+            } else {
+              state.toggleKitchenEnabled();
+            }
+          },
+        ),
       ],
     );
   }
@@ -3739,13 +3946,20 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
 
 /// Full day's events, ported from `daySheet()` — replaces Month view's old
 /// inline "selected day" panel; opened by tapping a day number.
-class _DayDetailSheet extends StatelessWidget {
+class _DayDetailSheet extends StatefulWidget {
   const _DayDetailSheet({required this.state, required this.iso});
   final _ThriveHomeState state;
   final String iso;
 
   @override
+  State<_DayDetailSheet> createState() => _DayDetailSheetState();
+}
+
+class _DayDetailSheetState extends State<_DayDetailSheet> {
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
+    final iso = widget.iso;
     final evs = state.eventOccurrences(iso, iso)
       ..sort(
         (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
@@ -3823,7 +4037,11 @@ class _DayDetailSheet extends StatelessWidget {
           Column(
             children: [
               for (final o in evs) ...[
-                state._eventCard(o, popSheetFirst: true),
+                state._eventCard(
+                  o,
+                  popSheetFirst: true,
+                  onToggleDone: () => setState(() {}),
+                ),
                 if (o != evs.last) const SizedBox(height: 9),
               ],
             ],

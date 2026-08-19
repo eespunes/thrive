@@ -232,6 +232,7 @@ class Workspace {
     Map<String, int>? starsMap,
     this.kitchenEnabled = true,
     Map<String, bool>? picMembers,
+    List<String>? kitchenLayerFilter,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
@@ -245,7 +246,9 @@ class Workspace {
        // or the bundled first-launch sample) pass them explicitly.
        calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
        starsMap = starsMap ?? <String, int>{},
-       picMembers = picMembers ?? <String, bool>{};
+       picMembers = picMembers ?? <String, bool>{},
+       kitchenLayerFilter =
+           kitchenLayerFilter ?? <String>['appt', 'task', 'content'];
 
   List<Account> accounts;
   List<Category> cats;
@@ -281,6 +284,11 @@ class Workspace {
   /// image tile, no text — for pre-readers). Missing memberId means `false`.
   Map<String, bool> picMembers;
 
+  /// Kitchen-dashboard layer visibility, independent from the phone
+  /// calendar's [layerFilter]. Controls every calendar layer shown on the
+  /// wall display; kitchen-origin items are layerless and always independent.
+  List<String> kitchenLayerFilter;
+
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
     'cats': cats.map((c) => c.toJson()).toList(),
@@ -302,6 +310,7 @@ class Workspace {
     if (starsMap.isNotEmpty) 'starsMap': starsMap,
     'kitchenEnabled': kitchenEnabled,
     if (picMembers.isNotEmpty) 'picMembers': picMembers,
+    'kitchenLayerFilter': kitchenLayerFilter,
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -367,6 +376,15 @@ class Workspace {
               CalendarLayerDef.fromJson(Map<String, dynamic>.from(l as Map)),
           ]
         : kDefaultCalendarLayers();
+    final defaultKitchenLayerFilter = calendarLayers.isNotEmpty
+        ? [for (final layer in calendarLayers) layer.id]
+        : <String>['appt', 'task', 'content'];
+    final kitchenLayerFilter = j.containsKey('kitchenLayerFilter')
+        ? [
+            for (final id in (j['kitchenLayerFilter'] as List? ?? const []))
+              id.toString(),
+          ]
+        : defaultKitchenLayerFilter;
     final starsMap = <String, int>{
       for (final entry
           in (j['starsMap'] as Map<String, dynamic>? ?? {}).entries)
@@ -391,6 +409,7 @@ class Workspace {
       starsMap: starsMap,
       kitchenEnabled: j['kitchenEnabled'] != false,
       picMembers: picMembers,
+      kitchenLayerFilter: kitchenLayerFilter,
     );
   }
 

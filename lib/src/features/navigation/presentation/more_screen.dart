@@ -50,22 +50,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             sub: 'Appointments, to-dos & content',
             onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
           ),
-          if (kitchenEnabled)
-            _moreRow(
-              key: 'more-kitchen',
-              icon: 'columns',
-              title: 'Kitchen dashboard',
-              sub: 'Wall-tablet family view',
-              onTap: openKitchenDashboard,
-            )
-          else
-            _moreRow(
-              key: 'more-kitchen',
-              icon: 'columns',
-              title: 'Kitchen dashboard',
-              sub: 'Disabled — tap to re-enable',
-              onTap: toggleKitchenEnabled,
-            ),
+          _moreRow(
+            key: 'more-kitchen-settings',
+            icon: 'gear',
+            title: 'Kitchen wall settings',
+            sub: 'Layers & picture mode',
+            onTap: openKitchenWallSettings,
+          ),
         ]),
         const SizedBox(height: 18),
         _moreSecLabel('Money'),

@@ -144,5 +144,66 @@ void main() {
         expect(ws.calendarLayers.map((l) => l.id), ['custom']);
       },
     );
+
+    test(
+      'fromJson defaults the kitchen wall layer filter from saved layers',
+      () {
+        final ws = Workspace.fromJson({
+          'accounts': [],
+          'cats': [],
+          'data': <String, dynamic>{},
+          'calendarLayers': [
+            CalendarLayerDef(
+              id: 'task',
+              label: 'To-Dos',
+              icon: 'check',
+              color: kMemberColors[0],
+              core: true,
+            ).toJson(),
+            CalendarLayerDef(
+              id: 'custom',
+              label: 'Custom',
+              icon: 'star',
+              color: kMemberColors[1],
+            ).toJson(),
+          ],
+        });
+
+        expect(ws.kitchenLayerFilter, ['task', 'custom']);
+      },
+    );
+
+    test('kitchen wall layer filter round-trips explicitly', () {
+      final ws = Workspace(
+        accounts: const [],
+        cats: const [],
+        data: const {},
+        kitchenLayerFilter: const ['content'],
+      );
+
+      expect(Workspace.fromJson(ws.toJson()).kitchenLayerFilter, ['content']);
+    });
+  });
+
+  group('CalendarEvent kitchen-origin items', () {
+    test('round-trip with no calendar layer assigned', () {
+      final event = CalendarEvent(
+        id: 'k1',
+        title: 'Kitchen only',
+        allDay: true,
+        date: '2026-08-19',
+        color: kMemberColors[0],
+        attendees: const ['kid'],
+        layerId: '',
+        kitchenOrigin: true,
+        emoji: '⭐',
+      );
+
+      final restored = CalendarEvent.fromJson(event.toJson());
+
+      expect(restored.kitchenOrigin, isTrue);
+      expect(restored.layerId, '');
+      expect(restored.emoji, '⭐');
+    });
   });
 }

@@ -177,6 +177,7 @@ class ThriveDebugController {
   List<TaskList> get taskLists => _s.taskLists;
   List<ShoppingList> get shoppingLists => _s.shoppingLists;
   List<CalendarLayerDef> get calendarLayers => _s.calendarLayers;
+  List<String> get layerFilter => _s.layerFilter;
   List<EventCategory> get eventCategories => _s.eventCategories;
   void addCalendarLayer({
     required String label,
@@ -224,6 +225,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Map<String, int> starsMap = {};
   bool kitchenEnabled = true;
   Map<String, bool> picMembers = {};
+  List<String> kitchenLayerFilter = ['appt', 'task', 'content'];
   String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
@@ -560,6 +562,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     starsMap = ws.starsMap;
     kitchenEnabled = ws.kitchenEnabled;
     picMembers = ws.picMembers;
+    kitchenLayerFilter = ws.kitchenLayerFilter;
+    layerFilter = _savedLayerFilter(saved['layerFilter']);
     _syncRecurringSeries();
   }
 
@@ -583,6 +587,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         starsMap: starsMap,
         kitchenEnabled: kitchenEnabled,
         picMembers: picMembers,
+        kitchenLayerFilter: kitchenLayerFilter,
       ),
     };
     families = user != null ? [seedFamily('fam_main', user!, myId)] : [];
@@ -647,6 +652,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     tab = kValidTabs.contains(t) ? t : 'home';
   }
 
+  List<String> _savedLayerFilter(Object? raw) {
+    final restored = <String>[
+      for (final id in (raw as List? ?? const []))
+        if (id.toString().trim().isNotEmpty) id.toString(),
+    ];
+    return restored.isEmpty ? <String>['appt', 'task', 'content'] : restored;
+  }
+
   Future<void> _seedFromAsset() async {
     // First launch with no stored state: seed the bundled sample budget so the
     // app isn't empty. Newly *created* families start blank (see issue #119).
@@ -666,6 +679,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       starsMap = ws.starsMap;
       kitchenEnabled = ws.kitchenEnabled;
       picMembers = ws.picMembers;
+      kitchenLayerFilter = ws.kitchenLayerFilter;
       _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
       ready = true;
@@ -691,6 +705,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       starsMap: starsMap,
       kitchenEnabled: kitchenEnabled,
       picMembers: picMembers,
+      kitchenLayerFilter: kitchenLayerFilter,
     );
   }
 
@@ -718,6 +733,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'monthIdx': monthIdx,
       'screen': screen,
       'tab': tab,
+      'layerFilter': layerFilter,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {
@@ -1250,6 +1266,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       _didSyncImportsOnOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
     }
+    final bottomSystemInset = shellReady ? _bottomSystemInset(context) : 0.0;
     return Scaffold(
       backgroundColor: B.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is
@@ -1285,10 +1302,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 36,
+                bottom: 36 + bottomSystemInset,
                 child: Center(child: _buildToast()),
               ),
-            ?(shellReady ? _buildFab() : null),
+            ?(shellReady
+                ? _buildFab(bottomSystemInset: bottomSystemInset)
+                : null),
             // Auth gate: covers the app until a user is signed in.
             if (authOpen) Positioned.fill(child: _AuthScreen(state: this)),
             // While a signed-in user's cloud families are still loading, show a
