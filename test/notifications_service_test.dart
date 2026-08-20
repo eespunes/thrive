@@ -29,6 +29,7 @@ void main() {
   final cancelledIds = <int>[];
   var pendingRequests = <Map<Object?, Object?>>[];
   var permissionGranted = true;
+  var exactAlarmsGranted = true;
 
   Future<Object?> handlePlugin(MethodCall call) async {
     switch (call.method) {
@@ -49,6 +50,10 @@ void main() {
         return pendingRequests;
       case 'requestNotificationsPermission':
         return permissionGranted;
+      case 'canScheduleExactNotifications':
+        return exactAlarmsGranted;
+      case 'requestExactAlarmsPermission':
+        return exactAlarmsGranted;
       case 'requestPermissions':
         return permissionGranted;
       default:
@@ -63,6 +68,7 @@ void main() {
     cancelledIds.clear();
     pendingRequests = <Map<Object?, Object?>>[];
     permissionGranted = true;
+    exactAlarmsGranted = true;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_pluginChannel, handlePlugin);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -102,6 +108,14 @@ void main() {
     location: location,
     exceptions: exceptions,
   );
+
+  String? scheduleMode(MethodCall call) {
+    final args = call.arguments;
+    if (args is! Map) return null;
+    final platformSpecifics = args['platformSpecifics'];
+    if (platformSpecifics is! Map) return null;
+    return platformSpecifics['scheduleMode']?.toString();
+  }
 
   test(
     'every scheduling/cancelling call is a safe no-op before init()',
@@ -172,6 +186,7 @@ void main() {
         event(reminder: 'at', start: '09:00', location: 'Kitchen'),
       );
       expect(scheduledCalls, hasLength(1));
+      expect(scheduleMode(scheduledCalls.single), 'exactAllowWhileIdle');
     },
   );
 

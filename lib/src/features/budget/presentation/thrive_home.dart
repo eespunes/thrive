@@ -386,6 +386,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         if (!mounted) return;
         setState(() => ready = true);
         unawaited(_rescheduleReminders());
+        unawaited(_syncDeviceCalendar());
         _handleNotificationDeepLink();
         return;
       }
@@ -419,6 +420,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => ready = true);
       unawaited(_rescheduleReminders());
+      unawaited(_syncDeviceCalendar());
       _handleNotificationDeepLink();
       return;
     }
@@ -442,6 +444,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         if (!mounted) return;
         setState(() => ready = true);
         unawaited(_rescheduleReminders());
+        unawaited(_syncDeviceCalendar());
         _handleNotificationDeepLink();
         return;
       } catch (_) {
@@ -480,6 +483,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       ...events,
       ...importedEvents,
     ]);
+  }
+
+  Future<void> _syncDeviceCalendar() async {
+    await DeviceCalendarSync.instance.syncEvents(events);
   }
 
   void _syncUserFromFirebaseAuth() {
@@ -685,6 +692,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       ready = true;
     });
     unawaited(_rescheduleReminders());
+    unawaited(_syncDeviceCalendar());
     _persist();
   }
 
@@ -722,9 +730,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       // strand it on the onboarding gate next login (issue #128). Deliberate
       // "leave/delete my last family" flows update the user doc on their own.
       if (families.isNotEmpty) await _pushCloudState();
+      unawaited(_syncDeviceCalendar());
       return;
     }
     await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
+    unawaited(_syncDeviceCalendar());
   }
 
   Map<String, dynamic> _buildStatePayload() {

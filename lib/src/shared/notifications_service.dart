@@ -22,6 +22,8 @@ class NotificationService implements NotificationScheduler {
   static bool _initialized = false;
   static bool? _notificationsGranted;
   static Future<bool>? _notificationPermissionRequest;
+  static bool? _exactAlarmsGranted;
+  static Future<bool>? _exactAlarmPermissionRequest;
 
   static Future<void> init() async {
     if (_initialized) {
@@ -79,6 +81,7 @@ class NotificationService implements NotificationScheduler {
     try {
       final granted = await _requestPermission();
       if (!granted) return;
+      final scheduleMode = await _androidScheduleMode();
       final now = tz.TZDateTime.now(tz.local);
       var scheduled = 0;
       final occurrenceDates = event.recur == 'none'
@@ -99,21 +102,12 @@ class NotificationService implements NotificationScheduler {
         if (!event.exceptions.contains(occurrenceDate)) {
           final when = _eventReminderTime(event, occurrenceDate);
           if (when != null && when.isAfter(now)) {
-            await _plugin.zonedSchedule(
-              _eventNotificationId(event.id, occurrenceDate),
-              event.title,
-              _eventNotificationBody(event),
-              when,
-              const NotificationDetails(
-                android: AndroidNotificationDetails(
-                  'event_reminders',
-                  'Event reminders',
-                  importance: Importance.high,
-                  priority: Priority.high,
-                ),
-                iOS: DarwinNotificationDetails(),
-              ),
-              androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            await _scheduleEventNotification(
+              id: _eventNotificationId(event.id, occurrenceDate),
+              title: event.title,
+              body: _eventNotificationBody(event),
+              when: when,
+              scheduleMode: scheduleMode,
               payload: 'event:${event.id}:$occurrenceDate',
             );
             scheduled++;
@@ -224,6 +218,41 @@ class NotificationService implements NotificationScheduler {
     return when;
   }
 
+  Future<void> _scheduleEventNotification({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime when,
+    required AndroidScheduleMode scheduleMode,
+    required String payload,
+  }) async {
+    Future<void> schedule(AndroidScheduleMode mode) => _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      when,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'event_reminders',
+          'Event reminders',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: mode,
+      payload: payload,
+    );
+
+    try {
+      await schedule(scheduleMode);
+    } on PlatformException {
+      if (scheduleMode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
+      _exactAlarmsGranted = false;
+      await schedule(AndroidScheduleMode.inexactAllowWhileIdle);
+    }
+  }
+
   @override
   Future<void> cancelEventReminder(String eventId) async {
     if (!_initialized) return;
@@ -269,6 +298,43 @@ class NotificationService implements NotificationScheduler {
     _notificationsGranted = granted;
     _notificationPermissionRequest = null;
     return granted;
+  }
+
+  Future<AndroidScheduleMode> _androidScheduleMode() async {
+    final exact = await _requestExactAlarmPermission();
+    return exact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
+  Future<bool> _requestExactAlarmPermission() async {
+    final cached = _exactAlarmsGranted;
+    if (cached != null) return cached;
+    final pending = _exactAlarmPermissionRequest;
+    if (pending != null) return pending;
+
+    final request = _requestExactAlarmPermissionFromPlatform();
+    _exactAlarmPermissionRequest = request;
+    final granted = await request;
+    _exactAlarmsGranted = granted;
+    _exactAlarmPermissionRequest = null;
+    return granted;
+  }
+
+  Future<bool> _requestExactAlarmPermissionFromPlatform() async {
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return true;
+      if (await android.canScheduleExactNotifications() == true) return true;
+      if (await android.requestExactAlarmsPermission() == true) return true;
+      return await android.canScheduleExactNotifications() == true;
+    } catch (e) {
+      debugPrint('[notifications] exact alarm permission request failed: $e');
+      return false;
+    }
   }
 
   Future<bool> _requestPermissionFromPlatform() async {

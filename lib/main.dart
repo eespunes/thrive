@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/services.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' as ep;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -26,6 +27,7 @@ part 'src/shared/theme.dart';
 part 'src/shared/icons.dart';
 part 'src/shared/utils.dart';
 part 'src/shared/notifications_service.dart';
+part 'src/shared/device_calendar_sync.dart';
 part 'src/features/budget/models/budget_models.dart';
 part 'src/features/lists/models/list_models.dart';
 part 'src/features/calendar/models/calendar_models.dart';
