@@ -293,8 +293,7 @@ void main() {
       );
       await _openKitchenDashboard(tester);
 
-      // Erik: 1 done ('Take out bins', excluded from the tile list since
-      // eventOccurrences() never returns done occurrences) out of 2 total.
+      // Erik: 1 done ('Take out bins') out of 2 total.
       expect(find.text('1/2'), findsOneWidget);
       // Eva has nothing assigned today.
       expect(find.text('0/0'), findsOneWidget);

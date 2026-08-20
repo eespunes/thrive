@@ -2972,11 +2972,24 @@ void main() {
         );
         await goToCalendar(tester);
 
-        expect(find.text('Take out bins'), findsOneWidget);
-        await tester.tap(find.byKey(ValueKey('cal-check-t1-$today')));
+        Finder monthBar() => find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith('cal-bar-t1-'),
+        );
+        final checkbox = find.byKey(ValueKey('cal-check-t1-$today'));
+
+        expect(monthBar(), findsOneWidget);
+        expect(checkbox, findsOneWidget);
+        expect(
+          find.descendant(of: monthBar(), matching: find.text('Take out bins')),
+          findsOneWidget,
+        );
+        await tester.tap(checkbox);
         await tester.pumpAndSettle();
 
-        expect(find.text('Take out bins'), findsOneWidget);
+        expect(monthBar(), findsOneWidget);
+        expect(checkbox, findsOneWidget);
         final titleWidget = tester.widget<Text>(find.text('Take out bins'));
         expect(titleWidget.style?.decoration, TextDecoration.lineThrough);
       },
