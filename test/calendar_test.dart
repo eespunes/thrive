@@ -356,7 +356,7 @@ void main() {
           isA<IcsImportException>().having(
             (e) => e.message,
             'message',
-            'Only http(s)/webcal links are supported',
+            'Only https/webcal links are supported',
           ),
         ),
       );
@@ -804,6 +804,69 @@ void main() {
     // (regression for a truncating, rather than flooring, division of
     // a negative month offset).
     expect(addMonthsForTest('2027-01-15', -1), '2026-12-15');
+  });
+
+  test('recurringEventDates still yields occurrences for a daily series '
+      'started years before the viewed range', () {
+    // Regression: the occurrence guard used to count every step from the
+    // series start, so a ~2.5-year-old daily event exhausted the default
+    // 900-occurrence budget before reaching the viewed month and silently
+    // disappeared from it.
+    final ev = CalendarEvent(
+      id: 'ev-old-daily',
+      title: 'Old daily',
+      date: '2023-01-05',
+      recur: 'daily',
+      color: const Color(0xFF112233),
+    );
+    final dates = recurringEventDates(ev, '2026-08-01', '2026-08-31');
+    expect(dates.length, 31);
+    expect(dates.first, '2026-08-01');
+    expect(dates.last, '2026-08-31');
+  });
+
+  test('a monthly series on the 31st recovers the 31st after a short month '
+      'instead of drifting', () {
+    // Regression: each occurrence was derived from the previous one, so the
+    // February clamp stuck (Jan 31 -> Feb 28 -> Mar 28 forever).
+    final ev = CalendarEvent(
+      id: 'ev-monthly-31',
+      title: 'Monthly on the 31st',
+      date: '2026-01-31',
+      recur: 'monthly',
+      color: const Color(0xFF112233),
+    );
+    final dates = recurringEventDates(ev, '2026-01-01', '2026-04-30');
+    expect(dates, ['2026-01-31', '2026-02-28', '2026-03-31', '2026-04-30']);
+  });
+
+  test('a yearly series on Feb 29 clamps only in non-leap years', () {
+    final ev = CalendarEvent(
+      id: 'ev-leap-yearly',
+      title: 'Leap day',
+      date: '2024-02-29',
+      recur: 'yearly',
+      color: const Color(0xFF112233),
+    );
+    final dates = recurringEventDates(ev, '2024-01-01', '2028-12-31');
+    expect(dates, [
+      '2024-02-29',
+      '2025-02-28',
+      '2026-02-28',
+      '2027-02-28',
+      '2028-02-29',
+    ]);
+  });
+
+  test('weekNumberLabelForTest follows ISO-8601 week numbering', () {
+    // 2026-01-01 is a Thursday, so it anchors week 1; the following Sunday
+    // still belongs to week 1 and Monday starts week 2. Computed fully in
+    // UTC — mixing a local Jan 1 with the UTC date used to shift the week
+    // number by one for UTC+X (e.g. CET) users.
+    expect(weekNumberLabelForTest('2026-01-01'), 'Week 1');
+    expect(weekNumberLabelForTest('2026-01-04'), 'Week 1');
+    expect(weekNumberLabelForTest('2026-01-05'), 'Week 2');
+    expect(weekNumberLabelForTest('2026-08-24'), 'Week 35');
   });
 
   testWidgets('swiping forward then back across a year boundary restores the '

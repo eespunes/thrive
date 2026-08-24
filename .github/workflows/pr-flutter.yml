@@ -1,17 +1,11 @@
 name: PR Flutter Quality
 
+# No `paths:` filter: the old one meant a PR touching only firestore.rules,
+# firebase.json or web/ ran no CI at all. The Flutter cache keeps a full run
+# cheap enough to always execute.
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "lib/**"
-      - "test/**"
-      - "android/**"
-      - "ios/**"
-      - "assets/**"
-      - "pubspec.yaml"
-      - "analysis_options.yaml"
-      - ".github/workflows/pr-flutter.yml"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +28,10 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Pinned so a new stable release can't break CI overnight and CI
+          # matches the version the app is developed against. Bump
+          # deliberately (here and in version-bump-on-main.yml together).
+          flutter-version: 3.44.4
           cache: true
 
       - name: Validate Flutter project files
@@ -50,7 +48,13 @@ jobs:
         run: flutter analyze --fatal-infos
 
       - name: Run tests
-        run: flutter test --coverage
+        # --timeout: a single stalling test (e.g. a pumpAndSettle that never
+        # settles) used to hang this step for 10+ minutes per occurrence;
+        # failing it fast NAMES the offending test in the log instead. The
+        # whole suite takes ~2 min on these runners, so 3 min per test is
+        # generous headroom.
+        run: flutter test --coverage --timeout 180s
+        timeout-minutes: 15
 
       - name: Install coverage tools
         run: |
@@ -67,10 +71,10 @@ jobs:
             # Check if coverage meets 95% threshold
             THRESHOLD=95
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-              echo "❌ Code coverage is ${COVERAGE}%, below the required 95%"
+              echo "❌ Code coverage is ${COVERAGE}%, below the required ${THRESHOLD}%"
               exit 1
             else
-              echo "✅ Code coverage is ${COVERAGE}%, meets the required 95%"
+              echo "✅ Code coverage is ${COVERAGE}%, meets the required ${THRESHOLD}%"
             fi
           else
             echo "⚠️  Coverage file not found. Ensure tests are run with --coverage flag."

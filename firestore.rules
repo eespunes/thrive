@@ -28,6 +28,9 @@ service cloud.firestore {
       function isOwner() {
         return isSignedIn() && resource.data.ownerUid == uid();
       }
+      function changedKeys() {
+        return request.resource.data.diff(resource.data).affectedKeys();
+      }
 
       // The current owner may hand the family to another member as they leave:
       // ownership transfers to someone who is already a member and remains one,
@@ -42,10 +45,40 @@ service cloud.firestore {
           && !(uid() in request.resource.data.memberUids);
       }
 
+      // A non-owner member removing exactly themselves from `memberUids`
+      // (leaving the family): the new list is one shorter, is a subset of the
+      // old one, and no longer contains them — so the single removed uid can
+      // only be their own. Combined with `isMember()` (they were in the old
+      // list) nobody can use this branch to evict anyone else.
+      function isSelfRemovalOnly() {
+        return request.resource.data.memberUids.size()
+                 == resource.data.memberUids.size() - 1
+          && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+          && !(uid() in request.resource.data.memberUids);
+      }
+
+      // Keys a NON-OWNER member may touch on the shared doc: display fields,
+      // the (cosmetic — real authority is `ownerUid`) members list, the legacy
+      // single-doc `workspace` blob (kept until every client has migrated to
+      // the workspace subcollection), post-join `joinProof` cleanup and the
+      // update timestamps. Deliberately NOT included: `joinHash`, `joinSalt`,
+      // `joinScheme`, `memberUids`, `ownerUid`, `username` — a non-owner must
+      // never rotate the join credential or evict other members (only the
+      // owner may, and self-removal goes through `isSelfRemovalOnly`).
+      function memberSafeChange() {
+        return changedKeys().hasOnly([
+          'name', 'picture', 'members', 'workspace', 'joinProof',
+          'updatedAt', 'updatedAtMillis',
+        ]);
+      }
+
       // A non-member joining must supply the correct password proof
-      // (`joinProof == joinHash`) and may only append THEMSELVES to the
-      // membership. Ownership, the username handle, the join hash and the
-      // shared workspace must all stay untouched by a joining client.
+      // (`joinProof == joinHash`) and may only append THEMSELVES to
+      // `memberUids`. Ownership, the username handle, the join hash and the
+      // shared workspace must all stay untouched by a joining client. The
+      // joiner's display row in `members` is appended by a follow-up write
+      // once they ARE a member; during the transition an old client may still
+      // append it here, in which case `members` may only grow by exactly one.
       function isValidSelfJoin() {
         return isSignedIn()
           && resource.data.joinHash is string
@@ -55,19 +88,19 @@ service cloud.firestore {
           && request.resource.data.memberUids.hasAll(resource.data.memberUids)
           && request.resource.data.memberUids.size()
                == resource.data.memberUids.size() + 1
-          && request.resource.data.members.size()
-               == resource.data.members.size() + 1
+          && (!changedKeys().hasAny(['members'])
+              || request.resource.data.members.size()
+                   == resource.data.members.size() + 1)
           // A joiner may ONLY touch the membership arrays, their password proof
           // and the update timestamps. Restricting the changed keys this way
           // keeps ownership, the username handle, the join hash and the shared
           // workspace immutable WITHOUT deep-comparing the (potentially large)
           // workspace map — that comparison is both costly and brittle and was
           // rejecting otherwise-valid joins into data-rich families (issue #127).
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly([
-                 'memberUids', 'members', 'joinProof',
-                 'updatedAt', 'updatedAtMillis',
-               ]);
+          && changedKeys().hasOnly([
+               'memberUids', 'members', 'joinProof',
+               'updatedAt', 'updatedAtMillis',
+             ]);
       }
 
       // Members can read the shared workspace.
@@ -79,35 +112,76 @@ service cloud.firestore {
         && request.resource.data.memberUids is list
         && uid() in request.resource.data.memberUids;
 
-      // Update is for EXISTING members (editing the shared workspace, members
-      // list, profile) — the username handle never changes and ownership only
-      // changes via an owner handing off as they leave — OR a non-member
-      // performing a password-verified self-join. Existing members may also
-      // leave by removing only themselves.
-      allow update: if (isMember()
+      // Update:
+      //  - The OWNER may change anything except the username handle, and
+      //    ownership only via a handoff as they leave.
+      //  - Any other MEMBER may only touch the member-safe keys, or remove
+      //    exactly themselves (leaving). They can never rotate the join
+      //    credential, evict others or seize ownership (issue: security H1).
+      //  - A NON-MEMBER may perform a password-verified self-join.
+      allow update: if (isOwner()
           && request.resource.data.username == resource.data.username
           && (request.resource.data.ownerUid == resource.data.ownerUid
               || isOwnerHandoff()))
+        || (isMember() && !isOwner()
+          && !changedKeys().hasAny(['ownerUid', 'username'])
+          && (memberSafeChange()
+              || (isSelfRemovalOnly()
+                  && changedKeys().hasOnly([
+                       'memberUids', 'members', 'workspace',
+                       'updatedAt', 'updatedAtMillis',
+                     ]))))
         || isValidSelfJoin();
 
       // Only the owner may delete the family.
       allow delete: if isOwner();
+
+      // Per-section workspace documents (budget years, events, imported
+      // calendars, lists, weekly plan, settings). Splitting the workspace out
+      // of the single family doc keeps each write/download small; access is
+      // exactly the parent doc's membership. Joining clients cannot touch
+      // these (they only become members via the parent-doc self-join above).
+      match /workspace/{section} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in
+               get(/databases/$(database)/documents/families/$(familyId))
+                 .data.memberUids;
+      }
     }
 
     // Public handle resolver: maps a family `username` to its `familyId` so a
     // joining client can find the family doc to write to. This holds NO secret
-    // material (the password hash lives only in the members-only family doc),
-    // so any signed-in user may read it. Writes are restricted to the owner of
-    // the referenced family.
+    // material (the password hash lives only in the members-only family doc;
+    // `joinSalt` is public by design — a salt only needs to be unique, not
+    // secret), so any signed-in user may read it. Writes are restricted to the
+    // owner of the referenced family, and the handle id must match the family
+    // doc's own `username` so nobody can squat an unrelated name and phish
+    // joins onto their family (issue: security M3).
     match /family_handles/{username} {
       allow read: if request.auth != null;
 
       allow create: if request.auth != null
         && request.resource.data.familyId is string
         && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerUid
-             == request.auth.uid;
+             == request.auth.uid
+        && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.username
+             == username;
 
-      allow update, delete: if request.auth != null
+      // Update must satisfy the same target-consistency rules as create: the
+      // caller owns the CURRENT family, and if `familyId` is retargeted they
+      // must own the new family too and the handle must match its username —
+      // otherwise an owner of handle X could repoint it at someone else's
+      // family to phish joins.
+      allow update: if request.auth != null
+        && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerUid
+             == request.auth.uid
+        && (request.resource.data.familyId == resource.data.familyId
+            || (get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerUid
+                  == request.auth.uid
+                && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.username
+                  == username));
+
+      allow delete: if request.auth != null
         && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerUid
              == request.auth.uid;
     }

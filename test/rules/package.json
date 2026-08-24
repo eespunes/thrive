@@ -1,0 +1,13 @@
+{
+  "name": "thrive-firestore-rules-tests",
+  "private": true,
+  "description": "Firestore security rules tests, run against the Firebase emulator",
+  "type": "module",
+  "scripts": {
+    "test": "cd ../.. && firebase emulators:exec --only firestore --project demo-thrive \"node --test test/rules/firestore.rules.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.9.0"
+  }
+}

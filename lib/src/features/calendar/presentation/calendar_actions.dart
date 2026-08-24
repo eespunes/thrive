@@ -44,7 +44,7 @@ class CalendarOccurrence {
   /// True when this occurrence is a to-do belonging to any layer other
   /// than the default `task`/`appt` layers (e.g. `content` or a custom
   /// layer) — drives the "content-style" dashed-border card treatment.
-  bool get isContent => isTask && layer != 'task';
+  bool get isContent => isTask && layer != kLayerTask;
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 }
@@ -146,7 +146,11 @@ String _isoOfDate(DateTime d) => _isoOf(d.year, d.month, d.day);
 String _addDaysIso(String iso, int n) =>
     _isoOfDate(_parseIso(iso).add(Duration(days: n)));
 
-String _addMonthsIso(String iso, int n) {
+/// [anchorDay] is the day-of-month to aim for in the target month (clamped to
+/// that month's length). Recurrence walks pass the series' original
+/// day-of-month here so a clamp never compounds (Jan 31 → Feb 28 → Mar 31,
+/// not Mar 28 forever).
+String _addMonthsIso(String iso, int n, {int? anchorDay}) {
   final d = _parseIso(iso);
   final total = d.month - 1 + n;
   // Use floor division so negative offsets correctly roll the year
@@ -154,7 +158,8 @@ String _addMonthsIso(String iso, int n) {
   final y = d.year + (total < 0 ? (total - 11) ~/ 12 : total ~/ 12);
   final m = total % 12 + 1;
   final lastDay = DateTime.utc(y, m + 1, 0).day;
-  return _isoOf(y, m, d.day > lastDay ? lastDay : d.day);
+  final day = anchorDay ?? d.day;
+  return _isoOf(y, m, day > lastDay ? lastDay : day);
 }
 
 /// Monday-first start of the ISO week containing [iso].
@@ -185,13 +190,18 @@ String _shortDateIso(String iso) {
 /// selected day's weekday/date, per ISO-8601 week numbering (weeks start on
 /// Monday; week 1 is the week containing the year's first Thursday).
 String _weekNumberLabelIso(String iso) {
-  final d = _parseIso(iso);
-  final thursday = d.add(Duration(days: 4 - (d.weekday == 0 ? 7 : d.weekday)));
-  final firstDayOfYear = DateTime(thursday.year, 1, 1);
+  final d = _parseIso(iso); // UTC
+  final thursday = d.add(Duration(days: 4 - d.weekday));
+  // Keep both endpoints in UTC: mixing a local Jan 1 with the UTC [thursday]
+  // makes `inDays` truncate and shifts the week number for UTC+X users.
+  final firstDayOfYear = DateTime.utc(thursday.year, 1, 1);
   final weekNumber =
       ((thursday.difference(firstDayOfYear).inDays) / 7).floor() + 1;
   return 'Week $weekNumber';
 }
+
+@visibleForTesting
+String weekNumberLabelForTest(String iso) => _weekNumberLabelIso(iso);
 
 String _monthTitleIso(String iso) {
   final d = _parseIso(iso);
@@ -222,17 +232,29 @@ List<int> _customRepeatWeekdays(CalendarEvent ev) {
 }
 
 String? _nextRecurringDate(CalendarEvent ev, String current) {
+  // Month-based steps aim for the series' original day-of-month rather than
+  // the previous occurrence's, so a short-month clamp doesn't stick (see
+  // `_addMonthsIso`).
+  final anchorDay = _parseIso(ev.date).day;
   if (ev.recur == 'daily') return _addDaysIso(current, 1);
   if (ev.recur == 'weekly') return _addDaysIso(current, 7);
-  if (ev.recur == 'monthly') return _addMonthsIso(current, 1);
-  if (ev.recur == 'yearly') return _addMonthsIso(current, 12);
+  if (ev.recur == 'monthly') {
+    return _addMonthsIso(current, 1, anchorDay: anchorDay);
+  }
+  if (ev.recur == 'yearly') {
+    return _addMonthsIso(current, 12, anchorDay: anchorDay);
+  }
   if (ev.recur != 'custom') return null;
 
   final every = _customRepeatEvery(ev);
   final unit = _customRepeatUnit(ev);
   if (unit == 'day') return _addDaysIso(current, every);
-  if (unit == 'month') return _addMonthsIso(current, every);
-  if (unit == 'year') return _addMonthsIso(current, 12 * every);
+  if (unit == 'month') {
+    return _addMonthsIso(current, every, anchorDay: anchorDay);
+  }
+  if (unit == 'year') {
+    return _addMonthsIso(current, 12 * every, anchorDay: anchorDay);
+  }
 
   final weekdays = _customRepeatWeekdays(ev);
   var cursor = current;
@@ -258,17 +280,37 @@ List<String> recurringEventDates(
   final repeatEnd = ev.endDate.isNotEmpty ? ev.endDate : rangeEnd;
   final dates = <String>[];
   var d = ev.date;
-  var guard = 0;
+  // Fixed day-interval recurrences (daily/weekly/custom "every N days") can
+  // jump straight to the last occurrence on/before [rangeStart] instead of
+  // stepping one occurrence at a time from the series start — an old series
+  // would otherwise burn the whole iteration budget before reaching the
+  // viewed range and silently vanish from it.
+  final stepDays = switch (ev.recur) {
+    'daily' => 1,
+    'weekly' => 7,
+    'custom' when _customRepeatUnit(ev) == 'day' => _customRepeatEvery(ev),
+    _ => null,
+  };
+  if (stepDays != null && d.compareTo(rangeStart) < 0) {
+    final behind = _parseIso(rangeStart).difference(_parseIso(d)).inDays;
+    final skippedSteps = behind ~/ stepDays;
+    if (skippedSteps > 0) d = _addDaysIso(d, skippedSteps * stepDays);
+  }
+  // [maxOccurrences] caps *emitted* dates; the separate iteration ceiling
+  // covers month/year series that still walk pre-range occurrences, while
+  // guarding against a next-date computation that fails to advance.
+  var iterations = 0;
   while (d.compareTo(rangeEnd) <= 0 &&
       d.compareTo(repeatEnd) <= 0 &&
-      guard < maxOccurrences) {
+      dates.length < maxOccurrences &&
+      iterations < 100000) {
     if (d.compareTo(rangeStart) >= 0 && !ev.exceptions.contains(d)) {
       dates.add(d);
     }
     final next = _nextRecurringDate(ev, d);
     if (next == null || next.compareTo(d) <= 0) break;
     d = next;
-    guard++;
+    iterations++;
   }
   return dates;
 }
@@ -424,7 +466,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
     for (final cal
-        in layerFilter.contains('appt')
+        in layerFilter.contains(kLayerAppt)
             ? importedCalendars
             : const <ImportedCalendar>[]) {
       if (!cal.visible) continue;
@@ -546,10 +588,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       for (final layer in calendarLayers)
         if (layer.id != deletedId) layer.id,
     ];
-    if (remaining.contains('task')) return 'task';
-    if (remaining.contains('appt')) return 'appt';
+    if (remaining.contains(kLayerTask)) return kLayerTask;
+    if (remaining.contains(kLayerAppt)) return kLayerAppt;
     if (remaining.isNotEmpty) return remaining.first;
-    return 'appt';
+    return kLayerAppt;
   }
 
   /// Removes a deletable layer, reassigning any [CalendarEvent]/
@@ -795,7 +837,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<int> recurWeekdays = const [],
     List<String>? exceptions,
     String? createdBy,
-    String layerId = 'appt',
+    String layerId = kLayerAppt,
     bool todo = false,
     bool done = false,
     Map<String, bool>? doneDates,
@@ -1002,7 +1044,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------- categories
-  void openCategory(EventCategory? cat, {String layerId = 'appt'}) {
+  void openCategory(EventCategory? cat, {String layerId = kLayerAppt}) {
     _showSheet(
       (ctx) => _CategorySheet(state: this, category: cat, layerId: layerId),
     );
@@ -1020,7 +1062,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     String? emoji,
     String? picture,
     required List<String> members,
-    String layerId = 'appt',
+    String layerId = kLayerAppt,
   }) {
     final wasEditing = id != null;
     if (!isCalendarIdentityColorAvailable(color, exceptCategoryId: id)) {
@@ -1281,13 +1323,57 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// tap "sync". Failures are logged, not surfaced, so one bad feed doesn't
   /// interrupt app startup.
   Future<void> syncDueImports() async {
+    final now = DateTime.now();
     final due = [
       for (final c in importedCalendars)
-        if (c.provider == 'ics' && c.autoSync && (c.url ?? '').isNotEmpty) c.id,
+        if (c.provider == 'ics' &&
+            c.autoSync &&
+            (c.url ?? '').isNotEmpty &&
+            (_lastAutoSync[c.id] == null ||
+                now.difference(_lastAutoSync[c.id]!) >= _autoSyncInterval))
+          c,
     ];
-    for (final id in due) {
-      final err = await refreshImport(id, silent: true);
-      if (err != null) debugPrint('[calendar] auto-sync $id failed: $err');
+    if (due.isEmpty) return;
+
+    // Fetch every due feed concurrently (each has its own 20s timeout), then
+    // apply all results in a single mutate so app open/resume persists state
+    // once instead of once per feed.
+    final results = await Future.wait([
+      for (final c in due)
+        fetchIcsEvents(c.url!).then<Object>(
+          (events) => events,
+          onError: (Object e) => e is IcsImportException
+              ? e.message
+              : 'Could not sync that calendar',
+        ),
+    ]);
+
+    final synced = <ImportedCalendar, List<ImportedCalendarEvent>>{};
+    for (var i = 0; i < due.length; i++) {
+      final result = results[i];
+      if (result is List<ImportedCalendarEvent>) {
+        synced[due[i]] = result;
+        _lastAutoSync[due[i].id] = now;
+      } else {
+        debugPrint('[calendar] auto-sync ${due[i].id} failed: $result');
+      }
     }
+    if (synced.isEmpty) return;
+
+    mutate(() {
+      synced.forEach((cal, events) {
+        cal.events = _applyImportPrefs(
+          events,
+          includeLocation: cal.includeLocation,
+          includeDescription: cal.includeDescription,
+        );
+      });
+    });
   }
 }
+
+/// In-memory record of when each `ics` import last auto-synced this app
+/// session, so open/resume doesn't re-fetch feeds more than once per
+/// [_autoSyncInterval].
+final Map<String, DateTime> _lastAutoSync = {};
+const Duration _autoSyncInterval = Duration(hours: 1);

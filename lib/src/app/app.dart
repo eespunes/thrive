@@ -2,9 +2,14 @@ part of 'package:family_money_management_app/main.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _lockPortraitOrientation();
-  await _initFirebase();
-  await NotificationService.init();
+  // None of these depend on each other, so run them concurrently instead of
+  // paying three sequential awaits (NotificationService.init alone parses the
+  // full timezone database) before the first frame.
+  await Future.wait([
+    _lockPortraitOrientation(),
+    _initFirebase(),
+    NotificationService.init(),
+  ]);
   runApp(const ThriveApp());
 }
 
@@ -26,23 +31,40 @@ Future<void> _lockLandscapeOrientation() =>
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
-    // The family document (one big `workspace` blob covering every month)
-    // can grow past a few MB for long-lived families. Android's SQLite-backed
-    // offline cache stores each document as a single row and crashes the
-    // whole app with a fatal `SQLiteBlobTooBigException` ("Row too big to fit
-    // into CursorWindow") once that row exceeds the OS's ~2MB CursorWindow
-    // limit. Disabling local persistence avoids ever hitting that ceiling —
-    // reads/writes just always go straight to the network instead of being
-    // cached on-device, which is an acceptable trade-off for a document this
-    // size (offline support was never reliable for it regardless, since the
-    // very first sync after being offline would already have failed).
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: false,
-    );
+    try {
+      // App Check attests that requests come from a genuine app install —
+      // Firestore/Auth are otherwise callable by anything holding the (public)
+      // API key. Debug builds use the debug provider (register its token in
+      // the Firebase console for local dev). Enforcement is switched on
+      // per-product in the console once real traffic is attested.
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: foundation.kDebugMode
+            ? const AndroidDebugProvider()
+            : const AndroidPlayIntegrityProvider(),
+        providerApple: foundation.kDebugMode
+            ? const AppleDebugProvider()
+            : const AppleDeviceCheckProvider(),
+      );
+    } catch (e) {
+      // App Check is defense-in-depth; never block startup on it (e.g. web
+      // has no provider configured).
+      debugPrint('App Check activation failed: $e');
+    }
+    // Offline persistence is ON (the default). It used to be disabled because
+    // the single multi-MB family `workspace` blob overflowed Android's ~2MB
+    // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
+    // small per-section docs (`families/{id}/workspace/{section}`), so cached
+    // reads and offline edits work again. (A legacy family doc still carrying
+    // its old giant `workspace` blob shrinks on that family's first
+    // post-migration persist, which drops the blob from the meta doc.)
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
   } on PlatformException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
+  } catch (e) {
+    // Any other init failure (e.g. a platform with no Firebase config) must
+    // still fall through to local/demo mode instead of killing startup.
+    debugPrint('Firebase init failed: $e');
   }
 }
 
@@ -88,9 +110,15 @@ class ThriveApp extends StatelessWidget {
       // including modal bottom sheets. It is non-blocking: only the card itself
       // captures pointer events, so the UI beneath stays fully interactive.
       builder: (context, child) {
-        return Stack(
-          textDirection: TextDirection.ltr,
-          children: [?child, const _GlobalErrorPopup()],
+        // The layout uses many fixed-height containers around hardcoded font
+        // sizes; unbounded OS text scaling clips them. Clamp until the layout
+        // is audited for full dynamic-type support.
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Stack(
+            textDirection: TextDirection.ltr,
+            children: [?child, const _GlobalErrorPopup()],
+          ),
         );
       },
       home: const ThriveHome(),

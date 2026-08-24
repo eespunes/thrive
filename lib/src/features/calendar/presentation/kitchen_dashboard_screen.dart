@@ -145,7 +145,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     final out = <CalendarOccurrence>[];
     for (final ev in events) {
       if (!ev.kitchenOrigin) {
-        if (ev.layerId == 'appt') continue;
+        if (ev.layerId == kLayerAppt) continue;
         if (!kitchenLayerVisible(ev.layerId)) continue;
       }
       if (!ev.attendees.contains(memberId)) continue;
@@ -180,7 +180,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     for (final ev in events) {
       if (ev.kitchenOrigin) continue;
       final scheduleLike =
-          ev.layerId == 'appt' || (!ev.allDay && ev.start.isNotEmpty);
+          ev.layerId == kLayerAppt || (!ev.allDay && ev.start.isNotEmpty);
       if (!scheduleLike) continue;
       if (!kitchenLayerVisible(ev.layerId)) continue;
       if (ev.recur == 'none') {
@@ -539,22 +539,9 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                 child: GestureDetector(
                   key: const ValueKey('kitchen-quick-add-fab'),
                   onTap: () async {
-                    await showModalBottomSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      barrierColor: const Color(0x73101828),
-                      builder: (ctx) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-                        ),
-                        child: _SheetShell(
-                          child: _KitchenQuickAddSheet(
-                            state: state,
-                            members: members,
-                          ),
-                        ),
-                      ),
+                    await state._showSheet(
+                      (ctx) =>
+                          _KitchenQuickAddSheet(state: state, members: members),
                     );
                     _refresh();
                   },
@@ -1015,7 +1002,7 @@ class _KitchenTextTile extends StatelessWidget {
     final layer = _kitchenLayerDefFor(state, occ.layer);
     final accent = layer?.color ?? member.color;
     final done = occ.done;
-    final isContent = occ.layer == 'content';
+    final isContent = occ.layer == kLayerContent;
 
     void toggle() {
       state._toggleOccurrenceDone(occ);
@@ -1332,17 +1319,8 @@ class _KitchenPictureTile extends StatelessWidget {
   final VoidCallback onChanged;
 
   Future<void> _openGlyphPicker(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: const Color(0x73101828),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: _SheetShell(
-          child: _KitchenItemGlyphSheet(state: state, event: occ.ev),
-        ),
-      ),
+    await state._showSheet(
+      (ctx) => _KitchenItemGlyphSheet(state: state, event: occ.ev),
     );
     onChanged();
   }

@@ -28,6 +28,13 @@ Future<List<ImportedCalendarEvent>> fetchIcsEvents(String rawUrl) async {
   if (res.statusCode < 200 || res.statusCode >= 300) {
     throw IcsImportException('Calendar link returned ${res.statusCode}');
   }
+  // Cap feed size so a hostile/misconfigured link can't exhaust memory:
+  // check the advertised Content-Length and the actual bytes received.
+  final contentLength = int.tryParse(res.headers['content-length'] ?? '');
+  if ((contentLength != null && contentLength > _maxIcsBytes) ||
+      res.bodyBytes.length > _maxIcsBytes) {
+    throw IcsImportException('That calendar feed is too large (over 5 MB)');
+  }
   final events = parseIcsEvents(res.body);
   if (events.isEmpty) {
     throw IcsImportException('No events found in that calendar');
@@ -44,11 +51,18 @@ Uri _parseIcsUri(String rawUrl) {
   // `webcal://` is a plain ICS feed served over http(s), same as any other
   // calendar-subscription link (ecal.com, Google, Apple all publish these).
   if (uri.scheme == 'webcal') uri = uri.replace(scheme: 'https');
-  if (uri.scheme != 'http' && uri.scheme != 'https') {
-    throw IcsImportException('Only http(s)/webcal links are supported');
+  // Auto-upgrade pasted `http://` links — feeds are only fetched over https
+  // so events never travel in cleartext.
+  if (uri.scheme == 'http') uri = uri.replace(scheme: 'https');
+  if (uri.scheme != 'https') {
+    throw IcsImportException('Only https/webcal links are supported');
   }
   return uri;
 }
+
+/// Maximum accepted ICS response size (5 MB) — see the check in
+/// [fetchIcsEvents].
+const int _maxIcsBytes = 5 * 1024 * 1024;
 
 class IcsImportException implements Exception {
   IcsImportException(this.message);

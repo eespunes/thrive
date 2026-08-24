@@ -18,42 +18,26 @@ class DeviceCalendarSync {
   String? _runningDigest;
   String? _queuedDigest;
   List<Map<String, Object?>>? _queuedPayload;
+  List<CalendarEvent>? _pendingEvents;
 
   void cancelPending() {
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _pendingEvents = null;
     _queuedPayload = null;
     _queuedDigest = null;
     _updateSaving();
   }
 
+  /// Cheap on the caller's hot path: only snapshots the events and
+  /// starts/extends the debounce timer. The expensive payload build
+  /// (recurrence expansion) and digest comparison happen once, inside the
+  /// debounced [_flushQueued].
   void syncEvents(Iterable<CalendarEvent> source) {
     if (foundation.defaultTargetPlatform != foundation.TargetPlatform.android) {
       return;
     }
-    final payload = _payloadFor(source).toList(growable: false);
-    final digest = _digestFor(payload);
-    if (!_running && digest == _lastSyncedDigest) {
-      _debounceTimer?.cancel();
-      _debounceTimer = null;
-      _queuedPayload = null;
-      _queuedDigest = null;
-      _updateSaving();
-      return;
-    }
-    if (_running && digest == _runningDigest) {
-      _debounceTimer?.cancel();
-      _debounceTimer = null;
-      _queuedPayload = null;
-      _queuedDigest = null;
-      _updateSaving();
-      return;
-    }
-    if (digest == _queuedDigest) {
-      return;
-    }
-    _queuedDigest = digest;
-    _queuedPayload = payload;
+    _pendingEvents = List<CalendarEvent>.of(source, growable: false);
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_debounceDelay, _flushQueued);
     _updateSaving();
@@ -61,6 +45,13 @@ class DeviceCalendarSync {
 
   void _flushQueued() {
     _debounceTimer = null;
+    final source = _pendingEvents;
+    _pendingEvents = null;
+    if (source != null) {
+      final payload = _payloadFor(source).toList(growable: false);
+      _queuedDigest = _digestFor(payload);
+      _queuedPayload = payload;
+    }
     final payload = _queuedPayload;
     final digest = _queuedDigest;
     _queuedPayload = null;
@@ -118,7 +109,11 @@ class DeviceCalendarSync {
       sha1.convert(utf8.encode(json.encode(payload))).toString();
 
   void _updateSaving() {
-    final next = _running || _debounceTimer != null || _queuedPayload != null;
+    final next =
+        _running ||
+        _debounceTimer != null ||
+        _pendingEvents != null ||
+        _queuedPayload != null;
     if (saving.value != next) saving.value = next;
   }
 

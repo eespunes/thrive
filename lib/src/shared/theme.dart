@@ -8,7 +8,9 @@ class B {
   static const ink = Color(0xff0f172a);
   static const text = Color(0xff334155);
   static const soft2 = Color(0xff64748b);
-  static const muted = Color(0xff94a0b0);
+  // Darkened from the design's #94a0b0 (~2.6:1 on white — below WCAG AA) so
+  // muted labels stay readable at the 10-11px sizes they're used at.
+  static const muted = Color(0xff77839a);
   static const line = Color(0xffe7eaf0);
   static const faint = Color(0xfff0f2f6);
   static const track = Color(0xffeef1f5);

@@ -247,8 +247,7 @@ class Workspace {
        calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
        starsMap = starsMap ?? <String, int>{},
        picMembers = picMembers ?? <String, bool>{},
-       kitchenLayerFilter =
-           kitchenLayerFilter ?? <String>['appt', 'task', 'content'];
+       kitchenLayerFilter = kitchenLayerFilter ?? kBuiltinLayerIds.toList();
 
   List<Account> accounts;
   List<Category> cats;
@@ -378,7 +377,7 @@ class Workspace {
         : kDefaultCalendarLayers();
     final defaultKitchenLayerFilter = calendarLayers.isNotEmpty
         ? [for (final layer in calendarLayers) layer.id]
-        : <String>['appt', 'task', 'content'];
+        : kBuiltinLayerIds.toList();
     final kitchenLayerFilter = j.containsKey('kitchenLayerFilter')
         ? [
             for (final id in (j['kitchenLayerFilter'] as List? ?? const []))
