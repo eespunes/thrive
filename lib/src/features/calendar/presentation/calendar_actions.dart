@@ -761,6 +761,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// events flip [CalendarEvent.done], recurring events flip only the
   /// occurrence on [dateIso] in [CalendarEvent.doneDates].
   void toggleEventDone(String id, String dateIso) {
+    var changed = false;
     mutate(() {
       final ev = eventById(id);
       if (ev == null) return;
@@ -769,7 +770,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       } else {
         ev.doneDates[dateIso] = !(ev.doneDates[dateIso] ?? false);
       }
+      changed = true;
     });
+    if (changed) _syncDeviceCalendar();
   }
 
   void saveEvent({
@@ -840,6 +843,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }, () => flash(wasEditing ? 'Event updated' : 'Event added'));
     if (saved != null) {
       NotificationService.instance.scheduleEventReminder(saved!);
+      _syncDeviceCalendar();
     }
   }
 
@@ -905,11 +909,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required String occurrenceDate,
     required CalendarEvent edited,
   }) {
+    var changed = false;
     CalendarEvent? rescheduleOriginal;
     CalendarEvent? rescheduleNew;
     mutate(() {
       final i = events.indexWhere((x) => x.id == id);
       if (i < 0) return;
+      changed = true;
       final original = events[i];
       if (scope == 'one') {
         events[i] = _eventCopyWith(
@@ -957,17 +963,20 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     if (rescheduleNew != null) {
       NotificationService.instance.scheduleEventReminder(rescheduleNew!);
     }
+    if (changed) _syncDeviceCalendar();
   }
 
   /// `scope == 'one'` removes only the occurrence on [date] (recorded as an
   /// exception on a recurring event); `scope == 'future'` keeps occurrences
   /// before [date]; `scope == 'all'` deletes the series.
   void deleteEvent(String id, String scope, [String? date]) {
+    var changed = false;
     var removedSeries = false;
     CalendarEvent? updated;
     mutate(() {
       final ev = eventById(id);
       if (ev == null) return;
+      changed = true;
       if (scope == 'one' && ev.recur != 'none' && date != null) {
         ev.exceptions = {...ev.exceptions, date}.toList();
         updated = ev;
@@ -989,6 +998,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     } else if (updated != null) {
       NotificationService.instance.scheduleEventReminder(updated!);
     }
+    if (changed) _syncDeviceCalendar();
   }
 
   // ---------------------------------------------------------- categories

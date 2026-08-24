@@ -9,30 +9,88 @@ class DeviceCalendarSync {
   static const MethodChannel _channel = MethodChannel(
     'cat.eespunes.thrive/device_calendar',
   );
+  static const Duration _debounceDelay = Duration(seconds: 2);
 
   bool _running = false;
+  final ValueNotifier<bool> saving = ValueNotifier<bool>(false);
+  Timer? _debounceTimer;
+  String? _lastSyncedDigest;
+  String? _runningDigest;
+  String? _queuedDigest;
   List<Map<String, Object?>>? _queuedPayload;
 
-  Future<void> syncEvents(Iterable<CalendarEvent> source) async {
+  void cancelPending() {
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
+    _queuedPayload = null;
+    _queuedDigest = null;
+    _updateSaving();
+  }
+
+  void syncEvents(Iterable<CalendarEvent> source) {
     if (foundation.defaultTargetPlatform != foundation.TargetPlatform.android) {
       return;
     }
     final payload = _payloadFor(source).toList(growable: false);
-    if (_running) {
-      _queuedPayload = payload;
+    final digest = _digestFor(payload);
+    if (!_running && digest == _lastSyncedDigest) {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+      _queuedPayload = null;
+      _queuedDigest = null;
+      _updateSaving();
       return;
     }
-    await _run(payload);
+    if (_running && digest == _runningDigest) {
+      _debounceTimer?.cancel();
+      _debounceTimer = null;
+      _queuedPayload = null;
+      _queuedDigest = null;
+      _updateSaving();
+      return;
+    }
+    if (digest == _queuedDigest) {
+      return;
+    }
+    _queuedDigest = digest;
+    _queuedPayload = payload;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_debounceDelay, _flushQueued);
+    _updateSaving();
   }
 
-  Future<void> _run(List<Map<String, Object?>> payload) async {
+  void _flushQueued() {
+    _debounceTimer = null;
+    final payload = _queuedPayload;
+    final digest = _queuedDigest;
+    _queuedPayload = null;
+    _queuedDigest = null;
+    if (payload == null || digest == null || digest == _lastSyncedDigest) {
+      _updateSaving();
+      return;
+    }
+    if (_running) {
+      if (digest == _runningDigest) return;
+      _queuedPayload = payload;
+      _queuedDigest = digest;
+      _updateSaving();
+      return;
+    }
+    unawaited(_run(payload, digest));
+    _updateSaving();
+  }
+
+  Future<void> _run(List<Map<String, Object?>> payload, String digest) async {
     _running = true;
     var next = payload;
+    var nextDigest = digest;
     while (true) {
+      _runningDigest = nextDigest;
       try {
         await _channel.invokeMethod<void>('syncThriveCalendar', {
           'events': next,
         });
+        _lastSyncedDigest = nextDigest;
       } on MissingPluginException {
         break;
       } on PlatformException catch (e) {
@@ -40,11 +98,28 @@ class DeviceCalendarSync {
         break;
       }
       final queued = _queuedPayload;
-      if (queued == null) break;
+      final queuedDigest = _queuedDigest;
+      if (queued == null || queuedDigest == null) break;
       _queuedPayload = null;
+      _queuedDigest = null;
+      if (queuedDigest == _lastSyncedDigest) break;
       next = queued;
+      nextDigest = queuedDigest;
     }
     _running = false;
+    _runningDigest = null;
+    if (_queuedPayload != null && _debounceTimer == null) {
+      _flushQueued();
+    }
+    _updateSaving();
+  }
+
+  String _digestFor(List<Map<String, Object?>> payload) =>
+      sha1.convert(utf8.encode(json.encode(payload))).toString();
+
+  void _updateSaving() {
+    final next = _running || _debounceTimer != null || _queuedPayload != null;
+    if (saving.value != next) saving.value = next;
   }
 
   Iterable<Map<String, Object?>> _payloadFor(

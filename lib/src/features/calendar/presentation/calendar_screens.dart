@@ -90,9 +90,47 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _deviceCalendarSavingIndicator(),
         iconBtn(_calViewIcon(), 'view', openViewPicker),
         iconBtn('filter', 'filter', openCalFilterSheet, badge: fc),
       ],
+    );
+  }
+
+  Widget _deviceCalendarSavingIndicator() {
+    return SizedBox(
+      width: 30,
+      height: 38,
+      child: ValueListenableBuilder<bool>(
+        valueListenable: DeviceCalendarSync.instance.saving,
+        builder: (context, saving, _) {
+          if (!saving) return const SizedBox.shrink();
+          return Semantics(
+            label: 'Saving calendar',
+            child: Container(
+              key: const ValueKey('device-calendar-saving'),
+              width: 22,
+              height: 22,
+              margin: const EdgeInsets.only(right: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: B.line),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: B.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
