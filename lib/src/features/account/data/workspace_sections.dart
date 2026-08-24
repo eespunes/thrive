@@ -10,8 +10,9 @@ part of 'package:family_money_management_app/main.dart';
 /// in the `workspace` subcollection (one doc per section) so a budget edit
 /// no longer rewrites — and re-downloads, on every member's device — the
 /// whole multi-MB family blob.
-// coverage:ignore-start — FieldValue.serverTimestamp() needs the Firestore
-// platform plumbing, so this builder is only exercised against a live backend.
+// FieldValue.serverTimestamp() needs the Firestore platform plumbing, so this
+// builder is only exercised against a live backend.
+// coverage:ignore-start
 Map<String, dynamic> familyMetaDoc(Family f) => {
   'name': f.name,
   'username': f.username,
