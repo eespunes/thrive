@@ -238,15 +238,23 @@ String? _nextRecurringDate(CalendarEvent ev, String current) {
   final anchorDay = _parseIso(ev.date).day;
   if (ev.recur == 'daily') return _addDaysIso(current, 1);
   if (ev.recur == 'weekly') return _addDaysIso(current, 7);
-  if (ev.recur == 'monthly') return _addMonthsIso(current, 1, anchorDay: anchorDay);
-  if (ev.recur == 'yearly') return _addMonthsIso(current, 12, anchorDay: anchorDay);
+  if (ev.recur == 'monthly') {
+    return _addMonthsIso(current, 1, anchorDay: anchorDay);
+  }
+  if (ev.recur == 'yearly') {
+    return _addMonthsIso(current, 12, anchorDay: anchorDay);
+  }
   if (ev.recur != 'custom') return null;
 
   final every = _customRepeatEvery(ev);
   final unit = _customRepeatUnit(ev);
   if (unit == 'day') return _addDaysIso(current, every);
-  if (unit == 'month') return _addMonthsIso(current, every, anchorDay: anchorDay);
-  if (unit == 'year') return _addMonthsIso(current, 12 * every, anchorDay: anchorDay);
+  if (unit == 'month') {
+    return _addMonthsIso(current, every, anchorDay: anchorDay);
+  }
+  if (unit == 'year') {
+    return _addMonthsIso(current, 12 * every, anchorDay: anchorDay);
+  }
 
   final weekdays = _customRepeatWeekdays(ev);
   var cursor = current;
@@ -1334,8 +1342,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       for (final c in due)
         fetchIcsEvents(c.url!).then<Object>(
           (events) => events,
-          onError: (Object e) =>
-              e is IcsImportException ? e.message : 'Could not sync that calendar',
+          onError: (Object e) => e is IcsImportException
+              ? e.message
+              : 'Could not sync that calendar',
         ),
     ]);
 

@@ -132,7 +132,7 @@ firebase deploy --only firestore:rules,firestore:indexes
 ```sh
 flutter analyze          # must be clean (CI runs with --fatal-infos)
 flutter test             # widget + unit suite
-cd test/rules && npm test  # Firestore security-rules suite (needs Java 11+)
+cd test/rules && npm test  # Firestore security-rules suite (needs Java 21+)
 ```
 
 CI (`.github/workflows/pr-flutter.yml`) runs format check, analyze, tests and a

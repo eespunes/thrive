@@ -247,8 +247,7 @@ class Workspace {
        calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
        starsMap = starsMap ?? <String, int>{},
        picMembers = picMembers ?? <String, bool>{},
-       kitchenLayerFilter =
-           kitchenLayerFilter ?? kBuiltinLayerIds.toList();
+       kitchenLayerFilter = kitchenLayerFilter ?? kBuiltinLayerIds.toList();
 
   List<Account> accounts;
   List<Category> cats;

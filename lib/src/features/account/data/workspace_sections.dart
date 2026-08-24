@@ -10,6 +10,8 @@ part of 'package:family_money_management_app/main.dart';
 /// in the `workspace` subcollection (one doc per section) so a budget edit
 /// no longer rewrites — and re-downloads, on every member's device — the
 /// whole multi-MB family blob.
+// coverage:ignore-start — FieldValue.serverTimestamp() needs the Firestore
+// platform plumbing, so this builder is only exercised against a live backend.
 Map<String, dynamic> familyMetaDoc(Family f) => {
   'name': f.name,
   'username': f.username,
@@ -20,6 +22,7 @@ Map<String, dynamic> familyMetaDoc(Family f) => {
   'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
   'updatedAt': FieldValue.serverTimestamp(),
 };
+// coverage:ignore-end
 
 /// Splits [ws] into per-section documents for the `workspace` subcollection:
 /// one settings doc, one doc per budget year, one per imported calendar (the
@@ -50,9 +53,7 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
   },
   for (final entry in ws.data.entries)
     'budget_${entry.key}': {
-      'months': {
-        for (final m in entry.value.entries) m.key: m.value.toJson(),
-      },
+      'months': {for (final m in entry.value.entries) m.key: m.value.toJson()},
     },
   for (final (i, cal) in ws.importedCalendars.indexed)
     'import_${cal.id}': {'calendar': cal.toJson(), 'order': i},

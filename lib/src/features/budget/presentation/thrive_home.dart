@@ -214,8 +214,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // switch/leave/restore had to re-point 14 fields by hand — forgetting one
   // (as the leave-family flow did) silently leaked one family's data into
   // another and uploaded it to the wrong family's cloud workspace.
-  Workspace get _activeWs =>
-      workspaces.putIfAbsent(familyId, Workspace.empty);
+  Workspace get _activeWs => workspaces.putIfAbsent(familyId, Workspace.empty);
   List<Account> get accounts => _activeWs.accounts;
   set accounts(List<Account> v) => _activeWs.accounts = v;
   List<Category> get cats => _activeWs.cats;
@@ -231,14 +230,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<CalendarEvent> get events => _activeWs.events;
   set events(List<CalendarEvent> v) => _activeWs.events = v;
   List<EventCategory> get eventCategories => _activeWs.eventCategories;
-  set eventCategories(List<EventCategory> v) =>
-      _activeWs.eventCategories = v;
+  set eventCategories(List<EventCategory> v) => _activeWs.eventCategories = v;
   List<ImportedCalendar> get importedCalendars => _activeWs.importedCalendars;
   set importedCalendars(List<ImportedCalendar> v) =>
       _activeWs.importedCalendars = v;
   List<CalendarLayerDef> get calendarLayers => _activeWs.calendarLayers;
-  set calendarLayers(List<CalendarLayerDef> v) =>
-      _activeWs.calendarLayers = v;
+  set calendarLayers(List<CalendarLayerDef> v) => _activeWs.calendarLayers = v;
   Map<String, int> get starsMap => _activeWs.starsMap;
   set starsMap(Map<String, int> v) => _activeWs.starsMap = v;
   bool get kitchenEnabled => _activeWs.kitchenEnabled;

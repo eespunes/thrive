@@ -146,6 +146,20 @@ void main() {
     });
   });
 
+  group('workspaceFromDoc', () {
+    test('loads a legacy single-doc workspace map', () {
+      final ws = _sampleWorkspace();
+      final loaded = workspaceFromDoc({'workspace': ws.toJson()});
+      expect(loaded.toJson(), ws.toJson());
+    });
+
+    test('falls back to an empty workspace when the blob is absent', () {
+      final loaded = workspaceFromDoc({'name': 'Fam'});
+      expect(loaded.accounts, isEmpty);
+      expect(loaded.events, isEmpty);
+    });
+  });
+
   group('dedupeMembers', () {
     test('collapses duplicate uids preferring the owner row', () {
       final out = dedupeMembers([

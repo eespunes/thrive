@@ -71,7 +71,11 @@ String newJoinSalt() =>
 /// The correct join proof for [password] given the [handle] doc it targets:
 /// v2 (iterated hash over the handle's random `joinSalt`) when the salt is
 /// present, else the legacy v1 slug-salted hash.
-String joinProofFor(String password, String slug, Map<String, dynamic>? handle) {
+String joinProofFor(
+  String password,
+  String slug,
+  Map<String, dynamic>? handle,
+) {
   final salt = (handle?['joinSalt'] ?? '').toString();
   if (salt.isNotEmpty) return hashFamilyPasswordV2(password, salt);
   return hashFamilyPassword(password, _cloudJoinSalt(slug));
@@ -269,11 +273,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Future<void> _fetchAllSections(List<String> fids) async {
     await Future.wait([
       for (final fid in fids)
-        _workspaceCol(fid).get().timeout(kCloudOpTimeout).then((snap) {
-          _adoptSectionSnapshot(fid, snap);
-        }).catchError((Object e) {
-          debugPrint('[cloud] workspace sections read failed for $fid: $e');
-        }),
+        _workspaceCol(fid)
+            .get()
+            .timeout(kCloudOpTimeout)
+            .then((snap) {
+              _adoptSectionSnapshot(fid, snap);
+            })
+            .catchError((Object e) {
+              debugPrint('[cloud] workspace sections read failed for $fid: $e');
+            }),
     ]);
   }
 
@@ -688,11 +696,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final joinHash = hashFamilyPasswordV2(password, joinSalt);
       _sessionFamilyPasswords[fid] = password;
       await _familyDocRef(fid)
-          .set({
-            ...familyMetaDoc(fam),
-            'joinHash': joinHash,
-            'joinScheme': 2,
-          })
+          .set({...familyMetaDoc(fam), 'joinHash': joinHash, 'joinScheme': 2})
           .timeout(kCloudOpTimeout);
       try {
         // The random salt rides on the PUBLIC handle doc: a joining client

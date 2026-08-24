@@ -6,7 +6,7 @@ Tests `firestore.rules` against the Firestore emulator using
 ## Requirements
 
 - Node 20+
-- Java 11+ (for the Firestore emulator)
+- Java 21+ (required by firebase-tools for the Firestore emulator)
 - `firebase-tools` on PATH (`npm i -g firebase-tools`)
 
 ## Run
