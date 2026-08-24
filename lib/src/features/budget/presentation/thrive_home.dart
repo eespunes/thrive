@@ -207,25 +207,50 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
 
-  // Active workspace (the currently-selected family's budget). Kept in sync
-  // with `workspaces[familyId]` — mirrors the design holding both.
-  List<Account> accounts = defaultAccounts();
-  List<Category> cats = defaultCats();
-  Map<int, Map<String, MonthData>> data = {};
-  List<TaskList> taskLists = [];
-  List<ShoppingList> shoppingLists = [];
-  Map<String, DayPlan> weeklyPlan = {};
+  // Active workspace: the currently-selected family's budget/calendar/lists.
+  // The [Workspace] in `workspaces[familyId]` is the SINGLE owner of this
+  // data; these accessors read/write through to it. They used to be plain
+  // fields aliasing the workspace's lists, which meant every family
+  // switch/leave/restore had to re-point 14 fields by hand — forgetting one
+  // (as the leave-family flow did) silently leaked one family's data into
+  // another and uploaded it to the wrong family's cloud workspace.
+  Workspace get _activeWs =>
+      workspaces.putIfAbsent(familyId, Workspace.empty);
+  List<Account> get accounts => _activeWs.accounts;
+  set accounts(List<Account> v) => _activeWs.accounts = v;
+  List<Category> get cats => _activeWs.cats;
+  set cats(List<Category> v) => _activeWs.cats = v;
+  Map<int, Map<String, MonthData>> get data => _activeWs.data;
+  set data(Map<int, Map<String, MonthData>> v) => _activeWs.data = v;
+  List<TaskList> get taskLists => _activeWs.taskLists;
+  set taskLists(List<TaskList> v) => _activeWs.taskLists = v;
+  List<ShoppingList> get shoppingLists => _activeWs.shoppingLists;
+  set shoppingLists(List<ShoppingList> v) => _activeWs.shoppingLists = v;
+  Map<String, DayPlan> get weeklyPlan => _activeWs.weeklyPlan;
+  set weeklyPlan(Map<String, DayPlan> v) => _activeWs.weeklyPlan = v;
+  List<CalendarEvent> get events => _activeWs.events;
+  set events(List<CalendarEvent> v) => _activeWs.events = v;
+  List<EventCategory> get eventCategories => _activeWs.eventCategories;
+  set eventCategories(List<EventCategory> v) =>
+      _activeWs.eventCategories = v;
+  List<ImportedCalendar> get importedCalendars => _activeWs.importedCalendars;
+  set importedCalendars(List<ImportedCalendar> v) =>
+      _activeWs.importedCalendars = v;
+  List<CalendarLayerDef> get calendarLayers => _activeWs.calendarLayers;
+  set calendarLayers(List<CalendarLayerDef> v) =>
+      _activeWs.calendarLayers = v;
+  Map<String, int> get starsMap => _activeWs.starsMap;
+  set starsMap(Map<String, int> v) => _activeWs.starsMap = v;
+  bool get kitchenEnabled => _activeWs.kitchenEnabled;
+  set kitchenEnabled(bool v) => _activeWs.kitchenEnabled = v;
+  Map<String, bool> get picMembers => _activeWs.picMembers;
+  set picMembers(Map<String, bool> v) => _activeWs.picMembers = v;
+  List<String> get kitchenLayerFilter => _activeWs.kitchenLayerFilter;
+  set kitchenLayerFilter(List<String> v) => _activeWs.kitchenLayerFilter = v;
+
   String taskFilter = 'all'; // all | me
   String? openTaskList;
   String? openShopList;
-  List<CalendarEvent> events = [];
-  List<EventCategory> eventCategories = [];
-  List<ImportedCalendar> importedCalendars = [];
-  List<CalendarLayerDef> calendarLayers = kDefaultCalendarLayers();
-  Map<String, int> starsMap = {};
-  bool kitchenEnabled = true;
-  Map<String, bool> picMembers = {};
-  List<String> kitchenLayerFilter = ['appt', 'task', 'content'];
   String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
@@ -251,8 +276,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _wsSub;
-  int _lastSyncedAtMillis = 0;
   bool _applyingCloudSnapshot = false;
+
+  /// The family id the Firestore family/workspace streams are currently bound
+  /// to, so the user-doc listener only rebinds when the active family truly
+  /// changes (its own persist echoes used to trigger a full resubscribe).
+  String? _boundFamilyId;
 
   /// Per-family cache of the workspace subcollection's section payloads
   /// (timestamps stripped) and their digests — what we believe the server
@@ -380,10 +409,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           return;
         }
       }
-    } else if (payload.startsWith('event:') && payload.length > 17) {
-      final date = payload.substring(payload.length - 10);
-      final eventId = payload.substring('event:'.length, payload.length - 11);
-      if (eventById(eventId) != null) {
+    } else if (payload.startsWith('event:')) {
+      // Payload shape is `event:<id>:<yyyy-mm-dd>` (see NotificationService's
+      // occurrence payloads). Split on the LAST ':' with a validated date
+      // instead of blind position arithmetic, so an unexpected id shape or
+      // format change discards the link rather than mis-parsing it.
+      final rest = payload.substring('event:'.length);
+      final sep = rest.lastIndexOf(':');
+      final date = sep >= 0 ? rest.substring(sep + 1) : '';
+      final eventId = sep >= 0 ? rest.substring(0, sep) : '';
+      final validDate = RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(date);
+      if (validDate && eventId.isNotEmpty && eventById(eventId) != null) {
         pendingNotificationDeepLink.value = null;
         update(() {
           tab = 'calendar';
@@ -407,6 +443,16 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(() => _appVersion = info.version);
   }
 
+  /// Marks boot complete: shows the shell, re-derives pending reminders and
+  /// consumes any notification deep link that launched the app. Every boot
+  /// path must end through here — the ritual used to be copy-pasted per path
+  /// and was easy to miss when adding a new one.
+  void _finishBoot() {
+    setState(() => ready = true);
+    unawaited(_rescheduleReminders());
+    _handleNotificationDeepLink();
+  }
+
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
@@ -422,9 +468,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (hadCloud) {
         await bindCloudSync(uid);
         if (!mounted) return;
-        setState(() => ready = true);
-        unawaited(_rescheduleReminders());
-        _handleNotificationDeepLink();
+        _finishBoot();
         return;
       }
 
@@ -440,9 +484,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             if (f.username.trim().isEmpty) f.username = familySlug(f.name);
           }
           if (!mounted) return;
-          setState(() => ready = true);
-          unawaited(_rescheduleReminders());
-          _handleNotificationDeepLink();
+          _finishBoot();
           await _persist();
           await bindCloudSync(uid);
           return;
@@ -455,9 +497,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       families = [];
       workspaces = {};
       if (!mounted) return;
-      setState(() => ready = true);
-      unawaited(_rescheduleReminders());
-      _handleNotificationDeepLink();
+      _finishBoot();
       return;
     }
     // coverage:ignore-end
@@ -478,9 +518,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       try {
         _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
         if (!mounted) return;
-        setState(() => ready = true);
-        unawaited(_rescheduleReminders());
-        _handleNotificationDeepLink();
+        _finishBoot();
         return;
       } catch (_) {
         /* fall through to migration / seed */
@@ -494,9 +532,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _restore(json.decode(rawV3) as Map<String, dynamic>);
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
-        setState(() => ready = true);
-        unawaited(_rescheduleReminders());
-        _handleNotificationDeepLink();
+        _finishBoot();
         _persist();
         return;
       } catch (_) {
@@ -587,49 +623,20 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           ? workspaces.keys.first
           : 'fam_main';
     }
-    final ws = workspaces[familyId] ?? Workspace.empty();
-    workspaces[familyId] = ws;
-    accounts = ws.accounts;
-    cats = ws.cats;
-    data = ws.data;
-    taskLists = ws.taskLists;
-    shoppingLists = ws.shoppingLists;
-    events = ws.events;
-    eventCategories = ws.eventCategories;
-    importedCalendars = ws.importedCalendars;
-    weeklyPlan = ws.weeklyPlan;
-    calendarLayers = ws.calendarLayers;
-    starsMap = ws.starsMap;
-    kitchenEnabled = ws.kitchenEnabled;
-    picMembers = ws.picMembers;
-    kitchenLayerFilter = ws.kitchenLayerFilter;
+    // The workspace in `workspaces[familyId]` IS the active state (the
+    // accessors read through to it); nothing to re-point.
+    _adoptActiveWorkspace();
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     _syncRecurringSeries();
   }
 
-  /// Wraps the just-restored/seeded active workspace into `workspaces` and
+  /// Keeps the just-restored/seeded active workspace as `fam_main`'s and
   /// seeds a starter family for the signed-in user (mirrors the design's
   /// v3→v4 migration / fresh-seed path).
   void _seedFamiliesAndWorkspace() {
     familyId = 'fam_main';
-    workspaces = {
-      'fam_main': Workspace(
-        accounts: accounts,
-        cats: cats,
-        data: data,
-        taskLists: taskLists,
-        shoppingLists: shoppingLists,
-        events: events,
-        eventCategories: eventCategories,
-        importedCalendars: importedCalendars,
-        weeklyPlan: weeklyPlan,
-        calendarLayers: calendarLayers,
-        starsMap: starsMap,
-        kitchenEnabled: kitchenEnabled,
-        picMembers: picMembers,
-        kitchenLayerFilter: kitchenLayerFilter,
-      ),
-    };
+    final ws = _activeWs;
+    workspaces = {'fam_main': ws};
     families = user != null ? [seedFamily('fam_main', user!, myId)] : [];
   }
 
@@ -706,20 +713,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final ws = await buildSampleWorkspace();
     if (!mounted) return;
     setState(() {
-      accounts = ws.accounts;
-      cats = ws.cats;
-      data = ws.data;
-      taskLists = ws.taskLists;
-      shoppingLists = ws.shoppingLists;
-      events = ws.events;
-      eventCategories = ws.eventCategories;
-      importedCalendars = ws.importedCalendars;
-      weeklyPlan = ws.weeklyPlan;
-      calendarLayers = ws.calendarLayers;
-      starsMap = ws.starsMap;
-      kitchenEnabled = ws.kitchenEnabled;
-      picMembers = ws.picMembers;
-      kitchenLayerFilter = ws.kitchenLayerFilter;
+      workspaces[familyId] = ws;
       _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
       ready = true;
@@ -728,30 +722,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _persist();
   }
 
-  /// Mirrors `syncWorkspaces()` — stores the active budget into the current
-  /// family's workspace slot before serializing.
-  void _syncWorkspaces() {
-    workspaces[familyId] = Workspace(
-      accounts: accounts,
-      cats: cats,
-      data: data,
-      taskLists: taskLists,
-      shoppingLists: shoppingLists,
-      events: events,
-      eventCategories: eventCategories,
-      importedCalendars: importedCalendars,
-      weeklyPlan: weeklyPlan,
-      calendarLayers: calendarLayers,
-      starsMap: starsMap,
-      kitchenEnabled: kitchenEnabled,
-      picMembers: picMembers,
-      kitchenLayerFilter: kitchenLayerFilter,
-    );
-  }
-
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
-    _syncWorkspaces();
     if (_cloudBacked) {
       await prefs.remove(kStorageKeyV4);
       await prefs.remove(kStorageKey);
@@ -805,12 +777,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   // ------------------------------------------------------------- helpers
+  /// setState + `_rev` bump, safe to call after any await: cloud flows
+  /// routinely update state after network round-trips, and a sign-out or
+  /// dispose during a slow call must not become "setState after dispose".
   void update(VoidCallback fn) {
+    if (!mounted) return;
     setState(fn);
     _rev.value++;
   }
 
   void mutate(VoidCallback fn, [VoidCallback? cb]) {
+    if (!mounted) return;
     setState(fn);
     _rev.value++;
     _schedulePersist();
@@ -827,6 +804,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   void flash(String msg) {
+    if (!mounted) return;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 2100), () {
@@ -1103,64 +1081,64 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   void setYear(int y) {
     ensureYear(y);
-    setState(() {
+    update(() {
       year = y;
       statsHeroSelIdx = null;
     });
-    _persist();
+    _schedulePersist();
   }
 
   void moveAccount(String key, int dir) {
     final i = accounts.indexWhere((a) => a.key == key);
     final j = i + dir;
     if (j < 0 || j >= accounts.length) return;
-    setState(() {
+    update(() {
       final t = accounts[i];
       accounts[i] = accounts[j];
       accounts[j] = t;
     });
-    _persist();
+    _schedulePersist();
   }
 
   void moveBlock(String key, int dir) {
     final i = cats.indexWhere((c) => c.key == key);
     final j = i + dir;
     if (j < 0 || j >= cats.length) return;
-    setState(() {
+    update(() {
       final t = cats[i];
       cats[i] = cats[j];
       cats[j] = t;
     });
-    _persist();
+    _schedulePersist();
   }
 
   // ---------------------------------------------------------------- nav
   void go(String s) {
-    setState(() {
+    update(() {
       screen = s;
       swipedId = null;
     });
-    _persist();
+    _schedulePersist();
   }
 
   void setMonth(int d) {
-    setState(() {
+    update(() {
       monthIdx = (monthIdx + d + 12) % 12;
       swipedId = null;
       statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
-    _persist();
+    _schedulePersist();
   }
 
   void pickMonth(int i) {
-    setState(() {
+    update(() {
       monthIdx = i;
       swipedId = null;
       statsHeroSelIdx = null;
     });
     _syncRecurringSeries();
-    _persist();
+    _schedulePersist();
   }
 
   void toggleCollapse(String k) =>
@@ -1170,9 +1148,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void togglePaid(String catKey, String id) {
     if (isClosed()) return;
     mutate(() {
-      final arr = data[year]![kMonthKeys[monthIdx]]!.blocks[catKey];
-      final it = arr?.firstWhere((x) => x.id == id, orElse: () => arr.first);
-      if (it != null && arr!.any((x) => x.id == id)) it.paid = !it.paid;
+      final arr = data[year]?[kMonthKeys[monthIdx]]?.blocks[catKey];
+      // An empty/missing block can happen when a concurrent snapshot replaced
+      // this month between render and tap — `arr.first` as an orElse would
+      // itself throw on an empty list.
+      if (arr == null) return;
+      for (final it in arr) {
+        if (it.id == id) {
+          it.paid = !it.paid;
+          return;
+        }
+      }
     });
   }
 

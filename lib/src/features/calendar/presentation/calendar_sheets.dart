@@ -113,7 +113,7 @@ class _EventEditSheetState extends State<_EventEditSheet> {
     _recurUnit = e?.recurUnit ?? 'week';
     _recurWeekdays = (e?.recurWeekdays ?? const <int>[]).toList();
     if (_recurWeekdays.isEmpty) _recurWeekdays = [_parseIso(_date).weekday];
-    _layerId = e?.layerId ?? 'appt';
+    _layerId = e?.layerId ?? kLayerAppt;
     _todo = e?.todo ?? false;
   }
 
@@ -2761,7 +2761,7 @@ class _CategorySheet extends StatefulWidget {
   const _CategorySheet({
     required this.state,
     this.category,
-    this.layerId = 'appt',
+    this.layerId = kLayerAppt,
   });
   final _ThriveHomeState state;
   final EventCategory? category;

@@ -220,6 +220,18 @@ void main() {
     expect(scheduledCalls, isNotEmpty);
   });
 
+  test('scheduleEventReminder anchors the recurring occurrence window at '
+      '"now", so a series started years ago still gets reminders', () async {
+    // Regression: the window used to be [event.date, event.date + 24 months],
+    // which is entirely in the past for an old series — its reminders
+    // silently stopped after two years.
+    await NotificationService.init();
+    await NotificationService.instance.scheduleEventReminder(
+      event(recur: 'weekly', date: '2020-01-10', start: '09:00'),
+    );
+    expect(scheduledCalls, isNotEmpty);
+  });
+
   test('scheduleEventReminder handles an all-day event and a custom-unit '
       'reminder (e.g. "2d")', () async {
     await NotificationService.init();

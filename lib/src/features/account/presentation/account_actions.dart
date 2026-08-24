@@ -169,22 +169,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
       if (!_cloudBacked && families.isEmpty) {
         families = [seedFamily('fam_main', u, myId)];
         familyId = 'fam_main';
-        workspaces.putIfAbsent(
-          'fam_main',
-          () => Workspace(
-            accounts: accounts,
-            cats: cats,
-            data: data,
-            taskLists: taskLists,
-            shoppingLists: shoppingLists,
-          ),
-        );
-        final ws = workspaces['fam_main']!;
-        accounts = ws.accounts;
-        cats = ws.cats;
-        data = ws.data;
-        taskLists = ws.taskLists;
-        shoppingLists = ws.shoppingLists;
+        // The seeded sample budget (if any) already lives in
+        // `workspaces['fam_main']`; `_activeWs` lazily creates an empty one
+        // otherwise. The workspace is the single owner of the budget data —
+        // there are no separate fields left to wire up.
       } else {
         // Cloud sign-in: the user's shared families are about to be fetched.
         // Mark them as resolving so the onboarding gate stays hidden until we
@@ -217,6 +205,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
   // coverage:ignore-end
 
   void signOut() {
+    // Drop any debounced persist BEFORE clearing state: the timer would
+    // otherwise fire up to 2s after sign-out and write the previous
+    // account's data back to local storage under the fresh session.
+    _persistTimer?.cancel();
     update(() {
       user = null;
       families = [];
@@ -230,6 +222,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _familySub = null;
     _wsSub?.cancel();
     _wsSub = null;
+    _boundFamilyId = null;
     _wsSectionCache.clear();
     _wsSectionDigests.clear();
     _sessionFamilyPasswords.clear();
@@ -579,27 +572,19 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }, 'Member colour updated');
   }
 
-  void switchFamily(String id) {
+  Future<void> switchFamily(String id) async {
     if (id == familyId) return;
-    _syncWorkspaces();
-    final target = workspaces[id] ?? Workspace.empty();
-    workspaces[id] = target;
+    // A debounced edit to the CURRENT family may still be pending; persist it
+    // while `familyId` still points at that family, or the edit would only
+    // ever reach local memory (cloudPersist persists the active family, so
+    // after the switch the timer would persist the wrong one).
+    if (_persistTimer?.isActive == true) {
+      _persistTimer?.cancel();
+      await _persist();
+    }
     update(() {
       familyId = id;
-      accounts = target.accounts;
-      cats = target.cats;
-      data = target.data;
-      taskLists = target.taskLists;
-      shoppingLists = target.shoppingLists;
-      events = target.events;
-      eventCategories = target.eventCategories;
-      importedCalendars = target.importedCalendars;
-      weeklyPlan = target.weeklyPlan;
-      calendarLayers = target.calendarLayers;
-      starsMap = target.starsMap;
-      kitchenEnabled = target.kitchenEnabled;
-      picMembers = target.picMembers;
-      kitchenLayerFilter = target.kitchenLayerFilter;
+      _adoptActiveWorkspace();
       screen = 'overview';
       swipedId = null;
       collapsed = {};
@@ -836,7 +821,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
   }
 
   void _createFamilyInMemory(String name) {
-    _syncWorkspaces();
     final id = 'fam_${uid()}';
     final ws = Workspace.empty();
     workspaces[id] = ws;
@@ -865,11 +849,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     update(() {
       families = [...families, fam];
       familyId = id;
-      accounts = ws.accounts;
-      cats = ws.cats;
-      data = ws.data;
-      taskLists = ws.taskLists;
-      shoppingLists = ws.shoppingLists;
+      _adoptActiveWorkspace();
       screen = 'overview';
       swipedId = null;
       collapsed = {};
@@ -914,7 +894,14 @@ extension _ThriveAccountActions on _ThriveHomeState {
     // coverage:ignore-start
     if (uid != null) {
       fam.memberUids.remove(uid);
-      unawaited(cloudLeaveFamily(uid, fam));
+      // Surface a failed cloud leave: the family was already removed locally,
+      // so a silent failure would resurrect it from Firestore on next boot
+      // with no clue why.
+      unawaited(
+        cloudLeaveFamily(uid, fam).then((err) {
+          if (err != null && mounted) showError(err);
+        }),
+      );
     } else {
       // coverage:ignore-end
       unawaited(_leaveFamilyLocal(fam));
@@ -927,11 +914,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       families = remaining;
       if (id == familyId) {
         familyId = remaining.isNotEmpty ? remaining.first.id : 'fam_main';
-        final t = workspaces[familyId] ?? Workspace.empty();
-        workspaces[familyId] = t;
-        accounts = t.accounts;
-        cats = t.cats;
-        data = t.data;
+        _adoptActiveWorkspace();
         collapsed = {};
       }
     });
@@ -944,18 +927,22 @@ extension _ThriveAccountActions on _ThriveHomeState {
   /// create/join onboarding gate.
   void deleteFamily(String id) {
     final uid = _firebaseUid();
-    if (uid != null) unawaited(cloudDeleteFamily(uid, id));
+    if (uid != null) {
+      // Surface a failed cloud delete — otherwise the family resurrects from
+      // Firestore on next boot after the UI already confirmed the deletion.
+      unawaited(
+        cloudDeleteFamily(uid, id).then((err) {
+          if (err != null && mounted) showError(err);
+        }),
+      );
+    }
     final remaining = families.where((f) => f.id != id).toList();
     workspaces.remove(id);
     update(() {
       families = remaining;
       if (id == familyId) {
         familyId = remaining.isNotEmpty ? remaining.first.id : 'fam_main';
-        final t = workspaces[familyId] ?? Workspace.empty();
-        workspaces[familyId] = t;
-        accounts = t.accounts;
-        cats = t.cats;
-        data = t.data;
+        _adoptActiveWorkspace();
         collapsed = {};
       }
     });

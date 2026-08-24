@@ -36,7 +36,7 @@ class NotificationService implements NotificationScheduler {
       const android = AndroidInitializationSettings('@mipmap/ic_launcher');
       const ios = DarwinInitializationSettings();
       await _plugin.initialize(
-        const InitializationSettings(android: android, iOS: ios),
+        settings: const InitializationSettings(android: android, iOS: ios),
         onDidReceiveNotificationResponse: _onTap,
       );
       _initialized = true;
@@ -84,14 +84,22 @@ class NotificationService implements NotificationScheduler {
       final scheduleMode = await _androidScheduleMode();
       final now = tz.TZDateTime.now(tz.local);
       var scheduled = 0;
+      // Anchor the occurrence window at "now" rather than the series start:
+      // a recurring event created over 24 months ago would otherwise get an
+      // entirely-past window and its reminders would silently stop. Events
+      // starting in the future keep their own start as the anchor.
+      final todayIso = _isoOfDate(DateTime.now());
+      final windowAnchor = event.date.compareTo(todayIso) > 0
+          ? event.date
+          : todayIso;
       final occurrenceDates = event.recur == 'none'
           ? [event.date]
           : recurringEventDates(
               event,
-              event.date,
+              _addDaysIso(todayIso, -1),
               event.endDate.isNotEmpty
                   ? event.endDate
-                  : _addMonthsIso(event.date, 24),
+                  : _addMonthsIso(windowAnchor, 24),
               maxOccurrences: 5000,
             );
 
@@ -227,11 +235,11 @@ class NotificationService implements NotificationScheduler {
     required String payload,
   }) async {
     Future<void> schedule(AndroidScheduleMode mode) => _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      when,
-      const NotificationDetails(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: when,
+      notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           'event_reminders',
           'Event reminders',
@@ -282,7 +290,7 @@ class NotificationService implements NotificationScheduler {
       await Future.wait([
         for (final notification in pending)
           if (notification.payload?.startsWith('event:$eventId:') == true)
-            _plugin.cancel(notification.id),
+            _plugin.cancel(id: notification.id),
       ]);
     } catch (e) {
       debugPrint('[notifications] event cancel failed: $e');
@@ -303,7 +311,7 @@ class NotificationService implements NotificationScheduler {
       await Future.wait([
         for (final notification in pending)
           if (notification.payload?.startsWith('event:') == true)
-            _plugin.cancel(notification.id),
+            _plugin.cancel(id: notification.id),
       ]);
       await Future.wait([
         for (final event in eventList) _scheduleEventOccurrences(event),

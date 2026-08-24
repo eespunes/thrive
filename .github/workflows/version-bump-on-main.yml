@@ -35,6 +35,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # Keep in sync with pr-flutter.yml.
+          flutter-version: 3.44.4
           cache: true
 
       - name: Install dependencies

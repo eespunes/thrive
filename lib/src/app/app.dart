@@ -31,6 +31,25 @@ Future<void> _lockLandscapeOrientation() =>
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
+    try {
+      // App Check attests that requests come from a genuine app install —
+      // Firestore/Auth are otherwise callable by anything holding the (public)
+      // API key. Debug builds use the debug provider (register its token in
+      // the Firebase console for local dev). Enforcement is switched on
+      // per-product in the console once real traffic is attested.
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: foundation.kDebugMode
+            ? const AndroidDebugProvider()
+            : const AndroidPlayIntegrityProvider(),
+        providerApple: foundation.kDebugMode
+            ? const AppleDebugProvider()
+            : const AppleDeviceCheckProvider(),
+      );
+    } catch (e) {
+      // App Check is defense-in-depth; never block startup on it (e.g. web
+      // has no provider configured).
+      debugPrint('App Check activation failed: $e');
+    }
     // Offline persistence is ON (the default). It used to be disabled because
     // the single multi-MB family `workspace` blob overflowed Android's ~2MB
     // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
@@ -91,9 +110,15 @@ class ThriveApp extends StatelessWidget {
       // including modal bottom sheets. It is non-blocking: only the card itself
       // captures pointer events, so the UI beneath stays fully interactive.
       builder: (context, child) {
-        return Stack(
-          textDirection: TextDirection.ltr,
-          children: [?child, const _GlobalErrorPopup()],
+        // The layout uses many fixed-height containers around hardcoded font
+        // sizes; unbounded OS text scaling clips them. Clamp until the layout
+        // is audited for full dynamic-type support.
+        return MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.3,
+          child: Stack(
+            textDirection: TextDirection.ltr,
+            children: [?child, const _GlobalErrorPopup()],
+          ),
         );
       },
       home: const ThriveHome(),

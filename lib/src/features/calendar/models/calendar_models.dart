@@ -22,7 +22,7 @@ class CalendarEvent {
     List<int>? recurWeekdays,
     this.createdBy,
     List<String>? exceptions,
-    this.layerId = 'appt',
+    this.layerId = kLayerAppt,
     this.todo = false,
     this.done = false,
     Map<String, bool>? doneDates,
@@ -140,7 +140,7 @@ class CalendarEvent {
     if (recurWeekdays.isNotEmpty) 'recurWeekdays': recurWeekdays,
     if (createdBy != null) 'createdBy': createdBy,
     'exceptions': exceptions,
-    if (layerId.isNotEmpty && layerId != 'appt') 'layerId': layerId,
+    if (layerId.isNotEmpty && layerId != kLayerAppt) 'layerId': layerId,
     if (todo) 'todo': todo,
     'done': done,
     if (doneDates.isNotEmpty) 'doneDates': doneDates,
@@ -182,12 +182,12 @@ class CalendarEvent {
         ? ''
         : ((j['layerId'] as String?)?.isNotEmpty == true
               ? j['layerId'] as String
-              : 'appt'),
+              : kLayerAppt),
     todo:
         j['todo'] == true ||
         (j['todo'] == null &&
             j['kitchenOrigin'] != true &&
-            j['layerId'] == 'task'),
+            j['layerId'] == kLayerTask),
     done: j['done'] == true,
     doneDates: {
       for (final entry in (j['doneDates'] as Map? ?? {}).entries)
@@ -213,7 +213,7 @@ class EventCategory {
     this.emoji,
     this.picture,
     List<String>? members,
-    this.layerId = 'appt',
+    this.layerId = kLayerAppt,
   }) : members = members ?? <String>[];
 
   String id;
@@ -247,7 +247,7 @@ class EventCategory {
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
     'members': members,
-    if (layerId != 'appt') 'layerId': layerId,
+    if (layerId != kLayerAppt) 'layerId': layerId,
   };
 
   factory EventCategory.fromJson(Map<String, dynamic> j) => EventCategory(
@@ -262,7 +262,7 @@ class EventCategory {
     members: [for (final m in (j['members'] as List? ?? [])) m.toString()],
     layerId: (j['layerId'] as String?)?.isNotEmpty == true
         ? j['layerId'] as String
-        : 'appt',
+        : kLayerAppt,
   );
 }
 
@@ -325,25 +325,32 @@ class CalendarLayerDef {
   );
 }
 
+/// Persisted ids of the 3 built-in calendar layers. These are stored in
+/// saved workspaces, so they must never be renamed.
+const String kLayerAppt = 'appt';
+const String kLayerTask = 'task';
+const String kLayerContent = 'content';
+const List<String> kBuiltinLayerIds = [kLayerAppt, kLayerTask, kLayerContent];
+
 /// The 3 built-in calendar layers, in their original order/colours — used
 /// both as the seed for brand-new workspaces and to backfill any legacy
 /// workspace saved before layers became customizable (see
 /// `Workspace.fromJson`).
 List<CalendarLayerDef> kDefaultCalendarLayers() => [
   CalendarLayerDef(
-    id: 'appt',
+    id: kLayerAppt,
     label: 'Appointments',
     icon: 'cal',
     color: B.primary,
   ),
   CalendarLayerDef(
-    id: 'task',
+    id: kLayerTask,
     label: 'To-Dos',
     icon: 'check',
     color: const Color(0xff2563eb),
   ),
   CalendarLayerDef(
-    id: 'content',
+    id: kLayerContent,
     label: 'Content',
     icon: 'camera',
     color: const Color(0xffdb2777),

@@ -1,1 +1,3330 @@
-{"Januari":{"income":[{"label":"SALARY","date":"1st","expected":4000,"actual":3925.82,"received":true},{"label":"TOESLAGEN","date":"1st","expected":135,"actual":135,"received":true},{"label":"KINDERBIJSLAG","date":"1st","expected":644,"actual":644,"received":true},{"label":"CURRENT MONEY","date":"1st","expected":0,"actual":0,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"19th","amount":125,"paid":true},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":true},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"TINKA","day":"5th","amount":20,"paid":true,"until":46023},{"label":"BELASTINGDIENST 1","day":"3rd","amount":20,"paid":true,"until":46114},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":0,"paid":true,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":600,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":0,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":0,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"27e","amount":0,"paid":true}],"subscriptions":[{"label":"VIAPLAY","date":"-","amount":0,"paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":true},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":true}],"savings":[],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":250,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":250,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":true},{"label":"POCKET MONEY EMRYS","date":"1st","amount":0,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true}],"additional":[{"label":"BILLS LAST MONTH","date":36892,"amount":478,"paid":true},{"label":"PAY LATER ERIK","date":36892,"amount":74.26,"paid":true},{"label":"PAY LATER EVA","date":36892,"amount":125,"paid":true},{"label":"BOL","date":36892,"amount":153,"paid":true},{"label":"PAY LATER EXTRA","date":36892,"amount":261.19,"paid":true}],"sumup":{"EXPECTED BALANCE":273.36,"BALANCE":199.18,"STILL TO PAY":0,"FROM EVA'S ACCOUNT":0,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":4779,"actual":0},"home":889.14,"debt":626.43,"food":600,"health":392.25,"subscriptions":141.03,"savings":200,"personal":565.34,"additional":1091.45}},"Februari":{"income":[{"label":"SALARY","date":36923,"expected":4350,"actual":4173.55,"received":true},{"label":"TOESLAGEN","date":36923,"expected":803,"actual":803,"received":true},{"label":"KINDERBIJSLAG","date":36923,"expected":0,"actual":0,"received":true},{"label":"CURRENT MONEY","date":36923,"expected":0,"actual":0,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"6th","amount":125,"paid":true},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":true},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"TINKA","day":"5th","amount":13.17,"paid":true,"until":46023},{"label":"BELASTINGDIENST 1","day":"3rd","amount":0,"paid":true,"until":46114},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":0,"paid":true,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":50,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":true}],"subscriptions":[{"label":"VIAPLAY","date":"-","amount":0,"paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":true},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":true}],"savings":[],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":250,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":250,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":33,"paid":true},{"label":"ROBLOX PREMIUM","date":"1st","amount":11.99,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true},{"label":"CLOTHES C&A","date":"1st","amount":67,"paid":true},{"label":"ACTION","date":"1st","amount":59,"paid":true}],"additional":[{"label":"MAMA","date":36923,"amount":350,"paid":true},{"label":"BILLS LAST MONTH","date":36923,"amount":472.84,"paid":true},{"label":"KLARNA IKEA","date":36923,"amount":30,"paid":true},{"label":"-","date":"-","amount":0,"paid":true},{"label":"MARC CHRISTMAS","date":36923,"amount":30,"paid":true}],"sumup":{"EXPECTED BALANCE":503.31,"BALANCE":326.86,"STILL TO PAY":0,"FROM EVA'S ACCOUNT":0,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":5153,"actual":0},"home":889.14,"debt":599.6,"food":800,"health":430.75,"subscriptions":141.03,"savings":200,"personal":706.33,"additional":882.84}},"Maart":{"income":[{"label":"SALARY","date":"1st","expected":4544.58,"actual":4544.58,"received":true},{"label":"TOESLAGEN REMAINING","date":"1st","expected":25.49,"actual":25.49,"received":true},{"label":"KINDERBIJSLAG","date":"1st","expected":0,"actual":0,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":true},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":true},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"BELASTINGDIENST 1","day":"3rd","amount":31,"paid":true,"until":46114},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"25th","amount":34.91,"paid":true,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":50,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"2nd","amount":38.5,"paid":true}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":true},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":true}],"savings":[],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":250,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":150,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":18,"paid":true},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":true},{"label":"POCKET MONEY EMRYS","date":"1st","amount":0,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true}],"additional":[{"label":"KLARNA LANDAL","date":"1st","amount":269.4,"paid":true},{"label":"DECATHLON","date":36892,"amount":160,"paid":true},{"label":"BILLS LAST MONTH","date":36892,"amount":189.78,"paid":true}],"sumup":{"EXPECTED BALANCE":269.29,"BALANCE":269.29,"STILL TO PAY":0,"FROM EVA'S ACCOUNT":0,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":4570.07,"actual":0},"home":964.14,"debt":652.34,"food":800,"health":430.75,"subscriptions":166.03,"savings":200,"personal":468.34,"additional":619.18}},"April":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4221.22,"received":true},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":true},{"label":"KINDERBIJSLAG","date":"1st","expected":644,"actual":644,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"7th","amount":200,"paid":true},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":true},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"BELASTINGDIENST 1","day":"1st","amount":194,"paid":true,"until":46174},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":true,"until":"01-59"},{"label":"GEMEENTELIJKE HEFFING","day":"1st","amount":49.7,"paid":true,"until":"12-26"}],"food":[{"label":"GROCERIES","day":"1st","amount":500,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":50,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":true}],"subscriptions":[{"label":"F1 TV","date":"7th","amount":"-","paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":true},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":true}],"savings":[],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":261,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":139,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":true},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":true},{"label":"POCKET MONEY EMRYS","date":"1st","amount":0,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true}],"additional":[{"label":"KLARNA KIDS/SHIRT EVA","date":36892,"amount":214,"paid":true},{"label":"GEMEENTELIJKE HEFFING","date":36892,"amount":187.34,"paid":true},{"label":"CLOTHES ADULTS","date":36892,"amount":93,"paid":true},{"label":"KLARNA EVA","date":36892,"amount":282.23,"paid":true},{"label":"BILLS LAST MONTH","date":36892,"amount":115.94,"paid":true}],"sumup":{"EXPECTED BALANCE":213.74,"BALANCE":261.41,"STILL TO PAY":0,"FROM EVA'S ACCOUNT":0,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":5287.55,"actual":0},"home":964.14,"debt":865.04,"food":600,"health":430.75,"subscriptions":141.03,"savings":700,"personal":480.34,"additional":892.51}},"Mei":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4170.91,"received":true},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":true},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":true},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"BELASTINGDIENST 1","day":"1st","amount":194,"paid":true,"until":46174},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":true,"until":"01-59"},{"label":"GEMEENTELIJKE HEFFING","day":"1st","amount":49.7,"paid":true,"until":"12-26"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":50,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":true}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":true},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":true}],"savings":[{"label":"HOUSE","date":"1st","amount":0,"paid":true},{"label":"HOLIDAY","date":"1st","amount":0,"paid":true},{"label":"CELEBRATIONS","date":"1st","amount":0,"paid":true},{"label":"FLEX","date":"1st","amount":300,"paid":true}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":true},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true},{"label":"WEHKAMP","date":"1st","amount":35.3,"paid":true},{"label":"FOOTBALL ERIK","date":"20th","amount":19.35,"paid":true}],"additional":[{"label":"KLARNA SCAPINO","date":"1st","amount":197.78,"paid":true},{"label":"CHAIRS + TABLE KLARNA","date":"1st","amount":388.97,"paid":true}],"sumup":{"EXPECTED BALANCE":295.85,"BALANCE":293.21,"STILL TO PAY":0,"FROM EVA'S ACCOUNT":0,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":4643.55,"actual":0},"home":964.14,"debt":865.04,"food":800,"health":430.75,"subscriptions":166.03,"savings":0,"personal":534.99,"additional":586.75}},"Juni":{"income":[{"label":"SALARY","date":"1st","expected":4221.22,"actual":4132.03,"received":true},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":true},{"label":"VORIGE MAAND","date":"1st","expected":-200,"actual":-200,"received":true}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":true},{"label":"WATER","day":"3rd","amount":20,"paid":true},{"label":"ELECTRICITY AND GAS","day":"19th","amount":305,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":true},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":true}],"debt":[{"label":"BELASTINGDIENST 1","day":"1st","amount":194,"paid":true,"until":46174},{"label":"BELASTINGDIENST 2","day":"3rd","amount":20,"paid":true,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":true,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":true,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":true,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":true},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":true},{"label":"STREET FOOD","day":"1st","amount":50,"paid":true},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":true}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":true},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":true},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":true},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":true},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":true},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":true},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":null,"amount":0,"paid":true},{"label":"HOLIDAY","date":null,"amount":0,"paid":true},{"label":"CELEBRATIONS","date":null,"amount":0,"paid":true},{"label":"BABY","date":null,"amount":0,"paid":true},{"label":"FLEX","date":null,"amount":130,"paid":true}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":true},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":true},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":true},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":true},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":true}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":true},{"label":"FENCE","date":"1st","amount":600,"paid":true}],"sumup":{"EXPECTED BALANCE":79.92,"BALANCE":-9.27,"STILL TO PAY":532.51,"FROM EVA'S ACCOUNT":532.51,"FROM ERIK'S ACCOUNT":0,"FROM SHARED ACCOUNT":0},"totals":{"income":{"expected":4491.22,"actual":0},"home":669.19,"debt":815.34,"food":800,"health":392.25,"subscriptions":71.97,"savings":0,"personal":480.34,"additional":649.7}},"Juli":{"income":[{"label":"SALARY","date":"1st","expected":4132,"actual":4132,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false},{"label":"KINDERBIJSLAG","date":"1st","expected":644,"actual":644,"received":false},{"label":"BELASTINGDIENST","date":"1st","expected":3629,"actual":3629,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"MAMA","day":"1st","amount":200,"paid":false,"until":"-"},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES HOME","day":"1st","amount":800,"paid":false},{"label":"BARCELONA","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":0,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":0,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":500,"paid":false},{"label":"HOLIDAY","date":"1st","amount":2000,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":200,"paid":false},{"label":"FLEX","date":"1st","amount":700,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":300,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":100,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"TIM","date":"1st","amount":1000,"paid":false},{"label":"VORIGE MAAND","date":"1st","amount":532.51,"paid":false},{"label":"BOL","date":"1st","amount":131.82,"paid":false},{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":18.37,"BALANCE":18.37,"STILL TO PAY":8856.63,"FROM EVA'S ACCOUNT":2560.21,"FROM ERIK'S ACCOUNT":882.42,"FROM SHARED ACCOUNT":4300},"totals":{"income":{"expected":8875,"actual":8875},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}},"Augustus":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4173.55,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"MAMA","day":"1st","amount":250,"paid":false,"until":"-"},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":false},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":50,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":300,"paid":false},{"label":"HOLIDAY","date":"1st","amount":150,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":150,"paid":false},{"label":"FLEX","date":"1st","amount":200,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":1.25,"BALANCE":1.25,"STILL TO PAY":4642.3,"FROM EVA'S ACCOUNT":1689.88,"FROM ERIK'S ACCOUNT":782.42,"FROM SHARED ACCOUNT":1700},"totals":{"income":{"expected":4643.55,"actual":4643.55},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}},"September":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4173.55,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"BELASTINGDIENST","day":"3rd","amount":20,"paid":false,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":false},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":50,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":500,"paid":false},{"label":"HOLIDAY","date":"1st","amount":150,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":150,"paid":false},{"label":"FLEX","date":"1st","amount":230,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":1.25,"BALANCE":1.25,"STILL TO PAY":4642.3,"FROM EVA'S ACCOUNT":1459.88,"FROM ERIK'S ACCOUNT":782.42,"FROM SHARED ACCOUNT":1930},"totals":{"income":{"expected":4643.55,"actual":4643.55},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}},"Oktober":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4173.55,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false},{"label":"KINDERBIJSLAG","date":"1st","expected":644,"actual":644,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"BELASTINGDIENST","day":"3rd","amount":20,"paid":false,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":false},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":50,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":500,"paid":false},{"label":"HOLIDAY","date":"1st","amount":150,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":150,"paid":false},{"label":"FLEX","date":"1st","amount":875,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":0.25,"BALANCE":0.25,"STILL TO PAY":5287.3,"FROM EVA'S ACCOUNT":815.88,"FROM ERIK'S ACCOUNT":782.42,"FROM SHARED ACCOUNT":2575},"totals":{"income":{"expected":5287.55,"actual":5287.55},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}},"November":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4173.55,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"BELASTINGDIENST","day":"3rd","amount":20,"paid":false,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":false},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":50,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":500,"paid":false},{"label":"HOLIDAY","date":"1st","amount":150,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":150,"paid":false},{"label":"FLEX","date":"1st","amount":230,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":1.25,"BALANCE":1.25,"STILL TO PAY":4642.3,"FROM EVA'S ACCOUNT":1459.88,"FROM ERIK'S ACCOUNT":782.42,"FROM SHARED ACCOUNT":1930},"totals":{"income":{"expected":4643.55,"actual":4643.55},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}},"December":{"income":[{"label":"SALARY","date":"1st","expected":4173.55,"actual":4173.55,"received":false},{"label":"TOESLAGEN","date":"1st","expected":470,"actual":470,"received":false}],"home":[{"label":"RENT","day":"1st","amount":618.81,"paid":false},{"label":"WATER","day":"3rd","amount":20,"paid":false},{"label":"ELECTRICITY AND GAS","day":"19th","amount":200,"paid":false},{"label":"INTERNET AND TV","day":"29th","amount":94.95,"paid":false},{"label":"HOME INSURANCE","day":"8th","amount":22.13,"paid":false},{"label":"FUNERAL INSURANCE","day":"1st","amount":8.25,"paid":false}],"debt":[{"label":"BELASTINGDIENST","day":"3rd","amount":20,"paid":false,"until":46449},{"label":"FURNITURE LOAN","day":"1st","amount":316.43,"paid":false,"until":48522},{"label":"JENNY'S HOUSE","day":"1st","amount":250,"paid":false,"until":48615},{"label":"STUDENT LOAN","day":"1st","amount":34.91,"paid":false,"until":"01-59"}],"food":[{"label":"GROCERIES","day":"1st","amount":700,"paid":false},{"label":"RESTAURANTS","day":"1st","amount":0,"paid":false},{"label":"STREET FOOD","day":"1st","amount":50,"paid":false},{"label":"TAKEAWAY","day":"1st","amount":50,"paid":false}],"health":[{"label":"HEALTH INSURANCE ERIK","day":"1st","amount":184.75,"paid":false},{"label":"HEALTH INSURANCE EVA","day":"1st","amount":207.5,"paid":false},{"label":"OWN RISK","day":"27e","amount":38.5,"paid":false}],"subscriptions":[{"label":"VIAPLAY","date":"7th","amount":25,"paid":false},{"label":"NETFLIX","date":"30th","amount":20.99,"paid":false},{"label":"DISNEY +","date":"1st","amount":15.99,"paid":false},{"label":"GOOGLE ONE","date":"5th","amount":9.99,"paid":false},{"label":"MOBILE EVA","date":"24th","amount":59.56,"paid":false},{"label":"MOBILE DAPHNE","date":"21st","amount":34.5,"paid":false}],"savings":[{"label":"HOUSE","date":"1st","amount":500,"paid":false},{"label":"HOLIDAY","date":"1st","amount":150,"paid":false},{"label":"CELEBRATIONS","date":"1st","amount":100,"paid":false},{"label":"BABY","date":"1st","amount":150,"paid":false},{"label":"FLEX","date":"1st","amount":230,"paid":false}],"personal":[{"label":"POCKET MONEY ERIK","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY EVA","date":"1st","amount":200,"paid":false},{"label":"POCKET MONEY DAPHNE","date":"1st","amount":30,"paid":false},{"label":"CLOTHES MONEY DAPHNE","date":"1st","amount":15,"paid":false},{"label":"TODDLER SCHOOL EMRYS","date":"23rd","amount":35.34,"paid":false}],"additional":[{"label":"GEMEENTELIJKE HEFFING","date":"1st","amount":49.7,"paid":false}],"sumup":{"EXPECTED BALANCE":1.25,"BALANCE":1.25,"STILL TO PAY":4642.3,"FROM EVA'S ACCOUNT":1459.88,"FROM ERIK'S ACCOUNT":782.42,"FROM SHARED ACCOUNT":1930},"totals":{"income":{"expected":4643.55,"actual":4643.55},"home":0,"debt":0,"food":0,"health":0,"subscriptions":0,"savings":0,"personal":0,"additional":0}}}
+{
+  "Januari": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4000,
+        "actual": 3925.82,
+        "received": true
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 135,
+        "actual": 135,
+        "received": true
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": "1st",
+        "expected": 644,
+        "actual": 644,
+        "received": true
+      },
+      {
+        "label": "CARRYOVER",
+        "date": "1st",
+        "expected": 0,
+        "actual": 0,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 125,
+        "paid": true
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": true
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "STORE CREDIT",
+        "day": "5th",
+        "amount": 20,
+        "paid": true,
+        "until": 46023
+      },
+      {
+        "label": "TAX PLAN 1",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46114
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 0,
+        "paid": true,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 600,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 0,
+        "paid": true
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "-",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": true
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": true
+      }
+    ],
+    "savings": [],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 250,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 250,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EMRYS",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "BILLS LAST MONTH",
+        "date": 36892,
+        "amount": 478,
+        "paid": true
+      },
+      {
+        "label": "PAY LATER ERIK",
+        "date": 36892,
+        "amount": 74.26,
+        "paid": true
+      },
+      {
+        "label": "PAY LATER EVA",
+        "date": 36892,
+        "amount": 125,
+        "paid": true
+      },
+      {
+        "label": "BOL",
+        "date": 36892,
+        "amount": 153,
+        "paid": true
+      },
+      {
+        "label": "PAY LATER EXTRA",
+        "date": 36892,
+        "amount": 261.19,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 273.36,
+      "BALANCE": 199.18,
+      "STILL TO PAY": 0,
+      "FROM EVA'S ACCOUNT": 0,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 4779,
+        "actual": 0
+      },
+      "home": 889.14,
+      "debt": 626.43,
+      "food": 600,
+      "health": 392.25,
+      "subscriptions": 141.03,
+      "savings": 200,
+      "personal": 565.34,
+      "additional": 1091.45
+    }
+  },
+  "Februari": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": 36923,
+        "expected": 4350,
+        "actual": 4173.55,
+        "received": true
+      },
+      {
+        "label": "BENEFITS",
+        "date": 36923,
+        "expected": 803,
+        "actual": 803,
+        "received": true
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": 36923,
+        "expected": 0,
+        "actual": 0,
+        "received": true
+      },
+      {
+        "label": "CARRYOVER",
+        "date": 36923,
+        "expected": 0,
+        "actual": 0,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "6th",
+        "amount": 125,
+        "paid": true
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": true
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "STORE CREDIT",
+        "day": "5th",
+        "amount": 13.17,
+        "paid": true,
+        "until": 46023
+      },
+      {
+        "label": "TAX PLAN 1",
+        "day": "3rd",
+        "amount": 0,
+        "paid": true,
+        "until": 46114
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 0,
+        "paid": true,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": true
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "-",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": true
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": true
+      }
+    ],
+    "savings": [],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 250,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 250,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 33,
+        "paid": true
+      },
+      {
+        "label": "ROBLOX PREMIUM",
+        "date": "1st",
+        "amount": 11.99,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES C&A",
+        "date": "1st",
+        "amount": 67,
+        "paid": true
+      },
+      {
+        "label": "ACTION",
+        "date": "1st",
+        "amount": 59,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "MAMA",
+        "date": 36923,
+        "amount": 350,
+        "paid": true
+      },
+      {
+        "label": "BILLS LAST MONTH",
+        "date": 36923,
+        "amount": 472.84,
+        "paid": true
+      },
+      {
+        "label": "KLARNA IKEA",
+        "date": 36923,
+        "amount": 30,
+        "paid": true
+      },
+      {
+        "label": "-",
+        "date": "-",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "MARC CHRISTMAS",
+        "date": 36923,
+        "amount": 30,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 503.31,
+      "BALANCE": 326.86,
+      "STILL TO PAY": 0,
+      "FROM EVA'S ACCOUNT": 0,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 5153,
+        "actual": 0
+      },
+      "home": 889.14,
+      "debt": 599.6,
+      "food": 800,
+      "health": 430.75,
+      "subscriptions": 141.03,
+      "savings": 200,
+      "personal": 706.33,
+      "additional": 882.84
+    }
+  },
+  "Maart": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4544.58,
+        "actual": 4544.58,
+        "received": true
+      },
+      {
+        "label": "BENEFITS REMAINING",
+        "date": "1st",
+        "expected": 25.49,
+        "actual": 25.49,
+        "received": true
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": "1st",
+        "expected": 0,
+        "actual": 0,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": true
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX PLAN 1",
+        "day": "3rd",
+        "amount": 31,
+        "paid": true,
+        "until": 46114
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "25th",
+        "amount": 34.91,
+        "paid": true,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "2nd",
+        "amount": 38.5,
+        "paid": true
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": true
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": true
+      }
+    ],
+    "savings": [],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 250,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 150,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 18,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EMRYS",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "KLARNA LANDAL",
+        "date": "1st",
+        "amount": 269.4,
+        "paid": true
+      },
+      {
+        "label": "DECATHLON",
+        "date": 36892,
+        "amount": 160,
+        "paid": true
+      },
+      {
+        "label": "BILLS LAST MONTH",
+        "date": 36892,
+        "amount": 189.78,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 269.29,
+      "BALANCE": 269.29,
+      "STILL TO PAY": 0,
+      "FROM EVA'S ACCOUNT": 0,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 4570.07,
+        "actual": 0
+      },
+      "home": 964.14,
+      "debt": 652.34,
+      "food": 800,
+      "health": 430.75,
+      "subscriptions": 166.03,
+      "savings": 200,
+      "personal": 468.34,
+      "additional": 619.18
+    }
+  },
+  "April": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4221.22,
+        "received": true
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": true
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": "1st",
+        "expected": 644,
+        "actual": 644,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "7th",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": true
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX PLAN 1",
+        "day": "1st",
+        "amount": 194,
+        "paid": true,
+        "until": 46174
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": true,
+        "until": "01-59"
+      },
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "day": "1st",
+        "amount": 49.7,
+        "paid": true,
+        "until": "12-26"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 500,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": true
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "F1 TV",
+        "date": "7th",
+        "amount": "-",
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": true
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": true
+      }
+    ],
+    "savings": [],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 261,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 139,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EMRYS",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "KLARNA KIDS/SHIRT EVA",
+        "date": 36892,
+        "amount": 214,
+        "paid": true
+      },
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": 36892,
+        "amount": 187.34,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES ADULTS",
+        "date": 36892,
+        "amount": 93,
+        "paid": true
+      },
+      {
+        "label": "KLARNA EVA",
+        "date": 36892,
+        "amount": 282.23,
+        "paid": true
+      },
+      {
+        "label": "BILLS LAST MONTH",
+        "date": 36892,
+        "amount": 115.94,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 213.74,
+      "BALANCE": 261.41,
+      "STILL TO PAY": 0,
+      "FROM EVA'S ACCOUNT": 0,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 5287.55,
+        "actual": 0
+      },
+      "home": 964.14,
+      "debt": 865.04,
+      "food": 600,
+      "health": 430.75,
+      "subscriptions": 141.03,
+      "savings": 700,
+      "personal": 480.34,
+      "additional": 892.51
+    }
+  },
+  "Mei": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4170.91,
+        "received": true
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": true
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX PLAN 1",
+        "day": "1st",
+        "amount": 194,
+        "paid": true,
+        "until": 46174
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": true,
+        "until": "01-59"
+      },
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "day": "1st",
+        "amount": 49.7,
+        "paid": true,
+        "until": "12-26"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": true
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": true
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": true
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 300,
+        "paid": true
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      },
+      {
+        "label": "WEHKAMP",
+        "date": "1st",
+        "amount": 35.3,
+        "paid": true
+      },
+      {
+        "label": "FOOTBALL ERIK",
+        "date": "20th",
+        "amount": 19.35,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "KLARNA SCAPINO",
+        "date": "1st",
+        "amount": 197.78,
+        "paid": true
+      },
+      {
+        "label": "CHAIRS + TABLE KLARNA",
+        "date": "1st",
+        "amount": 388.97,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 295.85,
+      "BALANCE": 293.21,
+      "STILL TO PAY": 0,
+      "FROM EVA'S ACCOUNT": 0,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 4643.55,
+        "actual": 0
+      },
+      "home": 964.14,
+      "debt": 865.04,
+      "food": 800,
+      "health": 430.75,
+      "subscriptions": 166.03,
+      "savings": 0,
+      "personal": 534.99,
+      "additional": 586.75
+    }
+  },
+  "Juni": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4221.22,
+        "actual": 4132.03,
+        "received": true
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": true
+      },
+      {
+        "label": "PREVIOUS MONTH",
+        "date": "1st",
+        "expected": -200,
+        "actual": -200,
+        "received": true
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": true
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 305,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": true
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": true
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX PLAN 1",
+        "day": "1st",
+        "amount": 194,
+        "paid": true,
+        "until": 46174
+      },
+      {
+        "label": "TAX PLAN 2",
+        "day": "3rd",
+        "amount": 20,
+        "paid": true,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": true,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": true,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": true,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": true
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": true
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": true
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": true
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": true
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": true
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": true
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": true
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": null,
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "HOLIDAY",
+        "date": null,
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": null,
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "BABY",
+        "date": null,
+        "amount": 0,
+        "paid": true
+      },
+      {
+        "label": "FLEX",
+        "date": null,
+        "amount": 130,
+        "paid": true
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": true
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": true
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": true
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": true
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": true
+      },
+      {
+        "label": "FENCE",
+        "date": "1st",
+        "amount": 600,
+        "paid": true
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 79.92,
+      "BALANCE": -9.27,
+      "STILL TO PAY": 532.51,
+      "FROM EVA'S ACCOUNT": 532.51,
+      "FROM ERIK'S ACCOUNT": 0,
+      "FROM SHARED ACCOUNT": 0
+    },
+    "totals": {
+      "income": {
+        "expected": 4491.22,
+        "actual": 0
+      },
+      "home": 669.19,
+      "debt": 815.34,
+      "food": 800,
+      "health": 392.25,
+      "subscriptions": 71.97,
+      "savings": 0,
+      "personal": 480.34,
+      "additional": 649.7
+    }
+  },
+  "Juli": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4132,
+        "actual": 4132,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": "1st",
+        "expected": 644,
+        "actual": 644,
+        "received": false
+      },
+      {
+        "label": "TAX OFFICE",
+        "date": "1st",
+        "expected": 3629,
+        "actual": 3629,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "MAMA",
+        "day": "1st",
+        "amount": 200,
+        "paid": false,
+        "until": "-"
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES HOME",
+        "day": "1st",
+        "amount": 800,
+        "paid": false
+      },
+      {
+        "label": "BARCELONA",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 500,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 2000,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 700,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 300,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "TIM",
+        "date": "1st",
+        "amount": 1000,
+        "paid": false
+      },
+      {
+        "label": "PREVIOUS MONTH",
+        "date": "1st",
+        "amount": 532.51,
+        "paid": false
+      },
+      {
+        "label": "BOL",
+        "date": "1st",
+        "amount": 131.82,
+        "paid": false
+      },
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 18.37,
+      "BALANCE": 18.37,
+      "STILL TO PAY": 8856.63,
+      "FROM EVA'S ACCOUNT": 2560.21,
+      "FROM ERIK'S ACCOUNT": 882.42,
+      "FROM SHARED ACCOUNT": 4300
+    },
+    "totals": {
+      "income": {
+        "expected": 8875,
+        "actual": 8875
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  },
+  "Augustus": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4173.55,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "MAMA",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": "-"
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": false
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 300,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 1.25,
+      "BALANCE": 1.25,
+      "STILL TO PAY": 4642.3,
+      "FROM EVA'S ACCOUNT": 1689.88,
+      "FROM ERIK'S ACCOUNT": 782.42,
+      "FROM SHARED ACCOUNT": 1700
+    },
+    "totals": {
+      "income": {
+        "expected": 4643.55,
+        "actual": 4643.55
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  },
+  "September": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4173.55,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX OFFICE",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": false
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 500,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 230,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 1.25,
+      "BALANCE": 1.25,
+      "STILL TO PAY": 4642.3,
+      "FROM EVA'S ACCOUNT": 1459.88,
+      "FROM ERIK'S ACCOUNT": 782.42,
+      "FROM SHARED ACCOUNT": 1930
+    },
+    "totals": {
+      "income": {
+        "expected": 4643.55,
+        "actual": 4643.55
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  },
+  "Oktober": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4173.55,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      },
+      {
+        "label": "CHILD BENEFIT",
+        "date": "1st",
+        "expected": 644,
+        "actual": 644,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX OFFICE",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": false
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 500,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 875,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 0.25,
+      "BALANCE": 0.25,
+      "STILL TO PAY": 5287.3,
+      "FROM EVA'S ACCOUNT": 815.88,
+      "FROM ERIK'S ACCOUNT": 782.42,
+      "FROM SHARED ACCOUNT": 2575
+    },
+    "totals": {
+      "income": {
+        "expected": 5287.55,
+        "actual": 5287.55
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  },
+  "November": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4173.55,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX OFFICE",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": false
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 500,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 230,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 1.25,
+      "BALANCE": 1.25,
+      "STILL TO PAY": 4642.3,
+      "FROM EVA'S ACCOUNT": 1459.88,
+      "FROM ERIK'S ACCOUNT": 782.42,
+      "FROM SHARED ACCOUNT": 1930
+    },
+    "totals": {
+      "income": {
+        "expected": 4643.55,
+        "actual": 4643.55
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  },
+  "December": {
+    "income": [
+      {
+        "label": "SALARY",
+        "date": "1st",
+        "expected": 4173.55,
+        "actual": 4173.55,
+        "received": false
+      },
+      {
+        "label": "BENEFITS",
+        "date": "1st",
+        "expected": 470,
+        "actual": 470,
+        "received": false
+      }
+    ],
+    "home": [
+      {
+        "label": "RENT",
+        "day": "1st",
+        "amount": 618.81,
+        "paid": false
+      },
+      {
+        "label": "WATER",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false
+      },
+      {
+        "label": "ELECTRICITY AND GAS",
+        "day": "19th",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "INTERNET AND TV",
+        "day": "29th",
+        "amount": 94.95,
+        "paid": false
+      },
+      {
+        "label": "HOME INSURANCE",
+        "day": "8th",
+        "amount": 22.13,
+        "paid": false
+      },
+      {
+        "label": "FUNERAL INSURANCE",
+        "day": "1st",
+        "amount": 8.25,
+        "paid": false
+      }
+    ],
+    "debt": [
+      {
+        "label": "TAX OFFICE",
+        "day": "3rd",
+        "amount": 20,
+        "paid": false,
+        "until": 46449
+      },
+      {
+        "label": "FURNITURE LOAN",
+        "day": "1st",
+        "amount": 316.43,
+        "paid": false,
+        "until": 48522
+      },
+      {
+        "label": "FAMILY LOAN",
+        "day": "1st",
+        "amount": 250,
+        "paid": false,
+        "until": 48615
+      },
+      {
+        "label": "STUDENT LOAN",
+        "day": "1st",
+        "amount": 34.91,
+        "paid": false,
+        "until": "01-59"
+      }
+    ],
+    "food": [
+      {
+        "label": "GROCERIES",
+        "day": "1st",
+        "amount": 700,
+        "paid": false
+      },
+      {
+        "label": "RESTAURANTS",
+        "day": "1st",
+        "amount": 0,
+        "paid": false
+      },
+      {
+        "label": "STREET FOOD",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      },
+      {
+        "label": "TAKEAWAY",
+        "day": "1st",
+        "amount": 50,
+        "paid": false
+      }
+    ],
+    "health": [
+      {
+        "label": "HEALTH INSURANCE ERIK",
+        "day": "1st",
+        "amount": 184.75,
+        "paid": false
+      },
+      {
+        "label": "HEALTH INSURANCE EVA",
+        "day": "1st",
+        "amount": 207.5,
+        "paid": false
+      },
+      {
+        "label": "DEDUCTIBLE",
+        "day": "27th",
+        "amount": 38.5,
+        "paid": false
+      }
+    ],
+    "subscriptions": [
+      {
+        "label": "STREAMING TV",
+        "date": "7th",
+        "amount": 25,
+        "paid": false
+      },
+      {
+        "label": "NETFLIX",
+        "date": "30th",
+        "amount": 20.99,
+        "paid": false
+      },
+      {
+        "label": "DISNEY +",
+        "date": "1st",
+        "amount": 15.99,
+        "paid": false
+      },
+      {
+        "label": "GOOGLE ONE",
+        "date": "5th",
+        "amount": 9.99,
+        "paid": false
+      },
+      {
+        "label": "MOBILE EVA",
+        "date": "24th",
+        "amount": 59.56,
+        "paid": false
+      },
+      {
+        "label": "MOBILE KIDS",
+        "date": "21st",
+        "amount": 34.5,
+        "paid": false
+      }
+    ],
+    "savings": [
+      {
+        "label": "HOUSE",
+        "date": "1st",
+        "amount": 500,
+        "paid": false
+      },
+      {
+        "label": "HOLIDAY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "CELEBRATIONS",
+        "date": "1st",
+        "amount": 100,
+        "paid": false
+      },
+      {
+        "label": "BABY",
+        "date": "1st",
+        "amount": 150,
+        "paid": false
+      },
+      {
+        "label": "FLEX",
+        "date": "1st",
+        "amount": 230,
+        "paid": false
+      }
+    ],
+    "personal": [
+      {
+        "label": "POCKET MONEY ERIK",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY EVA",
+        "date": "1st",
+        "amount": 200,
+        "paid": false
+      },
+      {
+        "label": "POCKET MONEY KIDS",
+        "date": "1st",
+        "amount": 30,
+        "paid": false
+      },
+      {
+        "label": "CLOTHES MONEY KIDS",
+        "date": "1st",
+        "amount": 15,
+        "paid": false
+      },
+      {
+        "label": "TODDLER SCHOOL EMRYS",
+        "date": "23rd",
+        "amount": 35.34,
+        "paid": false
+      }
+    ],
+    "additional": [
+      {
+        "label": "GEMEENTELIJKE HEFFING",
+        "date": "1st",
+        "amount": 49.7,
+        "paid": false
+      }
+    ],
+    "sumup": {
+      "EXPECTED BALANCE": 1.25,
+      "BALANCE": 1.25,
+      "STILL TO PAY": 4642.3,
+      "FROM EVA'S ACCOUNT": 1459.88,
+      "FROM ERIK'S ACCOUNT": 782.42,
+      "FROM SHARED ACCOUNT": 1930
+    },
+    "totals": {
+      "income": {
+        "expected": 4643.55,
+        "actual": 4643.55
+      },
+      "home": 0,
+      "debt": 0,
+      "food": 0,
+      "health": 0,
+      "subscriptions": 0,
+      "savings": 0,
+      "personal": 0,
+      "additional": 0
+    }
+  }
+}

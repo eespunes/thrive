@@ -167,7 +167,21 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.username
              == username;
 
-      allow update, delete: if request.auth != null
+      // Update must satisfy the same target-consistency rules as create: the
+      // caller owns the CURRENT family, and if `familyId` is retargeted they
+      // must own the new family too and the handle must match its username —
+      // otherwise an owner of handle X could repoint it at someone else's
+      // family to phish joins.
+      allow update: if request.auth != null
+        && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerUid
+             == request.auth.uid
+        && (request.resource.data.familyId == resource.data.familyId
+            || (get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerUid
+                  == request.auth.uid
+                && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.username
+                  == username));
+
+      allow delete: if request.auth != null
         && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerUid
              == request.auth.uid;
     }
