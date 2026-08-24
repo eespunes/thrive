@@ -31,19 +31,51 @@ const String kLocalSelfUidKey = 'thrive.localSelfUid';
 /// the UI forever. Bounding every await turns that into a recoverable error.
 const Duration kCloudOpTimeout = Duration(seconds: 12);
 
-/// Salted SHA-256 of a family join password, used only by the offline/demo
-/// local registry. Cloud joins are verified server-side by a Cloud Function;
-/// the client never sees or compares a cloud family's password hash.
+/// Salted SHA-256 of a family join password (legacy v1 scheme, and the local
+/// registry's hash). Cloud joins are verified server-side by security rules,
+/// which compare a client-supplied proof against the members-only `joinHash`.
 String hashFamilyPassword(String password, String salt) {
   final digest = sha256.convert(utf8.encode('$salt::$password'));
   return digest.toString();
 }
 
-/// Salt used to derive a cloud family's `joinHash`. The salt must be derivable
-/// by any joining client (which cannot read the family doc yet), so we use the
-/// family's own username slug. This is verified server-side by security rules,
-/// never on the client.
+/// Iteration count for the v2 join-password hash. A single SHA-256 is
+/// trivially brute-forceable offline if a hash ever leaks (backup, console
+/// access); chaining the digest this many times makes each guess ~30k times
+/// more expensive while still costing the client well under a second, and
+/// only on the rare create/join flows.
+const int kJoinHashIterations = 30000;
+
+/// v2 join-password hash: SHA-256 chained [kJoinHashIterations] times over a
+/// RANDOM per-family salt (stored on the public handle doc as `joinSalt` —
+/// salts need to be unique, not secret, and a joining client must be able to
+/// read it before it can read the family doc). Families created before v2
+/// have no `joinSalt` on their handle and keep verifying via the legacy
+/// [hashFamilyPassword] with the derivable slug salt.
+String hashFamilyPasswordV2(String password, String salt) {
+  var digest = sha256.convert(utf8.encode('$salt::$password'));
+  for (var i = 1; i < kJoinHashIterations; i++) {
+    digest = sha256.convert(digest.bytes);
+  }
+  return digest.toString();
+}
+
+/// Legacy (v1) salt for families whose handle doc has no random `joinSalt`:
+/// derivable from the public username slug so old families keep working.
 String _cloudJoinSalt(String slug) => 'thrive-family::$slug';
+
+/// Random hex salt for a newly created family's v2 `joinHash`.
+String newJoinSalt() =>
+    sha256.convert(utf8.encode('${uid()}::${uid()}')).toString();
+
+/// The correct join proof for [password] given the [handle] doc it targets:
+/// v2 (iterated hash over the handle's random `joinSalt`) when the salt is
+/// present, else the legacy v1 slug-salted hash.
+String joinProofFor(String password, String slug, Map<String, dynamic>? handle) {
+  final salt = (handle?['joinSalt'] ?? '').toString();
+  if (salt.isNotEmpty) return hashFamilyPasswordV2(password, salt);
+  return hashFamilyPassword(password, _cloudJoinSalt(slug));
+}
 
 /// Builds a starter workspace populated from the bundled sample budget
 /// (`assets/data/budget.json`) so a brand-new install isn't an empty shell.
@@ -145,27 +177,102 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       FirebaseFirestore.instance.collection(kFamilyHandlesCollection).doc(slug);
 
   // ------------------------------------------------------- (de)serialize
-  Map<String, dynamic> _familyToDoc(Family f, Workspace ws) => {
+  /// Family metadata document — everything EXCEPT the workspace, which lives
+  /// in the `workspace` subcollection (one doc per section) so a budget edit
+  /// no longer rewrites — and re-downloads, on every member's device — the
+  /// whole multi-MB family blob.
+  Map<String, dynamic> _familyMetaDoc(Family f) => {
     'name': f.name,
     'username': f.username,
     if (f.picture != null) 'picture': f.picture,
     'ownerUid': f.ownerUid,
     'memberUids': f.memberUids,
     'members': f.members.map((m) => m.toJson()).toList(),
-    'workspace': ws.toJson(),
     'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
     'updatedAt': FieldValue.serverTimestamp(),
   };
+
+  CollectionReference<Map<String, dynamic>> _workspaceCol(String fid) =>
+      _familyDocRef(fid).collection('workspace');
+
+  /// Splits [ws] into per-section documents for the `workspace` subcollection:
+  /// one settings doc, one doc per budget year, one per imported calendar (the
+  /// largest, most independently-changing pieces), plus events, lists and the
+  /// weekly plan. Each stays far below Firestore's 1 MB doc limit, so offline
+  /// persistence can be re-enabled (the old single doc overflowed Android's
+  /// ~2 MB CursorWindow) and every edit only uploads its own section.
+  Map<String, Map<String, dynamic>> _workspaceSections(Workspace ws) => {
+    'settings': {
+      'accounts': ws.accounts.map((a) => a.toJson()).toList(),
+      'cats': ws.cats.map((c) => c.toJson()).toList(),
+      'eventCategories': ws.eventCategories.map((c) => c.toJson()).toList(),
+      'calendarLayers': ws.calendarLayers.map((l) => l.toJson()).toList(),
+      if (ws.starsMap.isNotEmpty) 'starsMap': ws.starsMap,
+      'kitchenEnabled': ws.kitchenEnabled,
+      if (ws.picMembers.isNotEmpty) 'picMembers': ws.picMembers,
+      'kitchenLayerFilter': ws.kitchenLayerFilter,
+    },
+    'events': {'events': ws.events.map((e) => e.toJson()).toList()},
+    'lists': {
+      'taskLists': ws.taskLists.map((l) => l.toJson()).toList(),
+      'shoppingLists': ws.shoppingLists.map((l) => l.toJson()).toList(),
+    },
+    'weekly': {
+      'weeklyPlan': {
+        for (final e in ws.weeklyPlan.entries) e.key: e.value.toJson(),
+      },
+    },
+    for (final entry in ws.data.entries)
+      'budget_${entry.key}': {
+        'months': {
+          for (final m in entry.value.entries) m.key: m.value.toJson(),
+        },
+      },
+    for (final (i, cal) in ws.importedCalendars.indexed)
+      'import_${cal.id}': {'calendar': cal.toJson(), 'order': i},
+  };
+
+  /// Rebuilds a [Workspace] from its subcollection section docs. Returns null
+  /// when [sections] is empty (family not yet migrated off the legacy single
+  /// `workspace` map — the caller falls back to [_workspaceFromDoc]).
+  Workspace? _workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
+    if (sections.isEmpty) return null;
+    final j = <String, dynamic>{...?sections['settings']};
+    j['events'] = sections['events']?['events'] ?? [];
+    j['taskLists'] = sections['lists']?['taskLists'] ?? [];
+    j['shoppingLists'] = sections['lists']?['shoppingLists'] ?? [];
+    j['weeklyPlan'] = sections['weekly']?['weeklyPlan'] ?? {};
+    final data = <String, dynamic>{};
+    final imports = <Map<String, dynamic>>[];
+    sections.forEach((id, map) {
+      if (id.startsWith('budget_')) {
+        data[id.substring('budget_'.length)] = map['months'] ?? {};
+      } else if (id.startsWith('import_') && map['calendar'] is Map) {
+        imports.add({...Map<String, dynamic>.from(map['calendar'] as Map),
+          '_order': (map['order'] as num?)?.toInt() ?? imports.length});
+      }
+    });
+    imports.sort(
+      (a, b) => (a['_order'] as int).compareTo(b['_order'] as int),
+    );
+    j['data'] = data;
+    j['importedCalendars'] = imports;
+    // The settings section always carries `calendarLayers`/`kitchenLayerFilter`
+    // keys, so [Workspace.fromJson]'s legacy-backfill never misfires here.
+    return Workspace.fromJson(j);
+  }
+
+  /// Section-payload digest used to skip unchanged docs on persist. Computed
+  /// over the payload only (never the update timestamps), so an identical
+  /// section written twice digests identically.
+  String _sectionDigest(Map<String, dynamic> payload) =>
+      sha256.convert(utf8.encode(json.encode(payload))).toString();
 
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
     fam.members = _dedupeMembers(fam.members);
     _migrateLegacyMeIds(fam);
-    final joinPassword = doc['joinPassword'];
-    if (joinPassword is String && joinPassword.isNotEmpty) {
-      _sessionFamilyPasswords[fid] = joinPassword;
-    }
     return fam;
   }
 
@@ -229,6 +336,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
+        await _fetchAllSections([for (final d in docs) d.key]);
         _applyFamilyDocs(meUid, docs, userData);
         if (families.isNotEmpty) {
           // Repair the user-doc mirror so its `familyIds` reflects reality.
@@ -261,12 +369,51 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     Map<String, dynamic> userData,
   ) async {
     final ids = [for (final i in (userData['familyIds'] as List)) i.toString()];
-    final docs = <MapEntry<String, Map<String, dynamic>>>[];
-    for (final fid in ids) {
-      final data = (await _familyDocRef(fid).get()).data();
-      if (data != null) docs.add(MapEntry(fid, data));
-    }
+    // All doc reads round-trip the network, so fetch every family in parallel
+    // instead of paying one RTT per family.
+    final snaps = await Future.wait([
+      for (final fid in ids) _familyDocRef(fid).get(),
+    ]);
+    final docs = <MapEntry<String, Map<String, dynamic>>>[
+      for (final (i, s) in snaps.indexed)
+        if (s.data() != null) MapEntry(ids[i], s.data()!),
+    ];
+    await _fetchAllSections([for (final d in docs) d.key]);
     _applyFamilyDocs(meUid, docs, userData);
+  }
+
+  /// Loads every family's workspace subcollection concurrently into
+  /// [_wsSectionCache] (payloads keyed by section id, timestamps stripped).
+  /// Families that predate the split simply have no section docs and fall
+  /// back to their legacy single `workspace` map on apply.
+  Future<void> _fetchAllSections(List<String> fids) async {
+    await Future.wait([
+      for (final fid in fids)
+        _workspaceCol(fid).get().timeout(kCloudOpTimeout).then((snap) {
+          _adoptSectionSnapshot(fid, snap);
+        }).catchError((Object e) {
+          debugPrint('[cloud] workspace sections read failed for $fid: $e');
+        }),
+    ]);
+  }
+
+  /// Caches a workspace-subcollection snapshot's payloads (and their digests,
+  /// so the next persist skips sections the server already has).
+  void _adoptSectionSnapshot(
+    String fid,
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final sections = <String, Map<String, dynamic>>{};
+    final digests = <String, String>{};
+    for (final d in snap.docs) {
+      final payload = Map<String, dynamic>.from(d.data())
+        ..remove('updatedAtMillis')
+        ..remove('updatedAt');
+      sections[d.id] = payload;
+      digests[d.id] = _sectionDigest(payload);
+    }
+    _wsSectionCache[fid] = sections;
+    _wsSectionDigests[fid] = digests;
   }
 
   /// Adopts a set of loaded family documents into local state, choosing the
@@ -282,7 +429,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final loadedWorkspaces = <String, Workspace>{};
     for (final entry in docs) {
       loadedFamilies.add(_familyFromDoc(entry.key, entry.value));
-      loadedWorkspaces[entry.key] = _workspaceFromDoc(entry.value);
+      // Prefer the split subcollection sections; families that haven't
+      // migrated yet still carry the legacy single `workspace` map.
+      loadedWorkspaces[entry.key] =
+          _workspaceFromSections(_wsSectionCache[entry.key] ?? const {}) ??
+          _workspaceFromDoc(entry.value);
     }
 
     var active = (userData?['activeFamilyId'] ?? '').toString();
@@ -334,6 +485,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Future<void> bindCloudSync(String meUid) async {
     await _cloudSub?.cancel();
     await _familySub?.cancel();
+    await _wsSub?.cancel();
     try {
       _cloudSub = _userDocRef(meUid).snapshots().listen((snap) {
         final data = snap.data();
@@ -358,7 +510,32 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _bindActiveFamily(String meUid) {
     final fid = familyId;
     _familySub?.cancel();
+    _wsSub?.cancel();
     try {
+      // Per-section workspace stream: with persistence re-enabled Firestore
+      // only re-downloads the section docs that actually changed, so another
+      // member's edit costs one small doc, not the whole family blob.
+      _wsSub = _workspaceCol(fid).snapshots().listen((snap) {
+        if (snap.metadata.hasPendingWrites) return; // our own local echo
+        var maxMillis = 0;
+        for (final d in snap.docs) {
+          final m = (d.data()['updatedAtMillis'] as num?)?.toInt() ?? 0;
+          if (m > maxMillis) maxMillis = m;
+        }
+        _adoptSectionSnapshot(fid, snap);
+        if (maxMillis <= _lastSyncedAtMillis) return;
+        final ws = _workspaceFromSections(_wsSectionCache[fid] ?? const {});
+        if (ws == null) return;
+        _applyingCloudSnapshot = true;
+        workspaces[fid] = ws;
+        if (fid == familyId) _adoptActiveWorkspace();
+        _lastSyncedAtMillis = maxMillis;
+        _applyingCloudSnapshot = false;
+        if (mounted) {
+          update(() {});
+          _rescheduleReminders();
+        }
+      });
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
@@ -386,14 +563,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final remoteMillis = (data['updatedAtMillis'] as num?)?.toInt() ?? 0;
         if (remoteMillis <= _lastSyncedAtMillis) return;
         _applyingCloudSnapshot = true;
-        final ws = _workspaceFromDoc(data);
         final idx = families.indexWhere((f) => f.id == fid);
         if (idx >= 0) {
           families[idx] = fam;
         } else {
           families = [...families, fam];
         }
-        workspaces[fid] = ws;
+        // The workspace itself streams from the subcollection listener above;
+        // only a family that predates the split (no section docs yet) still
+        // syncs its legacy single `workspace` map through the meta doc.
+        if ((_wsSectionCache[fid] ?? const {}).isEmpty) {
+          workspaces[fid] = _workspaceFromDoc(data);
+        }
         if (fid == familyId) _adoptActiveWorkspace();
         _migrateLegacyMeIdsAll(meUid);
         _lastSyncedAtMillis = remoteMillis;
@@ -419,11 +600,65 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _syncWorkspaces();
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
-      await _familyDocRef(f.id).set(
-        _familyToDoc(f, workspaces[f.id] ?? Workspace.empty()),
-        SetOptions(merge: true),
-      );
+      await _persistFamilySections(f, workspaces[f.id] ?? Workspace.empty());
     }
+  }
+
+  /// Writes [f]'s metadata doc and only the workspace section docs whose
+  /// payload digest changed since they were last written or received — one
+  /// small batched write per edit instead of re-uploading the whole family
+  /// blob. Sections that vanished locally (a deleted year or removed imported
+  /// calendar) are deleted from the subcollection.
+  Future<void> _persistFamilySections(Family f, Workspace ws) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    // Sections are stamped with THIS millis value; record it as the last
+    // local sync so the snapshot listener recognizes the server echo of this
+    // very write (whose stamp is > any earlier-recorded value) and skips it.
+    if (now > _lastSyncedAtMillis) _lastSyncedAtMillis = now;
+    final sections = _workspaceSections(ws);
+    final digests = _wsSectionDigests.putIfAbsent(f.id, () => {});
+    final cache = _wsSectionCache.putIfAbsent(f.id, () => {});
+    final batch = FirebaseFirestore.instance.batch();
+    var dirty = false;
+
+    final metaDigest = _sectionDigest(
+      _familyMetaDoc(f)
+        ..remove('updatedAtMillis')
+        ..remove('updatedAt'),
+    );
+    // Once the sections are written (below, same batch), the legacy single-doc
+    // `workspace` blob is dead weight on the meta doc — and, at multi-MB, the
+    // very thing that used to crash Android's offline cache. Drop it once per
+    // session (a no-op when already gone).
+    final clearLegacy = !_legacyBlobCleared.contains(f.id);
+    if (digests['__meta'] != metaDigest || clearLegacy) {
+      batch.set(_familyDocRef(f.id), {
+        ..._familyMetaDoc(f),
+        if (clearLegacy) 'workspace': FieldValue.delete(),
+      }, SetOptions(merge: true));
+      digests['__meta'] = metaDigest;
+      _legacyBlobCleared.add(f.id);
+      dirty = true;
+    }
+    sections.forEach((id, payload) {
+      final digest = _sectionDigest(payload);
+      if (digests[id] == digest) return;
+      batch.set(_workspaceCol(f.id).doc(id), {
+        ...payload,
+        'updatedAtMillis': now,
+      });
+      digests[id] = digest;
+      cache[id] = payload;
+      dirty = true;
+    });
+    for (final stale in digests.keys.toList()) {
+      if (stale == '__meta' || sections.containsKey(stale)) continue;
+      batch.delete(_workspaceCol(f.id).doc(stale));
+      digests.remove(stale);
+      cache.remove(stale);
+      dirty = true;
+    }
+    if (dirty) await batch.commit();
   }
 
   Future<void> _writeUserDoc(String meUid) async {
@@ -457,12 +692,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   Future<void> _persistAllFamilies(String meUid) async {
-    for (final f in families) {
-      final ws = workspaces[f.id] ?? Workspace.empty();
-      await _familyDocRef(
-        f.id,
-      ).set(_familyToDoc(f, ws), SetOptions(merge: true));
-    }
+    await Future.wait([
+      for (final f in families)
+        _persistFamilySections(f, workspaces[f.id] ?? Workspace.empty()),
+    ]);
   }
 
   // ----------------------------------------------------- create / join
@@ -507,32 +740,38 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         members: [me],
       );
       final ws = Workspace.empty();
-      // The salted password hash lives on the family doc itself, which is
+      // The iterated, randomly-salted password hash (v2 — see
+      // [hashFamilyPasswordV2]) lives on the family doc itself, which is
       // readable ONLY by members (see firestore.rules). A non-member joining
       // proves knowledge of the password by matching this `joinHash`; they can
-      // never read it, which prevents offline brute-forcing.
-      final joinHash = hashFamilyPassword(password, _cloudJoinSalt(slug));
-      // The plaintext also lives here (as `joinPassword`) so any member can
-      // view/share it later — e.g. from the "Invite someone" sheet. This is
-      // safe: the field is on the same members-only doc as everything else
-      // (see firestore.rules `allow read: if isMember()`), so it's exactly as
-      // protected as the rest of the family's shared data.
+      // never read it, which prevents offline brute-forcing. The plaintext is
+      // NEVER persisted anywhere — only cached in memory for this session so
+      // the "Invite someone" sheet can show what was just typed.
+      final joinSalt = newJoinSalt();
+      final joinHash = hashFamilyPasswordV2(password, joinSalt);
+      _sessionFamilyPasswords[fid] = password;
       await _familyDocRef(fid)
           .set({
-            ..._familyToDoc(fam, ws),
+            ..._familyMetaDoc(fam),
             'joinHash': joinHash,
-            'joinPassword': password,
+            'joinScheme': 2,
           })
           .timeout(kCloudOpTimeout);
       try {
-        await _familyHandleRef(
-          slug,
-        ).set({'familyId': fid, 'ownerUid': meUid}).timeout(kCloudOpTimeout);
+        // The random salt rides on the PUBLIC handle doc: a joining client
+        // must derive its proof before it can read the family doc, and a salt
+        // only needs to be unique — not secret — to do its job.
+        await _familyHandleRef(slug)
+            .set({'familyId': fid, 'ownerUid': meUid, 'joinSalt': joinSalt})
+            .timeout(kCloudOpTimeout);
+        await _persistFamilySections(fam, ws);
       } catch (e) {
-        // Roll back the family doc so we don't leave an unjoinable orphan with
-        // no resolvable handle.
+        // Roll back both docs so we leave neither an unjoinable orphan family
+        // (no resolvable handle) nor a dangling handle pointing at nothing
+        // (the section write can fail after the handle already landed).
+        await _familyHandleRef(slug).delete().catchError((_) {});
         await _familyDocRef(fid).delete().catchError((_) {});
-        debugPrint('[cloud] createFamily handle write failed: $e');
+        debugPrint('[cloud] createFamily handle/sections write failed: $e');
         return 'Could not create family right now';
       }
       _syncWorkspaces();
@@ -611,10 +850,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
       }
 
-      // Build our membership entry and append it. The password is verified
-      // server-side by security rules: the write is rejected unless `joinProof`
-      // matches the family's (unreadable) `joinHash`. We never read the hash.
-      final joinProof = hashFamilyPassword(password, _cloudJoinSalt(slug));
+      // Append ONLY our uid to `memberUids`. The password is verified
+      // server-side by security rules: the write is rejected unless
+      // `joinProof` matches the family's (unreadable) `joinHash`. The proof
+      // scheme is picked from the handle doc: a random `joinSalt` there means
+      // the iterated v2 hash, no salt means a legacy v1 family. Our display
+      // row in `members` is appended in a SECOND write below, once we ARE a
+      // member — the rules deliberately no longer let a joiner shape the
+      // members array (a joiner could otherwise append themselves with an
+      // impersonated identity or a fake 'owner' role before anyone knew them).
+      final joinProof = joinProofFor(password, slug, handle);
       final me = FamilyMember(
         id: meUid,
         name: user?.name ?? '',
@@ -630,7 +875,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         await _familyDocRef(fid)
             .update({
               'memberUids': FieldValue.arrayUnion([meUid]),
-              'members': FieldValue.arrayUnion([me.toJson()]),
               'joinProof': joinProof,
               'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
               'updatedAt': FieldValue.serverTimestamp(),
@@ -643,19 +887,24 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         return 'Could not join family right now';
       }
 
-      // We are now a member, so we may read the family doc. Drop the transient
-      // `joinProof` we wrote so it isn't left lingering on the shared doc
-      // (best-effort: it is only ever readable by members anyway).
+      // We are now a member: append our display row to `members` and drop the
+      // transient `joinProof` so it isn't left lingering on the shared doc
+      // (best-effort: it is only ever readable by members anyway, and
+      // `_dedupeMembers` repairs a missed row on next load).
       unawaited(
-        _familyDocRef(
-          fid,
-        ).update({'joinProof': FieldValue.delete()}).catchError((_) {}),
+        _familyDocRef(fid)
+            .update({
+              'members': FieldValue.arrayUnion([me.toJson()]),
+              'joinProof': FieldValue.delete(),
+            })
+            .catchError((_) {}),
       );
 
       final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
-      _adoptJoinedFamily(fid, data, meUid);
+      await _fetchAllSections([fid]);
+      _adoptJoinedFamily(fid, data, meUid, selfRow: me);
       // Durably record membership before returning so a relaunch finds this
       // family rather than the onboarding gate (issue #128).
       await _recordMembership(meUid);
@@ -674,9 +923,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// state and makes it the active workspace. Replaces an existing local entry
   /// for the same family instead of appending, so adopting a family we already
   /// hold can't produce a duplicate (issue #125).
-  void _adoptJoinedFamily(String fid, Map<String, dynamic> data, String meUid) {
+  void _adoptJoinedFamily(
+    String fid,
+    Map<String, dynamic> data,
+    String meUid, {
+    FamilyMember? selfRow,
+  }) {
     final fam = _familyFromDoc(fid, data);
-    final ws = _workspaceFromDoc(data);
+    // Our own display row is appended in a separate (best-effort, unawaited)
+    // write right after the join lands, so the doc we just read may not carry
+    // it yet — add it locally rather than showing a family we're missing from.
+    if (selfRow != null && !fam.members.any((m) => m.uid == meUid)) {
+      fam.members = [...fam.members, selfRow];
+    }
+    final ws =
+        _workspaceFromSections(_wsSectionCache[fid] ?? const {}) ??
+        _workspaceFromDoc(data);
     _syncWorkspaces();
     workspaces[fid] = ws;
     final alreadyLocal = families.any((f) => f.id == fid);
@@ -692,6 +954,25 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     });
   }
 
+  /// Deletes a family's workspace section docs, then the meta doc itself.
+  /// Deleting a Firestore document never deletes its subcollections, so
+  /// without this the sections would linger as unreachable orphans.
+  Future<void> _deleteFamilyDocs(String fid) async {
+    try {
+      final sections = await _workspaceCol(fid).get().timeout(kCloudOpTimeout);
+      final batch = FirebaseFirestore.instance.batch();
+      for (final d in sections.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('[cloud] section cleanup failed for $fid: $e');
+    }
+    await _familyDocRef(fid).delete();
+    _wsSectionCache.remove(fid);
+    _wsSectionDigests.remove(fid);
+  }
+
   Future<void> cloudDeleteFamily(String meUid, String fid) async {
     try {
       final snap = await _familyDocRef(fid).get();
@@ -703,7 +984,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (slug.isNotEmpty) {
           await _familyHandleRef(slug).delete().catchError((_) {});
         }
-        await _familyDocRef(fid).delete();
+        await _deleteFamilyDocs(fid);
       } else {
         await _familyDocRef(fid).update({
           'memberUids': FieldValue.arrayRemove([meUid]),
@@ -727,12 +1008,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (slug.isNotEmpty) {
           await _familyHandleRef(slug).delete().catchError((_) {});
         }
-        await _familyDocRef(fam.id).delete();
+        await _deleteFamilyDocs(fam.id);
       } else {
-        final ws = workspaces[fam.id] ?? Workspace.empty();
-        await _familyDocRef(
-          fam.id,
-        ).set(_familyToDoc(fam, ws), SetOptions(merge: true));
+        await _persistFamilySections(
+          fam,
+          workspaces[fam.id] ?? Workspace.empty(),
+        );
       }
       await _writeUserDoc(meUid);
     } catch (e) {
@@ -752,7 +1033,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           if (slug.isNotEmpty) {
             await _familyHandleRef(slug).delete().catchError((_) {});
           }
-          await _familyDocRef(f.id).delete();
+          await _deleteFamilyDocs(f.id);
         } else {
           await _familyDocRef(f.id).update({
             'memberUids': FieldValue.arrayRemove([meUid]),
@@ -774,6 +1055,24 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // coverage:ignore-end
 
   // -------------------------------------------------------- local mode
+  /// Salt for the local registry's stored password hash.
+  String _localJoinSalt(String slug) => 'thrive-local::$slug';
+
+  /// Verifies [password] against a registry [entry]: hashed entries compare
+  /// via [hashFamilyPassword]; entries written before hashing still hold the
+  /// plaintext and compare directly (they're migrated on successful join).
+  bool _localPasswordMatches(
+    Map<String, dynamic> entry,
+    String slug,
+    String password,
+  ) {
+    final hash = entry['passHash'];
+    if (hash is String && hash.isNotEmpty) {
+      return hash == hashFamilyPassword(password, _localJoinSalt(slug));
+    }
+    return (entry['password'] ?? '') == password;
+  }
+
   /// Loads the local family registry blob (no-Firebase / demo mode).
   Future<Map<String, dynamic>> loadRegistry() async {
     final prefs = await SharedPreferences.getInstance();
@@ -858,9 +1157,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final ws = Workspace.empty();
     _syncWorkspaces();
     workspaces[id] = ws;
+    _sessionFamilyPasswords[id] = password;
     reg[slug] = {
       'username': slug,
-      'password': password,
+      // Only a salted hash is persisted — SharedPreferences is plaintext on
+      // disk, and users reuse personal passwords. The plaintext lives solely
+      // in the in-memory session cache for the invite sheet.
+      'passHash': hashFamilyPassword(password, _localJoinSalt(slug)),
       'name': fam.name,
       'picture': picture,
       'members': [me.toJson()],
@@ -890,7 +1193,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final entry = reg[slug];
     if (entry == null) return 'No family found with that username';
     final map = Map<String, dynamic>.from(entry as Map);
-    if ((map['password'] ?? '') != password) return 'Incorrect password';
+    if (!_localPasswordMatches(map, slug, password)) {
+      return 'Incorrect password';
+    }
+    // Migrate a legacy plaintext-password entry to the hashed form now that
+    // the password has been proven.
+    if (map.containsKey('password')) {
+      map
+        ..remove('password')
+        ..['passHash'] = hashFamilyPassword(password, _localJoinSalt(slug));
+    }
     if (families.any((f) => f.username == slug)) {
       return 'You\u2019re already in this family';
     }
@@ -932,6 +1244,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     workspaces[id] = ws;
     map['members'] = fam.members.map((m) => m.toJson()).toList();
     reg[slug] = map;
+    _sessionFamilyPasswords[id] = password;
     await saveRegistry(reg);
     update(() {
       families = [...families, fam];

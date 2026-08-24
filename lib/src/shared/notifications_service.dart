@@ -253,16 +253,37 @@ class NotificationService implements NotificationScheduler {
     }
   }
 
+  /// Digest of the reminder-relevant fields of the last successfully synced
+  /// event set, so redundant [syncEventReminders] calls (every Firestore
+  /// snapshot, boot and resume) skip all platform-channel work.
+  String? _lastSyncDigest;
+
+  /// Joins only the fields that influence what/when a reminder fires (or its
+  /// notification body): id, date, start, all-day flag, reminder setting,
+  /// recurrence fields, exceptions, title and location.
+  String _reminderDigest(Iterable<CalendarEvent> events) => events
+      .map(
+        (e) =>
+            '${e.id}|${e.date}|${e.endDate}|${e.start}|${e.allDay}|'
+            '${e.reminder}|${e.recur}|${e.exceptions.join(',')}|'
+            '${e.title}|${e.location}',
+      )
+      .join('\n');
+
   @override
   Future<void> cancelEventReminder(String eventId) async {
     if (!_initialized) return;
+    _lastSyncDigest = null;
     try {
+      // The exact occurrence dates that were scheduled can't be re-derived
+      // from just the event id, so one pending-list scan is still needed —
+      // but the cancels run concurrently instead of serially.
       final pending = await _plugin.pendingNotificationRequests();
-      for (final notification in pending) {
-        if (notification.payload?.startsWith('event:$eventId:') == true) {
-          await _plugin.cancel(notification.id);
-        }
-      }
+      await Future.wait([
+        for (final notification in pending)
+          if (notification.payload?.startsWith('event:$eventId:') == true)
+            _plugin.cancel(notification.id),
+      ]);
     } catch (e) {
       debugPrint('[notifications] event cancel failed: $e');
     }
@@ -271,16 +292,23 @@ class NotificationService implements NotificationScheduler {
   @override
   Future<void> syncEventReminders(Iterable<CalendarEvent> events) async {
     if (!_initialized) return;
+    final eventList = events.toList();
+    final digest = _reminderDigest(eventList);
+    if (digest == _lastSyncDigest) return;
     try {
+      // Only event reminders are cancelled (other notification kinds, e.g.
+      // task payloads, must survive), so cancelAll() isn't usable — but the
+      // per-id cancels and per-event schedules run concurrently.
       final pending = await _plugin.pendingNotificationRequests();
-      for (final notification in pending) {
-        if (notification.payload?.startsWith('event:') == true) {
-          await _plugin.cancel(notification.id);
-        }
-      }
-      for (final event in events) {
-        await _scheduleEventOccurrences(event);
-      }
+      await Future.wait([
+        for (final notification in pending)
+          if (notification.payload?.startsWith('event:') == true)
+            _plugin.cancel(notification.id),
+      ]);
+      await Future.wait([
+        for (final event in eventList) _scheduleEventOccurrences(event),
+      ]);
+      _lastSyncDigest = digest;
     } catch (e) {
       debugPrint('[notifications] event sync failed: $e');
     }

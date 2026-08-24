@@ -1,5 +1,21 @@
 part of 'package:family_money_management_app/main.dart';
 
+/// Memo cache for Month-view week rows: occurrence expansion + lane packing
+/// is expensive (recurrence expansion over all events + imported calendars)
+/// and runs for 6 week rows per month page on every whole-app rebuild.
+/// Keyed by week start/end; entries are invalidated by the state revision
+/// ([_ThriveHomeState._rev]) and a signature of everything else that affects
+/// the result (active filters, family, state instance).
+final Map<
+  String,
+  ({
+    int rev,
+    String sig,
+    ({List<List<CalendarOccurrence?>> lanes, Map<int, int> overflow}) packed,
+  })
+>
+_calWeekMemo = {};
+
 /// (value, label, icon) for each calendar view, in picker order.
 const List<(String, String, String)> kCalViews = [
   ('month', 'Month', 'grid'),
@@ -295,8 +311,19 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     Widget weekRow(List<String> row, int wi) {
       final ws = row.first;
       final we = row.last;
-      final occ = eventOccurrences(ws, we);
-      final packed = packWeekLanes(occ, ws, we);
+      final sig =
+          '${identityHashCode(this)}|$familyId'
+          '|${calFilter.join(',')}|${calCatFilter.join(',')}'
+          '|${layerFilter.join(',')}';
+      final key = '$ws|$we';
+      var memo = _calWeekMemo[key];
+      if (memo == null || memo.rev != _rev.value || memo.sig != sig) {
+        if (_calWeekMemo.length > 64) _calWeekMemo.clear();
+        final occ = eventOccurrences(ws, we);
+        memo = (rev: _rev.value, sig: sig, packed: packWeekLanes(occ, ws, we));
+        _calWeekMemo[key] = memo;
+      }
+      final packed = memo.packed;
       final inCurrentMonth = [for (final iso in row) isInCurrentMonth(iso)];
 
       // Every occurrence's Month-view bar uses the exact same visual

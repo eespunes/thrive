@@ -499,7 +499,8 @@ void main() {
     });
 
     testWidgets(
-      'a local family password survives a reboot (session cache lost)',
+      'a local family password is NOT recoverable after a reboot (only a '
+      'salted hash is persisted; the plaintext lives in the session cache)',
       (tester) async {
         await pumpApp(tester);
 
@@ -512,29 +513,24 @@ void main() {
         await tester.pumpAndSettle();
 
         // Immediately after creation the password is served from the
-        // in-memory session cache.
+        // in-memory session cache — the "Invite someone" sheet can show it.
         final fam = thriveDebug.curFamily()!;
         expect(await thriveDebug.fetchFamilyPassword(fam), 'sunshine');
 
-        // Simulate a fresh app session: the in-memory cache is gone, but the
-        // password must still be recoverable from the on-device registry in
-        // local/demo mode.
+        // Simulate a fresh app session: the in-memory cache is gone, and the
+        // on-device registry only holds a salted hash (SharedPreferences is
+        // plaintext on disk), so the password is deliberately unrecoverable.
         await rebootApp(tester);
         final famAfterReboot = thriveDebug.curFamily()!;
-        expect(
-          await thriveDebug.fetchFamilyPassword(famAfterReboot),
-          'sunshine',
-        );
+        expect(await thriveDebug.fetchFamilyPassword(famAfterReboot), isNull);
 
-        // Also verify the "Invite someone" sheet itself now shows it.
-        await tester.tap(find.byKey(const ValueKey('nav-more')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('more-invite')));
-        await tester.pumpAndSettle();
-        expect(find.text('•' * 'sunshine'.length), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
-        await tester.pumpAndSettle();
-        expect(find.text('sunshine'), findsOneWidget);
+        // The hashed registry entry still verifies the password: joining the
+        // family from another local identity with the same password works.
+        final joinErr = await thriveDebug.joinFamily(
+          username: 'bakkerfam',
+          password: 'wrong-password',
+        );
+        expect(joinErr, 'Incorrect password');
       },
     );
 

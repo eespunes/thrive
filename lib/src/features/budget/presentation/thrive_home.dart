@@ -241,12 +241,36 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   );
   Map<String, bool> collapsed = {};
   String? swipedId;
-  String? toast;
+
+  /// Toast text streams through a notifier so showing/hiding it repaints only
+  /// the toast overlay via its ValueListenableBuilder — a `flash()` used to
+  /// trigger two full-tree setState rebuilds per toast.
+  final ValueNotifier<String?> _toastNotifier = ValueNotifier<String?>(null);
+  String? get toast => _toastNotifier.value;
   Timer? _toastTimer;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _wsSub;
   int _lastSyncedAtMillis = 0;
   bool _applyingCloudSnapshot = false;
+
+  /// Per-family cache of the workspace subcollection's section payloads
+  /// (timestamps stripped) and their digests — what we believe the server
+  /// holds, so a persist only uploads sections that actually changed.
+  final Map<String, Map<String, Map<String, dynamic>>> _wsSectionCache = {};
+  final Map<String, Map<String, String>> _wsSectionDigests = {};
+
+  /// Families whose legacy single-doc `workspace` blob has been dropped from
+  /// the meta doc this session (it's re-dropped once per session — a cheap
+  /// no-op when already gone — so migrated docs stay slim).
+  final Set<String> _legacyBlobCleared = {};
+
+  /// Trailing-debounce timer for [_persist]: serializing and uploading state
+  /// on EVERY tap caused main-thread jank and a network write per keystroke.
+  /// Edits are coalesced for [_persistDebounce] and flushed early when the
+  /// app is backgrounded or disposed so nothing is lost on a swipe-away.
+  Timer? _persistTimer;
+  static const Duration _persistDebounce = Duration(seconds: 2);
 
   // True while a just-signed-in user's shared families are still being loaded
   // from the cloud. Suppresses the create/join onboarding gate so a returning
@@ -304,6 +328,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
     _familySub?.cancel();
+    _wsSub?.cancel();
+    _flushPersist();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
     shopQuickAddFocus.dispose();
@@ -319,7 +345,18 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       syncDueImports();
       unawaited(_refreshReminderSchedule());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      // Flush any debounced edit before the OS can kill the app.
+      _flushPersist();
     }
+  }
+
+  /// Immediately runs a pending debounced persist, if any.
+  void _flushPersist() {
+    if (_persistTimer?.isActive != true) return;
+    _persistTimer?.cancel();
+    unawaited(_persist());
   }
 
   Future<void> _refreshReminderSchedule() async {
@@ -776,15 +813,24 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void mutate(VoidCallback fn, [VoidCallback? cb]) {
     setState(fn);
     _rev.value++;
-    _persist();
+    _schedulePersist();
     cb?.call();
   }
 
+  /// Debounced [_persist]: coalesces a burst of edits (typing, repeated
+  /// checkbox taps) into one serialize + one set of cloud writes. Flows that
+  /// must be durable before continuing (create/join/leave, sign-out) call
+  /// [_persist] directly and await it.
+  void _schedulePersist() {
+    _persistTimer?.cancel();
+    _persistTimer = Timer(_persistDebounce, () => unawaited(_persist()));
+  }
+
   void flash(String msg) {
-    setState(() => toast = msg);
+    _toastNotifier.value = msg;
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 2100), () {
-      if (mounted) setState(() => toast = null);
+      if (mounted) _toastNotifier.value = null;
     });
   }
 
@@ -1301,13 +1347,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                 if (shellReady) _buildNav(),
               ],
             ),
-            if (toast != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 36 + bottomSystemInset,
-                child: Center(child: _buildToast()),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 36 + bottomSystemInset,
+              child: ValueListenableBuilder<String?>(
+                valueListenable: _toastNotifier,
+                builder: (context, msg, _) => msg == null
+                    ? const SizedBox.shrink()
+                    : Center(child: _buildToast(msg)),
               ),
+            ),
             ?(shellReady
                 ? _buildFab(bottomSystemInset: bottomSystemInset)
                 : null),
@@ -1328,7 +1378,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildToast() {
+  Widget _buildToast(String msg) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
@@ -1349,7 +1399,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           ic('check', size: 14, sw: 2.8, color: const Color(0xff4ade80)),
           const SizedBox(width: 7),
           Text(
-            toast ?? '',
+            msg,
             style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,

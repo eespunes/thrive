@@ -452,6 +452,7 @@ class _InviteSheet extends StatefulWidget {
 class _InviteSheetState extends State<_InviteSheet> {
   bool _showPw = false;
   String? _pw;
+  bool _hasPw = false;
   bool _pwLoaded = false;
 
   _ThriveHomeState get s => widget.state;
@@ -466,9 +467,13 @@ class _InviteSheetState extends State<_InviteSheet> {
     final f = s.curFamily();
     if (f == null) return;
     final pw = await s.fetchFamilyPassword(f);
+    // The plaintext is only known in the session that typed it (it is never
+    // persisted); a password can still be SET without being displayable.
+    final hasPw = pw != null || await s.familyHasPassword(f);
     if (!mounted) return;
     setState(() {
       _pw = pw;
+      _hasPw = hasPw;
       _pwLoaded = true;
     });
   }
@@ -536,9 +541,12 @@ class _InviteSheetState extends State<_InviteSheet> {
                     ),
                   )
                 else
-                  const Text(
-                    'Not set — anyone with the username can join.',
-                    style: TextStyle(
+                  Text(
+                    _hasPw
+                        ? 'Password is set, but only shown in the session '
+                              'that typed it — share it directly.'
+                        : 'Not set — anyone with the username can join.',
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: B.soft2,

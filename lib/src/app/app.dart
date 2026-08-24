@@ -2,9 +2,14 @@ part of 'package:family_money_management_app/main.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await _lockPortraitOrientation();
-  await _initFirebase();
-  await NotificationService.init();
+  // None of these depend on each other, so run them concurrently instead of
+  // paying three sequential awaits (NotificationService.init alone parses the
+  // full timezone database) before the first frame.
+  await Future.wait([
+    _lockPortraitOrientation(),
+    _initFirebase(),
+    NotificationService.init(),
+  ]);
   runApp(const ThriveApp());
 }
 
@@ -26,23 +31,21 @@ Future<void> _lockLandscapeOrientation() =>
 Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
-    // The family document (one big `workspace` blob covering every month)
-    // can grow past a few MB for long-lived families. Android's SQLite-backed
-    // offline cache stores each document as a single row and crashes the
-    // whole app with a fatal `SQLiteBlobTooBigException` ("Row too big to fit
-    // into CursorWindow") once that row exceeds the OS's ~2MB CursorWindow
-    // limit. Disabling local persistence avoids ever hitting that ceiling —
-    // reads/writes just always go straight to the network instead of being
-    // cached on-device, which is an acceptable trade-off for a document this
-    // size (offline support was never reliable for it regardless, since the
-    // very first sync after being offline would already have failed).
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: false,
-    );
+    // Offline persistence is ON (the default). It used to be disabled because
+    // the single multi-MB family `workspace` blob overflowed Android's ~2MB
+    // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
+    // small per-section docs (`families/{id}/workspace/{section}`), so cached
+    // reads and offline edits work again. (A legacy family doc still carrying
+    // its old giant `workspace` blob shrinks on that family's first
+    // post-migration persist, which drops the blob from the meta doc.)
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
   } on PlatformException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
+  } catch (e) {
+    // Any other init failure (e.g. a platform with no Firebase config) must
+    // still fall through to local/demo mode instead of killing startup.
+    debugPrint('Firebase init failed: $e');
   }
 }
 

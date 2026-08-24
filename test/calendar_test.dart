@@ -356,7 +356,7 @@ void main() {
           isA<IcsImportException>().having(
             (e) => e.message,
             'message',
-            'Only http(s)/webcal links are supported',
+            'Only https/webcal links are supported',
           ),
         ),
       );

@@ -53,41 +53,53 @@ extension _ThriveListScreens on _ThriveHomeState {
       );
     }
 
-    final cards = <Widget>[];
+    // Row builders are deferred so ListView.builder only materialises the
+    // rows that are actually on screen.
+    final rows = <Widget Function()>[];
     for (final list in taskLists) {
       final tasks = filterMe
           ? list.tasks.where((t) => t.assignee == myId).toList()
           : list.tasks;
       if (filterMe && tasks.isEmpty) continue;
-      cards.add(_taskListCard(list, tasks));
+      rows.add(
+        () => Padding(
+          padding: const EdgeInsets.only(bottom: 11),
+          child: _taskListCard(list, tasks),
+        ),
+      );
     }
     if (!filterMe) {
       for (final list in shoppingLists) {
-        cards.add(_shopListCard(list));
+        rows.add(
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: 11),
+            child: _shopListCard(list),
+          ),
+        );
       }
     }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      children: [
-        if (cards.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'Nothing assigned to you yet.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: B.muted,
-              ),
+    if (rows.isEmpty) {
+      rows.add(
+        () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Text(
+            'Nothing assigned to you yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
             ),
-          )
-        else
-          for (final c in cards)
-            Padding(padding: const EdgeInsets.only(bottom: 11), child: c),
-        _addButton('New list', B.primary, openNewListSheet),
-      ],
+          ),
+        ),
+      );
+    }
+    rows.add(() => _addButton('New list', B.primary, openNewListSheet));
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      itemCount: rows.length,
+      itemBuilder: (context, i) => rows[i](),
     );
   }
 
@@ -450,33 +462,40 @@ extension _ThriveListScreens on _ThriveHomeState {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      children: [
-        if (open.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
-            child: Text(
-              'No open tasks — all done here.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: B.muted,
-              ),
+    // Row builders are deferred so ListView.builder only materialises the
+    // rows that are actually on screen.
+    final rows = <Widget Function()>[
+      if (open.isEmpty)
+        () => const Padding(
+          padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
+          child: Text(
+            'No open tasks — all done here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
             ),
-          )
-        else
-          for (final t in open)
-            Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
-        if (done.isNotEmpty) ...[
-          _secLabel('Completed · ${done.length}'),
-          for (final t in done)
-            Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
-        ],
-        const SizedBox(height: 6),
-        _addButton('Add task', B.primary, () => openTaskSheet(null, l.id)),
+          ),
+        )
+      else
+        for (final t in open)
+          () =>
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
+      if (done.isNotEmpty) ...[
+        () => _secLabel('Completed · ${done.length}'),
+        for (final t in done)
+          () =>
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
       ],
+      () => const SizedBox(height: 6),
+      () => _addButton('Add task', B.primary, () => openTaskSheet(null, l.id)),
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      itemCount: rows.length,
+      itemBuilder: (context, i) => rows[i](),
     );
   }
 
@@ -586,65 +605,76 @@ extension _ThriveListScreens on _ThriveHomeState {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      children: [
-        _ShopQuickAdd(
-          key: ValueKey('shop-quickadd-${l.id}'),
-          state: this,
-          listId: l.id,
-        ),
-        const SizedBox(height: 14),
-        if (todo.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 18),
-            child: Text(
-              'Nothing to buy. Add an item above.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: B.muted,
-              ),
-            ),
-          )
-        else
-          for (final it in todo)
-            Padding(padding: const EdgeInsets.only(bottom: 8), child: row(it)),
-        if (bought.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(2, 18, 2, 9),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'BOUGHT · ${bought.length}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .3,
-                      color: B.soft2,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => clearBoughtItems(l.id),
-                  child: const Text(
-                    'Clear',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.red,
-                    ),
-                  ),
-                ),
-              ],
+    // Row builders are deferred so ListView.builder only materialises the
+    // rows that are actually on screen.
+    final rows = <Widget Function()>[
+      () => _ShopQuickAdd(
+        key: ValueKey('shop-quickadd-${l.id}'),
+        state: this,
+        listId: l.id,
+      ),
+      () => const SizedBox(height: 14),
+      if (todo.isEmpty)
+        () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 18),
+          child: Text(
+            'Nothing to buy. Add an item above.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
             ),
           ),
-          for (final it in bought)
-            Padding(padding: const EdgeInsets.only(bottom: 8), child: row(it)),
-        ],
+        )
+      else
+        for (final it in todo)
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: row(it),
+          ),
+      if (bought.isNotEmpty) ...[
+        () => Padding(
+          padding: const EdgeInsets.fromLTRB(2, 18, 2, 9),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'BOUGHT · ${bought.length}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .3,
+                    color: B.soft2,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => clearBoughtItems(l.id),
+                child: const Text(
+                  'Clear',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: B.red,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final it in bought)
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: row(it),
+          ),
       ],
+    ];
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      itemCount: rows.length,
+      itemBuilder: (context, i) => rows[i](),
     );
   }
 

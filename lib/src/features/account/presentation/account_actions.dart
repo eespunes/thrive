@@ -228,6 +228,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _cloudSub = null;
     _familySub?.cancel();
     _familySub = null;
+    _wsSub?.cancel();
+    _wsSub = null;
+    _wsSectionCache.clear();
+    _wsSectionDigests.clear();
+    _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {
       unawaited(GoogleSignIn.instance.signOut());
       unawaited(FirebaseAuth.instance.signOut());
@@ -668,31 +673,18 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _sessionFamilyPasswords[slug] = password;
   }
 
-  /// The join password for [family]. In local/demo mode (no Firebase user)
-  /// the plaintext password lives in the on-device registry, so it can
-  /// always be looked up there — no need to have typed it this session. In
-  /// cloud mode the plaintext also lives on the shared family document (as
-  /// `joinPassword`, protected by the same members-only read rule as the rest
-  /// of the family's data — see firestore.rules), so it's fetched straight
-  /// from Firestore when it isn't already cached in this session.
+  /// The join password for [family], when it is still knowable. The plaintext
+  /// is deliberately no longer persisted ANYWHERE — cloud families store only
+  /// the salted `joinHash` and the local registry only a salted `passHash` —
+  /// so this resolves from the in-memory session cache (populated when the
+  /// password was typed during create/join this session), plus, for legacy
+  /// local-registry entries written before hashing, the old plaintext field.
+  /// Returns null otherwise; the invite sheet shows "Not set" and members
+  /// share the password out-of-band or the owner sets a new one.
   Future<String?> fetchFamilyPassword(Family family) async {
     final cached = sessionFamilyPassword(family);
     if (cached != null) return cached;
-    if (_firebaseUid() != null) {
-      try {
-        final snap = await _familyDocRef(
-          family.id,
-        ).get().timeout(kCloudOpTimeout);
-        final pw = snap.data()?['joinPassword'];
-        if (pw is String && pw.isNotEmpty) {
-          _sessionFamilyPasswords[family.id] = pw;
-          return pw;
-        }
-      } catch (e) {
-        debugPrint('[cloud] fetchFamilyPassword failed: $e');
-      }
-      return null;
-    }
+    if (_firebaseUid() != null) return null;
     final reg = await loadRegistry();
     final entry = reg[family.username];
     if (entry is Map) {
@@ -714,6 +706,29 @@ extension _ThriveAccountActions on _ThriveHomeState {
   String? sessionFamilyPassword(Family family) =>
       _sessionFamilyPasswords[family.id] ??
       _sessionFamilyPasswords[family.username];
+
+  /// Whether [family] has a join password configured at all — regardless of
+  /// whether the plaintext is still knowable this session. Cloud families
+  /// carry a members-readable `joinHash` on their doc; local families a
+  /// `passHash` (or a legacy plaintext `password`) in the registry.
+  Future<bool> familyHasPassword(Family family) async {
+    if (_firebaseUid() != null) {
+      try {
+        final snap = await _familyDocRef(
+          family.id,
+        ).get().timeout(kCloudOpTimeout);
+        final hash = snap.data()?['joinHash'];
+        return hash is String && hash.isNotEmpty;
+      } catch (e) {
+        debugPrint('[cloud] familyHasPassword failed: $e');
+        return false;
+      }
+    }
+    final entry = (await loadRegistry())[family.username];
+    if (entry is! Map) return false;
+    final hash = entry['passHash'] ?? entry['password'];
+    return hash is String && hash.isNotEmpty;
+  }
 
   /// True when [slug] is a valid handle that no family has claimed yet. Checks
   /// the families already loaded, then the cloud handle registry (signed-in) or

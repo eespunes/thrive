@@ -1281,13 +1281,56 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// tap "sync". Failures are logged, not surfaced, so one bad feed doesn't
   /// interrupt app startup.
   Future<void> syncDueImports() async {
+    final now = DateTime.now();
     final due = [
       for (final c in importedCalendars)
-        if (c.provider == 'ics' && c.autoSync && (c.url ?? '').isNotEmpty) c.id,
+        if (c.provider == 'ics' &&
+            c.autoSync &&
+            (c.url ?? '').isNotEmpty &&
+            (_lastAutoSync[c.id] == null ||
+                now.difference(_lastAutoSync[c.id]!) >= _autoSyncInterval))
+          c,
     ];
-    for (final id in due) {
-      final err = await refreshImport(id, silent: true);
-      if (err != null) debugPrint('[calendar] auto-sync $id failed: $err');
+    if (due.isEmpty) return;
+
+    // Fetch every due feed concurrently (each has its own 20s timeout), then
+    // apply all results in a single mutate so app open/resume persists state
+    // once instead of once per feed.
+    final results = await Future.wait([
+      for (final c in due)
+        fetchIcsEvents(c.url!).then<Object>(
+          (events) => events,
+          onError: (Object e) =>
+              e is IcsImportException ? e.message : 'Could not sync that calendar',
+        ),
+    ]);
+
+    final synced = <ImportedCalendar, List<ImportedCalendarEvent>>{};
+    for (var i = 0; i < due.length; i++) {
+      final result = results[i];
+      if (result is List<ImportedCalendarEvent>) {
+        synced[due[i]] = result;
+        _lastAutoSync[due[i].id] = now;
+      } else {
+        debugPrint('[calendar] auto-sync ${due[i].id} failed: $result');
+      }
     }
+    if (synced.isEmpty) return;
+
+    mutate(() {
+      synced.forEach((cal, events) {
+        cal.events = _applyImportPrefs(
+          events,
+          includeLocation: cal.includeLocation,
+          includeDescription: cal.includeDescription,
+        );
+      });
+    });
   }
 }
+
+/// In-memory record of when each `ics` import last auto-synced this app
+/// session, so open/resume doesn't re-fetch feeds more than once per
+/// [_autoSyncInterval].
+final Map<String, DateTime> _lastAutoSync = {};
+const Duration _autoSyncInterval = Duration(hours: 1);
