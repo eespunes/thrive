@@ -48,7 +48,13 @@ jobs:
         run: flutter analyze --fatal-infos
 
       - name: Run tests
-        run: flutter test --coverage
+        # --timeout: a single stalling test (e.g. a pumpAndSettle that never
+        # settles) used to hang this step for 10+ minutes per occurrence;
+        # failing it fast NAMES the offending test in the log instead. The
+        # whole suite takes ~2 min on these runners, so 3 min per test is
+        # generous headroom.
+        run: flutter test --coverage --timeout 180s
+        timeout-minutes: 15
 
       - name: Install coverage tools
         run: |
@@ -62,10 +68,8 @@ jobs:
             COVERAGE=$(lcov --summary coverage/lcov.info 2>/dev/null | grep "lines" | awk '{print $2}' | sed 's/%//')
             echo "Code coverage: ${COVERAGE}%"
             
-            # Honest threshold: main measures ~93.6% (the old 95% gate never
-            # actually ran on recent PRs due to path filters). Raise it back
-            # as the untested areas (see coverage:ignore blocks) gain tests.
-            THRESHOLD=93
+            # Check if coverage meets 95% threshold
+            THRESHOLD=95
             if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
               echo "❌ Code coverage is ${COVERAGE}%, below the required ${THRESHOLD}%"
               exit 1
@@ -102,7 +106,7 @@ jobs:
                 const match = output.match(/lines.*?:\s*([\d.]+)%/);
                 if (match) {
                   coverage = match[1];
-                  status = parseFloat(coverage) >= 93 ? '✅' : '❌';
+                  status = parseFloat(coverage) >= 95 ? '✅' : '❌';
                 }
               } catch (e) {
                 console.log('Could not parse coverage');
@@ -113,5 +117,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `${status} **Code Coverage:** ${coverage}% (Target: 93%)`
+              body: `${status} **Code Coverage:** ${coverage}% (Target: 95%)`
             });
