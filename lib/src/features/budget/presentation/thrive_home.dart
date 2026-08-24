@@ -192,6 +192,7 @@ class ThriveDebugController {
     picture: picture,
     color: color,
   );
+  void openQuickAdd() => _s.openQuickAddSheet();
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
