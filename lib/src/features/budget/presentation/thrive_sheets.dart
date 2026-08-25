@@ -1185,14 +1185,14 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             children: [
               if (dot != null) ...[
                 Container(
-                  width: 10,
+                  width: 14,
                   height: 10,
                   decoration: BoxDecoration(
                     color: dot,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 6),
               ],
               Text(
                 label,
@@ -1226,9 +1226,9 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
             () => setState(() => _cardId = c.id),
             dot: c.color,
           ),
-        chip(const ValueKey('exp-card-scan'), '+ Scan new', false, () {
+        chip(const ValueKey('exp-card-scan'), 'Scan new', false, () {
           Navigator.of(context).pop();
-          unawaited(s.startCardImport(ImageSource.camera));
+          s.openCardScan();
         }),
       ],
     );

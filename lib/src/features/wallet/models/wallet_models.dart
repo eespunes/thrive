@@ -6,11 +6,10 @@ const List<Color> kCardPalette = [
   Color(0xff0E9A8D),
   Color(0xff1684B4),
   Color(0xff7c3aed),
-  Color(0xffd97706),
   Color(0xffe11d48),
-  Color(0xff54A96A),
-  Color(0xff334155),
-  Color(0xff0f766e),
+  Color(0xffd97706),
+  Color(0xff0f9d6a),
+  Color(0xff475569),
 ];
 
 /// A family loyalty/discount card (epic #222). Lives on the family

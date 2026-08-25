@@ -176,10 +176,10 @@ class _QuickAddSheet extends StatelessWidget {
         _row(
           context,
           const ValueKey('quickadd-card'),
-          'card',
+          'camera',
           'Discount card',
-          'Open the family wallet',
-          state.openWalletScreen,
+          'Snap a loyalty card',
+          state.openCardScan,
         ),
       ],
     );

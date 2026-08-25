@@ -65,7 +65,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             key: 'more-wallet',
             icon: 'card',
             title: 'Discount cards',
-            sub: 'The family wallet, ready at the till',
+            sub: 'Scan one, use it at the till',
             onTap: openWalletScreen,
             trail: cards.isEmpty
                 ? null

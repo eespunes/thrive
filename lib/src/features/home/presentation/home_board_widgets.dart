@@ -586,79 +586,109 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "DISCOUNT CARDS" + "All" link; tall coloured card chips with
-  /// the shop name bottom-left, plus a dashed "Scan" tile.
+  /// Design (`homeCardsStrip`): "Discount cards" + "All cards" link;
+  /// horizontally scrolling 136×76 card tiles (name top, masked tail
+  /// bottom) and a dashed camera "Scan card" tile.
   Widget _wCardsWallet() {
     return _bCard(
       onTap: openWalletScreen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _bLabel(
+          _bIconTitle(
+            'card',
             'Discount cards',
-            trailing: const Text(
-              'All',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: B.primary,
+            trailing: GestureDetector(
+              onTap: openWalletScreen,
+              child: const Text(
+                'All cards',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: B.primary,
+                ),
               ),
             ),
           ),
+          const SizedBox(height: 4),
           if (cards.isEmpty)
-            _wEmptyLine('No cards yet.', 'Scan one', openWalletScreen)
+            _wEmptyLine('No cards yet.', 'Scan one', openCardScan)
           else
             SizedBox(
-              height: 58,
-              child: Row(
+              height: 76,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
                 children: [
-                  for (final card in cards.take(2)) ...[
-                    Expanded(
-                      child: GestureDetector(
-                        key: ValueKey('home-card-${card.id}'),
-                        onTap: () => openCardFace(card.id),
-                        child: Container(
-                          padding: const EdgeInsets.all(9),
-                          alignment: Alignment.bottomLeft,
-                          decoration: BoxDecoration(
-                            color: card.color,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            card.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: contrastOn(card.color),
+                  for (final card in cards) ...[
+                    GestureDetector(
+                      key: ValueKey('home-card-${card.id}'),
+                      onTap: () => openCardFace(card.id),
+                      child: Container(
+                        width: 136,
+                        clipBehavior: Clip.antiAlias,
+                        padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
+                        decoration: BoxDecoration(
+                          color: card.color,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              card.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                height: 1.25,
+                                color: contrastOn(card.color),
+                              ),
                             ),
-                          ),
+                            Text(
+                              card.maskedNumber,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: .7,
+                                color: contrastOn(
+                                  card.color,
+                                ).withValues(alpha: .9),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 9),
+                    const SizedBox(width: 10),
                   ],
                   GestureDetector(
                     key: const ValueKey('home-card-scan'),
-                    onTap: () => unawaited(startCardImport(ImageSource.camera)),
+                    onTap: openCardScan,
                     child: Container(
-                      width: 74,
+                      width: 104,
                       decoration: BoxDecoration(
                         border: Border.all(
                           color: const Color(0xffcfd8e3),
                           width: 2,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Center(
-                        child: Text(
-                          'Scan',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: B.primary,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ic('camera', size: 18, sw: 2.2, color: B.primary),
+                          const SizedBox(height: 5),
+                          const Text(
+                            'Scan card',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: B.primary,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
