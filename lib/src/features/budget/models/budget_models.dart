@@ -210,6 +210,7 @@ class ExpenseItem {
     this.recurEndDate,
     this.generated = false,
     this.shift = 'none',
+    this.cardId,
   });
 
   String id;
@@ -242,6 +243,11 @@ class ExpenseItem {
   /// [marker] always stays the day the user actually meant (e.g. "24th").
   String shift;
 
+  /// Discount card this item is (to be) paid with (epic #222). May point at
+  /// a card that was since deleted — the finance list then simply shows no
+  /// tag.
+  String? cardId;
+
   ExpenseItem copyWithId(String newId, {bool? generated}) => ExpenseItem(
     id: newId,
     payee: payee,
@@ -257,6 +263,7 @@ class ExpenseItem {
     recurEndDate: recurEndDate,
     generated: generated ?? this.generated,
     shift: shift,
+    cardId: cardId,
   );
 
   Map<String, dynamic> toJson() => {
@@ -277,6 +284,7 @@ class ExpenseItem {
     if (recurEndDate != null) 'recurEndDate': recurEndDate,
     if (generated) 'generated': true,
     if (shift != 'none') 'shift': shift,
+    if (cardId != null && cardId!.isNotEmpty) 'cardId': cardId,
   };
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) {
@@ -310,6 +318,9 @@ class ExpenseItem {
       shift: const {'none', 'before', 'after'}.contains(j['shift'])
           ? (j['shift'] as String)
           : 'none',
+      cardId: (j['cardId'] as String?)?.trim().isNotEmpty == true
+          ? (j['cardId'] as String).trim()
+          : null,
     );
   }
 }

@@ -135,6 +135,7 @@ extension _ThriveSheets on _ThriveHomeState {
     int recurEvery = 1,
     String? recurEndDate,
     String shift = 'none',
+    String? cardId,
   }) {
     final every = recurEvery < 1 ? 1 : recurEvery;
     mutate(() {
@@ -173,6 +174,7 @@ extension _ThriveSheets on _ThriveHomeState {
             ..until =
                 normalizedEnd ??
                 ((until == null || until.isEmpty) ? null : until)
+            ..cardId = cardId
             ..generated = false;
           arr.add(it);
         }
@@ -199,6 +201,7 @@ extension _ThriveSheets on _ThriveHomeState {
             seriesId: seriesId,
             recurEndDate: normalizedEnd,
             shift: shift,
+            cardId: cardId,
           ),
         );
       }
@@ -1130,6 +1133,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
   int _recurEvery = 1;
   String? _endDate;
   String _shift = 'none';
+  String? _cardId;
 
   bool get _editing => widget.mode == 'edit';
 
@@ -1153,6 +1157,81 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
     _recurEvery = it?.recurEvery ?? 1;
     _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
     _shift = it?.shift ?? 'none';
+    _cardId = it?.cardId;
+  }
+
+  /// Discount-card picker (issue #230): none / one of the family's cards /
+  /// "Scan new", which drops into the camera import flow.
+  Widget _cardChips(_ThriveHomeState s) {
+    Widget chip(
+      Key key,
+      String label,
+      bool on,
+      VoidCallback onTap, {
+      Color? dot,
+    }) {
+      return GestureDetector(
+        key: key,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+          decoration: BoxDecoration(
+            color: on ? B.soft : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: on ? B.primary : B.line),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dot != null) ...[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: dot,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: on ? B.deep : B.text,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: [
+        chip(
+          const ValueKey('exp-card-none'),
+          'None',
+          _cardId == null,
+          () => setState(() => _cardId = null),
+        ),
+        for (final c in s.cards)
+          chip(
+            ValueKey('exp-card-${c.id}'),
+            c.name,
+            _cardId == c.id,
+            () => setState(() => _cardId = c.id),
+            dot: c.color,
+          ),
+        chip(const ValueKey('exp-card-scan'), '+ Scan new', false, () {
+          Navigator.of(context).pop();
+          unawaited(s.startCardImport(ImageSource.camera));
+        }),
+      ],
+    );
   }
 
   @override
@@ -1188,6 +1267,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
         recurEvery: _recurEvery,
         recurEndDate: _endDate,
         shift: _shift,
+        cardId: _cardId,
       );
       Navigator.of(context).pop();
     }
@@ -1278,6 +1358,7 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
                       : (cat.isSavings ? 'Save from' : 'Pay from'),
                   _accChips(),
                 ),
+                if (!cat.isIncome) _sheetField('Discount card', _cardChips(s)),
                 _sheetField(
                   'Status',
                   _toggleRow(

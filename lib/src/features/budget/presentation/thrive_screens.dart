@@ -700,6 +700,48 @@ extension _ThriveScreens on _ThriveHomeState {
                             color: B.muted,
                           ),
                         ),
+                      if (cardById(it.cardId) case final DiscountCard card)
+                        GestureDetector(
+                          key: ValueKey('card-tag-${it.id}'),
+                          onTap: () => openCardFace(
+                            card.id,
+                            payCat: b.key,
+                            payItemId: it.id,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: B.line),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: BoxDecoration(
+                                    color: card.color,
+                                    borderRadius: BorderRadius.circular(2.5),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  card.name,
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: B.text,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       if (r.untilLabel != null)
                         Container(
                           padding: const EdgeInsets.symmetric(

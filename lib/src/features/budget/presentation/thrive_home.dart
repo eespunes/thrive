@@ -179,6 +179,18 @@ class ThriveDebugController {
   List<CalendarLayerDef> get calendarLayers => _s.calendarLayers;
   List<String> get layerFilter => _s.layerFilter;
   List<EventCategory> get eventCategories => _s.eventCategories;
+  List<DiscountCard> get cards => _s.cards;
+  void saveCard(DiscountCard c) => _s.saveCard(c);
+  void logCardUse(String id) => _s.logCardUse(id);
+  void payItemWithCard(String catKey, String itemId, String cardId) =>
+      _s.payItemWithCard(catKey, itemId, cardId);
+  void importCardFromBytes(Uint8List bytes) => _s.importCardFromBytes(bytes);
+  void openWalletScreen() => _s.openWalletScreen();
+  void openCardFace(String id, {String? payCat, String? payItemId}) =>
+      _s.openCardFace(id, payCat: payCat, payItemId: payItemId);
+  void mutateState(VoidCallback fn) => _s.mutate(fn);
+  List<(Category, ExpenseItem)> unpaidItemsThisMonth() =>
+      _s.unpaidItemsThisMonth();
   void addCalendarLayer({
     required String label,
     required String icon,
@@ -245,6 +257,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   set picMembers(Map<String, bool> v) => _activeWs.picMembers = v;
   List<String> get kitchenLayerFilter => _activeWs.kitchenLayerFilter;
   set kitchenLayerFilter(List<String> v) => _activeWs.kitchenLayerFilter = v;
+  List<DiscountCard> get cards => _activeWs.cards;
+  set cards(List<DiscountCard> v) => _activeWs.cards = v;
 
   String taskFilter = 'all'; // all | me
   String? openTaskList;

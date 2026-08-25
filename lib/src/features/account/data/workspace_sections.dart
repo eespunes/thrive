@@ -43,6 +43,11 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
     'kitchenLayerFilter': ws.kitchenLayerFilter,
   },
   'events': {'events': ws.events.map((e) => e.toJson()).toList()},
+  // Card photos are local-only (issue #234) — the synced payload never
+  // carries them, so they stay on the devices of the family.
+  'cards': {
+    'cards': ws.cards.map((c) => c.toJson(includePhoto: false)).toList(),
+  },
   'lists': {
     'taskLists': ws.taskLists.map((l) => l.toJson()).toList(),
     'shoppingLists': ws.shoppingLists.map((l) => l.toJson()).toList(),
@@ -70,6 +75,7 @@ Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
   j['taskLists'] = sections['lists']?['taskLists'] ?? [];
   j['shoppingLists'] = sections['lists']?['shoppingLists'] ?? [];
   j['weeklyPlan'] = sections['weekly']?['weeklyPlan'] ?? {};
+  j['cards'] = sections['cards']?['cards'] ?? [];
   final data = <String, dynamic>{};
   final imports = <Map<String, dynamic>>[];
   sections.forEach((id, map) {

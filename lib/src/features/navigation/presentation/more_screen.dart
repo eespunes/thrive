@@ -62,6 +62,18 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         _moreSecLabel('Money'),
         _moreGroup([
           _moreRow(
+            key: 'more-wallet',
+            icon: 'card',
+            title: 'Discount cards',
+            sub: 'The family wallet, ready at the till',
+            onTap: openWalletScreen,
+            trail: cards.isEmpty
+                ? null
+                : _moreMeta(
+                    '${cards.length} card${cards.length == 1 ? '' : 's'}',
+                  ),
+          ),
+          _moreRow(
             key: 'more-finsettings',
             icon: 'gear',
             title: 'Finance settings',
