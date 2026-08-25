@@ -7,7 +7,7 @@ void main() {
   testWidgets('fresh boot lands on the Home dashboard', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     expect(find.text('Hi, Eva'), findsOneWidget);
-    expect(find.text('All caught up. Nice work!'), findsOneWidget);
+    expect(find.text('All caught up.'), findsOneWidget);
     expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
   });
 

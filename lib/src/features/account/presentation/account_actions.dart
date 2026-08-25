@@ -154,6 +154,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
       return (bg: B.amberSoft, fg: B.amberText, label: 'Invited');
     }
     if (role == 'owner') return (bg: B.soft, fg: B.deep, label: 'Owner');
+    if (role == 'kid') {
+      return (bg: B.amberSoft, fg: B.amberText, label: 'Kid');
+    }
     return (bg: B.faint, fg: B.soft2, label: 'Member');
   }
 
@@ -543,6 +546,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     String? emoji,
     bool photoTouched = false,
     bool emojiTouched = false,
+    bool? kid,
   }) {
     _withCurFamily((f) {
       for (final m in f.members) {
@@ -553,6 +557,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
             ..initials = initialsOf(name);
           if (photoTouched) m.photo = photo;
           if (emojiTouched) m.emoji = emoji;
+          // Kid profiles (issue #245): only flips between member/kid — an
+          // owner can never be downgraded to a kid from here.
+          if (kid != null && m.role != 'owner') {
+            m.role = kid ? 'kid' : 'member';
+          }
         }
       }
     }, 'Member updated');

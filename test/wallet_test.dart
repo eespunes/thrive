@@ -247,6 +247,8 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     expect(find.byKey(const ValueKey('home-card-c1')), findsNothing);
     thriveDebug.saveCard(_card());
+    // The cards glance is a Home-board widget now (epic #223) — place it.
+    thriveDebug.addHomeWidget('cards_wallet');
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('home-card-c1')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('home-card-c1')));

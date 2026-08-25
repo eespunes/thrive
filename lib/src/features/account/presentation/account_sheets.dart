@@ -1357,6 +1357,7 @@ class _MemberEditSheetState extends State<_MemberEditSheet> {
   final _emailFocus = FocusNode();
   String? _photo;
   String? _emoji;
+  bool _kid = false;
 
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
@@ -1370,6 +1371,7 @@ class _MemberEditSheetState extends State<_MemberEditSheet> {
     _email = TextEditingController(text: member.email);
     _photo = member.photo;
     _emoji = member.emoji;
+    _kid = member.role == 'kid';
   }
 
   @override
@@ -1390,6 +1392,7 @@ class _MemberEditSheetState extends State<_MemberEditSheet> {
       emoji: _emoji,
       photoTouched: widget.canEditAvatar,
       emojiTouched: widget.canEditAvatar,
+      kid: widget.member.role == 'owner' ? null : _kid,
     );
     Navigator.of(context).pop();
   }
@@ -1437,6 +1440,18 @@ class _MemberEditSheetState extends State<_MemberEditSheet> {
               onChanged: (_) => setState(() {}),
             ),
           ),
+          if (widget.member.role != 'owner')
+            _sheetField(
+              '',
+              _toggleRow(
+                'Kid profile',
+                _kid,
+                () => setState(() => _kid = !_kid),
+                subtitle:
+                    'Their Home only offers the kid-safe widgets — no money',
+                activeColor: B.primary,
+              ),
+            ),
           Row(
             children: [
               Expanded(

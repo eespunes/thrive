@@ -159,37 +159,23 @@ void main() {
       landOnDefaultTab: true,
     );
 
-    expect(
-      find.byKey(const ValueKey('home-today-events-scroll')),
-      findsOneWidget,
-    );
+    // The board's M-size Today widget shows the first three upcoming rows;
+    // its L size (and the Calendar tab) show the rest.
     expect(find.text('Today event 1'), findsOneWidget);
     expect(find.text('Today event 2'), findsOneWidget);
     expect(find.text('Today event 3'), findsOneWidget);
-    expect(find.text('Today event 4'), findsOneWidget);
-    expect(find.text('Today event 5'), findsOneWidget);
+    expect(find.text('Today event 4'), findsNothing);
     expect(find.text('Tomorrow event'), findsNothing);
     if (nowMinutes > 0) expect(find.text('Past timed event'), findsNothing);
-    expect(
-      tester
-          .getSize(find.byKey(const ValueKey('home-today-events-scroll')))
-          .height,
-      lessThanOrEqualTo(214),
+
+    // Resizing the widget to L reveals more rows.
+    final at = thriveDebug.effectiveHomeBoard().indexWhere(
+      (e) => e.widgetId == 'today',
     );
-    final scrollable = find.descendant(
-      of: find.byKey(const ValueKey('home-today-events-scroll')),
-      matching: find.byType(Scrollable),
-    );
-    expect(
-      tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
-      greaterThan(0),
-    );
-    await tester.drag(scrollable, const Offset(0, -120));
-    await tester.pump();
-    expect(
-      tester.state<ScrollableState>(scrollable).position.pixels,
-      greaterThan(0),
-    );
+    thriveDebug.cycleHomeWidgetSize(at);
+    await tester.pumpAndSettle();
+    expect(find.text('Today event 4'), findsOneWidget);
+    expect(find.text('Today event 5'), findsOneWidget);
   });
 
   testWidgets('Home tasks show three rows and scroll all assigned tasks', (
@@ -226,33 +212,22 @@ void main() {
       landOnDefaultTab: true,
     );
 
+    // Default board's Tasks widget is "only mine" at M size: three rows.
     expect(find.text('My task 1'), findsOneWidget);
     expect(find.text('My task 2'), findsOneWidget);
     expect(find.text('My task 3'), findsOneWidget);
-    expect(find.text('My task 4'), findsOneWidget);
-    expect(find.text('My task 5'), findsOneWidget);
+    expect(find.text('My task 4'), findsNothing);
     expect(find.text('Other task'), findsNothing);
     expect(find.text('Unassigned task'), findsNothing);
     expect(find.text('Done task'), findsNothing);
-    expect(find.byKey(const ValueKey('home-tasks-scroll')), findsOneWidget);
-    expect(
-      tester.getSize(find.byKey(const ValueKey('home-tasks-scroll'))).height,
-      lessThanOrEqualTo(168),
+
+    final at = thriveDebug.effectiveHomeBoard().indexWhere(
+      (e) => e.widgetId == 'tasks',
     );
-    final scrollable = find.descendant(
-      of: find.byKey(const ValueKey('home-tasks-scroll')),
-      matching: find.byType(Scrollable),
-    );
-    expect(
-      tester.state<ScrollableState>(scrollable).position.maxScrollExtent,
-      greaterThan(0),
-    );
-    await tester.drag(scrollable, const Offset(0, -80));
-    await tester.pump();
-    expect(
-      tester.state<ScrollableState>(scrollable).position.pixels,
-      greaterThan(0),
-    );
+    thriveDebug.cycleHomeWidgetSize(at);
+    await tester.pumpAndSettle();
+    expect(find.text('My task 4'), findsOneWidget);
+    expect(find.text('My task 5'), findsOneWidget);
   });
 
   testWidgets(
@@ -291,11 +266,12 @@ void main() {
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     expect(find.text('Hi, Eva'), findsOneWidget);
-    expect(find.text('Nothing scheduled — enjoy the calm.'), findsOneWidget);
-    expect(find.text('All caught up. Nice work!'), findsOneWidget);
-    expect(find.text('No lists yet'), findsOneWidget);
-    expect(find.text('Not planned'), findsOneWidget);
+    expect(find.text('Nothing scheduled.'), findsOneWidget);
+    expect(find.text('All caught up.'), findsOneWidget);
+    expect(find.text('No lists yet.'), findsOneWidget);
     expect(find.textContaining('PROJECTED BALANCE'), findsOneWidget);
+    // An untouched Home still offers the add affordance (issue #235).
+    expect(find.byKey(const ValueKey('home-add-widget')), findsOneWidget);
   });
 
   testWidgets('a task created in Lists shows up in Tasks due soon', (
