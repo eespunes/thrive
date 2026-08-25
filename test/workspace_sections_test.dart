@@ -44,6 +44,18 @@ Workspace _sampleWorkspace() {
     taskLists: [
       TaskList.fromJson({'id': 'tl1', 'name': 'Chores'}),
     ],
+    cards: [
+      DiscountCard.fromJson({
+        'id': 'card1',
+        'name': 'Albert Heijn',
+        'number': '5901234123457',
+        'codeType': 'barcode',
+        'color': 0xff1684B4,
+        'photo': 'aGk=',
+        'timesUsed': 2,
+        'lastUsed': 1755000000000,
+      }),
+    ],
     importedCalendars: [
       ImportedCalendar.fromJson({
         'id': 'ic1',
@@ -77,8 +89,28 @@ void main() {
       final rebuilt = workspaceFromSections(workspaceSections(ws));
       expect(rebuilt, isNotNull);
       // JSON equality is the contract: what one device uploads is exactly
-      // what another reassembles.
-      expect(rebuilt!.toJson(), ws.toJson());
+      // what another reassembles — except card photos, which deliberately
+      // never travel through the cloud (issue #234). Restore them via the
+      // same merge the sync engine applies, then compare.
+      mergeCardPhotos(rebuilt!.cards, ws.cards);
+      expect(rebuilt.toJson(), ws.toJson());
+    });
+
+    test('card photos stay on-device: excluded from the cards section', () {
+      final ws = _sampleWorkspace();
+      final sections = workspaceSections(ws);
+      final cardsSection = (sections['cards']!['cards'] as List).cast<Map>();
+      expect(cardsSection.single.containsKey('photo'), isFalse);
+      expect(cardsSection.single['number'], '5901234123457');
+      final rebuilt = workspaceFromSections(sections)!;
+      expect(rebuilt.cards.single.photo, isNull);
+      expect(rebuilt.cards.single.timesUsed, 2);
+    });
+
+    test('a fresh or sample workspace seeds no cards', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      expect(Workspace.empty().cards, isEmpty);
+      expect((await buildSampleWorkspace()).cards, isEmpty);
     });
 
     test('returns null for an unmigrated (empty-section) family', () {

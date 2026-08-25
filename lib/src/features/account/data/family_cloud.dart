@@ -322,6 +322,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       loadedWorkspaces[entry.key] =
           workspaceFromSections(_wsSectionCache[entry.key] ?? const {}) ??
           workspaceFromDoc(entry.value);
+      // Cloud sections never carry card photos (issue #234) — restore the
+      // ones this device already had from local storage.
+      mergeCardPhotos(
+        loadedWorkspaces[entry.key]!.cards,
+        workspaces[entry.key]?.cards ?? const [],
+      );
     }
 
     var active = (userData?['activeFamilyId'] ?? '').toString();
@@ -453,6 +459,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         });
         final ws = workspaceFromSections(merged);
         if (ws == null) return;
+        // Card photos never travel through the cloud (issue #234), so carry
+        // this device's local photos over into the rebuilt workspace.
+        mergeCardPhotos(ws.cards, localWs?.cards ?? const []);
         // The digest cache always tracks the SERVER's state, so the next
         // persist re-uploads exactly the locally-kept sections.
         final meta = (_wsSectionDigests[fid] ?? const {})['__meta'];

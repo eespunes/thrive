@@ -1,6 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:barcode_widget/barcode_widget.dart' as bw;
+import 'package:image/image.dart' as img;
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:zxing2/qrcode.dart'
+    show
+        BinaryBitmap,
+        GlobalHistogramBinarizer,
+        QRCodeReader,
+        RGBLuminanceSource;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' as foundation;
@@ -26,6 +35,7 @@ import 'package:timezone/data/latest.dart' as tz;
 part 'src/app/app.dart';
 part 'src/shared/theme.dart';
 part 'src/shared/icons.dart';
+part 'src/shared/analytics.dart';
 part 'src/shared/utils.dart';
 part 'src/shared/notifications_service.dart';
 part 'src/shared/device_calendar_sync.dart';
@@ -34,6 +44,10 @@ part 'src/features/lists/models/list_models.dart';
 part 'src/features/calendar/models/calendar_models.dart';
 part 'src/features/calendar/data/ics_import.dart';
 part 'src/features/weekly/models/weekly_plan_models.dart';
+part 'src/features/wallet/models/wallet_models.dart';
+part 'src/features/wallet/data/card_import.dart';
+part 'src/features/wallet/presentation/wallet_screens.dart';
+part 'src/features/wallet/presentation/wallet_sheets.dart';
 part 'src/features/account/models/account_models.dart';
 part 'src/features/account/data/family_cloud.dart';
 part 'src/features/account/data/workspace_sections.dart';

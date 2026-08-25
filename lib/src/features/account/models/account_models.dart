@@ -233,6 +233,7 @@ class Workspace {
     this.kitchenEnabled = true,
     Map<String, bool>? picMembers,
     List<String>? kitchenLayerFilter,
+    List<DiscountCard>? cards,
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
@@ -247,7 +248,8 @@ class Workspace {
        calendarLayers = calendarLayers ?? <CalendarLayerDef>[],
        starsMap = starsMap ?? <String, int>{},
        picMembers = picMembers ?? <String, bool>{},
-       kitchenLayerFilter = kitchenLayerFilter ?? kBuiltinLayerIds.toList();
+       kitchenLayerFilter = kitchenLayerFilter ?? kBuiltinLayerIds.toList(),
+       cards = cards ?? <DiscountCard>[];
 
   List<Account> accounts;
   List<Category> cats;
@@ -288,6 +290,10 @@ class Workspace {
   /// wall display; kitchen-origin items are layerless and always independent.
   List<String> kitchenLayerFilter;
 
+  /// Family loyalty/discount cards (epic #222). Never part of a fresh
+  /// family's seed data — new workspaces start with no cards.
+  List<DiscountCard> cards;
+
   Map<String, dynamic> toJson() => {
     'accounts': accounts.map((a) => a.toJson()).toList(),
     'cats': cats.map((c) => c.toJson()).toList(),
@@ -310,6 +316,7 @@ class Workspace {
     'kitchenEnabled': kitchenEnabled,
     if (picMembers.isNotEmpty) 'picMembers': picMembers,
     'kitchenLayerFilter': kitchenLayerFilter,
+    if (cards.isNotEmpty) 'cards': cards.map((c) => c.toJson()).toList(),
   };
 
   factory Workspace.fromJson(Map<String, dynamic> j) {
@@ -394,6 +401,10 @@ class Workspace {
           in (j['picMembers'] as Map<String, dynamic>? ?? {}).entries)
         entry.key: entry.value == true,
     };
+    final cards = <DiscountCard>[
+      for (final c in (j['cards'] as List? ?? []))
+        DiscountCard.fromJson(Map<String, dynamic>.from(c as Map)),
+    ];
     return Workspace(
       accounts: accounts,
       cats: cats,
@@ -409,6 +420,7 @@ class Workspace {
       kitchenEnabled: j['kitchenEnabled'] != false,
       picMembers: picMembers,
       kitchenLayerFilter: kitchenLayerFilter,
+      cards: cards,
     );
   }
 

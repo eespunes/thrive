@@ -113,6 +113,44 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                   ),
                 ),
         ),
+        if (cards.isNotEmpty)
+          _homeCard(
+            title: 'Discount cards',
+            icon: 'card',
+            onOpen: openWalletScreen,
+            body: SingleChildScrollView(
+              key: const ValueKey('home-cards-scroll'),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final card in cards)
+                    GestureDetector(
+                      key: ValueKey('home-card-${card.id}'),
+                      onTap: () => openCardFace(card.id),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: card.color,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          card.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: contrastOn(card.color),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: IntrinsicHeight(

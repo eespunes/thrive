@@ -51,6 +51,10 @@ dependencies:
   flutter_timezone: ^5.1.0
   package_info_plus: ^10.2.1
   firebase_app_check: ^0.4.6
+  image: ^4.9.2
+  zxing2: ^0.2.4
+  barcode_widget: ^2.0.4
+  screen_brightness: ^2.1.11
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +66,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  barcode: ^2.2.9
 
 # App launcher icons are generated with flutter_launcher_icons and committed to
 # the repo. The tool is intentionally not kept as a dependency (it is build-time

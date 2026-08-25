@@ -173,6 +173,14 @@ class _QuickAddSheet extends StatelessWidget {
           'Add to a list',
           state.quickAddShopItem,
         ),
+        _row(
+          context,
+          const ValueKey('quickadd-card'),
+          'card',
+          'Discount card',
+          'Open the family wallet',
+          state.openWalletScreen,
+        ),
       ],
     );
   }
