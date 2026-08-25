@@ -113,46 +113,73 @@ extension _ThriveHomeBoard on _ThriveHomeState {
           if (board.isEmpty) _homeBoardEmptyState(),
         ],
         _homeAddWidgetButton(),
+        if (homeEditMode) _homeHiddenLine(),
       ],
     );
   }
 
-  /// Slim board header: the app shell already greets the user; this row
-  /// only carries the edit-mode toggle (and its "Done" state).
+  /// Slim board header under the shell greeting. View mode: the pencil
+  /// (design 2b). Edit mode: "Drag to reorder · only you see this" plus the
+  /// teal "Done" pill (design 1a).
   Widget _homeBoardHeader() {
     return Row(
       children: [
         Expanded(
           child: Text(
-            homeEditMode ? 'Edit your board' : prettyToday(),
+            homeEditMode
+                ? 'Drag to reorder · only you see this'
+                : prettyToday(),
             style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: B.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xff94a0b0),
             ),
           ),
         ),
-        GestureDetector(
-          key: const ValueKey('home-edit-toggle'),
-          onTap: () => setHomeEditMode(!homeEditMode),
-          child: Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: homeEditMode ? B.primary : Colors.white,
-              border: Border.all(color: homeEditMode ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(10),
+        if (homeEditMode)
+          GestureDetector(
+            key: const ValueKey('home-edit-toggle'),
+            onTap: () => setHomeEditMode(false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              decoration: BoxDecoration(
+                color: B.primary,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ic('check', size: 14, sw: 2.4, color: Colors.white),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Center(
-              child: ic(
-                homeEditMode ? 'check' : 'edit',
-                size: 16,
-                sw: 2.3,
-                color: homeEditMode ? Colors.white : B.soft2,
+          )
+        else
+          GestureDetector(
+            key: const ValueKey('home-edit-toggle'),
+            onTap: () => setHomeEditMode(true),
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: B.line),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Center(
+                child: ic('edit', size: 16, sw: 2.2, color: B.soft2),
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -242,118 +269,104 @@ extension _ThriveHomeBoard on _ThriveHomeState {
     );
   }
 
-  /// Edit mode (issue #236): one full-width row per entry with a drag
-  /// handle (reorder), a size chip (issue #238) and a remove button.
+  /// Edit mode (issue #236), as in the design's 1a mock: the widgets stay
+  /// rendered in place with a dashed outline, a red × badge, and a SIZE
+  /// chip; drag anywhere to reorder.
   Widget _homeBoardEditList() {
     final board = effectiveHomeBoard();
     return ReorderableListView.builder(
       key: const ValueKey('home-edit-list'),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      buildDefaultDragHandles: false,
       onReorderItem: reorderHomeWidget,
+      proxyDecorator: (child, index, animation) => child,
       itemCount: board.length,
       itemBuilder: (context, index) {
         final entry = board[index];
         final def = homeWidgetDef(entry.widgetId)!;
-        final hasOptions = _homeWidgetHasOptions(entry.widgetId);
-        return Container(
+        return Padding(
           key: ValueKey('home-edit-${entry.widgetId}-$index'),
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: cardShadow(),
-          ),
-          child: Row(
+          padding: const EdgeInsets.only(top: 12, right: 6),
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: ic('menu', size: 16, sw: 2.2, color: B.muted),
-                ),
-              ),
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: B.soft,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Center(
-                  child: ic(def.icon, size: 15, sw: 2.1, color: B.primary),
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: GestureDetector(
-                  key: ValueKey('home-edit-opts-$index'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: hasOptions ? () => openHomeWidgetOptions(index) : null,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        def.title,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w800,
-                          color: B.ink,
-                        ),
-                      ),
-                      Text(
-                        hasOptions ? 'Tap to configure' : def.sub,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: B.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              // The live widget, inert while editing; tapping it opens its
+              // options when it has any.
               GestureDetector(
-                key: ValueKey('home-size-$index'),
-                onTap: def.sizes.length > 1
-                    ? () => cycleHomeWidgetSize(index)
+                key: ValueKey('home-edit-opts-$index'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _homeWidgetHasOptions(entry.widgetId)
+                    ? () => openHomeWidgetOptions(index)
                     : null,
-                child: Container(
-                  width: 30,
-                  height: 26,
-                  margin: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    color: def.sizes.length > 1 ? B.soft : B.faint,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      entry.size.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: def.sizes.length > 1 ? B.deep : B.muted,
-                      ),
+                child: IgnorePointer(child: buildHomeWidget(entry, index)),
+              ),
+              // Dashed edit outline.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _DashedRectPainter(
+                      color: const Color(0xffcbd5e1),
+                      radius: 18,
+                      inset: 5,
                     ),
                   ),
                 ),
               ),
-              GestureDetector(
-                key: ValueKey('home-remove-$index'),
-                onTap: () => removeHomeWidget(index),
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  margin: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    color: B.redSoft,
-                    borderRadius: BorderRadius.circular(8),
+              // Size chip (issue #238) — only when more sizes exist.
+              if (def.sizes.length > 1)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: GestureDetector(
+                    key: ValueKey('home-size-$index'),
+                    onTap: () => cycleHomeWidgetSize(index),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: B.line),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'SIZE ${entry.size.toUpperCase()}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .3,
+                          color: Color(0xff94a0b0),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Center(
-                    child: ic('x', size: 13, sw: 2.6, color: B.red),
+                ),
+              // Red × remove badge (design 1a).
+              Positioned(
+                top: -8,
+                right: -6,
+                child: GestureDetector(
+                  key: ValueKey('home-remove-$index'),
+                  onTap: () => removeHomeWidget(index),
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: const BoxDecoration(
+                      color: B.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '\u00d7',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -361,6 +374,29 @@ extension _ThriveHomeBoard on _ThriveHomeState {
           ),
         );
       },
+    );
+  }
+
+  /// "Hidden: A \u00b7 B \u00b7 C" — widgets not on the board (design 1a).
+  Widget _homeHiddenLine() {
+    final placed = {for (final e in effectiveHomeBoard()) e.widgetId};
+    final hidden = [
+      for (final d in offeredHomeWidgets())
+        if (!placed.contains(d.id)) d.title,
+    ];
+    if (hidden.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Text(
+        'Hidden: ${hidden.take(3).join(' \u00b7 ')}'
+        '${hidden.length > 3 ? ' \u00b7 +${hidden.length - 3}' : ''}',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: Color(0xff94a0b0),
+        ),
+      ),
     );
   }
 
@@ -394,4 +430,49 @@ extension _ThriveHomeBoard on _ThriveHomeState {
       ),
     );
   }
+}
+
+/// Dashed rounded-rect outline used by the board's edit mode (design 1a).
+class _DashedRectPainter extends CustomPainter {
+  const _DashedRectPainter({
+    required this.color,
+    required this.radius,
+    required this.inset,
+  });
+  final Color color;
+  final double radius;
+  final double inset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        inset,
+        inset,
+        size.width - inset * 2,
+        size.height - inset * 2,
+      ),
+      Radius.circular(radius - inset),
+    );
+    final path = Path()..addRRect(rrect);
+    const dash = 6.0, gap = 5.0;
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(d, math.min(d + dash, metric.length)),
+          paint,
+        );
+        d += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRectPainter old) =>
+      old.color != color || old.radius != radius || old.inset != inset;
 }

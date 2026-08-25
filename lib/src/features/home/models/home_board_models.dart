@@ -65,15 +65,15 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'balance',
     title: 'Projected balance',
-    sub: 'This month, at a glance',
+    sub: 'Income minus costs for the open month',
     icon: 'wallet',
     category: 'money',
     sizes: ['m', 'l'],
   ),
   HomeWidgetDef(
     id: 'still_to_pay',
-    title: 'Still to pay',
-    sub: 'Open amount per account',
+    title: 'Still to pay, per account',
+    sub: 'Who owes what before the month closes',
     icon: 'card',
     category: 'money',
     sizes: ['m'],
@@ -81,15 +81,15 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'next_bills',
     title: 'Next bills',
-    sub: 'Upcoming, payable in place',
+    sub: 'Three closest due dates · pay in one tap',
     icon: 'clock',
     category: 'money',
     sizes: ['m', 'l'],
   ),
   HomeWidgetDef(
     id: 'budget_blocks',
-    title: 'Budget blocks',
-    sub: 'Spent vs limits for chosen blocks',
+    title: 'Blocks vs limits',
+    sub: 'Pick which blocks you want to watch',
     icon: 'chart',
     category: 'money',
     sizes: ['m', 'l'],
@@ -97,7 +97,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'cards_wallet',
     title: 'Discount cards',
-    sub: 'The family wallet',
+    sub: 'Tap a card to open the barcode at the till',
     icon: 'card',
     category: 'money',
     sizes: ['m'],
@@ -139,7 +139,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'today',
     title: 'Today & upcoming',
-    sub: 'Your day or the whole family',
+    sub: 'Filter to everyone or just you',
     icon: 'cal',
     category: 'calendar',
     sizes: ['m', 'l'],
@@ -148,7 +148,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'week_strip',
     title: 'Week strip',
-    sub: 'Busy-ness per day',
+    sub: 'Seven days, busy-ness at a glance',
     icon: 'cal',
     category: 'calendar',
     sizes: ['m'],
@@ -156,7 +156,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'family_day',
     title: 'Family day',
-    sub: 'One row per member',
+    sub: 'A row per person for today',
     icon: 'users',
     category: 'calendar',
     sizes: ['l'],
@@ -180,7 +180,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'imported_cals',
     title: 'Imported calendars',
-    sub: 'Feeds with per-feed visibility',
+    sub: 'Toggle a feed off for the day',
     icon: 'download',
     category: 'calendar',
     sizes: ['m'],
@@ -189,7 +189,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'tasks',
     title: 'Tasks due soon',
-    sub: 'Tick them off from Home',
+    sub: 'Tick straight from the home',
     icon: 'tasklist',
     category: 'home',
     sizes: ['m', 'l'],
@@ -197,7 +197,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'shopping',
     title: 'Shopping list',
-    sub: 'Open items, quick add',
+    sub: 'Pick which list; add without leaving home',
     icon: 'cart',
     category: 'home',
     sizes: ['m'],
@@ -205,7 +205,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'meals',
     title: 'Meal plan',
-    sub: 'The next three days',
+    sub: 'Empty days invite planning',
     icon: 'moon',
     category: 'home',
     sizes: ['m', 'l'],
@@ -214,7 +214,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'chores',
     title: 'Chores & stars',
-    sub: 'Star progress per member',
+    sub: 'Only when the family uses chores',
     icon: 'star',
     category: 'home',
     sizes: ['m'],
@@ -223,7 +223,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'quick_actions',
     title: 'Quick actions',
-    sub: 'Your four favourite buttons',
+    sub: 'You choose the four buttons',
     icon: 'plus',
     category: 'home',
     sizes: ['s', 'm'],
@@ -231,15 +231,15 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'family_note',
     title: 'Family note',
-    sub: 'One pinned note',
+    sub: 'One shared pinned note, visible to all',
     icon: 'note',
     category: 'home',
     sizes: ['m'],
   ),
   HomeWidgetDef(
     id: 'divider',
-    title: 'Divider',
-    sub: 'A label to group your board',
+    title: 'Divider / label',
+    sub: 'Free text — group a long board',
     icon: 'filter',
     category: 'home',
     sizes: ['s'],
@@ -281,19 +281,21 @@ List<BoardEntry>? parseHomeBoard(dynamic raw) {
 /// The quick actions offered by the `quick_actions` widget (issue #243) —
 /// the user picks four of these ids in the widget's options.
 const List<(String, String, String)> kHomeQuickActions = [
-  ('add_expense', 'Add expense', 'plus'),
+  ('add_expense', 'Add cost', 'plus'),
+  ('scan_card', 'Scan card', 'camera'),
   ('add_event', 'New event', 'cal'),
+  ('add_shop', 'Add to list', 'cart'),
   ('add_task', 'New task', 'tasklist'),
-  ('add_shop', 'Shopping item', 'cart'),
   ('open_wallet', 'Wallet', 'card'),
   ('open_weekly', 'Weekly plan', 'moon'),
   ('open_stats', 'Statistics', 'chart'),
   ('open_flow', 'Money calendar', 'wallet'),
 ];
 
+/// The design's default four: Add cost · Scan card · New event · Add to list.
 const List<String> kDefaultQuickActions = [
   'add_expense',
+  'scan_card',
   'add_event',
-  'add_task',
   'add_shop',
 ];

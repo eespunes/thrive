@@ -151,7 +151,7 @@ void main() {
     expect(find.text('Add a widget'), findsWidgets);
 
     // Placed widgets are greyed out.
-    expect(find.text('Already on your board'), findsNWidgets(4));
+    expect(find.text('Already on your home'), findsNWidgets(4));
 
     // Category filter narrows the list.
     await tester.tap(find.byKey(const ValueKey('picker-filter-money')));
@@ -455,7 +455,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(thriveDebug.importedCalendars.first.visible, isFalse);
 
-    await tester.tap(find.text('This week'), warnIfMissed: false);
+    await tester.tap(find.text('THIS WEEK'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(thriveDebug.tab, 'calendar');
   });

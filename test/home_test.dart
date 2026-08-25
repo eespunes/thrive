@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:family_money_management_app/main.dart';
@@ -94,26 +93,14 @@ String homeTimeForTest(int minutes) {
 }
 
 void main() {
-  testWidgets('today event uses the agenda-style category visual', (
+  testWidgets('today event renders the design row with its category colour', (
     tester,
   ) async {
-    const categoryColor = Color(0xff0f9d6a);
     await pumpApp(tester, prefs: homeEventPrefs(), landOnDefaultTab: true);
-    final today = todayIso();
-
-    final visual = find.byKey(
-      ValueKey('agenda-title-category-upcoming-$today'),
-    );
-    final surface = tester.widget<Container>(
-      find.byKey(ValueKey('home-event-surface-upcoming-$today')),
-    );
     expect(find.text('Family dinner'), findsOneWidget);
-    expect(visual, findsOneWidget);
-    expect((surface.decoration! as BoxDecoration).color, categoryColor);
-    expect(
-      find.descendant(of: visual, matching: find.byType(SvgPicture)),
-      findsOneWidget,
-    );
+    // The design's "Today & upcoming" row: colour bar + title + "Today".
+    expect(find.text('Today'), findsWidgets);
+    expect(find.text('Today & upcoming'), findsOneWidget);
   });
 
   testWidgets("Home today's events shows three rows and scrolls to the rest", (

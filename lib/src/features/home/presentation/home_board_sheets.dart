@@ -39,7 +39,12 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sheetHead(context, 'Add a widget', 'Compose your own Home'),
+        _sheetHead(
+          context,
+          'Add a widget',
+          'Only on your home · ${placed.length} of '
+              '${s.offeredHomeWidgets().length} used',
+        ),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -146,9 +151,7 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                                         ),
                                       ),
                                       Text(
-                                        grey
-                                            ? 'Already on your board'
-                                            : def.sub,
+                                        grey ? 'Already on your home' : def.sub,
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -217,7 +220,12 @@ class _HomeWidgetOptionsSheetState extends State<_HomeWidgetOptionsSheet> {
 
   void _save() {
     final id = widget.entry.widgetId;
-    if (id == 'family_note') _opts['text'] = _text.text.trim();
+    if (id == 'family_note') {
+      _opts['text'] = _text.text.trim();
+      // Author line, as in the design's "Eva · yesterday".
+      _opts['by'] = widget.state.firstName();
+      _opts['at'] = DateTime.now().millisecondsSinceEpoch;
+    }
     if (id == 'divider') _opts['label'] = _text.text.trim();
     widget.state.setHomeWidgetOptions(widget.index, _opts);
     Navigator.of(context).pop();

@@ -164,7 +164,9 @@ extension _ThriveAppShell on _ThriveHomeState {
   (String, String) _tabMeta(String t) {
     switch (t) {
       case 'home':
-        return ('Hi, ${firstName()}', prettyToday());
+        return homeEditMode
+            ? ("${firstName()}'s home", 'Only you see this layout')
+            : ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
         return (
           'Calendar',

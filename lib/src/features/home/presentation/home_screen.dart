@@ -10,7 +10,6 @@ const List<String> _kWeekdaysFull = [
   'Sunday',
 ];
 
-const double _kHomeTodayEventRowHeight = 66;
 const double _kHomeTaskRowHeight = 56;
 
 /// The Home dashboard (#158): today's events, tasks due soon, a shopping
@@ -30,116 +29,6 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   String prettyToday() {
     final now = DateTime.now();
     return '${_kWeekdaysFull[now.weekday - 1]}, ${now.day} ${kMonthsEn[now.month - 1]}';
-  }
-
-  Widget _homeCard({
-    required String title,
-    required String icon,
-    required VoidCallback onOpen,
-    required Widget body,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 9),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: cardShadow(),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: onOpen,
-            behavior: HitTestBehavior.opaque,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: B.soft,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Center(
-                      child: ic(icon, size: 16, sw: 2.1, color: B.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: B.ink,
-                      ),
-                    ),
-                  ),
-                  ic('cright', size: 17, sw: 2.2, color: B.muted),
-                ],
-              ),
-            ),
-          ),
-          body,
-        ],
-      ),
-    );
-  }
-
-  Widget _glanceCard({
-    required String title,
-    required String icon,
-    required VoidCallback onOpen,
-    required Widget body,
-  }) {
-    return GestureDetector(
-      onTap: onOpen,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: cardShadow(),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: B.soft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: ic(icon, size: 14, sw: 2.1, color: B.primary),
-                  ),
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: B.soft2,
-                  ),
-                ),
-              ],
-            ),
-            body,
-          ],
-        ),
-      ),
-    );
   }
 
   List<CalendarOccurrence> _homeTodayEvents() {
