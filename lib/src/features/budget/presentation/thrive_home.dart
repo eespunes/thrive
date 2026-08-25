@@ -188,6 +188,8 @@ class ThriveDebugController {
       _s.payItemWithCard(catKey, itemId, cardId);
   void importCardFromBytes(Uint8List bytes) => _s.importCardFromBytes(bytes);
   void openWalletScreen() => _s.openWalletScreen();
+  void openCardScan() => _s.openCardScan();
+  void pinWalletWidget() => _s.pinWalletWidget();
   void openCardFace(String id, {String? payCat, String? payItemId}) =>
       _s.openCardFace(id, payCat: payCat, payItemId: payItemId);
   void mutateState(VoidCallback fn) => _s.mutate(fn);
@@ -1201,6 +1203,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       for (final it in arr) {
         if (it.id == id) {
           it.paid = !it.paid;
+          // Paying an item that carries a discount card counts as a card
+          // use (design `togglePaid`).
+          if (it.paid && it.cardId != null) {
+            cardById(it.cardId)?.logUse(DateTime.now().millisecondsSinceEpoch);
+          }
           return;
         }
       }
@@ -1429,12 +1436,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         children: [
           ic('check', size: 14, sw: 2.8, color: const Color(0xff4ade80)),
           const SizedBox(width: 7),
-          Text(
-            msg,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          // Flexible so long toasts ("Groceries paid with Albert Heijn")
+          // ellipsize instead of overflowing the pill.
+          Flexible(
+            child: Text(
+              msg,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
