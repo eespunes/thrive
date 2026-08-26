@@ -231,6 +231,31 @@ List<int> _customRepeatWeekdays(CalendarEvent ev) {
   return days.isEmpty ? [_parseIso(ev.date).weekday] : days;
 }
 
+/// ISO date of the [nth] occurrence of [weekday] (ISO 1=Mon..7=Sun) in
+/// [year]/[month]; nth 5 means "last" (#262). nth 1–4 always exist; "last"
+/// resolves correctly in short months.
+String nthWeekdayDateIso(int year, int month, int nth, int weekday) {
+  if (nth >= 5) {
+    var d = DateTime.utc(year, month + 1, 0);
+    while (d.weekday != weekday) {
+      d = d.subtract(const Duration(days: 1));
+    }
+    return _isoOfDate(d);
+  }
+  var d = DateTime.utc(year, month, 1);
+  while (d.weekday != weekday) {
+    d = d.add(const Duration(days: 1));
+  }
+  return _isoOfDate(d.add(Duration(days: 7 * (nth - 1))));
+}
+
+String _nextNthWeekdayIso(CalendarEvent ev, String current) {
+  final cur = _parseIso(current);
+  final year = cur.month == 12 ? cur.year + 1 : cur.year;
+  final month = cur.month == 12 ? 1 : cur.month + 1;
+  return nthWeekdayDateIso(year, month, ev.monthlyNth, ev.monthlyWeekday);
+}
+
 String? _nextRecurringDate(CalendarEvent ev, String current) {
   // Month-based steps aim for the series' original day-of-month rather than
   // the previous occurrence's, so a short-month clamp doesn't stick (see
@@ -239,6 +264,7 @@ String? _nextRecurringDate(CalendarEvent ev, String current) {
   if (ev.recur == 'daily') return _addDaysIso(current, 1);
   if (ev.recur == 'weekly') return _addDaysIso(current, 7);
   if (ev.recur == 'monthly') {
+    if (ev.monthlyMode == 'nthWeekday') return _nextNthWeekdayIso(ev, current);
     return _addMonthsIso(current, 1, anchorDay: anchorDay);
   }
   if (ev.recur == 'yearly') {
@@ -280,6 +306,19 @@ List<String> recurringEventDates(
   final repeatEnd = ev.endDate.isNotEmpty ? ev.endDate : rangeEnd;
   final dates = <String>[];
   var d = ev.date;
+  // Nth-weekday monthly series (#262) anchor on the pattern, not the saved
+  // date: the first occurrence is the nth weekday of the event's month on
+  // or after the event date.
+  if (ev.recur == 'monthly' && ev.monthlyMode == 'nthWeekday') {
+    final start = _parseIso(ev.date);
+    d = nthWeekdayDateIso(
+      start.year,
+      start.month,
+      ev.monthlyNth,
+      ev.monthlyWeekday,
+    );
+    if (d.compareTo(ev.date) < 0) d = _nextNthWeekdayIso(ev, d);
+  }
   // Fixed day-interval recurrences (daily/weekly/custom "every N days") can
   // jump straight to the last occurrence on/before [rangeStart] instead of
   // stepping one occurrence at a time from the series start — an old series
@@ -755,11 +794,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- events
-  void openEvent(CalendarEvent? ev, [String? date]) {
-    _showSheet(
-      (ctx) => _EventEditSheet(state: this, event: ev, date: date ?? calSel),
-    );
-  }
+  void openEvent(CalendarEvent? ev, [String? date]) =>
+      openTicketEditor(ev, date);
 
   void openEventView(String id, String date) {
     _showSheet((ctx) => _EventViewSheet(state: this, eventId: id, date: date));
@@ -835,6 +871,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     int recurEvery = 1,
     String recurUnit = 'week',
     List<int> recurWeekdays = const [],
+    String monthlyMode = 'date',
+    int monthlyNth = 1,
+    int monthlyWeekday = 1,
     List<String>? exceptions,
     String? createdBy,
     String layerId = kLayerAppt,
@@ -865,6 +904,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         recurEvery: recurEvery,
         recurUnit: recurUnit,
         recurWeekdays: recurWeekdays,
+        monthlyMode: monthlyMode,
+        monthlyNth: monthlyNth,
+        monthlyWeekday: monthlyWeekday,
         createdBy: createdBy ?? myId,
         exceptions: exceptions ?? const [],
         layerId: layerId,
@@ -908,6 +950,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     int? recurEvery,
     String? recurUnit,
     List<int>? recurWeekdays,
+    String? monthlyMode,
+    int? monthlyNth,
+    int? monthlyWeekday,
     String? createdBy,
     List<String>? exceptions,
     String? layerId,
@@ -933,6 +978,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       recurEvery: recurEvery ?? ev.recurEvery,
       recurUnit: recurUnit ?? ev.recurUnit,
       recurWeekdays: recurWeekdays ?? ev.recurWeekdays,
+      monthlyMode: monthlyMode ?? ev.monthlyMode,
+      monthlyNth: monthlyNth ?? ev.monthlyNth,
+      monthlyWeekday: monthlyWeekday ?? ev.monthlyWeekday,
       createdBy: createdBy ?? ev.createdBy,
       exceptions: exceptions ?? ev.exceptions,
       layerId: layerId ?? ev.layerId,

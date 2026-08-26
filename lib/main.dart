@@ -64,6 +64,7 @@ part 'src/features/lists/presentation/list_sheets.dart';
 part 'src/features/calendar/presentation/calendar_actions.dart';
 part 'src/features/calendar/presentation/calendar_screens.dart';
 part 'src/features/calendar/presentation/calendar_sheets.dart';
+part 'src/features/calendar/presentation/ticket_editor.dart';
 part 'src/features/calendar/presentation/kitchen_dashboard_screen.dart';
 part 'src/features/weekly/presentation/weekly_plan_actions.dart';
 part 'src/features/weekly/presentation/weekly_plan_screen.dart';

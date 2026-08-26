@@ -26,54 +26,63 @@ Future<void> _pickEmoji(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openTray(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.tap(find.byKey(key), warnIfMissed: false);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _repeatYes(WidgetTester tester) async {
+  await _openTray(tester, const ValueKey('ticket-badge-repeat'));
+  await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('event editor small controls: kind, location, attendees, '
-      'reminder, repeat chips and custom weekdays', (tester) async {
+      'reminder and the repeat tray', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await _openEditor(tester);
 
-    // Kind toggle To-Do -> Event.
+    // Kind toggle To-Do -> Event (initial tray is Kind & layer).
     await tester.tap(find.byKey(const ValueKey('event-kind-todo')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('event-kind-event')));
     await tester.pumpAndSettle();
 
-    // Location field.
+    // Location field lives in the Place & notes tray.
+    await _openTray(tester, const ValueKey('ticket-place'));
     await tester.enterText(find.byType(TextField).at(1), 'Park');
     await tester.pump();
 
-    // Attendee chip toggles off and on.
+    // Attendee chip toggles off and on (People tray).
+    await _openTray(tester, const ValueKey('ticket-people'));
     await tester.tap(find.byKey(const ValueKey('event-att-me')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('event-att-me')));
     await tester.pump();
 
-    // Reminder chip.
-    await tester.ensureVisible(find.text('1 day before'));
+    // Reminder: two-question tray, then an offset chip.
+    await _openTray(tester, const ValueKey('ticket-badge-reminder'));
     await tester.tap(find.text('1 day before'));
     await tester.pump();
 
-    // Repeat: Weekly (repeat-ends appears), then Monthly, then None.
-    await tester.ensureVisible(find.text('Weekly'));
-    await tester.tap(find.text('Weekly'));
-    await tester.pumpAndSettle();
+    // Repeat: yes -> weekly with interval + weekday chips; repeat ends;
+    // monthly; then back to "No, just once".
+    await _repeatYes(tester);
     await tester.tap(find.byKey(const ValueKey('event-repeat-end-date')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Monthly'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('None'));
-    await tester.pumpAndSettle();
-
-    // Custom repeat weekday chips add + remove.
-    await tester.ensureVisible(find.text('Custom'));
-    await tester.tap(find.text('Custom'));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('event-custom-weekday-3')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('event-custom-weekday-3')));
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('ticket-cad-monthly')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ticket-again-no')));
+    await tester.pumpAndSettle();
+    expect(find.text('Happens once'), findsOneWidget);
   });
 
   testWidgets('deleting from the editor: plain events confirm, recurring '
@@ -108,9 +117,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Weekly thing');
     await tester.pump();
-    await tester.ensureVisible(find.text('Weekly'));
-    await tester.tap(find.text('Weekly'));
-    await tester.pumpAndSettle();
+    await _repeatYes(tester);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
@@ -143,6 +150,7 @@ void main() {
     await _openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Trip');
     await tester.pump();
+    await _openTray(tester, const ValueKey('ticket-when'));
     await tester.tap(find.text('Multi-day'));
     await tester.pumpAndSettle();
     if (today.day < 28) {

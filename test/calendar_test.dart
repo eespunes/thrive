@@ -185,6 +185,25 @@ String shortDateForTest(String iso) {
       '${d.year.toString().padLeft(4, '0')}';
 }
 
+/// Ticket-editor helpers: the editor is now the WYSIWYG ticket with trays
+/// (epic: replace `_EventEditSheet`), so repeat/reminder/when controls live
+/// behind their ticket elements.
+Future<void> openTicketTray(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.tap(find.byKey(key), warnIfMissed: false);
+  await tester.pumpAndSettle();
+}
+
+Future<void> setTicketRepeat(WidgetTester tester, {String? cadence}) async {
+  await openTicketTray(tester, const ValueKey('ticket-badge-repeat'));
+  await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
+  await tester.pumpAndSettle();
+  if (cadence != null && cadence != 'weekly') {
+    await tester.tap(find.byKey(ValueKey('ticket-cad-$cadence')));
+    await tester.pumpAndSettle();
+  }
+}
+
 void main() {
   test(
     'parseIcsEvents reads SUMMARY/DESCRIPTION/LOCATION and ignores nested VALARM',
@@ -713,7 +732,8 @@ void main() {
       await tester.tap(find.text('Add event for this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
-      expect(find.text(shortDateForTest(todayIso())), findsOneWidget);
+      // The ticket's when-line carries the day.
+      expect(find.textContaining(shortDateForTest(todayIso())), findsOneWidget);
     },
   );
 
@@ -1038,6 +1058,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
+    await openTicketTray(tester, const ValueKey('ticket-when'));
     expect(find.text('09:00'), findsOneWidget);
     expect(find.text('10:00'), findsOneWidget);
 
@@ -1053,6 +1074,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
+    await openTicketTray(tester, const ValueKey('ticket-when'));
     await tester.tap(find.byKey(const ValueKey('event-time-start')));
     await tester.pumpAndSettle();
 
@@ -1066,8 +1088,12 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
+    await openTicketTray(tester, const ValueKey('ticket-badge-reminder'));
 
-    expect(find.text('No reminder'), findsOneWidget);
+    // Two-question design (2a): yes/no first, offsets after a yes.
+    expect(find.text('Want a heads-up?'), findsOneWidget);
+    expect(find.text('No thanks'), findsOneWidget);
+    expect(find.text('Yes, remind us'), findsOneWidget);
     expect(find.text('On time'), findsOneWidget);
     expect(find.text('5 min before'), findsOneWidget);
     expect(find.text('15 min before'), findsOneWidget);
@@ -1088,8 +1114,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('REPEAT ENDS'), findsNothing);
 
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
 
       expect(find.text('REPEAT ENDS'), findsOneWidget);
       final repeatEnd = find.byKey(const ValueKey('event-repeat-end-date'));
@@ -1101,31 +1126,52 @@ void main() {
     },
   );
 
-  testWidgets('event editor shows custom repeat controls', (tester) async {
+  testWidgets('repeat tray covers intervals and nth-weekday months', (
+    tester,
+  ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Custom'));
-    await tester.tap(find.text('Custom'));
-    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Padel');
+    await tester.pump();
+    await setTicketRepeat(tester);
 
-    expect(find.text('EVERY'), findsOneWidget);
-    expect(find.text('ON DAYS'), findsOneWidget);
-    expect(find.text('Days'), findsOneWidget);
-    expect(find.text('Weeks'), findsOneWidget);
-    expect(find.text('Months'), findsOneWidget);
-    expect(find.text('Years'), findsOneWidget);
+    // Weekly: weekday circles + interval chips (2a).
     expect(
       find.byKey(const ValueKey('event-custom-weekday-1')),
       findsOneWidget,
     );
-
     await tester.tap(find.byKey(const ValueKey('event-custom-every-2')));
-    await tester.tap(find.text('Months'));
     await tester.pumpAndSettle();
-    expect(find.text('ON DAYS'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+    await tester.pumpAndSettle();
+    final ev = thriveDebug.events.singleWhere((e) => e.title == 'Padel');
+    expect(ev.recur, 'custom');
+    expect(ev.recurUnit, 'week');
+    expect(ev.recurEvery, 2);
+
+    // Monthly: same-date vs same-weekday, writing the nth fields (#262).
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Board games');
+    await tester.pump();
+    await setTicketRepeat(tester, cadence: 'monthly');
+    await tester.tap(find.byKey(const ValueKey('ticket-month-nth')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ticket-nth-2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ticket-nthday-5')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Repeats every second Friday'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+    await tester.pumpAndSettle();
+    final bg = thriveDebug.events.singleWhere((e) => e.title == 'Board games');
+    expect(bg.recur, 'monthly');
+    expect(bg.monthlyMode, 'nthWeekday');
+    expect(bg.monthlyNth, 2);
+    expect(bg.monthlyWeekday, 5);
   });
 
   testWidgets('the multi-day toggle reveals an end-date field', (tester) async {
@@ -1134,6 +1180,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
+    await openTicketTray(tester, const ValueKey('ticket-when'));
     expect(find.text('ENDS'), findsNothing);
 
     await tester.tap(find.text('Multi-day'));
@@ -1179,6 +1226,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
+    await openTicketTray(tester, const ValueKey('ticket-category'));
     await tester.tap(find.byKey(const ValueKey('event-new-category')));
     await tester.pumpAndSettle();
     expect(find.text('New category'), findsWidgets);
@@ -1487,6 +1535,7 @@ void main() {
       await openMonthEvent(tester, 'Picnic');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
+      await openTicketTray(tester, const ValueKey('ticket-colour'));
       expect(find.text('Colors'), findsOneWidget);
       await tester.tap(find.text('Colors'));
       await tester.pumpAndSettle();
@@ -1520,6 +1569,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Dinner');
     await tester.pump();
+    await openTicketTray(tester, const ValueKey('ticket-category'));
     await tester.tap(find.text('Family').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -1565,8 +1615,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -1608,8 +1657,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Practice');
     await tester.pump();
-    await tester.tap(find.text('Weekly'));
-    await tester.pumpAndSettle();
+    await setTicketRepeat(tester);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
@@ -1636,8 +1684,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -1681,8 +1728,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Practice');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -1712,8 +1758,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Yoga');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -1744,8 +1789,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Book club');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -1771,8 +1815,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Choir');
       await tester.pump();
-      await tester.tap(find.text('Weekly'));
-      await tester.pumpAndSettle();
+      await setTicketRepeat(tester);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
 
@@ -2101,6 +2144,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Dinner');
       await tester.pump();
+      await openTicketTray(tester, const ValueKey('ticket-category'));
       await tester.tap(find.text('Household').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -2203,8 +2247,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Monthly bill');
     await tester.pump();
-    await tester.tap(find.text('Monthly'));
-    await tester.pumpAndSettle();
+    await setTicketRepeat(tester, cadence: 'monthly');
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
@@ -2307,6 +2350,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup');
       await tester.pump();
+      await openTicketTray(tester, const ValueKey('ticket-category'));
       await tester.tap(find.text('Work').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -2374,10 +2418,13 @@ void main() {
       await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
+      await openTicketTray(tester, const ValueKey('ticket-category'));
       expect(find.text('Chores'), findsNothing);
 
+      await openTicketTray(tester, const ValueKey('ticket-tab-layer'));
       await tester.tap(find.byKey(const ValueKey('event-layer-task')));
       await tester.pumpAndSettle();
+      await openTicketTray(tester, const ValueKey('ticket-category'));
       expect(find.text('Chores'), findsOneWidget);
     },
   );
