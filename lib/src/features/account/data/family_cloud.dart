@@ -348,6 +348,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         screen = rawScreen;
       }
       layerFilter = _savedLayerFilter(userData['layerFilter']);
+      homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
     }
     _migrateLegacyMeIdsAll(meUid);
   }
@@ -385,6 +386,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final data = snap.data();
         if (data == null || data['familyIds'] is! List) return;
         if (_applyingCloudSnapshot) return;
+        // Home board edits made on another device (issue #240). Compared as
+        // JSON so the every-persist rewrite of the user doc doesn't loop.
+        final remoteBoard = parseHomeBoard(data['homeBoard']);
+        if (remoteBoard != null &&
+            json.encode([for (final e in remoteBoard) e.toJson()]) !=
+                json.encode([
+                  for (final e in homeBoard ?? <BoardEntry>[]) e.toJson(),
+                ])) {
+          homeBoard = remoteBoard;
+          if (mounted) update(() {});
+        }
         final active = (data['activeFamilyId'] ?? familyId).toString();
         if (active != familyId && workspaces.containsKey(active)) {
           _applyingCloudSnapshot = true;
@@ -624,6 +636,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'monthIdx': monthIdx,
       'screen': screen,
       'layerFilter': layerFilter,
+      if (homeBoard != null)
+        'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

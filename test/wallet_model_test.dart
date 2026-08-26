@@ -75,20 +75,19 @@ void main() {
     expect(incoming[1].photo, isNull);
   });
 
-  test('cardLastUsedLabel buckets today/yesterday/days/date', () {
+  test('cardLastUsedLabel gives the design copy', () {
     final now = DateTime(2026, 8, 25, 14);
-    int at(DateTime d) => d.millisecondsSinceEpoch;
-    expect(cardLastUsedLabel(null, now), 'Never used');
-    expect(cardLastUsedLabel(at(DateTime(2026, 8, 25, 9)), now), 'Used today');
+    expect(cardLastUsedLabel(null, now), 'not used yet');
     expect(
-      cardLastUsedLabel(at(DateTime(2026, 8, 24, 23)), now),
-      'Used yesterday',
+      cardLastUsedLabel(DateTime(2026, 6, 26).millisecondsSinceEpoch, now),
+      'last used 26 Jun',
     );
-    expect(
-      cardLastUsedLabel(at(DateTime(2026, 8, 20)), now),
-      'Used 5 days ago',
-    );
-    expect(cardLastUsedLabel(at(DateTime(2026, 5, 2)), now), 'Used 2/5/2026');
+  });
+
+  test('cardSpacedNumber groups digits in fours', () {
+    expect(cardSpacedNumber('5901234123457'), '5901 2341 2345 7');
+    expect(cardSpacedNumber('12345678'), '1234 5678');
+    expect(cardSpacedNumber(''), '');
   });
 
   test('isValidEan13 checks length, digits and the check digit', () {

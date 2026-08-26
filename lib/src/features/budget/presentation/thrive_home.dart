@@ -72,6 +72,7 @@ class ThriveDebugController {
     String? emoji,
     bool photoTouched = false,
     bool emojiTouched = false,
+    bool? kid,
   }) => _s.editMember(
     id,
     name,
@@ -80,6 +81,7 @@ class ThriveDebugController {
     emoji: emoji,
     photoTouched: photoTouched,
     emojiTouched: emojiTouched,
+    kid: kid,
   );
   void addMember(String name, {String? photo, String? emoji}) =>
       _s.addMember(name, photo: photo, emoji: emoji);
@@ -186,11 +188,32 @@ class ThriveDebugController {
       _s.payItemWithCard(catKey, itemId, cardId);
   void importCardFromBytes(Uint8List bytes) => _s.importCardFromBytes(bytes);
   void openWalletScreen() => _s.openWalletScreen();
+  void openCardScan() => _s.openCardScan();
+  void pinWalletWidget() => _s.pinWalletWidget();
   void openCardFace(String id, {String? payCat, String? payItemId}) =>
       _s.openCardFace(id, payCat: payCat, payItemId: payItemId);
   void mutateState(VoidCallback fn) => _s.mutate(fn);
   List<(Category, ExpenseItem)> unpaidItemsThisMonth() =>
       _s.unpaidItemsThisMonth();
+  List<BoardEntry>? get homeBoard => _s.homeBoard;
+  set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
+  List<BoardEntry> effectiveHomeBoard() => _s.effectiveHomeBoard();
+  bool amIKidProfile() => _s.amIKidProfile();
+  List<HomeWidgetDef> offeredHomeWidgets() => _s.offeredHomeWidgets();
+  void addHomeWidget(String id) => _s.addHomeWidget(id);
+  void removeHomeWidget(int i) => _s.removeHomeWidget(i);
+  void cycleHomeWidgetSize(int i) => _s.cycleHomeWidgetSize(i);
+  void reorderHomeWidget(int from, int to) => _s.reorderHomeWidget(from, to);
+  void setHomeWidgetOptions(int i, Map<String, dynamic> o) =>
+      _s.setHomeWidgetOptions(i, o);
+  void setHomeEditMode(bool on) => _s.setHomeEditMode(on);
+  bool get homeEditMode => _s.homeEditMode;
+  void openHomeWidgetPicker() => _s.openHomeWidgetPicker();
+  void openHomeWidgetOptions(int i) => _s.openHomeWidgetOptions(i);
+  void runHomeQuickAction(String id) => _s.runHomeQuickAction(id);
+  Map<String, DayPlan> get weeklyPlan => _s.weeklyPlan;
+  Map<String, int> get starsMap => _s.starsMap;
+  List<ImportedCalendar> get importedCalendars => _s.importedCalendars;
   void addCalendarLayer({
     required String label,
     required String icon,
@@ -259,6 +282,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   set kitchenLayerFilter(List<String> v) => _activeWs.kitchenLayerFilter = v;
   List<DiscountCard> get cards => _activeWs.cards;
   set cards(List<DiscountCard> v) => _activeWs.cards = v;
+
+  /// This member's Home board (epic #223) — PER-USER view state, stored on
+  /// the user profile, not the family. `null` means "never edited" (renders
+  /// [defaultHomeBoard]); an explicit empty list is a deliberately emptied
+  /// board and stays empty (issue #235).
+  List<BoardEntry>? homeBoard;
+
+  /// Whether the Home tab is currently in board-edit mode (issue #236).
+  bool homeEditMode = false;
 
   String taskFilter = 'all'; // all | me
   String? openTaskList;
@@ -639,6 +671,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // accessors read through to it); nothing to re-point.
     _adoptActiveWorkspace();
     layerFilter = _savedLayerFilter(saved['layerFilter']);
+    homeBoard = parseHomeBoard(saved['homeBoard']);
     _syncRecurringSeries();
   }
 
@@ -758,6 +791,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'screen': screen,
       'tab': tab,
       'layerFilter': layerFilter,
+      if (homeBoard != null)
+        'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {
@@ -1168,6 +1203,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       for (final it in arr) {
         if (it.id == id) {
           it.paid = !it.paid;
+          // Paying an item that carries a discount card counts as a card
+          // use (design `togglePaid`).
+          if (it.paid && it.cardId != null) {
+            cardById(it.cardId)?.logUse(DateTime.now().millisecondsSinceEpoch);
+          }
           return;
         }
       }
@@ -1396,12 +1436,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         children: [
           ic('check', size: 14, sw: 2.8, color: const Color(0xff4ade80)),
           const SizedBox(width: 7),
-          Text(
-            msg,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          // Flexible so long toasts ("Groceries paid with Albert Heijn")
+          // ellipsize instead of overflowing the pill.
+          Flexible(
+            child: Text(
+              msg,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
         ],
