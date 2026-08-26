@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/today_root" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical"
+    android:background="@drawable/widget_bg" android:padding="14dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="TODAY" android:textSize="10sp" android:textStyle="bold"
+        android:letterSpacing="0.05" android:textColor="@color/widgetMuted"/>
+    <TextView android:id="@+id/today_empty" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:paddingTop="8dp"
+        android:text="Nothing scheduled — enjoy the calm."
+        android:textSize="11sp" android:textColor="@color/widgetMuted"/>
+    <LinearLayout android:id="@+id/today_row_1" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+        <View android:layout_width="3dp" android:layout_height="20dp"
+            android:background="@color/widgetAccent"/>
+        <TextView android:id="@+id/today_title_1" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="11.5sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end"
+            android:textColor="@color/widgetInk"/>
+        <TextView android:id="@+id/today_time_1" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textColor="@color/widgetMuted"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/today_row_2" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+        <View android:layout_width="3dp" android:layout_height="20dp"
+            android:background="@color/widgetAccent"/>
+        <TextView android:id="@+id/today_title_2" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="11.5sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end"
+            android:textColor="@color/widgetInk"/>
+        <TextView android:id="@+id/today_time_2" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textColor="@color/widgetMuted"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/today_row_3" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+        <View android:layout_width="3dp" android:layout_height="20dp"
+            android:background="@color/widgetAccent"/>
+        <TextView android:id="@+id/today_title_3" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="11.5sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end"
+            android:textColor="@color/widgetInk"/>
+        <TextView android:id="@+id/today_time_3" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textColor="@color/widgetMuted"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/today_row_4" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="4dp" android:paddingBottom="4dp">
+        <View android:layout_width="3dp" android:layout_height="20dp"
+            android:background="@color/widgetAccent"/>
+        <TextView android:id="@+id/today_title_4" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="8dp" android:textSize="11.5sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end"
+            android:textColor="@color/widgetInk"/>
+        <TextView android:id="@+id/today_time_4" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textColor="@color/widgetMuted"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/today_task_row" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="5dp">
+        <TextView android:id="@+id/today_task_tick" android:layout_width="19dp"
+            android:layout_height="19dp" android:background="@drawable/widget_tick_bg"/>
+        <TextView android:id="@+id/today_task_title" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:layout_marginStart="9dp" android:textSize="11.5sp"
+            android:textStyle="bold" android:maxLines="1" android:ellipsize="end"
+            android:textColor="@color/widgetInk"/>
+    </LinearLayout>
+</LinearLayout>

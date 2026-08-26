@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="horizontal" android:background="@drawable/widget_bg"
+    android:padding="8dp">
+    <LinearLayout android:id="@+id/quick_cost" android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="＋" android:textSize="16sp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Cost" android:textSize="9.5sp" android:textStyle="bold"
+            android:textColor="@color/widgetInk"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/quick_scan" android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="📷" android:textSize="16sp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Scan" android:textSize="9.5sp" android:textStyle="bold"
+            android:textColor="@color/widgetInk"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/quick_event" android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="📅" android:textSize="16sp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Event" android:textSize="9.5sp" android:textStyle="bold"
+            android:textColor="@color/widgetInk"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/quick_list" android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight="1"
+        android:orientation="vertical" android:gravity="center">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="🛒" android:textSize="16sp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="List" android:textSize="9.5sp" android:textStyle="bold"
+            android:textColor="@color/widgetInk"/>
+    </LinearLayout>
+</LinearLayout>

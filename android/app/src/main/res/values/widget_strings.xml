@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_due_today">DUE TODAY</string>
+    <string name="widget_kid_money">Money lives with the grown-ups 🙂</string>
+    <string name="widget_no_card">No card yet</string>
+    <string name="widget_scan_hint">Tap to scan a loyalty card</string>
+    <string name="widget_no_list">No shopping list yet</string>
+    <string name="widget_money_label">Thrive · Money</string>
+    <string name="widget_money_desc">Projected balance, still to pay and your next bills</string>
+    <string name="widget_today_label">Thrive · Today</string>
+    <string name="widget_today_desc">Today\'s events and your next to-do</string>
+    <string name="widget_card_label">Thrive · Loyalty card</string>
+    <string name="widget_card_desc">Your card, ready for the till — even on the lock screen</string>
+    <string name="widget_quick_label">Thrive · Quick actions</string>
+    <string name="widget_quick_desc">Cost · Scan · Event · List</string>
+    <string name="widget_shopping_label">Thrive · Shopping list</string>
+    <string name="widget_shopping_desc">What\'s still to buy; + opens the app on the list</string>
+</resources>

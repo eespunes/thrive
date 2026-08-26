@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/shop_root" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical"
+    android:background="@drawable/widget_bg" android:padding="14dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/shop_name" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:textSize="13sp" android:textStyle="bold"
+            android:textColor="@color/widgetInk"/>
+        <TextView android:id="@+id/shop_left" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="10.5sp"
+            android:textStyle="bold" android:textColor="@color/widgetAccent"/>
+        <TextView android:id="@+id/shop_add" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="10dp"
+            android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="2dp"
+            android:paddingBottom="2dp" android:text="＋" android:textSize="14sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_pay_bg"/>
+    </LinearLayout>
+    <TextView android:id="@+id/shop_items" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:paddingTop="8dp"
+        android:textSize="11.5sp" android:maxLines="3" android:ellipsize="end"
+        android:textColor="@color/widgetMuted"/>
+</LinearLayout>

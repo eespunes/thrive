@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Material You accent on Android 12+ (#255). -->
+    <color name="widgetAccent">@android:color/system_accent1_400</color>
+</resources>

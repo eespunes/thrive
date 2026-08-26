@@ -195,6 +195,10 @@ class ThriveDebugController {
   void mutateState(VoidCallback fn) => _s.mutate(fn);
   List<(Category, ExpenseItem)> unpaidItemsThisMonth() =>
       _s.unpaidItemsThisMonth();
+  Map<String, dynamic> phoneWidgetPayload() => _s.phoneWidgetPayload();
+  void handleWidgetLaunch(Uri uri) => _s.handleWidgetLaunch(uri);
+  bool get widgetHideAmounts => _s.widgetHideAmounts;
+  void toggleWidgetHideAmounts() => _s.toggleWidgetHideAmounts();
   List<BoardEntry>? get homeBoard => _s.homeBoard;
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
   List<BoardEntry> effectiveHomeBoard() => _s.effectiveHomeBoard();
@@ -291,6 +295,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Whether the Home tab is currently in board-edit mode (issue #236).
   bool homeEditMode = false;
+
+  /// Hide amounts on the Android home-screen widgets (issue #257).
+  bool _widgetHideAmounts = false;
 
   String taskFilter = 'all'; // all | me
   String? openTaskList;
@@ -392,6 +399,16 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     pendingNotificationDeepLink.addListener(_handleNotificationDeepLink);
     // A tap that launched the app cold arrives before this listener attaches.
     _handleNotificationDeepLink();
+    // Android home-screen widgets (epic #224): launch/click routing,
+    // placement analytics and the background action callback.
+    unawaited(bindPhoneWidgets());
+    // coverage:ignore-start
+    if (!foundation.kIsWeb && Platform.isAndroid) {
+      unawaited(
+        HomeWidget.registerInteractivityCallback(phoneWidgetBackgroundCallback),
+      );
+    }
+    // coverage:ignore-end
   }
 
   @override
@@ -672,6 +689,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _adoptActiveWorkspace();
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
+    _widgetHideAmounts = saved['widgetHideAmounts'] == true;
     _syncRecurringSeries();
   }
 
@@ -793,6 +811,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'layerFilter': layerFilter,
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
+      if (_widgetHideAmounts) 'widgetHideAmounts': true,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {
@@ -847,7 +866,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// [_persist] directly and await it.
   void _schedulePersist() {
     _persistTimer?.cancel();
-    _persistTimer = Timer(_persistDebounce, () => unawaited(_persist()));
+    _persistTimer = Timer(_persistDebounce, () {
+      unawaited(_persist());
+      // Push refresh for the Android home-screen widgets (issue #252).
+      unawaited(pushPhoneWidgets());
+    });
   }
 
   void flash(String msg) {

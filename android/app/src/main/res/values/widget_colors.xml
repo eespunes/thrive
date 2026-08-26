@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thrive widget palette; values-night + values-v31 override for
+         system dark mode and Material You (#255). -->
+    <color name="widgetBg">#FFFFFFFF</color>
+    <color name="widgetInk">#FF0F172A</color>
+    <color name="widgetMuted">#FF64748B</color>
+    <color name="widgetAccent">#FF0E9A8D</color>
+    <color name="widgetDivider">#FFF0F2F6</color>
+</resources>

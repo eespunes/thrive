@@ -55,6 +55,8 @@ dependencies:
   zxing2: ^0.2.4
   barcode_widget: ^2.0.4
   screen_brightness: ^2.1.11
+  home_widget: ^0.9.3
+  barcode: ^2.2.9
 
 dev_dependencies:
   flutter_test:
@@ -66,27 +68,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  barcode: ^2.2.9
-
-# App launcher icons are generated with flutter_launcher_icons and committed to
-# the repo. The tool is intentionally not kept as a dependency (it is build-time
-# only) to avoid pulling extra transitive packages. To regenerate icons, run:
-#   dart pub add --dev flutter_launcher_icons
-#   dart run flutter_launcher_icons
-# using the configuration below, then remove the dev dependency again.
-#
-# flutter_launcher_icons:
-#   image_path: "assets/logos/Thrive-icon-1024.png"
-#   android: true
-#   ios: true
-#   remove_alpha_ios: true
-#   adaptive_icon_background: "assets/logos/Thrive-adaptive-background.png"
-#   adaptive_icon_foreground: "assets/logos/Thrive-adaptive-foreground.png"
-
-# For information on the generic Dart part of this file, see the
-# following page: https://dart.dev/tools/pub/pubspec
-
-# The following section is specific to Flutter packages.
 flutter:
 
   # The following line ensures that the Material Icons font is
