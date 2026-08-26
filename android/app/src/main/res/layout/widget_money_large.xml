@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/money_root" android:layout_width="match_parent"
+    android:layout_height="match_parent" android:orientation="vertical"
+    android:background="@drawable/widget_bg_gradient" android:padding="15dp">
+    <TextView android:id="@+id/money_header" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:textSize="10sp"
+        android:textStyle="bold" android:letterSpacing="0.05"
+        android:textColor="#E6FFFFFF"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="bottom" android:layout_marginTop="4dp">
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView android:id="@+id/money_balance" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="24sp"
+                android:textStyle="bold" android:textColor="#FFFFFFFF"/>
+            <TextView android:id="@+id/money_sub" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="11sp"
+                android:textColor="#E6FFFFFF"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="end">
+            <TextView android:id="@+id/money_due_label" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="10sp"
+                android:textStyle="bold" android:textColor="#CCFFFFFF"/>
+            <TextView android:id="@+id/money_due" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:textSize="13sp"
+                android:textStyle="bold" android:textColor="#FFFFFFFF"/>
+        </LinearLayout>
+    </LinearLayout>
+    <ProgressBar android:id="@+id/money_progress" android:layout_width="match_parent"
+        android:layout_height="6dp" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_marginTop="11dp" android:progressTint="#FFFFFFFF"
+        android:progressBackgroundTint="#48FFFFFF"/>
+    <LinearLayout android:id="@+id/bill_row_1" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp">
+        <TextView android:id="@+id/bill_due_1" android:layout_width="42dp"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#CCFFFFFF"/>
+        <TextView android:id="@+id/bill_label_1" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:textSize="12sp" android:textStyle="bold" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_amount_1" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="12sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_pay_1" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="8dp"
+            android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="4dp"
+            android:paddingBottom="4dp" android:text="Pay" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_pay_bg"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/bill_row_2" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp">
+        <TextView android:id="@+id/bill_due_2" android:layout_width="42dp"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#CCFFFFFF"/>
+        <TextView android:id="@+id/bill_label_2" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:textSize="12sp" android:textStyle="bold" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_amount_2" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="12sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_pay_2" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="8dp"
+            android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="4dp"
+            android:paddingBottom="4dp" android:text="Pay" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_pay_bg"/>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/bill_row_3" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:orientation="horizontal"
+        android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp">
+        <TextView android:id="@+id/bill_due_3" android:layout_width="42dp"
+            android:layout_height="wrap_content" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#CCFFFFFF"/>
+        <TextView android:id="@+id/bill_label_3" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:textSize="12sp" android:textStyle="bold" android:maxLines="1"
+            android:ellipsize="end" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_amount_3" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="12sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"/>
+        <TextView android:id="@+id/bill_pay_3" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:layout_marginStart="8dp"
+            android:paddingStart="9dp" android:paddingEnd="9dp" android:paddingTop="4dp"
+            android:paddingBottom="4dp" android:text="Pay" android:textSize="10sp"
+            android:textStyle="bold" android:textColor="#FFFFFFFF"
+            android:background="@drawable/widget_pay_bg"/>
+    </LinearLayout>
+</LinearLayout>

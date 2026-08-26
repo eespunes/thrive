@@ -74,6 +74,15 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   ),
           ),
           _moreRow(
+            key: 'more-widget-privacy',
+            icon: 'eyeoff',
+            title: 'Hide amounts on phone widgets',
+            sub: 'Home-screen widgets show •••• instead',
+            onTap: toggleWidgetHideAmounts,
+            trail: _moreMeta(widgetHideAmounts ? 'On' : 'Off'),
+            noChev: true,
+          ),
+          _moreRow(
             key: 'more-finsettings',
             icon: 'gear',
             title: 'Finance settings',

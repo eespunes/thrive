@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Thrive gradient, kept for the money widget (#255). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient android:angle="315" android:startColor="#FF46B873"
+        android:centerColor="#FF0FA08E" android:endColor="#FF1684B4"/>
+    <corners android:radius="22dp"/>
+</shape>

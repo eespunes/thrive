@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:barcode/barcode.dart' as bc;
 import 'package:barcode_widget/barcode_widget.dart' as bw;
 import 'package:image/image.dart' as img;
+import 'package:home_widget/home_widget.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:zxing2/qrcode.dart'
     show
@@ -67,6 +70,7 @@ part 'src/features/weekly/presentation/weekly_plan_screen.dart';
 part 'src/features/weekly/presentation/weekly_plan_sheets.dart';
 part 'src/features/home/models/home_board_models.dart';
 part 'src/features/home/presentation/home_screen.dart';
+part 'src/features/home/data/phone_widgets.dart';
 part 'src/features/home/presentation/home_board.dart';
 part 'src/features/home/presentation/home_board_widgets.dart';
 part 'src/features/home/presentation/home_board_sheets.dart';

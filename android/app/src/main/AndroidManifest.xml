@@ -38,6 +38,54 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Home-screen widgets (epic #224). -->
+        <receiver android:name=".widgets.MoneyWidgetProvider"
+            android:label="@string/widget_money_label" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_money_info"/>
+        </receiver>
+        <receiver android:name=".widgets.TodayWidgetProvider"
+            android:label="@string/widget_today_label" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info"/>
+        </receiver>
+        <receiver android:name=".widgets.CardWidgetProvider"
+            android:label="@string/widget_card_label" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_card_info"/>
+        </receiver>
+        <receiver android:name=".widgets.QuickActionsWidgetProvider"
+            android:label="@string/widget_quick_label" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_info"/>
+        </receiver>
+        <receiver android:name=".widgets.ShoppingWidgetProvider"
+            android:label="@string/widget_shopping_label" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider"
+                android:resource="@xml/widget_shopping_info"/>
+        </receiver>
+        <!-- In-widget background actions (tick a task, pay a bill). -->
+        <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
+            </intent-filter>
+        </receiver>
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />
