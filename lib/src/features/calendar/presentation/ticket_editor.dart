@@ -1026,15 +1026,21 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           setState(() => _category = null);
         }),
         for (final c in categories)
-          _chip(ValueKey('event-cat-${c.id}'), c.name, _category == c.id, () {
-            setState(() {
-              // Coupling (#266): category sets colour + replaces attendees
-              // with the category's members (even if that's nobody).
-              _category = c.id;
-              _color = c.color;
-              _attendees = c.members.toList();
-            });
-          }, onColor: _category == c.id ? c.color : null),
+          _chip(
+            ValueKey('event-cat-${c.id}'),
+            c.name,
+            _category == c.id,
+            () {
+              setState(() {
+                // Coupling (#266): category sets colour + replaces attendees
+                // with the category's members (even if that's nobody).
+                _category = c.id;
+                _color = c.color;
+                _attendees = c.members.toList();
+              });
+            },
+            onColor: _category == c.id ? c.color : null,
+          ),
         GestureDetector(
           key: const ValueKey('event-new-category'),
           onTap: () {
