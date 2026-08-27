@@ -25,40 +25,6 @@ part of 'package:family_money_management_app/main.dart';
   return (name, qty.clamp(1, 99));
 }
 
-String _listIso(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-/// The coming Sunday — what the "This week" due chip means, and the default
-/// due for a task added straight on a note (#304).
-String endOfWeekIso() {
-  final now = DateTime.now();
-  return _listIso(now.add(Duration(days: 7 - now.weekday)));
-}
-
-/// Days from today to [iso]; negative = overdue.
-int dueDiffDays(String iso) {
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final d = DateTime.tryParse(iso) ?? today;
-  return DateTime(d.year, d.month, d.day).difference(today).inDays;
-}
-
-/// The note's small due caption: Today / Tomorrow / weekday, "Yesterday" or
-/// "Overdue" once passed, "Someday" when there's no date (#303).
-String dueLabel(String? iso) {
-  if (iso == null) return 'Someday';
-  final diff = dueDiffDays(iso);
-  if (diff == -1) return 'Yesterday';
-  if (diff < 0) return 'Overdue';
-  if (diff == 0) return 'Today';
-  if (diff == 1) return 'Tomorrow';
-  if (diff <= 6) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[(DateTime.tryParse(iso) ?? DateTime.now()).weekday - 1];
-  }
-  return 'Next week';
-}
-
 /// Mutations for the fridge-door Lists module (epic #302–#319). All list
 /// state lives on the active family's [Workspace] (`taskLists` /
 /// `shoppingLists`), so these ride the same `mutate()` → persist →
@@ -101,7 +67,7 @@ extension _ThriveListActions on _ThriveHomeState {
         final j = json.decode(raw) as Map<String, dynamic>;
         update(() {
           final s = (j['sort'] ?? 'list').toString();
-          listSort = const ['list', 'due', 'who'].contains(s) ? s : 'list';
+          listSort = const ['list', 'who'].contains(s) ? s : 'list';
           foldedNotes
             ..clear()
             ..addAll([for (final id in (j['folded'] as List? ?? [])) '$id']);
@@ -225,16 +191,37 @@ extension _ThriveListActions on _ThriveHomeState {
     }, () => flash(wasEditing ? 'Saved' : 'Task added'));
   }
 
-  /// A line written straight onto the note: unassigned ("Anyone"), due "This
-  /// week" (#304).
+  /// A line written straight onto the note: unassigned ("Anyone") (#304).
   void addTaskLine(String listId, String title) {
     final t = title.trim();
     if (t.isEmpty) return;
     mutate(() {
       final l = openListById(listId);
-      l?.tasks.add(
-        ListTask(id: uid(), title: t, due: endOfWeekIso(), createdBy: myId),
-      );
+      l?.tasks.add(ListTask(id: uid(), title: t, createdBy: myId));
+    });
+  }
+
+  /// Drag-reorder on the wall: re-pins [id] before [beforeId] (or last when
+  /// null) within its own kind. Id-based so it stays correct under the
+  /// "Just me" filter, which hides some notes.
+  void moveNote({required String kind, required String id, String? beforeId}) {
+    void reorderIn<T>(List<T> items, String Function(T) idOf) {
+      final i = items.indexWhere((e) => idOf(e) == id);
+      if (i < 0) return;
+      final item = items.removeAt(i);
+      var j = beforeId == null
+          ? items.length
+          : items.indexWhere((e) => idOf(e) == beforeId);
+      if (j < 0) j = items.length;
+      items.insert(j, item);
+    }
+
+    mutate(() {
+      if (kind == 'shop') {
+        reorderIn(shoppingLists, (l) => l.id);
+      } else {
+        reorderIn(taskLists, (l) => l.id);
+      }
     });
   }
 

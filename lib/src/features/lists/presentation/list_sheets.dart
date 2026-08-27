@@ -265,10 +265,10 @@ class _NoteSheetState extends State<_NoteSheet> {
   }
 }
 
-/// Line edit sheet (#315): tap a line's text to rename it, move its due,
-/// hand it to someone (incl. Anyone), or cross it off — no confirm, a
-/// 4-second Undo instead. Grocery lines get the same sheet minus due and
-/// assignee. Also serves as the "New task" sheet for the quick-add flows.
+/// Line edit sheet (#315): tap a line's text to rename it, hand it to
+/// someone (incl. Anyone), or cross it off — no confirm, a 4-second Undo
+/// instead. Grocery lines get the same sheet minus the assignee. Also
+/// serves as the "New task" sheet for the quick-add flows.
 class _LineEditSheet extends StatefulWidget {
   const _LineEditSheet({
     required this.state,
@@ -290,7 +290,6 @@ class _LineEditSheet extends StatefulWidget {
 class _LineEditSheetState extends State<_LineEditSheet> {
   late final TextEditingController _title;
   String? _assignee;
-  String? _due;
 
   bool get _editing => widget.task != null || widget.shopItem != null;
 
@@ -301,7 +300,6 @@ class _LineEditSheetState extends State<_LineEditSheet> {
       text: widget.task?.title ?? widget.shopItem?.name ?? '',
     );
     _assignee = widget.task?.assignee;
-    _due = widget.task?.due ?? (_editing ? null : endOfWeekIso());
   }
 
   @override
@@ -323,7 +321,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
         id: widget.task?.id,
         title: _title.text,
         assignee: _assignee,
-        due: _due,
+        due: widget.task?.due,
       );
     }
     Navigator.of(context).pop();
@@ -334,12 +332,6 @@ class _LineEditSheetState extends State<_LineEditSheet> {
     final s = widget.state;
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
     final valid = _title.text.trim().isNotEmpty;
-    final dueChips = <(String, String?)>[
-      ('Today', todayIso()),
-      ('Tomorrow', _listIso(DateTime.now().add(const Duration(days: 1)))),
-      ('This week', endOfWeekIso()),
-      ('Someday', null),
-    ];
 
     return SingleChildScrollView(
       child: Column(
@@ -363,22 +355,6 @@ class _LineEditSheetState extends State<_LineEditSheet> {
             ),
           ),
           if (!widget.isShop) ...[
-            _sheetField(
-              'Due',
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (label, iso) in dueChips)
-                    _listChip(
-                      label,
-                      _due == iso,
-                      () => setState(() => _due = iso),
-                      key: ValueKey('line-due-$label'),
-                    ),
-                ],
-              ),
-            ),
             _sheetField(
               'Who’s on it',
               Wrap(

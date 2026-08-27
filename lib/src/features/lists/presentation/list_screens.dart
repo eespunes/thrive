@@ -7,7 +7,6 @@ class _NoteInk {
   const _NoteInk({
     required this.ink,
     required this.faded,
-    required this.overdue,
     required this.title,
     required this.chrome,
     required this.border,
@@ -18,7 +17,6 @@ class _NoteInk {
   static const light = _NoteInk(
     ink: Color(0xff2c2920),
     faded: Color(0x45000000),
-    overdue: Color(0xffc2410c),
     title: Color(0xff333333),
     chrome: Color(0x66000000),
     border: Color(0x33000000),
@@ -28,7 +26,6 @@ class _NoteInk {
   static const dark = _NoteInk(
     ink: Colors.white,
     faded: Color(0x66ffffff),
-    overdue: Color(0xffffb38a),
     title: Colors.white,
     chrome: Color(0x99ffffff),
     border: Color(0x4dffffff),
@@ -38,7 +35,6 @@ class _NoteInk {
 
   final Color ink; // open line text
   final Color faded; // done lines, hints
-  final Color overdue; // overdue due label
   final Color title; // note title
   final Color chrome; // fold/edit icons, counts
   final Color border; // checkbox / qty / add-line borders
@@ -134,10 +130,11 @@ extension _ThriveListScreens on _ThriveHomeState {
       );
     }
 
-    // Deferred row builders so ListView.builder only materialises what's
+    // Deferred note builders so the builder-list only materialises what's
     // on screen — a wall can hold 10+ notes with 50-line notes (#309).
-    final rows = <Widget Function()>[() => _sortChips()];
-    var anyNote = false;
+    // Task notes always precede shopping notes; a long-press drag re-pins
+    // a note within its own kind.
+    final notes = <(String kind, String id, Widget Function() w)>[];
     for (final list in taskLists) {
       final tasks = filterMe
           ? list.tasks
@@ -147,51 +144,70 @@ extension _ThriveListScreens on _ThriveHomeState {
       // Under "Just me" a note with none of my (or up-for-grabs) lines
       // hides entirely (#307).
       if (filterMe && tasks.isEmpty) continue;
-      anyNote = true;
-      rows.add(
-        () => Padding(
-          padding: const EdgeInsets.only(bottom: 18),
-          child: _taskNote(list, tasks),
-        ),
-      );
+      notes.add(('task', list.id, () => _taskNote(list, tasks)));
     }
     if (!filterMe) {
       for (final list in shoppingLists) {
-        anyNote = true;
-        rows.add(
-          () => Padding(
-            padding: const EdgeInsets.only(bottom: 18),
-            child: _shopNote(list),
-          ),
-        );
+        notes.add(('shop', list.id, () => _shopNote(list)));
       }
     }
-    if (!anyNote) {
-      rows.add(
-        () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Text(
-            'Nothing with your name on it — or up for grabs.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
-            ),
-          ),
-        ),
+
+    // onReorderItem already accounts for the removed item, so `to` indexes
+    // into the list without the moved note.
+    void onReorderItem(int from, int to) {
+      final moved = notes[from];
+      // Same-kind display order without the moved note; the drop position
+      // becomes "before this id" so hidden notes can't shift indices.
+      final rest = [...notes]..removeAt(from);
+      to = to.clamp(0, rest.length);
+      final sameKind = [
+        for (final e in rest)
+          if (e.$1 == moved.$1) e.$2,
+      ];
+      var pos = 0;
+      for (var i = 0; i < to; i++) {
+        if (rest[i].$1 == moved.$1) pos++;
+      }
+      moveNote(
+        kind: moved.$1,
+        id: moved.$2,
+        beforeId: pos < sameKind.length ? sameKind[pos] : null,
       );
     }
-    rows.add(() => _pinNewButton());
 
-    return ListView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
-      itemCount: rows.length,
-      itemBuilder: (context, i) => rows[i](),
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sortChips(),
+          if (notes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'Nothing with your name on it — or up for grabs.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                ),
+              ),
+            ),
+        ],
+      ),
+      footer: _pinNewButton(),
+      itemCount: notes.length,
+      onReorderItem: onReorderItem,
+      itemBuilder: (context, i) => Padding(
+        key: ValueKey('wall-${notes[i].$2}'),
+        padding: const EdgeInsets.only(bottom: 18),
+        child: notes[i].$3(),
+      ),
     );
   }
 
-  /// List order / By due / By person — a per-member preference; shopping
+  /// List order / By person — a per-member preference; shopping
   /// notes ignore it (#317).
   Widget _sortChips() {
     Widget chip(String key, String label) {
@@ -223,8 +239,6 @@ extension _ThriveListScreens on _ThriveHomeState {
       child: Row(
         children: [
           chip('list', 'List order'),
-          const SizedBox(width: 7),
-          chip('due', 'By due'),
           const SizedBox(width: 7),
           chip('who', 'By person'),
         ],
@@ -261,15 +275,9 @@ extension _ThriveListScreens on _ThriveHomeState {
   List<ListTask> _sortedTasks(List<ListTask> tasks) {
     final open = tasks.where((t) => !t.done).toList();
     final done = tasks.where((t) => t.done).toList();
-    if (listSort == 'due') {
-      // ISO dates sort lexicographically; no due ("Someday") last. Stable:
-      // List.sort isn't guaranteed stable, so decorate with the index.
-      final idx = {for (var i = 0; i < open.length; i++) open[i]: i};
-      open.sort((a, b) {
-        final c = (a.due ?? '9999').compareTo(b.due ?? '9999');
-        return c != 0 ? c : idx[a]!.compareTo(idx[b]!);
-      });
-    } else if (listSort == 'who') {
+    if (listSort == 'who') {
+      // Stable: List.sort isn't guaranteed stable, so decorate with the
+      // index.
       final members = curFamily()?.members ?? const <FamilyMember>[];
       final ord = {for (var i = 0; i < members.length; i++) members[i].id: i};
       final idx = {for (var i = 0; i < open.length; i++) open[i]: i};
@@ -481,7 +489,6 @@ extension _ThriveListScreens on _ThriveHomeState {
 
   Widget _taskLine(TaskList list, ListTask t, _NoteInk ink) {
     final m = _memberById(t.assignee);
-    final overdue = !t.done && t.due != null && dueDiffDays(t.due!) < 0;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -503,18 +510,6 @@ extension _ThriveListScreens on _ThriveHomeState {
             ),
           ),
         ),
-        if (!t.done) ...[
-          const SizedBox(width: 6),
-          Text(
-            dueLabel(t.due).toUpperCase(),
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .5,
-              color: overdue ? ink.overdue : ink.faded,
-            ),
-          ),
-        ],
         const SizedBox(width: 4),
         // The avatar is the assignment button: initials when assigned, a
         // dashed ＋ when up for grabs (#316).

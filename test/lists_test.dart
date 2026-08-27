@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -67,7 +68,6 @@ void main() {
 
     final task = thriveDebug.taskLists.first.tasks.single;
     expect(task.assignee, isNull);
-    expect(task.due, isNotNull); // defaults to "This week"
     expect(find.text('1 left'), findsOneWidget);
 
     // Ticking an unassigned line claims it for the ticker (#303/#316).
@@ -181,51 +181,47 @@ void main() {
     expect(byKeyPrefix('shop-plus-'), findsNothing);
   });
 
-  testWidgets(
-    'line edit sheet: rename, due chip, assignee chip, cross off + Undo',
-    (tester) async {
-      await pumpApp(tester);
-      await goToLists(tester);
-      await pinNote(tester, 'Household');
-      await addLine(tester, 'First');
-      await addLine(tester, 'Second');
-      await addLine(tester, 'Third');
+  testWidgets('line edit sheet: rename, assignee chip, cross off + Undo', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'First');
+    await addLine(tester, 'Second');
+    await addLine(tester, 'Third');
 
-      // Tap the middle line's TEXT to edit it (#315).
-      await tester.tap(find.text('Second'));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit task'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).last, 'Second (renamed)');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('line-due-Today')));
-      await tester.pump();
-      await tester.tap(find.text('Eva Janssen'));
-      await tester.pump();
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
+    // Tap the middle line's TEXT to edit it (#315).
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit task'), findsOneWidget);
+    // The sheet has no Due section any more.
+    expect(find.text('Due'), findsNothing);
+    await tester.enterText(find.byType(TextField).last, 'Second (renamed)');
+    await tester.pump();
+    await tester.tap(find.text('Eva Janssen'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
 
-      final t = thriveDebug.taskLists.first.tasks[1];
-      expect(t.title, 'Second (renamed)');
-      expect(t.due, todayIso());
-      expect(t.assignee, isNotNull);
-      expect(find.text('TODAY'), findsOneWidget);
+    final t = thriveDebug.taskLists.first.tasks[1];
+    expect(t.title, 'Second (renamed)');
+    expect(t.assignee, isNotNull);
 
-      // Cross it off: no confirm; Undo restores it at position 1 (#315).
-      await tester.tap(find.text('Second (renamed)'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('line-crossoff')));
-      await tester.pumpAndSettle();
-      expect(find.text('Second (renamed)'), findsNothing);
-      expect(thriveDebug.taskLists.first.tasks.length, 2);
+    // Cross it off: no confirm; Undo restores it at position 1 (#315).
+    await tester.tap(find.text('Second (renamed)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('line-crossoff')));
+    await tester.pumpAndSettle();
+    expect(find.text('Second (renamed)'), findsNothing);
+    expect(thriveDebug.taskLists.first.tasks.length, 2);
 
-      await tester.tap(find.byKey(const ValueKey('toast-undo')));
-      await tester.pumpAndSettle();
-      final restored = thriveDebug.taskLists.first.tasks[1];
-      expect(restored.title, 'Second (renamed)');
-      expect(restored.due, todayIso());
-      expect(restored.assignee, isNotNull);
-    },
-  );
+    await tester.tap(find.byKey(const ValueKey('toast-undo')));
+    await tester.pumpAndSettle();
+    final restored = thriveDebug.taskLists.first.tasks[1];
+    expect(restored.title, 'Second (renamed)');
+    expect(restored.assignee, isNotNull);
+  });
 
   testWidgets('grocery edit sheet has no due/assignee and can cross off', (
     tester,
@@ -295,41 +291,55 @@ void main() {
     },
   );
 
-  testWidgets('sort chips reorder open lines; done lines always sink (#317)', (
+  testWidgets('done lines always sink below open ones (#317)', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'First thing');
+    await addLine(tester, 'Second thing');
+
+    Offset yOf(String t) => tester.getTopLeft(find.text(t));
+    // List order: authoring order.
+    expect(yOf('First thing').dy, lessThan(yOf('Second thing').dy));
+
+    // Ticking the first line makes it sink under the open one.
+    await tester.tap(byKeyPrefix('task-check-').first);
+    await tester.pumpAndSettle();
+    expect(yOf('Second thing').dy, lessThan(yOf('First thing').dy));
+  });
+
+  testWidgets('long-press drag rearranges the notes on the wall', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToLists(tester);
-    await pinNote(tester, 'Household');
-    await addLine(tester, 'Someday thing');
-    await addLine(tester, 'Today thing');
+    await pinNote(tester, 'Alpha');
+    await pinNote(tester, 'Beta');
+    expect(
+      tester.getTopLeft(find.text('Alpha')).dy,
+      lessThan(tester.getTopLeft(find.text('Beta')).dy),
+    );
 
-    // Give the lines distinct dues via the edit sheet.
-    await tester.tap(find.text('Someday thing'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('line-due-Someday')));
-    await tester.pump();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Today thing'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('line-due-Today')));
-    await tester.pump();
-    await tester.tap(find.text('Save'));
+    // Long-press the lower note, drag it above the upper one.
+    final target = tester.getTopLeft(find.text('Alpha')) - const Offset(0, 40);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Beta')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    final start = tester.getCenter(find.text('Beta'));
+    final step = (target - start) / 10;
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(step);
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await gesture.up();
     await tester.pumpAndSettle();
 
-    Offset yOf(String t) => tester.getTopLeft(find.text(t));
-    // List order: authoring order.
-    expect(yOf('Someday thing').dy, lessThan(yOf('Today thing').dy));
-
-    await tester.tap(find.byKey(const ValueKey('lists-sort-due')));
-    await tester.pumpAndSettle();
-    expect(yOf('Today thing').dy, lessThan(yOf('Someday thing').dy));
-
-    // Done lines sink regardless of due.
-    await tester.tap(byKeyPrefix('task-check-').first);
-    await tester.pumpAndSettle();
-    expect(yOf('Someday thing').dy, lessThan(yOf('Today thing').dy));
+    expect(
+      tester.getTopLeft(find.text('Beta')).dy,
+      lessThan(tester.getTopLeft(find.text('Alpha')).dy),
+    );
+    expect(thriveDebug.taskLists.first.name, 'Beta');
   });
 
   testWidgets('By person groups by assignee with unassigned last (#317)', (
