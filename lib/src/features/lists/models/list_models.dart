@@ -1,5 +1,12 @@
 part of 'package:family_money_management_app/main.dart';
 
+final RegExp _kIsoDateRe = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+String? _isoDateOrNull(Object? v) {
+  final s = v?.toString();
+  return s != null && _kIsoDateRe.hasMatch(s) ? s : null;
+}
+
 /// A to-do task inside a [TaskList]. Mirrors the design's task shape.
 class ListTask {
   ListTask({
@@ -7,6 +14,7 @@ class ListTask {
     required this.title,
     this.done = false,
     this.assignee,
+    this.due,
     this.createdBy,
     this.completedBy,
   });
@@ -17,8 +25,14 @@ class ListTask {
   /// Completion state for the task.
   bool done;
 
-  /// Family member id this task is assigned to, or `null` for unassigned.
+  /// Family member id this task is assigned to, or `null` for unassigned
+  /// ("Anyone — first to grab it").
   String? assignee;
+
+  /// Due date as `yyyy-mm-dd`, or `null` for "Someday" (fridge door #315).
+  /// Coarser than the old Calendar-era due/recur pair: just a date the note
+  /// renders as Today / Tomorrow / weekday, red when it has passed.
+  String? due;
 
   String? createdBy;
 
@@ -30,19 +44,20 @@ class ListTask {
     'title': title,
     'done': done,
     if (assignee != null) 'assignee': assignee,
+    if (due != null) 'due': due,
     if (createdBy != null) 'createdBy': createdBy,
     if (completedBy != null) 'completedBy': completedBy,
   };
 
-  /// Lists no longer support due dates or recurrence (Calendar Layers moved
-  /// scheduled to-dos to real `CalendarEvent`s). Old serialized data that
-  /// still has `due`/`recur`/etc. fields is simply ignored here rather than
-  /// crashing on load.
+  /// `due` is only honoured in the fridge-door `yyyy-mm-dd` shape. Data from
+  /// the Calendar-era format (`recur`, non-date `due` values) is simply
+  /// ignored here rather than crashing on load.
   factory ListTask.fromJson(Map<String, dynamic> j) => ListTask(
     id: (j['id'] ?? uid()).toString(),
     title: (j['title'] ?? '').toString(),
     done: j['done'] == true,
     assignee: j['assignee']?.toString(),
+    due: _isoDateOrNull(j['due']),
     createdBy: j['createdBy']?.toString(),
     completedBy: j['completedBy']?.toString(),
   );
@@ -136,6 +151,7 @@ class ShoppingList {
   ShoppingList({
     required this.id,
     required this.name,
+    this.color,
     this.emoji,
     this.picture,
     List<ShopItem>? items,
@@ -143,6 +159,10 @@ class ShoppingList {
 
   String id;
   String name;
+
+  /// Paper colour on the fridge door. Nullable (older lists never chose one);
+  /// the wall falls back to a stable per-id paper.
+  Color? color;
 
   /// Optional emoji shown instead of the default 'cart' icon.
   String? emoji;
@@ -155,6 +175,7 @@ class ShoppingList {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    if (color != null) 'color': color!.toARGB32(),
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
     'items': items.map((i) => i.toJson()).toList(),
@@ -163,6 +184,9 @@ class ShoppingList {
   factory ShoppingList.fromJson(Map<String, dynamic> j) => ShoppingList(
     id: (j['id'] ?? uid()).toString(),
     name: (j['name'] ?? 'New list').toString(),
+    color: (j['color'] as num?) != null
+        ? Color((j['color'] as num).toInt())
+        : null,
     emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
     picture: (j['picture'] as String?)?.isNotEmpty == true
         ? j['picture']

@@ -1,8 +1,31 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// The unified Lists module (#159/#155/#156): the "all lists" hub plus the
-/// to-do and shopping detail screens, ported from the design's
-/// `renderLists()` / `taskListDetail()` / `shopDetail()`.
+const Color _kInkOnPaper = Color(0xff2c2920);
+const Color _kFadedOnPaper = Color(0x45000000);
+const Color _kOverdueOnPaper = Color(0xffc2410c);
+
+const TextStyle _kNoteTitleStyle = TextStyle(
+  fontFamily: 'Caveat',
+  fontVariations: [FontVariation('wght', 700)],
+  fontSize: 23,
+  height: 1,
+  color: Color(0xff333333),
+);
+
+TextStyle _lineTextStyle(bool done) => TextStyle(
+  fontFamily: 'Caveat',
+  fontVariations: const [FontVariation('wght', 600)],
+  fontSize: 19,
+  height: 1.15,
+  color: done ? _kFadedOnPaper : _kInkOnPaper,
+  decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
+  decorationThickness: 2,
+);
+
+/// The Lists tab as a fridge door (epic #302–#319): one scrolling wall of
+/// taped-up sticky notes — every line lives on its note; there are no
+/// detail screens. One tap zone per verb: checkbox ticks, text edits,
+/// avatar assigns, ✎ edits the note.
 extension _ThriveListScreens on _ThriveHomeState {
   FamilyMember? _memberById(String? id) {
     if (id == null) return null;
@@ -35,470 +58,6 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  // ---------------------------------------------------------------- hub
-  Widget _buildListsHub() {
-    final tl = openList();
-    if (tl != null) return _taskListDetail(tl);
-    final sl = openShop();
-    if (sl != null) return _shopDetail(sl);
-
-    final filterMe = taskFilter == 'me';
-    if (taskLists.isEmpty && shoppingLists.isEmpty) {
-      return _emptyState(
-        icon: 'list',
-        title: 'No lists yet',
-        sub: 'Create a to-do or shopping list the whole family can see.',
-        actionLabel: 'New list',
-        onAction: openNewListSheet,
-      );
-    }
-
-    // Row builders are deferred so ListView.builder only materialises the
-    // rows that are actually on screen.
-    final rows = <Widget Function()>[];
-    for (final list in taskLists) {
-      final tasks = filterMe
-          ? list.tasks.where((t) => t.assignee == myId).toList()
-          : list.tasks;
-      if (filterMe && tasks.isEmpty) continue;
-      rows.add(
-        () => Padding(
-          padding: const EdgeInsets.only(bottom: 11),
-          child: _taskListCard(list, tasks),
-        ),
-      );
-    }
-    if (!filterMe) {
-      for (final list in shoppingLists) {
-        rows.add(
-          () => Padding(
-            padding: const EdgeInsets.only(bottom: 11),
-            child: _shopListCard(list),
-          ),
-        );
-      }
-    }
-    if (rows.isEmpty) {
-      rows.add(
-        () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Text(
-            'Nothing assigned to you yet.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
-            ),
-          ),
-        ),
-      );
-    }
-    rows.add(() => _addButton('New list', B.primary, openNewListSheet));
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      itemCount: rows.length,
-      itemBuilder: (context, i) => rows[i](),
-    );
-  }
-
-  Widget _taskListCard(TaskList list, List<ListTask> tasks) {
-    final open = tasks.where((t) => !t.done).length;
-    final done = tasks.length - open;
-    final preview = tasks.where((t) => !t.done).take(3).toList();
-    return _SwipeRow(
-      key: ValueKey('tasklist-${list.id}'),
-      open: swipedId == list.id,
-      onOpenChanged: (o) => update(() => swipedId = o ? list.id : null),
-      onDelete: () => askDelete(
-        list.name,
-        'This list and all its tasks will be removed.',
-        () => deleteTaskList(list.id),
-      ),
-      borderRadius: 16,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => openTaskListDetail(list.id),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: cardShadow(),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: list.color,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: glyphTile(
-                      size: 34,
-                      radius: 10,
-                      picture: list.picture,
-                      emoji: list.emoji,
-                      emojiSize: 18,
-                      fallback: Center(
-                        child: ic(
-                          'tasklist',
-                          size: 17,
-                          sw: 2.1,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                list.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: B.ink,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: B.soft,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: const Text(
-                                'TO-DO',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: .4,
-                                  color: B.deep,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$open open${done > 0 ? ' · $done done' : ''}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: B.soft2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ic('cright', size: 17, sw: 2.2, color: B.muted),
-                ],
-              ),
-              if (preview.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                for (final t in preview)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 5),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 15,
-                          height: 15,
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: const Color(0xffcdd5df),
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            t.title,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: B.text,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _shopListCard(ShoppingList list) {
-    final left = list.items.where((i) => !i.checked).length;
-    final preview = list.items
-        .where((i) => !i.checked)
-        .take(3)
-        .map((i) => i.name)
-        .join(', ');
-    return _SwipeRow(
-      key: ValueKey('shoplist-${list.id}'),
-      open: swipedId == list.id,
-      onOpenChanged: (o) => update(() => swipedId = o ? list.id : null),
-      onDelete: () => askDelete(
-        list.name,
-        'This list will be removed.',
-        () => deleteShopList(list.id),
-      ),
-      borderRadius: 16,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => openShopListDetail(list.id),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: cardShadow(),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: const Color(0xffd97706),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: glyphTile(
-                  size: 34,
-                  radius: 10,
-                  picture: list.picture,
-                  emoji: list.emoji,
-                  emojiSize: 18,
-                  fallback: Center(
-                    child: ic('cart', size: 17, sw: 2.1, color: Colors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            list.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w800,
-                              color: B.ink,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xfffef3e2),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: const Text(
-                            'SHOPPING',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: .4,
-                              color: Color(0xffb45309),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      left > 0
-                          ? '$left to buy${preview.isNotEmpty ? ' · $preview' : ''}'
-                          : 'All bought',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: B.soft2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ic('cright', size: 17, sw: 2.2, color: B.muted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------- todo detail
-  Widget _taskListDetail(TaskList l) {
-    final open = l.tasks.where((t) => !t.done).toList();
-    final done = l.tasks.where((t) => t.done).toList();
-
-    Widget row(ListTask t) {
-      final completer = t.done ? _memberById(t.completedBy) : null;
-      final inner = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: B.line),
-        ),
-        child: Row(
-          children: [
-            GestureDetector(
-              key: ValueKey('task-check-${t.id}'),
-              onTap: () => toggleTask(l.id, t.id),
-              child: Container(
-                width: 23,
-                height: 23,
-                decoration: BoxDecoration(
-                  color: t.done ? B.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: t.done ? B.primary : const Color(0xffcdd5df),
-                    width: 2,
-                  ),
-                ),
-                child: t.done
-                    ? Center(
-                        child: ic(
-                          'check',
-                          size: 14,
-                          sw: 3,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => openTaskSheet(t, l.id),
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      t.title,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: t.done ? B.muted : B.ink,
-                        decoration: t.done
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    if (t.done && completer != null)
-                      Text(
-                        'Done by ${completer.name}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: B.soft2,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _memberAvatar(t.assignee, size: 27),
-          ],
-        ),
-      );
-      return _SwipeRow(
-        key: ValueKey('task-${t.id}'),
-        open: swipedId == t.id,
-        onOpenChanged: (o) => update(() => swipedId = o ? t.id : null),
-        onDelete: () => askDelete(
-          t.title,
-          'This task will be removed from ${l.name}.',
-          () => deleteTask(l.id, t.id),
-        ),
-        borderRadius: 13,
-        child: inner,
-      );
-    }
-
-    // Row builders are deferred so ListView.builder only materialises the
-    // rows that are actually on screen.
-    final rows = <Widget Function()>[
-      if (open.isEmpty)
-        () => const Padding(
-          padding: EdgeInsets.fromLTRB(4, 10, 4, 4),
-          child: Text(
-            'No open tasks — all done here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
-            ),
-          ),
-        )
-      else
-        for (final t in open)
-          () =>
-              Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
-      if (done.isNotEmpty) ...[
-        () => _secLabel('Completed · ${done.length}'),
-        for (final t in done)
-          () =>
-              Padding(padding: const EdgeInsets.only(bottom: 8), child: row(t)),
-      ],
-      () => const SizedBox(height: 6),
-      () => _addButton('Add task', B.primary, () => openTaskSheet(null, l.id)),
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-      itemCount: rows.length,
-      itemBuilder: (context, i) => rows[i](),
-    );
-  }
-
   Widget _secLabel(String label) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 18, 2, 9),
@@ -514,111 +73,59 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  // ------------------------------------------------------- shopping detail
-  Widget _shopDetail(ShoppingList l) {
-    final todo = l.items.where((i) => !i.checked).toList();
-    final bought = l.items.where((i) => i.checked).toList();
+  // ---------------------------------------------------------------- wall
+  Widget _buildListsHub() {
+    ensureListPrefs();
+    final filterMe = taskFilter == 'me';
 
-    Widget row(ShopItem it) {
-      final inner = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: B.line),
-        ),
-        child: Row(
-          children: [
-            GestureDetector(
-              key: ValueKey('shop-check-${it.id}'),
-              onTap: () => toggleShop(l.id, it.id),
-              child: Container(
-                width: 23,
-                height: 23,
-                decoration: BoxDecoration(
-                  color: it.checked ? B.primary : Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: it.checked ? B.primary : const Color(0xffcdd5df),
-                    width: 2,
-                  ),
-                ),
-                child: it.checked
-                    ? Center(
-                        child: ic(
-                          'check',
-                          size: 14,
-                          sw: 3,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Text(
-                it.name,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: it.checked ? B.muted : B.ink,
-                  decoration: it.checked
-                      ? TextDecoration.lineThrough
-                      : TextDecoration.none,
-                ),
-              ),
-            ),
-            _memberAvatar(it.addedBy, size: 22),
-            if (!it.checked) ...[
-              const SizedBox(width: 8),
-              _qtyBtn('−', () => shopQty(l.id, it.id, -1), B.soft2),
-              SizedBox(
-                width: 20,
-                child: Text(
-                  '${it.qty}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: B.ink,
-                  ),
-                ),
-              ),
-              _qtyBtn('+', () => shopQty(l.id, it.id, 1), B.primary),
-            ],
-          ],
-        ),
-      );
-      return _SwipeRow(
-        key: ValueKey('shop-${it.id}'),
-        open: swipedId == it.id,
-        onOpenChanged: (o) => update(() => swipedId = o ? it.id : null),
-        onDelete: () => askDelete(
-          it.name,
-          'Remove this item from ${l.name}.',
-          () => deleteShopItem(l.id, it.id),
-        ),
-        borderRadius: 13,
-        child: inner,
+    if (taskLists.isEmpty && shoppingLists.isEmpty) {
+      return _emptyState(
+        icon: 'list',
+        title: 'Nothing on the door yet',
+        sub: 'Pin a to-do or shopping note the whole family can see.',
+        actionLabel: 'Pin a new note',
+        onAction: openNewListSheet,
       );
     }
 
-    // Row builders are deferred so ListView.builder only materialises the
-    // rows that are actually on screen.
-    final rows = <Widget Function()>[
-      () => _ShopQuickAdd(
-        key: ValueKey('shop-quickadd-${l.id}'),
-        state: this,
-        listId: l.id,
-      ),
-      () => const SizedBox(height: 14),
-      if (todo.isEmpty)
+    // Deferred row builders so ListView.builder only materialises what's
+    // on screen — a wall can hold 10+ notes with 50-line notes (#309).
+    final rows = <Widget Function()>[() => _sortChips()];
+    var anyNote = false;
+    for (final list in taskLists) {
+      final tasks = filterMe
+          ? list.tasks
+                .where((t) => t.assignee == myId || t.assignee == null)
+                .toList()
+          : list.tasks;
+      // Under "Just me" a note with none of my (or up-for-grabs) lines
+      // hides entirely (#307).
+      if (filterMe && tasks.isEmpty) continue;
+      anyNote = true;
+      rows.add(
+        () => Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: _taskNote(list, tasks),
+        ),
+      );
+    }
+    if (!filterMe) {
+      for (final list in shoppingLists) {
+        anyNote = true;
+        rows.add(
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: _shopNote(list),
+          ),
+        );
+      }
+    }
+    if (!anyNote) {
+      rows.add(
         () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 18),
+          padding: EdgeInsets.symmetric(vertical: 24),
           child: Text(
-            'Nothing to buy. Add an item above.',
+            'Nothing with your name on it — or up for grabs.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12.5,
@@ -626,75 +133,468 @@ extension _ThriveListScreens on _ThriveHomeState {
               color: B.muted,
             ),
           ),
-        )
-      else
-        for (final it in todo)
-          () => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: row(it),
-          ),
-      if (bought.isNotEmpty) ...[
-        () => Padding(
-          padding: const EdgeInsets.fromLTRB(2, 18, 2, 9),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'BOUGHT · ${bought.length}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.soft2,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => clearBoughtItems(l.id),
-                child: const Text(
-                  'Clear',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
-        for (final it in bought)
-          () => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: row(it),
-          ),
-      ],
-    ];
+      );
+    }
+    rows.add(() => _pinNewButton());
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
       itemCount: rows.length,
       itemBuilder: (context, i) => rows[i](),
     );
   }
 
-  Widget _qtyBtn(String label, VoidCallback onTap, Color color) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          border: Border.all(color: B.line),
-          borderRadius: BorderRadius.circular(8),
+  /// List order / By due / By person — a per-member preference; shopping
+  /// notes ignore it (#317).
+  Widget _sortChips() {
+    Widget chip(String key, String label) {
+      final on = listSort == key;
+      return GestureDetector(
+        key: ValueKey('lists-sort-$key'),
+        onTap: () => setListSort(key),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: on ? B.ink : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: on ? null : Border.all(color: const Color(0xffdde3ea)),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: on ? Colors.white : B.soft2,
+            ),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: [
+          chip('list', 'List order'),
+          const SizedBox(width: 7),
+          chip('due', 'By due'),
+          const SizedBox(width: 7),
+          chip('who', 'By person'),
+        ],
+      ),
+    );
+  }
+
+  Widget _pinNewButton() {
+    return GestureDetector(
+      key: const ValueKey('pin-new-note'),
+      onTap: openNewListSheet,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xffc9d0da), width: 2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Text(
+          '＋ pin a new note',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: color,
+            fontFamily: 'Caveat',
+            fontVariations: [FontVariation('wght', 700)],
+            fontSize: 20,
+            color: B.soft2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Done lines always sink; open lines follow the member's sort (#317).
+  List<ListTask> _sortedTasks(List<ListTask> tasks) {
+    final open = tasks.where((t) => !t.done).toList();
+    final done = tasks.where((t) => t.done).toList();
+    if (listSort == 'due') {
+      // ISO dates sort lexicographically; no due ("Someday") last. Stable:
+      // List.sort isn't guaranteed stable, so decorate with the index.
+      final idx = {for (var i = 0; i < open.length; i++) open[i]: i};
+      open.sort((a, b) {
+        final c = (a.due ?? '9999').compareTo(b.due ?? '9999');
+        return c != 0 ? c : idx[a]!.compareTo(idx[b]!);
+      });
+    } else if (listSort == 'who') {
+      final members = curFamily()?.members ?? const <FamilyMember>[];
+      final ord = {for (var i = 0; i < members.length; i++) members[i].id: i};
+      final idx = {for (var i = 0; i < open.length; i++) open[i]: i};
+      open.sort((a, b) {
+        final c = (a.assignee != null ? (ord[a.assignee] ?? 998) : 999)
+            .compareTo(b.assignee != null ? (ord[b.assignee] ?? 998) : 999);
+        return c != 0 ? c : idx[a]!.compareTo(idx[b]!);
+      });
+    }
+    return open + done;
+  }
+
+  Widget _taskNote(TaskList list, List<ListTask> tasks) {
+    final openCount = tasks.where((t) => !t.done).length;
+    return _noteShell(
+      listId: list.id,
+      color: list.color,
+      title: list.name,
+      count: openCount > 0 ? '$openCount left' : 'done!',
+      onEdit: () => openEditNoteSheet(taskList: list),
+      lines: [for (final t in _sortedTasks(tasks)) _taskLine(list, t)],
+      addLine: _NoteAddLine(
+        key: ValueKey('note-add-${list.id}'),
+        hint: 'add a line…',
+        onAdd: (v) => addTaskLine(list.id, v),
+      ),
+    );
+  }
+
+  Widget _shopNote(ShoppingList list) {
+    final openCount = list.items.where((i) => !i.checked).length;
+    final rows = list.items.where((i) => !i.checked).toList()
+      ..addAll(list.items.where((i) => i.checked));
+    return _noteShell(
+      listId: list.id,
+      color: list.color,
+      title: list.name,
+      count: openCount > 0 ? '$openCount to buy' : 'done!',
+      onEdit: () => openEditNoteSheet(shopList: list),
+      lines: [for (final it in rows) _shopLine(list, it)],
+      addLine: _NoteAddLine(
+        key: ValueKey('note-add-${list.id}'),
+        hint: 'add — try “5x milk”',
+        focusNode: list.id == openShopList ? shopQuickAddFocus : null,
+        onAdd: (v) => addShopItem(list.id, v),
+      ),
+    );
+  }
+
+  /// The sticky note: tape, stable per-list rotation and paper, header with
+  /// fold arrow + ✎, lines, and the in-place add-line (#302/#318).
+  Widget _noteShell({
+    required String listId,
+    required Color? color,
+    required String title,
+    required String count,
+    required VoidCallback onEdit,
+    required List<Widget> lines,
+    required Widget addLine,
+  }) {
+    final (paper, tape) = _kNotePapers[_paperIndexFor(listId, color)];
+    final folded = foldedNotes.contains(listId);
+
+    final note = Container(
+      key: ValueKey('note-$listId'),
+      margin: const EdgeInsets.only(top: 8),
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(14, folded ? 12 : 14, 14, 12),
+      decoration: BoxDecoration(
+        color: paper,
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff3f3a2e).withValues(alpha: .35),
+            blurRadius: 22,
+            spreadRadius: -12,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                key: ValueKey('note-fold-$listId'),
+                onTap: () => toggleNoteFolded(listId),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 10, 10, 10),
+                  child: ic(
+                    folded ? 'cright' : 'cdown',
+                    size: 16,
+                    sw: 2.4,
+                    color: const Color(0x66000000),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  style: _kNoteTitleStyle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                count,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .5,
+                  color: Color(0x66000000),
+                ),
+              ),
+              GestureDetector(
+                key: ValueKey('note-edit-$listId'),
+                onTap: onEdit,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 2, 10),
+                  child: ic(
+                    'edit',
+                    size: 15,
+                    sw: 2,
+                    color: const Color(0x66000000),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!folded) ...[
+            const SizedBox(height: 4),
+            ...lines,
+            const SizedBox(height: 6),
+            addLine,
+          ],
+        ],
+      ),
+    );
+
+    return Transform.rotate(
+      angle: _rotationFor(listId) * math.pi / 180,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          note,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Transform.rotate(
+                angle: -2 * math.pi / 180,
+                child: Container(
+                  width: 70,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: tape.withValues(alpha: .8),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _lineCheckbox({
+    required Key key,
+    required bool done,
+    required bool round,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      // 20px box inside a ≥44px tap zone (#303).
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 12, 12, 12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: done ? const Color(0xff3f3a2e) : Colors.transparent,
+            borderRadius: BorderRadius.circular(round ? 99 : 6),
+            border: Border.all(color: const Color(0x33000000), width: 2),
+          ),
+          child: done
+              ? Center(child: ic('check', size: 11, sw: 3, color: Colors.white))
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _taskLine(TaskList list, ListTask t) {
+    final m = _memberById(t.assignee);
+    final overdue = !t.done && t.due != null && dueDiffDays(t.due!) < 0;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _lineCheckbox(
+          key: ValueKey('task-check-${t.id}'),
+          done: t.done,
+          round: false,
+          onTap: () => toggleTask(list.id, t.id),
+        ),
+        Expanded(
+          child: GestureDetector(
+            key: ValueKey('task-text-${t.id}'),
+            onTap: () => openTaskSheet(t, list.id),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(t.title, style: _lineTextStyle(t.done)),
+            ),
+          ),
+        ),
+        if (!t.done) ...[
+          const SizedBox(width: 6),
+          Text(
+            dueLabel(t.due).toUpperCase(),
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+              color: overdue ? _kOverdueOnPaper : _kFadedOnPaper,
+            ),
+          ),
+        ],
+        const SizedBox(width: 4),
+        // The avatar is the assignment button: initials when assigned, a
+        // dashed ＋ when up for grabs (#316).
+        GestureDetector(
+          key: ValueKey('task-assign-${t.id}'),
+          onTap: () => openAssignSheet(list.id, t.id),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 9, 0, 9),
+            child: m != null
+                ? avatarNode(
+                    photo: m.photo,
+                    emoji: m.emoji,
+                    initials: m.initials,
+                    color: m.color,
+                    size: 26,
+                    radius: 13,
+                    fs: 9,
+                    opacity: t.done ? .55 : 1,
+                  )
+                : Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(
+                        color: const Color(0x40000000),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '＋',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0x60000000),
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _shopLine(ShoppingList list, ShopItem it) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _lineCheckbox(
+          key: ValueKey('shop-check-${it.id}'),
+          done: it.checked,
+          round: true,
+          onTap: () => toggleShop(list.id, it.id),
+        ),
+        Expanded(
+          child: GestureDetector(
+            key: ValueKey('shop-text-${it.id}'),
+            onTap: () => openShopItemSheet(it, list.id),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(it.name, style: _lineTextStyle(it.checked)),
+            ),
+          ),
+        ),
+        if (it.checked)
+          Text(
+            '×${it.qty}',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: _kFadedOnPaper,
+            ),
+          )
+        else ...[
+          _qtyBtn(
+            key: ValueKey('shop-minus-${it.id}'),
+            label: '−',
+            onTap: () => shopQty(list.id, it.id, -1),
+          ),
+          SizedBox(
+            width: 26,
+            child: Text(
+              '×${it.qty}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: _kInkOnPaper,
+              ),
+            ),
+          ),
+          _qtyBtn(
+            key: ValueKey('shop-plus-${it.id}'),
+            label: '＋',
+            onTap: () => shopQty(list.id, it.id, 1),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _qtyBtn({
+    required Key key,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      key: key,
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      // 22px glyph inside a ≥44px zone (#319).
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 11),
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0x33000000)),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: _kInkOnPaper,
+              height: 1,
+            ),
           ),
         ),
       ),
@@ -702,31 +602,42 @@ extension _ThriveListScreens on _ThriveHomeState {
   }
 }
 
-/// The shopping list's quick-add input. A dedicated `StatefulWidget` so its
-/// `TextEditingController` survives rebuilds of the surrounding list (e.g.
-/// when checking an item off flashes a toast) instead of being recreated —
-/// and dropping whatever the user was mid-typing — on every parent rebuild.
-class _ShopQuickAdd extends StatefulWidget {
-  const _ShopQuickAdd({super.key, required this.state, required this.listId});
-  final _ThriveHomeState state;
-  final String listId;
+/// The note's in-place handwriting input. A dedicated `StatefulWidget` so
+/// its `TextEditingController` survives rebuilds of the surrounding wall
+/// (toasts, ticks) instead of dropping what the user was mid-typing.
+class _NoteAddLine extends StatefulWidget {
+  const _NoteAddLine({
+    super.key,
+    required this.hint,
+    required this.onAdd,
+    this.focusNode,
+  });
+  final String hint;
+  final ValueChanged<String> onAdd;
+  final FocusNode? focusNode;
 
   @override
-  State<_ShopQuickAdd> createState() => _ShopQuickAddState();
+  State<_NoteAddLine> createState() => _NoteAddLineState();
 }
 
-class _ShopQuickAddState extends State<_ShopQuickAdd> {
+class _NoteAddLineState extends State<_NoteAddLine> {
   final _ctrl = TextEditingController();
+  final _ownFocus = FocusNode();
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _ownFocus.dispose();
     super.dispose();
   }
 
   void _submit() {
-    widget.state.addShopItem(widget.listId, _ctrl.text);
+    final v = _ctrl.text.trim();
+    if (v.isEmpty) return;
+    widget.onAdd(v);
     _ctrl.clear();
+    // Keep focus for rapid entry (#304).
+    (widget.focusNode ?? _ownFocus).requestFocus();
   }
 
   @override
@@ -734,37 +645,34 @@ class _ShopQuickAddState extends State<_ShopQuickAdd> {
     return Row(
       children: [
         Expanded(
-          child: TextField(
-            controller: _ctrl,
-            focusNode: widget.state.shopQuickAddFocus,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _submit(),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: B.ink,
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0x30000000), width: 1.5),
+              ),
             ),
-            decoration: InputDecoration(
-              hintText: 'Add item & press enter…',
-              hintStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: B.muted,
+            child: TextField(
+              controller: _ctrl,
+              focusNode: widget.focusNode ?? _ownFocus,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              style: TextStyle(
+                fontFamily: 'Caveat',
+                fontVariations: const [FontVariation('wght', 600)],
+                fontSize: 18,
+                color: _kInkOnPaper,
               ),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 13,
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.line),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.primary),
+              decoration: InputDecoration(
+                hintText: widget.hint,
+                hintStyle: const TextStyle(
+                  fontFamily: 'Caveat',
+                  fontVariations: [FontVariation('wght', 600)],
+                  fontSize: 17,
+                  color: Color(0x40000000),
+                ),
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
@@ -772,15 +680,19 @@ class _ShopQuickAddState extends State<_ShopQuickAdd> {
         const SizedBox(width: 8),
         GestureDetector(
           onTap: _submit,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: B.primary,
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Center(
-              child: ic('plus', size: 20, sw: 2.6, color: Colors.white),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(9),
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: const Color(0xff3f3a2e),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Center(
+                child: ic('plus', size: 14, sw: 2.6, color: Colors.white),
+              ),
             ),
           ),
         ),

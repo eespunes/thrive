@@ -16,19 +16,15 @@ void main() {
     // Create a to-do list with one task.
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('New list'));
+    await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.enterText(find.byType(TextField).last, 'Household');
     await tester.pump();
-    await tester.tap(find.text('Create list'));
+    await tester.tap(find.text('Pin it to the door'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add task'));
-    await tester.pumpAndSettle();
+    // Write the task straight onto the note.
     await tester.enterText(find.byType(TextField).first, 'Take out the bins');
-    await tester.pump();
-    await tester.tap(find.text('Add task').last);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     final taskId = thriveDebug.taskLists.first.tasks.first.id;

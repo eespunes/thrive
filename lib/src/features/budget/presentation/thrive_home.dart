@@ -316,6 +316,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String taskFilter = 'all'; // all | me
   String? openTaskList;
   String? openShopList;
+
+  /// Fridge-door wall view state (#317/#318). Per-member preferences: they
+  /// persist to SharedPreferences keyed by member, never to the family
+  /// workspace — my sort order and folded notes are mine alone.
+  String listSort = 'list'; // list | due | who
+  final Set<String> foldedNotes = <String>{};
+  String? _listPrefsLoadedFor;
   String calView = 'month'; // month | agenda
   String calAnchor = todayIso();
   String calSel = todayIso();
@@ -338,6 +345,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   final ValueNotifier<String?> _toastNotifier = ValueNotifier<String?>(null);
   String? get toast => _toastNotifier.value;
   Timer? _toastTimer;
+
+  /// When set, the toast pill carries an Undo button that runs this and
+  /// dismisses the toast (fridge door #315: cross-off has no confirm dialog,
+  /// only a 4-second Undo).
+  VoidCallback? toastUndo;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _wsSub;
@@ -1067,10 +1079,29 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   void flash(String msg) {
     if (!mounted) return;
+    toastUndo = null;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 2100), () {
-      if (mounted) _toastNotifier.value = null;
+      if (mounted) {
+        toastUndo = null;
+        _toastNotifier.value = null;
+      }
+    });
+  }
+
+  /// Like [flash], but the toast carries an Undo button and lingers 4 seconds
+  /// so a crossed-off line can be restored in place without a confirm dialog.
+  void flashUndo(String msg, VoidCallback onUndo) {
+    if (!mounted) return;
+    toastUndo = onUndo;
+    _toastNotifier.value = msg;
+    _toastTimer?.cancel();
+    _toastTimer = Timer(const Duration(milliseconds: 4000), () {
+      if (mounted) {
+        toastUndo = null;
+        _toastNotifier.value = null;
+      }
     });
   }
 
@@ -1664,6 +1695,31 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ),
             ),
           ),
+          if (toastUndo != null) ...[
+            const SizedBox(width: 12),
+            GestureDetector(
+              key: const ValueKey('toast-undo'),
+              onTap: () {
+                final undo = toastUndo;
+                toastUndo = null;
+                _toastTimer?.cancel();
+                _toastNotifier.value = null;
+                undo?.call();
+              },
+              // The pill is small; pad the label up to a comfortable target.
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Text(
+                  'Undo',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xff5eead4),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

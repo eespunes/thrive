@@ -25,7 +25,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
-    expect(find.text('No lists yet'), findsOneWidget);
+    expect(find.text('Nothing on the door yet'), findsOneWidget);
     expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-finance')));
