@@ -1083,8 +1083,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('event-time-start')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Hour'), findsOneWidget);
-    expect(find.text('Minute'), findsOneWidget);
+    // The custom overwrite-on-type dialog (hour + minute boxes).
+    expect(find.byKey(const ValueKey('time-input-hour')), findsOneWidget);
+    expect(find.byKey(const ValueKey('time-input-minute')), findsOneWidget);
   });
 
   testWidgets('event editor offers all reminder options', (tester) async {

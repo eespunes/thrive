@@ -2071,6 +2071,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             _sheetInput(
               _url,
               hint: 'https://…/calendar.ics',
+              capitalization: TextCapitalization.none,
               onChanged: (_) => setState(() {}),
             ),
           ),

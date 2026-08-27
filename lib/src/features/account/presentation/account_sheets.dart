@@ -1141,6 +1141,7 @@ class _FamilySheetState extends State<_FamilySheet> {
             _sheetInput(
               _iEmail,
               hint: 'lisa@email.com',
+              capitalization: TextCapitalization.none,
               focusNode: _iEmailFocus,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
@@ -1433,6 +1434,7 @@ class _MemberEditSheetState extends State<_MemberEditSheet> {
             _sheetInput(
               _email,
               hint: 'email (optional — leave blank for no login)',
+              capitalization: TextCapitalization.none,
               focusNode: _emailFocus,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _save(),
@@ -1718,6 +1720,7 @@ class _NewFamilySheetState extends State<_NewFamilySheet> {
                 _sheetInput(
                   _username,
                   hint: 'e.g. beach-house',
+                  capitalization: TextCapitalization.none,
                   focusNode: _usernameFocus,
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => _passwordFocus.requestFocus(),
@@ -1874,6 +1877,7 @@ class _JoinFamilySheetState extends State<_JoinFamilySheet> {
             _sheetInput(
               _username,
               hint: 'e.g. smith-home',
+              capitalization: TextCapitalization.none,
               textInputAction: TextInputAction.next,
               onSubmitted: (_) => _passwordFocus.requestFocus(),
               onChanged: (_) => setState(s.dismissError),

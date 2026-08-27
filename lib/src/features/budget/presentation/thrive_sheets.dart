@@ -632,6 +632,7 @@ Widget _sheetInput(
   TextInputAction? textInputAction,
   ValueChanged<String>? onSubmitted,
   int maxLines = 1,
+  TextCapitalization? capitalization,
 }) {
   return TextField(
     controller: ctrl,
@@ -641,6 +642,14 @@ Widget _sheetInput(
     textInputAction: textInputAction,
     obscureText: obscure,
     maxLines: maxLines,
+    // Free-text fields open the OS keyboard capitalized at the start of a
+    // sentence; identifiers (email, username, URL) opt out via
+    // [capitalization]; numbers and passwords never capitalize.
+    textCapitalization:
+        capitalization ??
+        (number || obscure
+            ? TextCapitalization.none
+            : TextCapitalization.sentences),
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,

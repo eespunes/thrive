@@ -109,6 +109,9 @@ class _AuthScreenState extends State<_AuthScreen> {
             controller: ctrl,
             focusNode: focusNode,
             obscureText: obscure,
+            textCapitalization: obscure || type == TextInputType.emailAddress
+                ? TextCapitalization.none
+                : TextCapitalization.sentences,
             keyboardType: type,
             textInputAction: action,
             onChanged: (_) {
