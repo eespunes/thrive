@@ -278,13 +278,15 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   Future<void> _pickTime(bool isStart) async {
     final cur = isStart ? _start : _end;
     final parts = cur.split(':');
-    final picked = await showTimePicker(
+    final picked = await showDialog<TimeOfDay>(
       context: context,
-      initialTime: TimeOfDay(
-        hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 9,
-        minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0,
+      builder: (ctx) => _TimeInputDialog(
+        title: isStart ? 'Start time' : 'End time',
+        initial: TimeOfDay(
+          hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 9,
+          minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0,
+        ),
       ),
-      initialEntryMode: TimePickerEntryMode.input,
     );
     if (picked == null) return;
     final formatted =
@@ -601,6 +603,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                     child: TextField(
                       controller: _title,
                       onChanged: (_) => setState(() {}),
+                      textCapitalization: TextCapitalization.sentences,
                       maxLines: 2,
                       minLines: 1,
                       style: TextStyle(
@@ -1926,6 +1929,201 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Hour/minute entry dialog replacing the Material time picker's input mode:
+/// tapping the hour or the minute selects its whole value, so typing digits
+/// simply overwrites — no deleting first. Two digits in the hour auto-advance
+/// to the minute; values clamp to 0–23 / 0–59.
+class _TimeInputDialog extends StatefulWidget {
+  const _TimeInputDialog({required this.title, required this.initial});
+  final String title;
+  final TimeOfDay initial;
+
+  @override
+  State<_TimeInputDialog> createState() => _TimeInputDialogState();
+}
+
+class _TimeInputDialogState extends State<_TimeInputDialog> {
+  late final TextEditingController _hour;
+  late final TextEditingController _minute;
+  final FocusNode _hourFocus = FocusNode();
+  final FocusNode _minuteFocus = FocusNode();
+
+  static String _two(int v) => v.toString().padLeft(2, '0');
+
+  @override
+  void initState() {
+    super.initState();
+    _hour = TextEditingController(text: _two(widget.initial.hour));
+    _minute = TextEditingController(text: _two(widget.initial.minute));
+    // Select-all whenever a field gains focus, so digits overwrite.
+    _hourFocus.addListener(() {
+      if (_hourFocus.hasFocus) _selectAll(_hour);
+    });
+    _minuteFocus.addListener(() {
+      if (_minuteFocus.hasFocus) _selectAll(_minute);
+    });
+  }
+
+  void _selectAll(TextEditingController c) {
+    c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+  }
+
+  @override
+  void dispose() {
+    _hour.dispose();
+    _minute.dispose();
+    _hourFocus.dispose();
+    _minuteFocus.dispose();
+    super.dispose();
+  }
+
+  int _clamped(TextEditingController c, int max) =>
+      (int.tryParse(c.text) ?? 0).clamp(0, max);
+
+  void _confirm() {
+    Navigator.of(
+      context,
+    ).pop(TimeOfDay(hour: _clamped(_hour, 23), minute: _clamped(_minute, 59)));
+  }
+
+  Widget _digits(
+    Key key,
+    TextEditingController c,
+    FocusNode focus,
+    int max, {
+    ValueChanged<String>? onChanged,
+    bool autofocus = false,
+  }) {
+    return SizedBox(
+      width: 76,
+      child: TextField(
+        key: key,
+        controller: c,
+        focusNode: focus,
+        autofocus: autofocus,
+        onTap: () => _selectAll(c),
+        onChanged: onChanged,
+        onSubmitted: (_) => _confirm(),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(2),
+        ],
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          color: B.ink,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: B.page,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: B.line),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: B.primary, width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _digits(
+                  const ValueKey('time-input-hour'),
+                  _hour,
+                  _hourFocus,
+                  23,
+                  autofocus: true,
+                  // Two digits typed → jump straight to the minute.
+                  onChanged: (v) {
+                    if (v.length == 2) _minuteFocus.requestFocus();
+                  },
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    ':',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: B.soft2,
+                    ),
+                  ),
+                ),
+                _digits(
+                  const ValueKey('time-input-minute'),
+                  _minute,
+                  _minuteFocus,
+                  59,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  key: const ValueKey('time-input-cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.soft2,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                TextButton(
+                  key: const ValueKey('time-input-ok'),
+                  onPressed: _confirm,
+                  child: const Text(
+                    'OK',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

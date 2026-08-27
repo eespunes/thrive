@@ -710,6 +710,7 @@ class _NoteAddLineState extends State<_NoteAddLine> {
             child: TextField(
               controller: _ctrl,
               focusNode: widget.focusNode ?? _ownFocus,
+              textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submit(),
               style: TextStyle(

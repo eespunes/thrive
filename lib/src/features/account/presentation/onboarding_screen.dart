@@ -443,6 +443,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           'Family username',
           _username,
           'e.g. janssen-home',
+          capitalization: TextCapitalization.none,
           focusNode: _usernameFocus,
           action: TextInputAction.next,
           onSubmitted: () => _passwordFocus.requestFocus(),
@@ -528,6 +529,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           'Family username',
           _joinUser,
           'e.g. smith-home',
+          capitalization: TextCapitalization.none,
           action: TextInputAction.next,
           onSubmitted: () => _joinPwFocus.requestFocus(),
         ),
@@ -556,6 +558,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     FocusNode? focusNode,
     TextInputAction action = TextInputAction.done,
     VoidCallback? onSubmitted,
+    TextCapitalization? capitalization,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 13),
@@ -578,6 +581,11 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
             controller: c,
             focusNode: focusNode,
             obscureText: obscure,
+            textCapitalization:
+                capitalization ??
+                (obscure
+                    ? TextCapitalization.none
+                    : TextCapitalization.sentences),
             textInputAction: action,
             onSubmitted: (_) => (onSubmitted ?? _submit)(),
             onChanged: (v) {
