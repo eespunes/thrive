@@ -268,21 +268,26 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('New list'));
+    await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Household');
+    await tester.enterText(find.byType(TextField).last, 'Household');
     await tester.pump();
-    await tester.tap(find.text('Create list'));
+    await tester.tap(find.text('Pin it to the door'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add task'));
-    await tester.pumpAndSettle();
+    // Write the task on the note, then hand it to Eva via the avatar.
     await tester.enterText(find.byType(TextField).first, 'Take out the bins');
-    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byWidgetPredicate(
+        (w) =>
+            w is GestureDetector &&
+            w.key is ValueKey<String> &&
+            (w.key as ValueKey<String>).value.startsWith('task-assign-'),
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Eva Janssen').last);
-    await tester.pump();
-    await tester.tap(find.text('Add task').last);
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('nav-home')));
@@ -293,8 +298,9 @@ void main() {
     // Tapping the task row navigates straight into its list's detail.
     await tester.tap(find.text('Take out the bins'));
     await tester.pumpAndSettle();
+    // Lands on the wall with the owning note visible.
     expect(find.text('Household'), findsOneWidget);
-    expect(find.text('Add task'), findsOneWidget);
+    expect(find.text('Take out the bins'), findsOneWidget);
   });
 
   testWidgets(
@@ -304,13 +310,13 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nav-lists')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('New list'));
+      await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Shopping'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Supermarket');
+      await tester.enterText(find.byType(TextField).last, 'Supermarket');
       await tester.pump();
-      await tester.tap(find.text('Create list'));
+      await tester.tap(find.text('Pin it to the door'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('nav-home')));

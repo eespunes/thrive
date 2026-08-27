@@ -18,15 +18,15 @@ Future<void> _createList(
 }) async {
   await tester.tap(find.byKey(const ValueKey('nav-lists')));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('New list'));
+  await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
   await tester.pumpAndSettle();
   if (shopping) {
     await tester.tap(find.text('Shopping'));
     await tester.pumpAndSettle();
   }
-  await tester.enterText(find.byType(TextField).first, name);
+  await tester.enterText(find.byType(TextField).last, name);
   await tester.pump();
-  await tester.tap(find.text('Create list'));
+  await tester.tap(find.text('Pin it to the door'));
   await tester.pumpAndSettle();
   expect(find.text(name), findsOneWidget);
 }
@@ -54,9 +54,9 @@ void main() {
     await _openChooser(tester);
     await tester.tap(find.byKey(const ValueKey('quickadd-task')));
     await tester.pumpAndSettle();
-    // Landed on the Lists tab with the new-list sheet open.
+    // Landed on the Lists tab with the pin-a-note sheet open.
     expect(thriveDebug.tab, 'lists');
-    expect(find.text('Create list'), findsOneWidget);
+    expect(find.text('Pin it to the door'), findsOneWidget);
   });
 
   testWidgets('quick-add Task with one list opens its task sheet directly', (
@@ -107,7 +107,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
       await tester.pumpAndSettle();
       expect(thriveDebug.tab, 'lists');
-      expect(find.text('Create list'), findsOneWidget);
+      expect(find.text('Pin it to the door'), findsOneWidget);
     },
   );
 
@@ -123,7 +123,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
       await tester.pumpAndSettle();
       expect(thriveDebug.tab, 'lists');
-      expect(find.text('Nothing to buy. Add an item above.'), findsOneWidget);
+      // The wall shows the note, ready for its in-place add-line.
+      expect(find.text('Supermarket'), findsOneWidget);
     },
   );
 
@@ -147,6 +148,6 @@ void main() {
     await tester.tap(find.byKey(ValueKey('pick-list-$id')));
     await tester.pumpAndSettle();
     expect(thriveDebug.tab, 'lists');
-    expect(find.text('Nothing to buy. Add an item above.'), findsOneWidget);
+    expect(find.text('Pharmacy'), findsOneWidget);
   });
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -5,42 +6,41 @@ import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
-/// Whether the chip/toggle `GestureDetector` at [key] renders "active"
-/// (its descendant `Container`'s border uses [B.primary]).
-bool chipActive(WidgetTester tester, Key key) {
-  final container = tester.widget<Container>(
-    find
-        .descendant(of: find.byKey(key), matching: find.byType(Container))
-        .first,
-  );
-  final deco = container.decoration! as BoxDecoration;
-  final border = deco.border;
-  if (border is Border) return border.top.color == B.primary;
-  return false;
-}
-
-/// The glyph picker's emoji field opens the in-app emoji picker from its `+`
-/// tile. The Recents tab starts empty, so we hop to Smileys (tab 1) and tap
-/// its first emoji (😀), mirroring `family_emoji_features_test.dart`.
-Future<String> _pickEmoji(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byType(Tab).at(1));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('😀').first);
-  await tester.pumpAndSettle();
-  return '😀';
-}
-
 Future<void> goToLists(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-lists')));
   await tester.pumpAndSettle();
 }
 
-/// Finds the single checkbox `GestureDetector` whose `ValueKey` starts with
-/// [prefix] (e.g. `task-check-` / `shop-check-`) — item ids are generated at
-/// runtime, so tests can't reference them directly.
-Finder findCheckbox(String prefix) {
+/// Pins a note through the sheet (empty-state button or the dashed
+/// "＋ pin a new note" at the wall's end).
+Future<void> pinNote(
+  WidgetTester tester,
+  String name, {
+  bool shopping = false,
+}) async {
+  await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
+  await tester.pumpAndSettle();
+  if (shopping) {
+    await tester.tap(find.text('Shopping'));
+    await tester.pumpAndSettle();
+  }
+  await tester.enterText(find.byType(TextField).last, name);
+  await tester.pump();
+  await tester.tap(find.text('Pin it to the door'));
+  await tester.pumpAndSettle();
+  expect(find.text(name), findsOneWidget);
+}
+
+/// Writes a line straight onto the only visible note's add-line input.
+Future<void> addLine(WidgetTester tester, String text) async {
+  await tester.enterText(find.byType(TextField).first, text);
+  await tester.testTextInput.receiveAction(TextInputAction.done);
+  await tester.pumpAndSettle();
+}
+
+/// Finds the single `GestureDetector` whose `ValueKey` starts with [prefix]
+/// (e.g. `task-check-`) — item ids are generated at runtime.
+Finder byKeyPrefix(String prefix) {
   return find.byWidgetPredicate(
     (w) =>
         w is GestureDetector &&
@@ -50,317 +50,363 @@ Finder findCheckbox(String prefix) {
 }
 
 void main() {
-  testWidgets('Lists hub shows the empty state with no lists', (tester) async {
+  testWidgets('the wall shows the empty state with no notes', (tester) async {
     await pumpApp(tester);
     await goToLists(tester);
-    expect(find.text('No lists yet'), findsOneWidget);
+    expect(find.text('Nothing on the door yet'), findsOneWidget);
   });
 
-  testWidgets('create a to-do list, add a task, toggle it done', (
+  testWidgets('pin a to-do note, write a line on it, tick it done', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Household');
 
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    expect(find.text('New list'), findsWidgets);
-    await tester.enterText(find.byType(TextField).first, 'Household');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Household'), findsOneWidget);
-    expect(find.text('TO-DO'), findsOneWidget);
-
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
-    expect(find.text('No open tasks — all done here.'), findsOneWidget);
-
-    await tester.tap(find.text('Add task'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Take out the bins');
-    await tester.pump();
-    await tester.tap(find.text('Add task').last);
-    await tester.pumpAndSettle();
-
+    await addLine(tester, 'Take out the bins');
     expect(find.text('Take out the bins'), findsOneWidget);
 
-    // Check it off -> moves under "Completed".
-    await tester.tap(findCheckbox('task-check-'));
+    final task = thriveDebug.taskLists.first.tasks.single;
+    expect(task.assignee, isNull);
+    expect(find.text('1 left'), findsOneWidget);
+
+    // Ticking an unassigned line claims it for the ticker (#303/#316).
+    await tester.tap(byKeyPrefix('task-check-'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('COMPLETED'), findsOneWidget);
+    expect(task.done, isTrue);
+    expect(task.assignee, isNotNull);
+    expect(find.text('done!'), findsOneWidget);
   });
 
-  testWidgets('create a list with a chosen emoji shows it on the card', (
+  testWidgets('edit a note via ✎ (rename + re-paper), then unpin it', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Chores');
+    await addLine(tester, 'Vacuum');
 
-    await tester.tap(find.text('New list'));
+    await tester.tap(byKeyPrefix('note-edit-'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Chores');
+    await tester.enterText(find.byType(TextField).last, 'Weekend chores');
     await tester.pump();
-    final emoji = await _pickEmoji(tester);
-    await tester.tap(find.text('Create list'));
+    // Re-paper via the app-wide colour panel: tap a palette swatch.
+    final swatch = find.byWidgetPredicate(
+      (w) => w.runtimeType.toString() == '_ColorSwatchTile',
+    );
+    await tester.ensureVisible(swatch.at(2));
+    await tester.tap(swatch.at(2));
+    await tester.pump();
+    await tester.tap(find.text('Save the note'));
     await tester.pumpAndSettle();
+    expect(find.text('Weekend chores'), findsOneWidget);
 
-    expect(find.text('Chores'), findsOneWidget);
-    expect(find.text(emoji), findsOneWidget);
+    // Unpin: visible in the sheet, confirm counts what goes with it.
+    await tester.tap(byKeyPrefix('note-edit-'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('note-unpin')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('takes its 1 line with it'), findsOneWidget);
+    await tester.tap(find.text('Unpin').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Weekend chores'), findsNothing);
+    expect(find.text('Nothing on the door yet'), findsOneWidget);
   });
 
   testWidgets(
-    'create a shopping list, quick-add an item, check it off, clear bought',
+    'grocery add-line parses quantities and bumps duplicates (#304)',
     (tester) async {
       await pumpApp(tester);
       await goToLists(tester);
+      await pinNote(tester, 'Supermarket', shopping: true);
 
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Shopping'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Supermarket');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
+      await addLine(tester, '5x milk');
+      final item = thriveDebug.shoppingLists.first.items.single;
+      expect(item.name, 'Milk');
+      expect(item.qty, 5);
 
-      expect(find.text('Supermarket'), findsOneWidget);
-      expect(find.text('SHOPPING'), findsOneWidget);
+      // Same name (case-insensitive) bumps the count, no duplicate line.
+      await addLine(tester, 'milk x2');
+      expect(thriveDebug.shoppingLists.first.items.length, 1);
+      expect(item.qty, 7);
 
-      await tester.tap(find.text('Supermarket'));
-      await tester.pumpAndSettle();
-      expect(find.text('Nothing to buy. Add an item above.'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).first, 'Milk');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tester.pumpAndSettle();
-      expect(find.text('Milk'), findsOneWidget);
-
-      // Check it off -> moves under "Bought".
-      await tester.tap(findCheckbox('shop-check-'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('BOUGHT'), findsOneWidget);
-
-      await tester.tap(find.text('Clear'));
-      await tester.pumpAndSettle();
-      expect(find.text('Milk'), findsNothing);
-      expect(find.text('Nothing to buy. Add an item above.'), findsOneWidget);
+      await addLine(tester, '3 eggs');
+      expect(thriveDebug.shoppingLists.first.items.first.name, 'Eggs');
+      expect(thriveDebug.shoppingLists.first.items.first.qty, 3);
     },
   );
 
-  testWidgets('delete a list via swipe + confirm', (tester) async {
+  testWidgets('grocery stepper: ±, cap behaviour, − at ×1 removes with Undo', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Supermarket', shopping: true);
+    await addLine(tester, 'Eggs');
 
-    await tester.tap(find.text('New list'));
+    expect(find.text('×1'), findsOneWidget);
+    await tester.tap(byKeyPrefix('shop-plus-'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Chores');
+    expect(find.text('×2'), findsOneWidget);
+
+    await tester.tap(byKeyPrefix('shop-minus-'));
+    await tester.pumpAndSettle();
+    expect(find.text('×1'), findsOneWidget);
+
+    // − at ×1 crosses the line off — no confirm, but a 4s Undo (#319).
+    await tester.tap(byKeyPrefix('shop-minus-'));
+    await tester.pumpAndSettle();
+    expect(find.text('Eggs'), findsNothing);
+    expect(find.textContaining('crossed off'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('toast-undo')));
+    await tester.pumpAndSettle();
+    expect(find.text('Eggs'), findsOneWidget);
+    expect(thriveDebug.shoppingLists.first.items.single.qty, 1);
+  });
+
+  testWidgets('checked grocery lines keep a static ×N and sink', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Supermarket', shopping: true);
+    await addLine(tester, '4x butter');
+
+    await tester.tap(byKeyPrefix('shop-check-'));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.shoppingLists.first.items.single.checked, isTrue);
+    // Quantity survives the check; stepper is gone, static ×4 remains.
+    expect(find.text('×4'), findsOneWidget);
+    expect(byKeyPrefix('shop-plus-'), findsNothing);
+  });
+
+  testWidgets('line edit sheet: rename, assignee chip, cross off + Undo', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'First');
+    await addLine(tester, 'Second');
+    await addLine(tester, 'Third');
+
+    // Tap the middle line's TEXT to edit it (#315).
+    await tester.tap(find.text('Second'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit task'), findsOneWidget);
+    // The sheet has no Due section any more.
+    expect(find.text('Due'), findsNothing);
+    await tester.enterText(find.byType(TextField).last, 'Second (renamed)');
     await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    expect(find.text('Chores'), findsOneWidget);
-
-    await tester.drag(find.text('Chores'), const Offset(-220, 0));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    await tester.tap(find.text('Eva Janssen'));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Chores'), findsNothing);
-    expect(find.text('No lists yet'), findsOneWidget);
+    final t = thriveDebug.taskLists.first.tasks[1];
+    expect(t.title, 'Second (renamed)');
+    expect(t.assignee, isNotNull);
+
+    // Cross it off: no confirm; Undo restores it at position 1 (#315).
+    await tester.tap(find.text('Second (renamed)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('line-crossoff')));
+    await tester.pumpAndSettle();
+    expect(find.text('Second (renamed)'), findsNothing);
+    expect(thriveDebug.taskLists.first.tasks.length, 2);
+
+    await tester.tap(find.byKey(const ValueKey('toast-undo')));
+    await tester.pumpAndSettle();
+    final restored = thriveDebug.taskLists.first.tasks[1];
+    expect(restored.title, 'Second (renamed)');
+    expect(restored.assignee, isNotNull);
+  });
+
+  testWidgets('grocery edit sheet has no due/assignee and can cross off', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Supermarket', shopping: true);
+    await addLine(tester, 'Bread');
+
+    await tester.tap(find.text('Bread'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit item'), findsOneWidget);
+    expect(find.text('Due'), findsNothing);
+    expect(find.text('Who’s on it'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('line-crossoff')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bread'), findsNothing);
+    expect(find.textContaining('crossed off'), findsOneWidget);
+  });
+
+  testWidgets('assign via the avatar: "Who\'s on it?" sheet and hand-back', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'Take out bins');
+
+    await tester.tap(byKeyPrefix('task-assign-'));
+    await tester.pumpAndSettle();
+    expect(find.text('Who’s on it?'), findsOneWidget);
+    expect(find.text('0 open'), findsWidgets); // fair-share loads
+    expect(find.text('Anyone — first to grab it'), findsOneWidget);
+
+    await tester.tap(find.text('Eva Janssen'));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.taskLists.first.tasks.single.assignee, isNotNull);
+
+    // Load now reflects the open assigned task; hand it back to Anyone.
+    await tester.tap(byKeyPrefix('task-assign-'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 open'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('assign-anyone')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.taskLists.first.tasks.single.assignee, isNull);
   });
 
   testWidgets(
-    'Assigned to me filter hides lists with no tasks assigned to me',
+    'Just me keeps unassigned lines visible and hides shopping notes (#307)',
     (tester) async {
       await pumpApp(tester);
       await goToLists(tester);
-
-      await tester.tap(find.text('New list'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Household');
-      await tester.pump();
-      await tester.tap(find.text('Create list'));
-      await tester.pumpAndSettle();
+      await pinNote(tester, 'Household');
+      await addLine(tester, 'Up for grabs');
+      await pinNote(tester, 'Supermarket', shopping: true);
 
       await tester.tap(find.byKey(const ValueKey('lists-filter-me')));
       await tester.pumpAndSettle();
-      expect(find.text('Nothing assigned to you yet.'), findsOneWidget);
+      // Unassigned tasks stay everyone's until claimed.
+      expect(find.text('Up for grabs'), findsOneWidget);
+      expect(find.text('Supermarket'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('lists-filter-all')));
       await tester.pumpAndSettle();
-      expect(find.text('Household'), findsOneWidget);
+      expect(find.text('Supermarket'), findsOneWidget);
     },
   );
 
-  testWidgets('assign a task to a member', (tester) async {
+  testWidgets('done lines always sink below open ones (#317)', (tester) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'First thing');
+    await addLine(tester, 'Second thing');
 
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Household');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Household'));
-    await tester.pumpAndSettle();
+    Offset yOf(String t) => tester.getTopLeft(find.text(t));
+    // List order: authoring order.
+    expect(yOf('First thing').dy, lessThan(yOf('Second thing').dy));
 
-    await tester.tap(find.text('Add task'));
+    // Ticking the first line makes it sink under the open one.
+    await tester.tap(byKeyPrefix('task-check-').first);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Take out bins');
-    await tester.pump();
-
-    // Assign to the signed-in member (the only one seeded by default).
-    await tester.tap(find.text('Eva Janssen'));
-    await tester.pump();
-
-    await tester.tap(find.text('Add task').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Take out bins'), findsOneWidget);
+    expect(yOf('Second thing').dy, lessThan(yOf('First thing').dy));
   });
 
-  testWidgets('add a task, edit it, un-complete it, then delete it', (
+  testWidgets('long-press drag rearranges the notes on the wall', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Alpha');
+    await pinNote(tester, 'Beta');
+    expect(
+      tester.getTopLeft(find.text('Alpha')).dy,
+      lessThan(tester.getTopLeft(find.text('Beta')).dy),
+    );
 
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Household');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Household'));
+    // Long-press the lower note, drag it above the upper one.
+    final target = tester.getTopLeft(find.text('Alpha')) - const Offset(0, 40);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Beta')),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
+    final start = tester.getCenter(find.text('Beta'));
+    final step = (target - start) / 10;
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(step);
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    await gesture.up();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Add task'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Take out bins');
-    await tester.pump();
-    await tester.tap(find.text('Add task').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Take out bins'), findsOneWidget);
-
-    // Edit: reopen the sheet and change the title (saveTask's editing
-    // branch).
-    await tester.tap(find.text('Take out bins'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Take out trash');
-    await tester.pump();
-    await tester.tap(find.text('Save task'));
-    await tester.pumpAndSettle();
-    expect(find.text('Take out trash'), findsOneWidget);
-
-    // Toggle done, then toggle again.
-    await tester.tap(findCheckbox('task-check-'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('COMPLETED'), findsOneWidget);
-    await tester.tap(findCheckbox('task-check-'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('COMPLETED'), findsNothing);
-
-    // Delete the task itself.
-    await tester.drag(find.text('Take out trash'), const Offset(-220, 0));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Take out trash'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Beta')).dy,
+      lessThan(tester.getTopLeft(find.text('Alpha')).dy),
+    );
+    expect(thriveDebug.taskLists.first.name, 'Beta');
   });
 
-  testWidgets('deleting a list with tasks removes them', (tester) async {
+  testWidgets('By person groups by assignee with unassigned last (#317)', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'Nobody yet');
+    await addLine(tester, 'Eva task');
 
-    await tester.tap(find.text('New list'));
+    // Assign the second line to Eva via its avatar.
+    await tester.tap(byKeyPrefix('task-assign-').last);
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Chores');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Chores'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add task'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Vacuum');
-    await tester.pump();
-    await tester.tap(find.text('Add task').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('back-row')));
+    await tester.tap(find.text('Eva Janssen'));
     await tester.pumpAndSettle();
 
-    await tester.drag(find.text('Chores'), const Offset(-220, 0));
+    await tester.tap(find.byKey(const ValueKey('lists-sort-who')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Chores'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Eva task')).dy,
+      lessThan(tester.getTopLeft(find.text('Nobody yet')).dy),
+    );
   });
 
-  testWidgets('adjust shopping item quantity and delete it', (tester) async {
+  testWidgets('a note folds to its header and remembers the open count', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'Hidden when folded');
 
-    await tester.tap(find.text('New list'));
+    await tester.tap(byKeyPrefix('note-fold-'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Shopping'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Supermarket');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Supermarket'));
-    await tester.pumpAndSettle();
+    expect(find.text('Hidden when folded'), findsNothing);
+    expect(find.text('Household'), findsOneWidget);
+    expect(find.text('1 left'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, 'Eggs');
+    await tester.tap(byKeyPrefix('note-fold-'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hidden when folded'), findsOneWidget);
+  });
+
+  testWidgets('the live subtitle counts notes and open things', (tester) async {
+    await pumpApp(tester);
+    await goToLists(tester);
+    await pinNote(tester, 'Household');
+    await addLine(tester, 'One');
+    await addLine(tester, 'Two');
+    await pinNote(tester, 'Supermarket', shopping: true);
+    final shopId = thriveDebug.shoppingLists.first.id;
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(ValueKey('note-add-$shopId')),
+        matching: find.byType(TextField),
+      ),
+      'Milk',
+    );
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    expect(find.text('1'), findsOneWidget);
 
-    await tester.tap(find.text('+'));
-    await tester.pumpAndSettle();
-    expect(find.text('2'), findsOneWidget);
+    expect(find.text('2 notes · 3 things to do'), findsOneWidget);
 
-    await tester.tap(find.text('−'));
+    await tester.tap(find.byKey(const ValueKey('lists-filter-me')));
     await tester.pumpAndSettle();
-    expect(find.text('1'), findsOneWidget);
-
-    await tester.drag(find.text('Eggs'), const Offset(-220, 0));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Eggs'), findsNothing);
-  });
-
-  testWidgets('delete a shopping list via swipe + confirm', (tester) async {
-    await pumpApp(tester);
-    await goToLists(tester);
-
-    await tester.tap(find.text('New list'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Shopping'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Pharmacy');
-    await tester.pump();
-    await tester.tap(find.text('Create list'));
-    await tester.pumpAndSettle();
-    expect(find.text('Pharmacy'), findsOneWidget);
-
-    await tester.drag(find.text('Pharmacy'), const Offset(-220, 0));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Pharmacy'), findsNothing);
-    expect(find.text('No lists yet'), findsOneWidget);
+    // Recounts under the filter: shopping excluded, unassigned kept.
+    expect(find.text('1 note · 2 things to do'), findsOneWidget);
   });
 }

@@ -11,6 +11,7 @@ void main() {
         title: 'Take out bins',
         done: true,
         assignee: 'm1',
+        due: '2026-08-30',
         createdBy: 'me',
         completedBy: 'm1',
       );
@@ -21,8 +22,16 @@ void main() {
       expect(restored.title, 'Take out bins');
       expect(restored.done, isTrue);
       expect(restored.assignee, 'm1');
+      expect(restored.due, '2026-08-30');
       expect(restored.createdBy, 'me');
       expect(restored.completedBy, 'm1');
+    });
+
+    test('due only survives in the yyyy-mm-dd shape', () {
+      expect(ListTask.fromJson(const {'due': '2026-08-30'}).due, '2026-08-30');
+      // Calendar-era shapes (epoch ints, labels) are dropped, not crashed on.
+      expect(ListTask.fromJson(const {'due': 1756500000000}).due, isNull);
+      expect(ListTask.fromJson(const {'due': 'tomorrow'}).due, isNull);
     });
 
     test('fromJson fills sensible defaults when fields are missing', () {

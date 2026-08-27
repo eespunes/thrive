@@ -146,16 +146,6 @@ extension _ThriveAppShell on _ThriveHomeState {
       openQuickAddSheet();
       return;
     }
-    final shop = openShop();
-    if (shop != null) {
-      shopQuickAddFocus.requestFocus();
-      return;
-    }
-    final list = openList();
-    if (list != null) {
-      openTaskSheet(null, list.id);
-      return;
-    }
     openNewListSheet();
   }
 
@@ -175,21 +165,34 @@ extension _ThriveAppShell on _ThriveHomeState {
               : _monthTitleIso(calAnchor),
         );
       case 'lists':
-        final tl = openList();
-        if (tl != null) {
-          final open = tl.tasks.where((x) => !x.done).length;
-          return (tl.name, '$open open · ${tl.tasks.length} total');
+        // Fridge door (#302): live "4 notes · 7 things to do", recounted
+        // under the Just-me filter — unassigned tasks stay everyone's
+        // (#307); shopping notes only count under Everyone.
+        final mine = taskFilter == 'me';
+        var notes = 0;
+        var open = 0;
+        for (final l in taskLists) {
+          final n = l.tasks
+              .where(
+                (t) =>
+                    !t.done &&
+                    (!mine || t.assignee == myId || t.assignee == null),
+              )
+              .length;
+          if (!mine || n > 0) notes++;
+          open += n;
         }
-        final sl = openShop();
-        if (sl != null) {
-          final left = sl.items.where((x) => !x.checked).length;
-          return (
-            sl.name,
-            '$left to buy · ${sl.items.length} item${sl.items.length == 1 ? '' : 's'}',
-          );
+        if (!mine) {
+          for (final l in shoppingLists) {
+            notes++;
+            open += l.items.where((i) => !i.checked).length;
+          }
         }
-        final n = taskLists.length + shoppingLists.length;
-        return ('Lists', '$n list${n == 1 ? '' : 's'}');
+        return (
+          'Lists',
+          '$notes note${notes == 1 ? '' : 's'} · '
+              '$open thing${open == 1 ? '' : 's'} to do',
+        );
       case 'weekly':
         return ('Weekly plan', 'Meals & notes for the week');
       case 'finsettings':
@@ -209,11 +212,8 @@ extension _ThriveAppShell on _ThriveHomeState {
       return _backRow('More', () => goTab('more'));
     }
     if (t == 'lists') {
-      if (openShop() != null || openList() != null) {
-        return _backRow('All lists', closeListDetail);
-      }
       return _segRow(
-        const [('all', 'All lists'), ('me', 'Assigned to me')],
+        const [('all', 'Everyone'), ('me', 'Just me')],
         taskFilter,
         setTaskFilter,
       );

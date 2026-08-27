@@ -105,7 +105,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
       children: [
-        _homeBoardHeader(),
+        if (homeEditMode) _homeBoardHeader(),
         if (homeEditMode)
           _homeBoardEditList()
         else ...[
@@ -118,68 +118,49 @@ extension _ThriveHomeBoard on _ThriveHomeState {
     );
   }
 
-  /// Slim board header under the shell greeting. View mode: the pencil
-  /// (design 2b). Edit mode: "Drag to reorder · only you see this" plus the
-  /// teal "Done" pill (design 1a).
+  /// Slim board header under the shell greeting, shown only in edit mode:
+  /// "Drag to reorder · only you see this" plus the teal "Done" pill
+  /// (design 1a). View mode has no header — long-pressing any widget
+  /// enters edit mode (issue #236), so the pencil became redundant.
   Widget _homeBoardHeader() {
     return Row(
       children: [
-        Expanded(
+        const Expanded(
           child: Text(
-            // View mode shows no caption — today's date already lives in the
-            // shell greeting right above, so repeating it here read twice.
-            homeEditMode ? 'Drag to reorder · only you see this' : '',
-            style: const TextStyle(
+            'Drag to reorder · only you see this',
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Color(0xff94a0b0),
             ),
           ),
         ),
-        if (homeEditMode)
-          GestureDetector(
-            key: const ValueKey('home-edit-toggle'),
-            onTap: () => setHomeEditMode(false),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-              decoration: BoxDecoration(
-                color: B.primary,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ic('check', size: 14, sw: 2.4, color: Colors.white),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Done',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+        GestureDetector(
+          key: const ValueKey('home-edit-toggle'),
+          onTap: () => setHomeEditMode(false),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+            decoration: BoxDecoration(
+              color: B.primary,
+              borderRadius: BorderRadius.circular(11),
             ),
-          )
-        else
-          GestureDetector(
-            key: const ValueKey('home-edit-toggle'),
-            onTap: () => setHomeEditMode(true),
-            child: Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: B.line),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Center(
-                child: ic('edit', size: 16, sw: 2.2, color: B.soft2),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ic('check', size: 14, sw: 2.4, color: Colors.white),
+                const SizedBox(width: 6),
+                const Text(
+                  'Done',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }

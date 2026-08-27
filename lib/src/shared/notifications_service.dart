@@ -25,7 +25,15 @@ class NotificationService implements NotificationScheduler {
   static bool? _exactAlarmsGranted;
   static Future<bool>? _exactAlarmPermissionRequest;
 
-  static Future<void> init() async {
+  static Future<void>? _initFuture;
+
+  /// Idempotent: concurrent/repeat callers share one underlying init. Boot
+  /// paths that schedule reminders await this to order themselves after the
+  /// deferred startup init (see `main()`), which no longer gates the first
+  /// frame on the timezone-database parse.
+  static Future<void> init() => _initFuture ??= _init();
+
+  static Future<void> _init() async {
     if (_initialized) {
       await refreshTimeZone();
       return;

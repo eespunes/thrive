@@ -205,17 +205,52 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `familyIds` mirror, which is written best-effort and could lag a create or
   /// join and strand an existing member on the onboarding gate (issue #128).
   Future<bool> cloudBoot(String meUid) async {
-    Map<String, dynamic>? userData;
+    // Cache-first: with offline persistence on, a warm boot is served
+    // entirely from the local Firestore cache — zero network round-trips
+    // before the first frame. The snapshot listeners bound straight after
+    // (bindCloudSync) deliver the authoritative server state and reconcile
+    // any drift. A fresh install, a fresh sign-in or a cache wiped by the
+    // crash-loop breaker has nothing cached, and boot falls through to the
+    // network path below.
     try {
-      userData = (await _userDocRef(meUid).get()).data();
+      const cacheOnly = GetOptions(source: Source.cache);
+      final cachedUserData = await _userDocRef(meUid)
+          .get(cacheOnly)
+          .then<Map<String, dynamic>?>((d) => d.data())
+          .catchError((Object _) => null);
+      final snap = await _familiesCol()
+          .where('memberUids', arrayContains: meUid)
+          .get(cacheOnly);
+      final docs = <MapEntry<String, Map<String, dynamic>>>[
+        for (final d in snap.docs) MapEntry(d.id, d.data()),
+      ];
+      if (docs.isNotEmpty) {
+        await _fetchAllSections([
+          for (final d in docs) d.key,
+        ], source: Source.cache);
+        _applyFamilyDocs(meUid, docs, cachedUserData);
+        if (families.isNotEmpty) return true;
+      }
     } catch (e) {
-      debugPrint('[cloud] boot user-doc read failed: $e');
+      debugPrint('[cloud] cache-first boot unavailable: $e');
     }
+
+    // Network path. The user-doc read and the membership query are
+    // independent — run them concurrently to save a round-trip.
+    final userDataFuture = _userDocRef(meUid)
+        .get()
+        .then<Map<String, dynamic>?>((d) => d.data())
+        .catchError((Object e) {
+          debugPrint('[cloud] boot user-doc read failed: $e');
+          return null;
+        });
+    Map<String, dynamic>? userData;
     try {
       final snap = await _familiesCol()
           .where('memberUids', arrayContains: meUid)
           .get()
           .timeout(kCloudOpTimeout);
+      userData = await userDataFuture;
       final docs = <MapEntry<String, Map<String, dynamic>>>[
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
@@ -230,6 +265,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
     } catch (e) {
       debugPrint('[cloud] boot membership query failed: $e');
+      userData = await userDataFuture;
     }
     // Fallbacks: the user-doc id list (e.g. if the query is unavailable), then
     // legacy single-blob migration for first-run upgrades.
@@ -270,11 +306,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// [_wsSectionCache] (payloads keyed by section id, timestamps stripped).
   /// Families that predate the split simply have no section docs and fall
   /// back to their legacy single `workspace` map on apply.
-  Future<void> _fetchAllSections(List<String> fids) async {
+  Future<void> _fetchAllSections(
+    List<String> fids, {
+    Source source = Source.serverAndCache,
+  }) async {
     await Future.wait([
       for (final fid in fids)
         _workspaceCol(fid)
-            .get()
+            .get(GetOptions(source: source))
             .timeout(kCloudOpTimeout)
             .then((snap) {
               _adoptSectionSnapshot(fid, snap);
