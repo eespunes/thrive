@@ -116,7 +116,7 @@ void main() {
     // Colour tray shows the locked "from category" swatch (#266).
     await tester.tap(find.byKey(const ValueKey('ticket-colour')));
     await tester.pumpAndSettle();
-    expect(find.text('Colour comes from the category'), findsOneWidget);
+    expect(find.text("The ticket takes the category's colour"), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
