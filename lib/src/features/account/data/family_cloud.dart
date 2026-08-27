@@ -351,6 +351,24 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
     }
     _migrateLegacyMeIdsAll(meUid);
+    // Heal families still carrying the legacy single-doc `workspace` blob NOW
+    // instead of waiting for the user's first edit: with offline persistence
+    // on, that multi-MB blob is re-read from the SQLite cache on every later
+    // launch and can overflow Android's ~2MB CursorWindow — a fatal,
+    // un-catchable crash before the first frame. Persisting the split
+    // sections also deletes the blob from the meta doc (see
+    // _persistFamilySections), fixing the family for every member's device.
+    for (final entry in docs) {
+      if (entry.value['workspace'] is! Map) continue;
+      final fam = loadedFamilies.firstWhere((f) => f.id == entry.key);
+      unawaited(
+        _persistFamilySections(fam, loadedWorkspaces[entry.key]!).catchError(
+          (Object e) => debugPrint(
+            '[cloud] legacy blob migration failed for ${entry.key}: $e',
+          ),
+        ),
+      );
+    }
   }
 
   /// Reads the deprecated `user_workspaces/{uid}` blob and promotes each family

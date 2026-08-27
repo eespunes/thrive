@@ -50,6 +50,20 @@ Future<void> _initFirebase() async {
       // has no provider configured).
       debugPrint('App Check activation failed: $e');
     }
+    // Crash-loop breaker: if the previous launch never finished booting, the
+    // local Firestore cache itself may be what killed it (see
+    // kBootIncompleteKey) — clear it before the first query touches it.
+    // Server data is unaffected; boot simply re-reads over the network.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(kBootIncompleteKey) ?? false) {
+        await FirebaseFirestore.instance.clearPersistence();
+        debugPrint('[boot] previous boot incomplete — cleared Firestore cache');
+      }
+      await prefs.setBool(kBootIncompleteKey, true);
+    } catch (e) {
+      debugPrint('[boot] crash-loop breaker failed: $e');
+    }
     // Offline persistence is ON (the default). It used to be disabled because
     // the single multi-MB family `workspace` blob overflowed Android's ~2MB
     // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
