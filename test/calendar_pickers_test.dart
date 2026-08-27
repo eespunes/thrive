@@ -54,27 +54,46 @@ void main() {
     await _openEditor(tester);
     await _openTray(tester, const ValueKey('ticket-when'));
 
-    // Start time — confirming the picker keeps a valid HH:mm and (for a new
-    // event) recomputes the default end time.
+    // Start time — the custom dialog types-to-overwrite: entering digits
+    // replaces the selected value, no deleting needed, and two hour digits
+    // hop to the minute field.
     await tester.tap(find.byKey(const ValueKey('event-time-start')));
     await tester.pumpAndSettle();
-    expect(find.byType(TimePickerDialog), findsOneWidget);
-    await tester.tap(find.text('OK'));
+    expect(find.byKey(const ValueKey('time-input-hour')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('time-input-hour')), '14');
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('time-input-minute')),
+      '30',
+    );
+    await tester.tap(find.byKey(const ValueKey('time-input-ok')));
     await tester.pumpAndSettle();
-    expect(find.byType(TimePickerDialog), findsNothing);
+    expect(find.byKey(const ValueKey('time-input-hour')), findsNothing);
+    expect(find.text('14:30'), findsOneWidget);
+    // Start auto-set the end +1h (new event, end untouched).
+    expect(find.text('15:30'), findsOneWidget);
 
-    // End time — confirming marks the end as manually set.
+    // End time — out-of-range input clamps, confirming marks the end as
+    // manually set.
     await tester.tap(find.byKey(const ValueKey('event-time-end')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('OK'));
+    await tester.enterText(find.byKey(const ValueKey('time-input-hour')), '25');
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('time-input-minute')),
+      '75',
+    );
+    await tester.tap(find.byKey(const ValueKey('time-input-ok')));
     await tester.pumpAndSettle();
+    expect(find.text('23:59'), findsOneWidget);
 
     // Cancelling leaves the fields untouched.
     await tester.tap(find.byKey(const ValueKey('event-time-end')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.byKey(const ValueKey('time-input-cancel')));
     await tester.pumpAndSettle();
-    expect(find.byType(TimePickerDialog), findsNothing);
+    expect(find.byKey(const ValueKey('time-input-hour')), findsNothing);
+    expect(find.text('23:59'), findsOneWidget);
   });
 
   testWidgets(

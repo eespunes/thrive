@@ -737,6 +737,7 @@ class _ShopQuickAddState extends State<_ShopQuickAdd> {
           child: TextField(
             controller: _ctrl,
             focusNode: widget.state.shopQuickAddFocus,
+            textCapitalization: TextCapitalization.sentences,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _submit(),
             style: const TextStyle(
