@@ -1,3 +1,4 @@
+import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -68,36 +69,87 @@ void main() {
     expect(fabPositioned.bottom, 140);
   });
 
-  testWidgets('More hub renders every row in order', (tester) async {
+  testWidgets('More hub: hero, expanding cards and their rows', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
+    // Hero (profile entry) + the four collapsed cards.
+    expect(find.byKey(const ValueKey('more-profile')), findsOneWidget);
+    for (final card in ['planning', 'money', 'family', 'account']) {
+      expect(find.byKey(ValueKey('hub-card-$card')), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('more-weekly')), findsNothing);
+
+    // One card open at a time; each holds its rows.
+    await openHubCard(tester, 'planning', 'more-weekly');
     for (final key in [
-      'more-profile',
       'more-weekly',
       'more-calmanage',
       'more-calimports',
-      'more-finsettings',
-      'more-family',
-      'more-invite',
-      'more-signout',
+      'more-callayers',
+      'more-kitchen-settings',
     ]) {
       expect(find.byKey(ValueKey(key)), findsOneWidget);
     }
-
-    final firstTop = tester
-        .getTopLeft(find.byKey(const ValueKey('more-profile')))
-        .dy;
-    final lastTop = tester
-        .getTopLeft(find.byKey(const ValueKey('more-signout')))
-        .dy;
-    expect(firstTop, lessThan(lastTop));
+    await openHubCard(tester, 'money', 'more-finsettings');
+    expect(find.byKey(const ValueKey('more-weekly')), findsNothing);
+    for (final key in [
+      'more-wallet',
+      'more-widget-privacy',
+      'more-finsettings',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget);
+    }
+    await openHubCard(tester, 'family', 'more-family');
+    expect(find.byKey(const ValueKey('more-invite')), findsOneWidget);
+    await openHubCard(tester, 'account', 'more-signout');
+    expect(find.byKey(const ValueKey('more-signout')), findsOneWidget);
+    expect(find.byKey(const ValueKey('more-delete-account')), findsOneWidget);
 
     // Version label reads the pubspec version, without the build-number
     // "+N" suffix (mocked to 2.7.1+46 in tests).
-    expect(find.text('Thrive · v2.7.1'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Thrive 2.7.1 · English (UK)'),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Thrive 2.7.1 · English (UK)'), findsOneWidget);
   });
+
+  testWidgets(
+    'Account card: notifications & device-calendar sync are real, persisted '
+    'toggles',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await openHubCard(tester, 'account', 'more-signout');
+
+      expect(thriveDebug.notificationsEnabled, isTrue);
+      expect(thriveDebug.deviceCalendarSyncEnabled, isTrue);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('hub-notifications')),
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const ValueKey('hub-notifications')));
+      await tester.pumpAndSettle();
+      expect(thriveDebug.notificationsEnabled, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('hub-calsync')));
+      await tester.pumpAndSettle();
+      expect(thriveDebug.deviceCalendarSyncEnabled, isFalse);
+
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
+      await rebootApp(tester);
+      expect(thriveDebug.notificationsEnabled, isFalse);
+      expect(thriveDebug.deviceCalendarSyncEnabled, isFalse);
+    },
+  );
 
   testWidgets(
     'More → Finance settings opens as a sheet with settings content',
@@ -106,8 +158,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('more-finsettings')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'money', 'more-finsettings');
       expect(find.text('Finance settings'), findsWidgets);
       expect(find.text('Add account'), findsOneWidget);
 
@@ -124,8 +175,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-weekly')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-weekly');
     expect(find.text('Weekly plan'), findsWidgets);
     expect(find.byKey(const ValueKey('week-prev')), findsOneWidget);
   });
@@ -147,8 +197,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-family')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'family', 'more-family');
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
@@ -159,8 +208,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-calmanage')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-calmanage');
     expect(find.text('Categories'), findsWidgets);
     expect(find.text('No categories yet.'), findsOneWidget);
   });
@@ -172,8 +220,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('more-calimports')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-calimports');
     expect(find.text('Imported calendars'), findsWidgets);
     expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
@@ -186,8 +233,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const ValueKey('more-callayers')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-callayers');
       expect(find.text('Calendar layers'), findsWidgets);
       expect(find.text('Appointments'), findsOneWidget);
       expect(find.text('To-Dos'), findsOneWidget);
@@ -217,8 +263,7 @@ void main() {
       await rebootApp(tester);
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-callayers')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-callayers');
 
       taskSwitch = tester.widget<Switch>(
         find.byKey(const ValueKey('cal-manage-layer-switch-task')),

@@ -532,7 +532,7 @@ void main() {
       },
     );
 
-    testWidgets('a non-owner member can reveal the family password', (
+    testWidgets('a non-owner member sees Invite & share owner-gated', (
       tester,
     ) async {
       await pumpApp(tester);
@@ -554,12 +554,16 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
+      await openHubCard(tester, 'family', 'more-invite');
+      // Settings v2 (#273): members see the row disabled with a hint —
+      // the invite sheet (and password reveal) is owner-only.
       await tester.tap(find.byKey(const ValueKey('more-invite')));
       await tester.pumpAndSettle();
-      expect(find.text('•' * 'sunshine2'.length), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('invite-password-toggle')));
-      await tester.pumpAndSettle();
-      expect(find.text('sunshine2'), findsOneWidget);
+      expect(find.text('Only owners can invite members'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('invite-password-toggle')),
+        findsNothing,
+      );
     });
 
     testWidgets("joining a local family whose stored owner still carries the "

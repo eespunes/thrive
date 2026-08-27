@@ -25,12 +25,26 @@ Map<String, dynamic> familyMetaDoc(Family f) => {
 };
 // coverage:ignore-end
 
+/// Buckets events by their anchor date's year ("2026"). Recurring series
+/// live in their start year regardless of how far they expand; malformed
+/// dates land in a shared "0000" bucket rather than being dropped.
+Map<String, List<CalendarEvent>> eventsByYear(List<CalendarEvent> events) {
+  final out = <String, List<CalendarEvent>>{};
+  for (final e in events) {
+    final year = e.date.length >= 4 ? e.date.substring(0, 4) : '0000';
+    (out[year] ??= []).add(e);
+  }
+  return out;
+}
+
 /// Splits [ws] into per-section documents for the `workspace` subcollection:
-/// one settings doc, one doc per budget year, one per imported calendar (the
-/// largest, most independently-changing pieces), plus events, lists and the
-/// weekly plan. Each stays far below Firestore's 1 MB doc limit, so offline
-/// persistence can be re-enabled (the old single doc overflowed Android's
-/// ~2 MB CursorWindow) and every edit only uploads its own section.
+/// one settings doc, one doc per budget year, one per **events year**, one
+/// per imported calendar (the largest, most independently-changing pieces),
+/// plus lists and the weekly plan. Each stays far below Firestore's 1 MB doc
+/// limit — a single all-events doc used to overflow it at ~3,000 events —
+/// so offline persistence can stay enabled (the old single workspace doc
+/// also overflowed Android's ~2 MB CursorWindow) and every edit only
+/// uploads its own section.
 Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
   'settings': {
     'accounts': ws.accounts.map((a) => a.toJson()).toList(),
@@ -42,7 +56,10 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
     if (ws.picMembers.isNotEmpty) 'picMembers': ws.picMembers,
     'kitchenLayerFilter': ws.kitchenLayerFilter,
   },
-  'events': {'events': ws.events.map((e) => e.toJson()).toList()},
+  for (final entry in eventsByYear(ws.events).entries)
+    'events_${entry.key}': {
+      'events': entry.value.map((e) => e.toJson()).toList(),
+    },
   // Card photos are local-only (issue #234) — the synced payload never
   // carries them, so they stay on the devices of the family.
   'cards': {
@@ -71,7 +88,24 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
 Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
   if (sections.isEmpty) return null;
   final j = <String, dynamic>{...?sections['settings']};
-  j['events'] = sections['events']?['events'] ?? [];
+  // Per-year `events_<year>` docs, keeping any legacy all-events doc from a
+  // family that hasn't been rewritten since the year split. A mixed-version
+  // family can briefly carry both, so entries are de-duped by id with the
+  // sharded (newer-format) docs winning.
+  final eventsById = <String, dynamic>{};
+  var eventSeq = 0;
+  void takeEvents(List? list) {
+    for (final e in list ?? const []) {
+      final id = e is Map ? (e['id']?.toString() ?? 'seq${eventSeq++}') : '';
+      if (id.isNotEmpty) eventsById[id] = e;
+    }
+  }
+
+  takeEvents(sections['events']?['events'] as List?);
+  for (final id in sections.keys.toList()..sort()) {
+    if (id.startsWith('events_')) takeEvents(sections[id]?['events'] as List?);
+  }
+  j['events'] = eventsById.values.toList();
   j['taskLists'] = sections['lists']?['taskLists'] ?? [];
   j['shoppingLists'] = sections['lists']?['shoppingLists'] ?? [];
   j['weeklyPlan'] = sections['weekly']?['weeklyPlan'] ?? {};

@@ -263,8 +263,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-calmanage')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-calmanage');
 
     final row = find.byKey(const ValueKey('cal-member-colour-me'));
     await tester.ensureVisible(row);

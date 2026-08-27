@@ -97,7 +97,8 @@ void main() {
       // Multi-day reveals the end-date field; pick an end date.
       await tester.tap(find.text('Multi-day'));
       await tester.pumpAndSettle();
-      expect(find.text('ENDS'), findsOneWidget);
+      // The end-date box appears, showing today's date too.
+      expect(find.text(_display(today)), findsNWidgets(2));
       await tester.tap(find.text(_display(today)).last);
       await tester.pumpAndSettle();
       final other = _otherDayThisMonth();
@@ -124,7 +125,7 @@ void main() {
     await _openTray(tester, const ValueKey('ticket-badge-repeat'));
     await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
     await tester.pumpAndSettle();
-    expect(find.text('REPEAT ENDS'), findsOneWidget);
+    expect(find.text('Ends'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('event-repeat-end-date')));
     await tester.pumpAndSettle();

@@ -40,10 +40,11 @@ Future<void> goToCalendar(WidgetTester tester) async {
 Future<void> openCalManage(WidgetTester tester, {bool imports = false}) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
-  await tester.tap(
-    find.byKey(ValueKey(imports ? 'more-calimports' : 'more-calmanage')),
+  await tapHubRow(
+    tester,
+    'planning',
+    imports ? 'more-calimports' : 'more-calmanage',
   );
-  await tester.pumpAndSettle();
 }
 
 /// Switches the calendar view via the header's view-switcher sheet.
@@ -732,8 +733,12 @@ void main() {
       await tester.tap(find.text('Add event for this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
-      // The ticket's when-line carries the day.
-      expect(find.textContaining(shortDateForTest(todayIso())), findsOneWidget);
+      // The ticket's when-line carries the day ("Thu 27-08 · …").
+      final iso = todayIso();
+      expect(
+        find.textContaining('${iso.substring(8)}-${iso.substring(5, 7)} ·'),
+        findsWidgets,
+      );
     },
   );
 
@@ -1095,13 +1100,13 @@ void main() {
     expect(find.text('No thanks'), findsOneWidget);
     expect(find.text('Yes, remind us'), findsOneWidget);
     expect(find.text('On time'), findsOneWidget);
-    expect(find.text('5 min before'), findsOneWidget);
-    expect(find.text('15 min before'), findsOneWidget);
-    expect(find.text('30 min before'), findsOneWidget);
-    expect(find.text('1 hour before'), findsOneWidget);
-    expect(find.text('2 hours before'), findsOneWidget);
-    expect(find.text('1 day before'), findsOneWidget);
-    expect(find.text('2 days before'), findsOneWidget);
+    expect(find.text('5 min'), findsOneWidget);
+    expect(find.text('15 min'), findsOneWidget);
+    expect(find.text('30 min'), findsOneWidget);
+    expect(find.text('1 hour'), findsOneWidget);
+    expect(find.text('2 hours'), findsOneWidget);
+    expect(find.text('1 day'), findsOneWidget);
+    expect(find.text('2 days'), findsOneWidget);
   });
 
   testWidgets(
@@ -1112,11 +1117,10 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
-      expect(find.text('REPEAT ENDS'), findsNothing);
+      expect(find.byKey(const ValueKey('event-repeat-end-date')), findsNothing);
 
       await setTicketRepeat(tester);
 
-      expect(find.text('REPEAT ENDS'), findsOneWidget);
       final repeatEnd = find.byKey(const ValueKey('event-repeat-end-date'));
       expect(repeatEnd, findsOneWidget);
       expect(
@@ -1181,11 +1185,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
     await openTicketTray(tester, const ValueKey('ticket-when'));
-    expect(find.text('ENDS'), findsNothing);
+    final dates = find.text(shortDateForTest(todayIso()));
+    final before = dates.evaluate().length;
 
     await tester.tap(find.text('Multi-day'));
     await tester.pumpAndSettle();
-    expect(find.text('ENDS'), findsOneWidget);
+    // The end-date box appears, showing the same day again.
+    expect(dates.evaluate().length, before + 1);
   });
 
   testWidgets('view, edit and delete a one-off event', (tester) async {
@@ -1531,7 +1537,7 @@ void main() {
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await openTicketTray(tester, const ValueKey('ticket-colour'));
-      // The ticket colour tray opens with the picker already expanded.
+      // The colour tray shows the app's single two-tab colour panel.
       expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
@@ -1966,8 +1972,7 @@ void main() {
       // pick up the new title this time.
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-calimports')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-calimports');
       await tester.tap(find.text('Auto-syncs on open'));
       await tester.pumpAndSettle();
       expect(find.text('Auto-sync off'), findsOneWidget);
@@ -2127,7 +2132,8 @@ void main() {
       await tester.tap(find.text('Save category'));
       await tester.pumpAndSettle();
       expect(find.text('Household'), findsWidgets);
-      expect(find.text('Family'), findsNothing);
+      // Only the hub's Family card title remains behind the sheet.
+      expect(find.text('Family'), findsOneWidget);
 
       // Assign it to an event, then delete the category and confirm the
       // event survives without it.
@@ -3646,8 +3652,7 @@ void main() {
 
         await tester.tap(find.byKey(const ValueKey('nav-more')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('more-callayers')));
-        await tester.pumpAndSettle();
+        await tapHubRow(tester, 'planning', 'more-callayers');
 
         // Default layers behave like any other layer and can be swiped to
         // delete.
@@ -3670,6 +3675,8 @@ void main() {
         await tester.ensureVisible(find.text('+ Add layer'));
         await tester.tap(find.text('+ Add layer'));
         await tester.pumpAndSettle();
+        // "+ Add layer" opens the New layer popup (same sheet as edit).
+        expect(find.text('New layer'), findsOneWidget);
         await tester.enterText(find.byType(TextField).first, 'Workouts');
         await tester.pump();
         expect(find.text('ICON'), findsNothing);
@@ -3680,9 +3687,7 @@ void main() {
         await tester.ensureVisible(find.byKey(const ValueKey('glyph-upload')));
         expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
         expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
-        final submitBtn = find.text('Add layer');
-        await tester.ensureVisible(submitBtn);
-        await tester.tap(submitBtn);
+        await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
         await tester.pumpAndSettle();
 
         // The form resets and the new layer now shows in the list, with a
@@ -3808,8 +3813,7 @@ void main() {
         // leaving it pointed at a deleted layer.
         await tester.tap(find.byKey(const ValueKey('nav-more')));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('more-callayers')));
-        await tester.pumpAndSettle();
+        await tapHubRow(tester, 'planning', 'more-callayers');
         final fitnessLayerId = thriveDebug.calendarLayers
             .singleWhere((layer) => layer.label == 'Fitness')
             .id;
@@ -3850,8 +3854,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-callayers')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-callayers');
 
       for (final id in ['appt', 'task', 'content']) {
         final row = find.byKey(ValueKey('cal-manage-layer-$id'));

@@ -1,6 +1,9 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Storage key for the v4 multi-family state blob (families + workspaces).
+/// Storage key for the v4 multi-family state blob. Since the per-section
+/// split it carries meta + families only; workspaces live under
+/// [kWsSectionPrefix] keys (legacy blobs with embedded `workspaces` still
+/// load).
 const String kStorageKeyV4 = 'thrive.v4';
 
 /// Set at Firebase init, cleared when boot completes. Found still set on the
@@ -10,6 +13,12 @@ const String kStorageKeyV4 = 'thrive.v4';
 /// which is fatal and un-catchable from Dart. The breaker then clears the
 /// local cache so boot can fall back to a clean server read.
 const String kBootIncompleteKey = 'thrive.bootIncomplete';
+
+/// Prefix for local per-workspace section keys:
+/// `thrive.ws.<familyId>.<sectionId>`, with section payloads exactly as
+/// [workspaceSections] builds them for Firestore — so an edit re-encodes
+/// only its own section instead of the whole multi-MB state.
+const String kWsSectionPrefix = 'thrive.ws.';
 
 /// Storage key for the signed-in user (mirrors the design's `thrive.user`).
 const String kUserKey = 'thrive.user';

@@ -208,11 +208,6 @@ String _monthTitleIso(String iso) {
   return '${kMonthsEn[d.month - 1]} ${d.year}';
 }
 
-String _weekRangeIso(String weekStartIso) {
-  final weekEndIso = _addDaysIso(weekStartIso, 6);
-  return '${_displayDateIso(weekStartIso)} – ${_displayDateIso(weekEndIso)}';
-}
-
 int _customRepeatEvery(CalendarEvent ev) =>
     ev.recurEvery < 1 ? 1 : ev.recurEvery;
 
@@ -369,7 +364,93 @@ List<ImportedCalendarEvent> _applyImportPrefs(
   return events;
 }
 
+/// Rev-invalidated date index over the active family's events, so range
+/// queries ([_ThriveCalendarActions.eventOccurrences]) stop scanning every
+/// event: non-recurring events are bucketed by "yyyy-MM" month (a multi-day
+/// span registers in every month it touches), recurring series — always few —
+/// stay in one list every query still walks. Same invalidation contract as
+/// [_calWeekMemo]: the state revision plus an instance/family signature.
+({
+  int rev,
+  String sig,
+  Map<String, List<CalendarEvent>> byMonth,
+  List<CalendarEvent> recurring,
+})?
+_calEventIndex;
+
+String _nextMonthKey(String m) {
+  final y = int.parse(m.substring(0, 4));
+  final mo = int.parse(m.substring(5, 7));
+  final ny = mo == 12 ? y + 1 : y;
+  final nm = mo == 12 ? 1 : mo + 1;
+  return '${ny.toString().padLeft(4, '0')}-${nm.toString().padLeft(2, '0')}';
+}
+
 extension _ThriveCalendarActions on _ThriveHomeState {
+  /// The (possibly rebuilt) event date index for the current revision.
+  ({Map<String, List<CalendarEvent>> byMonth, List<CalendarEvent> recurring})
+  _eventDateIndex() {
+    final sig = '${identityHashCode(this)}|$familyId';
+    final cached = _calEventIndex;
+    if (cached != null && cached.rev == _rev.value && cached.sig == sig) {
+      return (byMonth: cached.byMonth, recurring: cached.recurring);
+    }
+    final byMonth = <String, List<CalendarEvent>>{};
+    final recurring = <CalendarEvent>[];
+    for (final ev in events) {
+      if (ev.kitchenOrigin) continue;
+      // Malformed dates can't be bucketed — keep them on the always-scanned
+      // list rather than dropping them.
+      if (ev.recur != 'none' || ev.date.length < 7) {
+        recurring.add(ev);
+        continue;
+      }
+      final endIso = ev.endDate.length >= 7 && ev.endDate.compareTo(ev.date) > 0
+          ? ev.endDate
+          : ev.date;
+      var m = ev.date.substring(0, 7);
+      final endM = endIso.substring(0, 7);
+      while (m.compareTo(endM) <= 0) {
+        (byMonth[m] ??= []).add(ev);
+        if (m == endM) break;
+        m = _nextMonthKey(m);
+      }
+    }
+    _calEventIndex = (
+      rev: _rev.value,
+      sig: sig,
+      byMonth: byMonth,
+      recurring: recurring,
+    );
+    return (byMonth: byMonth, recurring: recurring);
+  }
+
+  /// Events that can possibly occur in `[rangeStart, rangeEnd]`: every
+  /// recurring series plus the month buckets the range touches. A multi-day
+  /// event registered in several buckets is yielded once.
+  Iterable<CalendarEvent> _eventsTouchingRange(
+    String rangeStart,
+    String rangeEnd,
+  ) sync* {
+    final idx = _eventDateIndex();
+    yield* idx.recurring;
+    if (rangeStart.length < 7 || rangeEnd.length < 7) return;
+    var m = rangeStart.substring(0, 7);
+    final endM = rangeEnd.substring(0, 7);
+    Set<String>? seen;
+    while (m.compareTo(endM) <= 0) {
+      for (final ev in idx.byMonth[m] ?? const <CalendarEvent>[]) {
+        if (ev.endDate.isNotEmpty) {
+          seen ??= <String>{};
+          if (!seen.add(ev.id)) continue;
+        }
+        yield ev;
+      }
+      if (m == endM) break;
+      m = _nextMonthKey(m);
+    }
+  }
+
   EventCategory? catById(String? id) {
     if (id == null) return null;
     for (final c in eventCategories) {
@@ -469,7 +550,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // tagged `done: true` instead, so the caller can render it with a done
     // visual treatment (strikethrough + faded) while keeping the
     // checkbox/tap-to-toggle interaction available.
-    for (final ev in events) {
+    //
+    // Candidates come from the month-bucket date index instead of a scan of
+    // every event — with thousands of one-off events, that scan dominated
+    // every month/day/home query.
+    for (final ev in _eventsTouchingRange(rangeStart, rangeEnd)) {
       if (ev.kitchenOrigin) continue;
       if (!layerFilter.contains(ev.layerId)) continue;
       if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
@@ -1098,7 +1183,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     );
   }
 
-  void openCalendarLayer(CalendarLayerDef layer) {
+  /// Opens the layer sheet — pass `null` to create a new layer.
+  void openCalendarLayer(CalendarLayerDef? layer) {
     _showSheet((ctx) => _LayerSheet(state: this, layer: layer));
   }
 

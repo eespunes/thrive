@@ -64,7 +64,7 @@ void main() {
 
     // Reminder: two-question tray, then an offset chip.
     await _openTray(tester, const ValueKey('ticket-badge-reminder'));
-    await tester.tap(find.text('1 day before'));
+    await tester.tap(find.text('1 day'));
     await tester.pump();
 
     // Repeat: yes -> weekly with interval + weekday chips; repeat ends;
@@ -192,8 +192,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-calmanage')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-calmanage');
 
     await tester.tap(find.text('New category'));
     await tester.pumpAndSettle();
@@ -234,16 +233,16 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-callayers')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-callayers');
 
     await tester.tap(find.text('+ Add layer'));
     await tester.pumpAndSettle();
+    // "+ Add layer" now opens the New layer popup (same sheet as edit).
+    expect(find.text('New layer'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Sports');
     await tester.pump();
     await _pickEmoji(tester);
-    await tester.ensureVisible(find.text('Add layer'));
-    await tester.tap(find.text('Add layer'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     final layer = thriveDebug.calendarLayers.firstWhere(
