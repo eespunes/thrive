@@ -758,9 +758,8 @@ class _CardScanSheetState extends State<_CardScanSheet> {
                 GestureDetector(
                   key: ValueKey('card-owner-${m.id}'),
                   // Tapping the selected member again clears the assignment.
-                  onTap: () => setState(
-                    () => _ownerId = _ownerId == m.id ? null : m.id,
-                  ),
+                  onTap: () =>
+                      setState(() => _ownerId = _ownerId == m.id ? null : m.id),
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
                     decoration: BoxDecoration(
