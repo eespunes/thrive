@@ -1026,21 +1026,15 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           setState(() => _category = null);
         }),
         for (final c in categories)
-          _chip(
-            ValueKey('event-cat-${c.id}'),
-            c.name,
-            _category == c.id,
-            () {
-              setState(() {
-                // Coupling (#266): category sets colour + replaces attendees
-                // with the category's members (even if that's nobody).
-                _category = c.id;
-                _color = c.color;
-                _attendees = c.members.toList();
-              });
-            },
-            onColor: _category == c.id ? c.color : null,
-          ),
+          _chip(ValueKey('event-cat-${c.id}'), c.name, _category == c.id, () {
+            setState(() {
+              // Coupling (#266): category sets colour + replaces attendees
+              // with the category's members (even if that's nobody).
+              _category = c.id;
+              _color = c.color;
+              _attendees = c.members.toList();
+            });
+          }, onColor: _category == c.id ? c.color : null),
         GestureDetector(
           key: const ValueKey('event-new-category'),
           onTap: () {
@@ -1166,10 +1160,13 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         ],
       );
     }
+    // The toggle is the tray's whole colour UI, so it opens expanded — a
+    // collapsed lone "Colors" button read as an empty tray.
     return _MoreColorsToggle(
       quickColors: kEventColors,
       selected: _color,
       onChanged: (c) => setState(() => _color = c),
+      initiallyExpanded: true,
     );
   }
 

@@ -178,11 +178,17 @@ class _MoreColorsToggle extends StatefulWidget {
     required this.quickColors,
     required this.selected,
     required this.onChanged,
+    this.initiallyExpanded = false,
   });
 
   final List<Color> quickColors;
   final Color selected;
   final ValueChanged<Color> onChanged;
+
+  /// Start with the picker open even when [selected] is a quick swatch —
+  /// used where the toggle is the whole colour UI (the ticket editor's
+  /// colour tray), so it never renders as a lone collapsed button.
+  final bool initiallyExpanded;
 
   @override
   State<_MoreColorsToggle> createState() => _MoreColorsToggleState();
@@ -194,9 +200,11 @@ class _MoreColorsToggleState extends State<_MoreColorsToggle> {
   @override
   void initState() {
     super.initState();
-    _expanded = !widget.quickColors.any(
-      (c) => c.toARGB32() == widget.selected.toARGB32(),
-    );
+    _expanded =
+        widget.initiallyExpanded ||
+        !widget.quickColors.any(
+          (c) => c.toARGB32() == widget.selected.toARGB32(),
+        );
   }
 
   @override

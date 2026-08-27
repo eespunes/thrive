@@ -1536,9 +1536,8 @@ void main() {
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await openTicketTray(tester, const ValueKey('ticket-colour'));
+      // The ticket colour tray opens with the picker already expanded.
       expect(find.text('Colors'), findsOneWidget);
-      await tester.tap(find.text('Colors'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
     },
