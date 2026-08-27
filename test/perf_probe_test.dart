@@ -22,11 +22,7 @@ void main() {
     if (raw.startsWith('"')) raw = jsonDecode(raw) as String;
 
     final sw = Stopwatch()..start();
-    await pumpApp(
-      tester,
-      landOnDefaultTab: true,
-      prefs: {'thrive.v4': raw},
-    );
+    await pumpApp(tester, landOnDefaultTab: true, prefs: {'thrive.v4': raw});
     debugPrint('BOOT: ${sw.elapsedMilliseconds}ms');
 
     Future<void> step(String name, Future<void> Function() fn) async {
