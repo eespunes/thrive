@@ -2070,8 +2070,7 @@ class _AccountSheetState extends State<_AccountSheet> {
   }
 
   Widget _swatches() {
-    return _BudgetColorPicker(
-      quickColors: kAccPalette,
+    return _ColorPickerPanel(
       selected: _color,
       onChanged: (col) => setState(() => _color = col),
     );
@@ -2234,8 +2233,7 @@ class _BlockSheetState extends State<_BlockSheet> {
   }
 
   Widget _swatches() {
-    return _BudgetColorPicker(
-      quickColors: kCatPalette,
+    return _ColorPickerPanel(
       selected: _tone,
       onChanged: (col) => setState(() => _tone = col),
     );

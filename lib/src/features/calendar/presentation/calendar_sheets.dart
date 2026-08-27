@@ -1099,8 +1099,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
               ],
             ),
             const SizedBox(height: 9),
-            _MoreColorsToggle(
-              quickColors: kCatColors,
+            _ColorPickerPanel(
               selected: m.color,
               onChanged: (color) {
                 if (!s.isCalendarIdentityColorAvailable(
@@ -1530,8 +1529,7 @@ class _LayerSheetState extends State<_LayerSheet> {
                 ),
                 _sheetField(
                   'Color',
-                  _BudgetColorPicker(
-                    quickColors: kCatColors,
+                  _ColorPickerPanel(
                     selected: _color,
                     onChanged: (color) => setState(() => _color = color),
                   ),
@@ -1746,8 +1744,7 @@ class _CategorySheetState extends State<_CategorySheet> {
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: _MoreColorsToggle(
-              quickColors: kCatColors,
+            child: _ColorPickerPanel(
               selected: _color,
               onChanged: (c) => setState(() => _color = c),
             ),
@@ -2252,8 +2249,7 @@ class _ImportCalendarSheetState extends State<_ImportCalendarSheet> {
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: _MoreColorsToggle(
-                quickColors: kCatColors,
+              child: _ColorPickerPanel(
                 selected: displayColor,
                 onChanged: (color) => setState(() => _color = color),
               ),

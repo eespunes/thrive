@@ -146,121 +146,12 @@ class _GradientColorPicker extends StatelessWidget {
   }
 }
 
-class _BudgetColorPicker extends StatelessWidget {
-  const _BudgetColorPicker({
-    required this.quickColors,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<Color> quickColors;
-  final Color selected;
-  final ValueChanged<Color> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _MoreColorsToggle(
-      quickColors: quickColors,
-      selected: selected,
-      onChanged: onChanged,
-    );
-  }
-}
-
-/// A reveal button that expands into the two-tab colour picker described in
-/// issue #189 (a structured colour grid + an RGB/hex slider panel), used to
-/// offer colours beyond a feature's curated quick palette (e.g. for calendar
-/// events, categories, and family members, in addition to budget
-/// accounts/blocks). Starts expanded if [selected] isn't one of
-/// [quickColors].
-class _MoreColorsToggle extends StatefulWidget {
-  const _MoreColorsToggle({
-    required this.quickColors,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<Color> quickColors;
-  final Color selected;
-  final ValueChanged<Color> onChanged;
-
-  @override
-  State<_MoreColorsToggle> createState() => _MoreColorsToggleState();
-}
-
-class _MoreColorsToggleState extends State<_MoreColorsToggle> {
-  late bool _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = !widget.quickColors.any(
-      (c) => c.toARGB32() == widget.selected.toARGB32(),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _MoreColorsToggle oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.quickColors.any(
-      (c) => c.toARGB32() == widget.selected.toARGB32(),
-    )) {
-      _expanded = true;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _expanded = !_expanded),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: B.faint,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: B.line),
-            ),
-            child: Row(
-              children: [
-                ic('sliders', size: 15, sw: 2.2, color: B.deep),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Colors',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.deep,
-                    ),
-                  ),
-                ),
-                Transform.rotate(
-                  angle: _expanded ? math.pi : 0,
-                  child: ic('down', size: 14, sw: 2.2, color: B.soft2),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_expanded) ...[
-          const SizedBox(height: 12),
-          _ColorPickerPanel(
-            selected: widget.selected,
-            onChanged: widget.onChanged,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 /// Two-tab colour picker (issue #189): a structured palette grid and an
 /// RGB/hex slider panel, mirroring the design's "more colors" popover minus
-/// its free-form gradient spectrum pad. Used by [_MoreColorsToggle] so it's
-/// shared uniformly across Calendar and Finance colour pickers.
+/// its free-form gradient spectrum pad. The app's ONE colour selector,
+/// rendered directly wherever a colour is picked (events, categories,
+/// layers, members, lists, budget accounts/blocks) so every picker looks
+/// and behaves identically.
 class _ColorPickerPanel extends StatefulWidget {
   const _ColorPickerPanel({required this.selected, required this.onChanged});
 

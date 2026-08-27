@@ -129,8 +129,7 @@ class _NewListSheetState extends State<_NewListSheet> {
           if (!shopping)
             _sheetField(
               'Color',
-              _MoreColorsToggle(
-                quickColors: _kListColors,
+              _ColorPickerPanel(
                 selected: _color,
                 onChanged: (c) => setState(() => _color = c),
               ),

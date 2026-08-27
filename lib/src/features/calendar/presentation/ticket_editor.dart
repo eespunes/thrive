@@ -152,7 +152,6 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   bool _endManuallySet = false;
 
   String _tray = 'kind';
-  bool _moreColours = false;
 
   bool get _editing => widget.event != null;
 
@@ -1399,68 +1398,9 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         ),
       );
     }
-    // The design's quick swatches + a "More colours" reveal.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 7,
-          runSpacing: 7,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final c in kEventColors.take(12))
-              GestureDetector(
-                onTap: () => setState(() => _color = c),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: c,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _color.toARGB32() == c.toARGB32()
-                          ? B.ink
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-            GestureDetector(
-              key: const ValueKey('ticket-more-colours'),
-              onTap: () => setState(() => _moreColours = !_moreColours),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                child: CustomPaint(
-                  painter: const _DashedRectPainter(
-                    color: Color(0xffcfd8e3),
-                    radius: 10,
-                    inset: -6,
-                  ),
-                  child: Text(
-                    _moreColours ? 'Fewer' : 'More colours',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: B.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (_moreColours) ...[
-          const SizedBox(height: 12),
-          _ColorPickerPanel(
-            selected: _color,
-            onChanged: (c) => setState(() => _color = c),
-          ),
-        ],
-      ],
+    return _ColorPickerPanel(
+      selected: _color,
+      onChanged: (c) => setState(() => _color = c),
     );
   }
 

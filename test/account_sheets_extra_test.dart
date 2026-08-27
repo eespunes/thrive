@@ -273,17 +273,13 @@ void main() {
         thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'me').color;
     final before = myColor();
 
-    // Expand the picker if its swatch grid isn't showing yet.
+    // The colour panel is always visible — no expand toggle any more.
     Finder swatches() => find.descendant(
       of: row,
       matching: find.byWidgetPredicate(
         (w) => w.runtimeType.toString() == '_ColorSwatchTile',
       ),
     );
-    if (swatches().evaluate().isEmpty) {
-      await tester.tap(find.descendant(of: row, matching: find.text('Colors')));
-      await tester.pumpAndSettle();
-    }
     expect(swatches(), findsWidgets);
 
     // Tap swatches until one actually changes the colour (the current and
