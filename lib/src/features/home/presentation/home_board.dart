@@ -126,9 +126,9 @@ extension _ThriveHomeBoard on _ThriveHomeState {
       children: [
         Expanded(
           child: Text(
-            homeEditMode
-                ? 'Drag to reorder · only you see this'
-                : prettyToday(),
+            // View mode shows no caption — today's date already lives in the
+            // shell greeting right above, so repeating it here read twice.
+            homeEditMode ? 'Drag to reorder · only you see this' : '',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,

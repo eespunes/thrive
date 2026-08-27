@@ -311,7 +311,8 @@ class _CardScanSheetState extends State<_CardScanSheet> {
   late final TextEditingController _note = TextEditingController();
   String _type = 'barcode';
   late Color _color = kCardPalette.first;
-  late String? _ownerId = s.myId;
+  // Family cards default to unassigned — an owner is opt-in via the picker.
+  String? _ownerId;
 
   @override
   void initState() {
@@ -364,7 +365,9 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         number: digitsOnly(_code.text),
         codeType: _type,
         color: _color,
-        photo: _photo != null ? base64Encode(_photo!) : null,
+        // The photo is scan-time input only (number/colour sampling) — it is
+        // never persisted, not even locally.
+        photo: null,
         note: _note.text.trim(),
         ownerId: _ownerId,
         createdAtMillis: DateTime.now().millisecondsSinceEpoch,
@@ -754,7 +757,9 @@ class _CardScanSheetState extends State<_CardScanSheet> {
               for (final m in members)
                 GestureDetector(
                   key: ValueKey('card-owner-${m.id}'),
-                  onTap: () => setState(() => _ownerId = m.id),
+                  // Tapping the selected member again clears the assignment.
+                  onTap: () =>
+                      setState(() => _ownerId = _ownerId == m.id ? null : m.id),
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
                     decoration: BoxDecoration(
