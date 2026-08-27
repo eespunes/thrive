@@ -89,9 +89,7 @@ void main() {
     await goToTab(tester, 'settings');
     await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
     await tester.pumpAndSettle();
-    expect(find.text('Colors'), findsOneWidget);
-    await tester.tap(find.text('Colors'));
-    await tester.pumpAndSettle();
+    expect(find.text('Palette'), findsOneWidget);
     // Pick a swatch from the expanded gradient grid.
     await tester.tap(find.byType(AnimatedContainer).last);
     await tester.pump();
@@ -103,8 +101,6 @@ void main() {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
     await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
     // Switch to the RGB / Hex tab.
     await tester.tap(find.text('RGB / Hex'));

@@ -1166,13 +1166,9 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         ],
       );
     }
-    // The toggle is the tray's whole colour UI, so it opens expanded — a
-    // collapsed lone "Colors" button read as an empty tray.
-    return _MoreColorsToggle(
-      quickColors: kEventColors,
+    return _ColorPickerPanel(
       selected: _color,
       onChanged: (c) => setState(() => _color = c),
-      initiallyExpanded: true,
     );
   }
 

@@ -1333,7 +1333,6 @@ void main() {
 
     await tester.enterText(find.byType(TextField).at(1), 'School training');
     await tester.tap(find.text('Show this calendar'));
-    await tester.tap(find.text('Colors'));
     await tester.pumpAndSettle();
     final swatch = find.byType(AnimatedContainer).last;
     final newColor =
@@ -1407,7 +1406,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('None'));
     await tester.pumpAndSettle();
-    expect(find.text('Colors'), findsOneWidget);
+    expect(find.text('Palette'), findsOneWidget);
   });
 
   testWidgets('changing an imported calendar reminder persists it', (
@@ -1487,9 +1486,7 @@ void main() {
       await openCalManage(tester);
       await tester.tap(find.text('New category'));
       await tester.pumpAndSettle();
-      expect(find.text('Colors'), findsOneWidget);
-      await tester.tap(find.text('Colors'));
-      await tester.pumpAndSettle();
+      expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
       await tester.tapAt(const Offset(10, 10));
@@ -1501,7 +1498,7 @@ void main() {
       // Family member colours.
       await goToCalendar(tester);
       await openCalManage(tester);
-      expect(find.text('Colors'), findsWidgets);
+      expect(find.text('Palette'), findsWidgets);
 
       // Close the categories sheet before opening the imports sheet.
       await tester.tapAt(const Offset(10, 10));
@@ -1513,9 +1510,7 @@ void main() {
         find.byKey(const ValueKey('imp-settings-training-feed')),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Colors'), findsOneWidget);
-      await tester.tap(find.text('Colors'));
-      await tester.pumpAndSettle();
+      expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
 
@@ -1537,7 +1532,7 @@ void main() {
       await tester.pumpAndSettle();
       await openTicketTray(tester, const ValueKey('ticket-colour'));
       // The ticket colour tray opens with the picker already expanded.
-      expect(find.text('Colors'), findsOneWidget);
+      expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
     },
@@ -3678,8 +3673,7 @@ void main() {
         await tester.enterText(find.byType(TextField).first, 'Workouts');
         await tester.pump();
         expect(find.text('ICON'), findsNothing);
-        await tester.ensureVisible(find.text('Colors'));
-        await tester.tap(find.text('Colors'));
+        await tester.ensureVisible(find.text('Palette'));
         await tester.pumpAndSettle();
         expect(find.text('Palette'), findsOneWidget);
         expect(find.text('RGB / Hex'), findsOneWidget);
@@ -3763,7 +3757,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Edit layer'), findsOneWidget);
         expect(find.text('ICON'), findsNothing);
-        expect(find.text('Colors'), findsOneWidget);
+        expect(find.text('Palette'), findsOneWidget);
         expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
         expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
         await tester.enterText(find.byType(TextField).first, 'Fitness');

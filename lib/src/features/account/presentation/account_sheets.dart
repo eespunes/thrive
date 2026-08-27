@@ -559,8 +559,7 @@ class _ProfileSheetState extends State<_ProfileSheet> {
             ),
           ),
           const SizedBox(height: 11),
-          _MoreColorsToggle(
-            quickColors: kMemberColors,
+          _ColorPickerPanel(
             selected: color ?? kMemberColors.first,
             onChanged: (col) => setState(() {
               _color = col;
