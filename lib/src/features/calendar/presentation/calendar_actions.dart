@@ -1093,7 +1093,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     );
   }
 
-  void openCalendarLayer(CalendarLayerDef layer) {
+  /// Opens the layer sheet — pass `null` to create a new layer.
+  void openCalendarLayer(CalendarLayerDef? layer) {
     _showSheet((ctx) => _LayerSheet(state: this, layer: layer));
   }
 

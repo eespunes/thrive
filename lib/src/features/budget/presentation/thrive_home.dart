@@ -198,6 +198,8 @@ class ThriveDebugController {
   Map<String, dynamic> phoneWidgetPayload() => _s.phoneWidgetPayload();
   void handleWidgetLaunch(Uri uri) => _s.handleWidgetLaunch(uri);
   bool get widgetHideAmounts => _s.widgetHideAmounts;
+  bool get notificationsEnabled => _s.notificationsEnabled;
+  bool get deviceCalendarSyncEnabled => _s.deviceCalendarSyncEnabled;
   void toggleWidgetHideAmounts() => _s.toggleWidgetHideAmounts();
   List<BoardEntry>? get homeBoard => _s.homeBoard;
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
@@ -250,8 +252,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // for not-yet-implemented preferences, never persisted.
   String? hubOpenCard;
   bool futureDark = false;
-  bool futureNotifications = true;
-  bool futureCalendarSync = false;
+
+  // Real, persisted preferences surfaced by the hub's Account card: the
+  // master reminder switch and the Android device-calendar mirror.
+  bool notificationsEnabled = true;
+  bool deviceCalendarSyncEnabled = true;
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -619,8 +624,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted calendar events.
+  /// Re-derives pending reminders from persisted calendar events. With the
+  /// master notifications switch off, everything scheduled is cancelled.
   Future<void> _rescheduleReminders() async {
+    if (!notificationsEnabled) {
+      await NotificationService.instance.syncEventReminders(const []);
+      return;
+    }
     final importedEvents = [
       for (final cal in importedCalendars)
         if (cal.visible && cal.reminder != 'none')
@@ -632,7 +642,36 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     ]);
   }
 
-  void _syncDeviceCalendar() => DeviceCalendarSync.instance.syncEvents(events);
+  /// Mirrors events into the Android system calendar — or clears the mirror
+  /// while the sync preference is off.
+  void _syncDeviceCalendar() => DeviceCalendarSync.instance.syncEvents(
+    deviceCalendarSyncEnabled ? events : const <CalendarEvent>[],
+  );
+
+  /// Master reminder switch (hub Account card). Turning it off cancels every
+  /// scheduled reminder; turning it back on reschedules them.
+  void toggleNotificationsEnabled() {
+    update(() => notificationsEnabled = !notificationsEnabled);
+    _schedulePersist();
+    unawaited(_rescheduleReminders());
+    flash(
+      notificationsEnabled
+          ? 'Reminders back on'
+          : 'Reminders off — nothing will ring',
+    );
+  }
+
+  /// Android device-calendar mirror switch (hub Account card).
+  void toggleDeviceCalendarSync() {
+    update(() => deviceCalendarSyncEnabled = !deviceCalendarSyncEnabled);
+    _schedulePersist();
+    _syncDeviceCalendar();
+    flash(
+      deviceCalendarSyncEnabled
+          ? 'Syncing with the device calendar'
+          : 'Device-calendar sync off',
+    );
+  }
 
   void _syncUserFromFirebaseAuth() {
     if (!firebaseAppsAvailable) return;
@@ -705,6 +744,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
     _widgetHideAmounts = saved['widgetHideAmounts'] == true;
+    notificationsEnabled = saved['notificationsEnabled'] != false;
+    deviceCalendarSyncEnabled = saved['deviceCalendarSync'] != false;
     _syncRecurringSeries();
   }
 
@@ -827,6 +868,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       if (_widgetHideAmounts) 'widgetHideAmounts': true,
+      if (!notificationsEnabled) 'notificationsEnabled': false,
+      if (!deviceCalendarSyncEnabled) 'deviceCalendarSync': false,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       'workspaces': {

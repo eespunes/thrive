@@ -1,3 +1,4 @@
+import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -115,6 +116,40 @@ void main() {
     );
     expect(find.text('Thrive 2.7.1 · English (UK)'), findsOneWidget);
   });
+
+  testWidgets(
+    'Account card: notifications & device-calendar sync are real, persisted '
+    'toggles',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await openHubCard(tester, 'account', 'more-signout');
+
+      expect(thriveDebug.notificationsEnabled, isTrue);
+      expect(thriveDebug.deviceCalendarSyncEnabled, isTrue);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('hub-notifications')),
+        80,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.byKey(const ValueKey('hub-notifications')));
+      await tester.pumpAndSettle();
+      expect(thriveDebug.notificationsEnabled, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('hub-calsync')));
+      await tester.pumpAndSettle();
+      expect(thriveDebug.deviceCalendarSyncEnabled, isFalse);
+
+      await tester.runAsync(
+        () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+      );
+      await rebootApp(tester);
+      expect(thriveDebug.notificationsEnabled, isFalse);
+      expect(thriveDebug.deviceCalendarSyncEnabled, isFalse);
+    },
+  );
 
   testWidgets(
     'More → Finance settings opens as a sheet with settings content',

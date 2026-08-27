@@ -3683,6 +3683,8 @@ void main() {
         await tester.ensureVisible(find.text('+ Add layer'));
         await tester.tap(find.text('+ Add layer'));
         await tester.pumpAndSettle();
+        // "+ Add layer" opens the New layer popup (same sheet as edit).
+        expect(find.text('New layer'), findsOneWidget);
         await tester.enterText(find.byType(TextField).first, 'Workouts');
         await tester.pump();
         expect(find.text('ICON'), findsNothing);
@@ -3694,9 +3696,7 @@ void main() {
         await tester.ensureVisible(find.byKey(const ValueKey('glyph-upload')));
         expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
         expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
-        final submitBtn = find.text('Add layer');
-        await tester.ensureVisible(submitBtn);
-        await tester.tap(submitBtn);
+        await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
         await tester.pumpAndSettle();
 
         // The form resets and the new layer now shows in the list, with a

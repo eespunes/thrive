@@ -691,25 +691,6 @@ enum _CalManageMode { categories, imports, layers }
 class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   final Set<String> _syncing = {};
 
-  // ------------------------------------------------------- add-layer form
-  bool _addingLayer = false;
-  late final TextEditingController _newLayerName;
-  Color _newLayerColor = kCatColors.first;
-  String? _newLayerEmoji;
-  String? _newLayerPicture;
-
-  @override
-  void initState() {
-    super.initState();
-    _newLayerName = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _newLayerName.dispose();
-    super.dispose();
-  }
-
   Future<void> _sync(ImportedCalendar c) async {
     if (_syncing.contains(c.id)) return;
     setState(() => _syncing.add(c.id));
@@ -1286,69 +1267,6 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
       );
     }
 
-    Widget addLayerForm() {
-      final valid = _newLayerName.text.trim().isNotEmpty;
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: B.line),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sheetField(
-                'Label',
-                _sheetInput(
-                  _newLayerName,
-                  hint: 'e.g. Workouts',
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              _sheetField(
-                'Color',
-                _BudgetColorPicker(
-                  quickColors: kCatColors,
-                  selected: _newLayerColor,
-                  onChanged: (color) => setState(() => _newLayerColor = color),
-                ),
-              ),
-              _sheetField(
-                'Emoji or picture',
-                _GlyphPicker(
-                  emoji: _newLayerEmoji,
-                  picture: _newLayerPicture,
-                  onChanged: ({String? emoji, String? picture}) {
-                    _newLayerEmoji = emoji;
-                    _newLayerPicture = picture;
-                  },
-                ),
-              ),
-              _primaryBtn('Add layer', () {
-                s.addCalendarLayer(
-                  label: _newLayerName.text,
-                  icon: 'cal',
-                  emoji: _newLayerEmoji,
-                  picture: _newLayerPicture,
-                  color: _newLayerColor,
-                );
-                setState(() {
-                  _addingLayer = false;
-                  _newLayerName.clear();
-                  _newLayerColor = kCatColors.first;
-                  _newLayerEmoji = null;
-                  _newLayerPicture = null;
-                });
-              }, enabled: valid),
-            ],
-          ),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1368,7 +1286,7 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
           ),
           if (showLayers) ...[
             sectionLabel('LAYERS'),
-            if (s.calendarLayers.isEmpty && !_addingLayer)
+            if (s.calendarLayers.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(bottom: 4),
                 child: Text(
@@ -1385,22 +1303,15 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: layerRow(s.calendarLayers[i], i),
               ),
-            if (_addingLayer)
-              addLayerForm()
-            else
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: _addButtonForSheet(
-                  '+ Add layer',
-                  () => setState(() {
-                    _addingLayer = true;
-                    _newLayerName.clear();
-                    _newLayerColor = kCatColors.first;
-                    _newLayerEmoji = null;
-                    _newLayerPicture = null;
-                  }),
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: _addButtonForSheet('+ Add layer', () {
+                // Opens the same layer popup the rows edit with (the manager
+                // reopens on save).
+                Navigator.of(context).pop();
+                s.openCalendarLayer(null);
+              }),
+            ),
           ],
           if (showCats) ...[
             sectionLabel('CATEGORIES'),
@@ -1530,12 +1441,13 @@ class _CalendarManageSheetState extends State<_CalendarManageSheet> {
   }
 }
 
-/// "Edit layer" sheet. Opened from the layer settings list so save remains
-/// pinned beside the close button instead of scrolling inside the manager.
+/// "New layer" / "Edit layer" sheet ([layer] `null` when creating). Opened
+/// from the layer settings list so save remains pinned beside the close
+/// button instead of scrolling inside the manager.
 class _LayerSheet extends StatefulWidget {
   const _LayerSheet({required this.state, required this.layer});
   final _ThriveHomeState state;
-  final CalendarLayerDef layer;
+  final CalendarLayerDef? layer;
 
   @override
   State<_LayerSheet> createState() => _LayerSheetState();
@@ -1551,10 +1463,10 @@ class _LayerSheetState extends State<_LayerSheet> {
   void initState() {
     super.initState();
     final layer = widget.layer;
-    _name = TextEditingController(text: layer.label);
-    _color = layer.color;
-    _emoji = layer.emoji;
-    _picture = layer.picture;
+    _name = TextEditingController(text: layer?.label ?? '');
+    _color = layer?.color ?? kCatColors.first;
+    _emoji = layer?.emoji;
+    _picture = layer?.picture;
   }
 
   @override
@@ -1570,14 +1482,24 @@ class _LayerSheetState extends State<_LayerSheet> {
     final valid = _name.text.trim().isNotEmpty;
 
     void saveLayer() {
-      s.updateCalendarLayer(
-        id: layer.id,
-        label: _name.text,
-        icon: 'cal',
-        emoji: _emoji,
-        picture: _picture,
-        color: _color,
-      );
+      if (layer == null) {
+        s.addCalendarLayer(
+          label: _name.text,
+          icon: 'cal',
+          emoji: _emoji,
+          picture: _picture,
+          color: _color,
+        );
+      } else {
+        s.updateCalendarLayer(
+          id: layer.id,
+          label: _name.text,
+          icon: 'cal',
+          emoji: _emoji,
+          picture: _picture,
+          color: _color,
+        );
+      }
       Navigator.of(context).pop();
       s.openCalendarManageSheet(mode: _CalManageMode.layers);
     }
@@ -1588,7 +1510,7 @@ class _LayerSheetState extends State<_LayerSheet> {
       children: [
         _sheetHeadWithTick(
           context,
-          'Edit layer',
+          layer == null ? 'New layer' : 'Edit layer',
           onConfirm: saveLayer,
           confirmEnabled: valid,
         ),
@@ -1625,7 +1547,7 @@ class _LayerSheetState extends State<_LayerSheet> {
                     },
                   ),
                 ),
-                if (s.canDeleteCalendarLayer(layer))
+                if (layer != null && s.canDeleteCalendarLayer(layer))
                   GestureDetector(
                     key: ValueKey('cal-manage-layer-delete-${layer.id}'),
                     onTap: () {

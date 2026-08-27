@@ -237,11 +237,12 @@ void main() {
 
     await tester.tap(find.text('+ Add layer'));
     await tester.pumpAndSettle();
+    // "+ Add layer" now opens the New layer popup (same sheet as edit).
+    expect(find.text('New layer'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Sports');
     await tester.pump();
     await _pickEmoji(tester);
-    await tester.ensureVisible(find.text('Add layer'));
-    await tester.tap(find.text('Add layer'));
+    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
     final layer = thriveDebug.calendarLayers.firstWhere(
