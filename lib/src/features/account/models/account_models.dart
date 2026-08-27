@@ -3,6 +3,14 @@ part of 'package:family_money_management_app/main.dart';
 /// Storage key for the v4 multi-family state blob (families + workspaces).
 const String kStorageKeyV4 = 'thrive.v4';
 
+/// Set at Firebase init, cleared when boot completes. Found still set on the
+/// next launch, it means the previous run died before the first frame — most
+/// likely the Firestore SQLite cache feeding boot a row too big for Android's
+/// ~2MB CursorWindow (a legacy un-migrated family's single `workspace` blob),
+/// which is fatal and un-catchable from Dart. The breaker then clears the
+/// local cache so boot can fall back to a clean server read.
+const String kBootIncompleteKey = 'thrive.bootIncomplete';
+
 /// Storage key for the signed-in user (mirrors the design's `thrive.user`).
 const String kUserKey = 'thrive.user';
 

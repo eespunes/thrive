@@ -511,6 +511,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// and was easy to miss when adding a new one.
   void _finishBoot() {
     setState(() => ready = true);
+    // Boot survived — disarm the crash-loop breaker (see kBootIncompleteKey).
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((p) => p.setBool(kBootIncompleteKey, false))
+          .catchError((Object _) => true),
+    );
     unawaited(_rescheduleReminders());
     _handleNotificationDeepLink();
   }
