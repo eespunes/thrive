@@ -121,8 +121,10 @@ void main() {
     final saved = thriveDebug.cards.single;
     expect(saved.name, 'Kruidvat');
     expect(saved.codeType, 'qr');
-    expect(saved.photo, isNotNull);
-    expect(saved.ownerId, thriveDebug.myId);
+    // The scan photo is input-only: never persisted, and cards start
+    // unassigned unless an owner is explicitly picked.
+    expect(saved.photo, isNull);
+    expect(saved.ownerId, isNull);
     // Sampled dominant colour, not a random palette pick.
     expect((saved.color.r * 255).round(), greaterThan(120));
     expect(kAnalyticsEvents.map((e) => e.name), contains('card_scanned'));
