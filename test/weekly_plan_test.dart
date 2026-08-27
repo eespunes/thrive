@@ -6,8 +6,7 @@ import 'helpers.dart';
 Future<void> goToWeekly(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('more-weekly')));
-  await tester.pumpAndSettle();
+  await tapHubRow(tester, 'planning', 'more-weekly');
 }
 
 void main() {

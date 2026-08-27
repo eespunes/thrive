@@ -198,6 +198,8 @@ class ThriveDebugController {
   Map<String, dynamic> phoneWidgetPayload() => _s.phoneWidgetPayload();
   void handleWidgetLaunch(Uri uri) => _s.handleWidgetLaunch(uri);
   bool get widgetHideAmounts => _s.widgetHideAmounts;
+  bool get notificationsEnabled => _s.notificationsEnabled;
+  bool get deviceCalendarSyncEnabled => _s.deviceCalendarSyncEnabled;
   void toggleWidgetHideAmounts() => _s.toggleWidgetHideAmounts();
   List<BoardEntry>? get homeBoard => _s.homeBoard;
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
@@ -244,6 +246,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
+
+  // Settings hub (#272): which card is expanded (one at a time, remembered
+  // for the session), plus session-local "future" toggles — visible homes
+  // for not-yet-implemented preferences, never persisted.
+  String? hubOpenCard;
+  bool futureDark = false;
+
+  // Real, persisted preferences surfaced by the hub's Account card: the
+  // master reminder switch and the Android device-calendar mirror.
+  bool notificationsEnabled = true;
+  bool deviceCalendarSyncEnabled = true;
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -545,7 +558,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       final rawV4 = prefs.getString(kStorageKeyV4);
       if (rawV4 != null) {
         try {
-          _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
+          _restoreV4(
+            json.decode(rawV4) as Map<String, dynamic>,
+            sectionWorkspaces: _readLocalWorkspaceSections(prefs),
+          );
           for (final f in families) {
             f.ownerUid ??= uid;
             if (!f.memberUids.contains(uid)) f.memberUids.add(uid);
@@ -584,7 +600,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final rawV4 = prefs.getString(kStorageKeyV4);
     if (rawV4 != null) {
       try {
-        _restoreV4(json.decode(rawV4) as Map<String, dynamic>);
+        _restoreV4(
+          json.decode(rawV4) as Map<String, dynamic>,
+          sectionWorkspaces: _readLocalWorkspaceSections(prefs),
+        );
         if (!mounted) return;
         _finishBoot();
         return;
@@ -611,20 +630,61 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted calendar events.
+  /// Re-derives pending reminders from persisted calendar events. With the
+  /// master notifications switch off, everything scheduled is cancelled.
   Future<void> _rescheduleReminders() async {
+    if (!notificationsEnabled) {
+      await NotificationService.instance.syncEventReminders(const []);
+      return;
+    }
+    // Only events that can still ring: recurring series always qualify;
+    // one-offs older than the longest reminder offset (2 days) can't.
+    final cutoff = _isoOfDate(DateTime.now().subtract(const Duration(days: 3)));
+    bool canStillRing(CalendarEvent e) =>
+        e.recur != 'none' ||
+        (e.endDate.isNotEmpty ? e.endDate : e.date).compareTo(cutoff) >= 0;
     final importedEvents = [
       for (final cal in importedCalendars)
         if (cal.visible && cal.reminder != 'none')
-          for (final e in cal.events) importedSyntheticEvent(cal, e),
+          for (final e in cal.events)
+            if (e.date.compareTo(cutoff) >= 0) importedSyntheticEvent(cal, e),
     ];
     await NotificationService.instance.syncEventReminders([
-      ...events,
+      ...events.where(canStillRing),
       ...importedEvents,
     ]);
   }
 
-  void _syncDeviceCalendar() => DeviceCalendarSync.instance.syncEvents(events);
+  /// Mirrors events into the Android system calendar — or clears the mirror
+  /// while the sync preference is off.
+  void _syncDeviceCalendar() => DeviceCalendarSync.instance.syncEvents(
+    deviceCalendarSyncEnabled ? events : const <CalendarEvent>[],
+  );
+
+  /// Master reminder switch (hub Account card). Turning it off cancels every
+  /// scheduled reminder; turning it back on reschedules them.
+  void toggleNotificationsEnabled() {
+    update(() => notificationsEnabled = !notificationsEnabled);
+    _schedulePersist();
+    unawaited(_rescheduleReminders());
+    flash(
+      notificationsEnabled
+          ? 'Reminders back on'
+          : 'Reminders off — nothing will ring',
+    );
+  }
+
+  /// Android device-calendar mirror switch (hub Account card).
+  void toggleDeviceCalendarSync() {
+    update(() => deviceCalendarSyncEnabled = !deviceCalendarSyncEnabled);
+    _schedulePersist();
+    _syncDeviceCalendar();
+    flash(
+      deviceCalendarSyncEnabled
+          ? 'Syncing with the device calendar'
+          : 'Device-calendar sync off',
+    );
+  }
 
   void _syncUserFromFirebaseAuth() {
     if (!firebaseAppsAvailable) return;
@@ -667,8 +727,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     return FirebaseFirestore.instance.collection('user_workspaces').doc(uid);
   }
 
-  /// Restores the v4 blob: families, per-family workspaces and the active one.
-  void _restoreV4(Map<String, dynamic> saved) {
+  /// Restores the v4 blob: families, per-family workspaces and the active
+  /// one. [sectionWorkspaces] carries workspaces read from the per-section
+  /// keys; they win over any legacy `workspaces` map still embedded in the
+  /// blob (newer format).
+  void _restoreV4(
+    Map<String, dynamic> saved, {
+    Map<String, Workspace> sectionWorkspaces = const {},
+  }) {
     year = (saved['year'] as num?)?.toInt() ?? 2026;
     monthIdx = ((saved['monthIdx'] as num?)?.toInt() ?? 5).clamp(
       0,
@@ -684,6 +750,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     (saved['workspaces'] as Map<String, dynamic>? ?? {}).forEach((id, ws) {
       workspaces[id] = Workspace.fromJson(Map<String, dynamic>.from(ws as Map));
     });
+    workspaces.addAll(sectionWorkspaces);
+    if (families.isNotEmpty && workspaces.isEmpty) {
+      // A slim blob whose section keys are gone would silently resurrect
+      // every family with an empty workspace — and the next persist would
+      // cement that loss. Fail the restore loudly instead.
+      throw StateError('v4 blob lists families but no workspace was found');
+    }
 
     familyId = (saved['familyId'] ?? 'fam_main').toString();
     if (!workspaces.containsKey(familyId)) {
@@ -697,6 +770,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
     _widgetHideAmounts = saved['widgetHideAmounts'] == true;
+    notificationsEnabled = saved['notificationsEnabled'] != false;
+    deviceCalendarSyncEnabled = saved['deviceCalendarSync'] != false;
     _syncRecurringSeries();
   }
 
@@ -792,11 +867,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _persist();
   }
 
+  /// Session cache of the last-written local section digests, so unchanged
+  /// sections are skipped on every save (same contract as the cloud sync's
+  /// `_wsSectionDigests`).
+  final Map<String, Map<String, String>> _localWsDigests = {};
+
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     if (_cloudBacked) {
       await prefs.remove(kStorageKeyV4);
       await prefs.remove(kStorageKey);
+      for (final key in prefs.getKeys().toList()) {
+        if (key.startsWith(kWsSectionPrefix)) await prefs.remove(key);
+      }
       // Never push an EMPTY family set to the cloud. An empty in-memory
       // `families` only occurs transiently — during sign-in (before cloudBoot
       // has loaded them) and during sign-out (after they're cleared) — and
@@ -806,7 +889,108 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (families.isNotEmpty) await _pushCloudState();
       return;
     }
-    await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
+    // Sections FIRST, the slim meta blob last: if the process dies between
+    // the two, the previous v4 (possibly still carrying legacy embedded
+    // workspaces) remains loadable. The reverse order could leave a slim
+    // blob with no sections — losing every workspace. And only slim the
+    // blob once every section landed: a partially-migrated section set with
+    // a slimmed blob would silently drop the failed sections.
+    final ok = await _persistLocalWorkspaces(prefs);
+    if (ok) {
+      await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
+    }
+  }
+
+  /// Writes each workspace as per-section keys ([kWsSectionPrefix]),
+  /// skipping sections whose digest hasn't changed since the last write and
+  /// sweeping keys for removed sections/families. An edit therefore
+  /// re-encodes ~one section (tens of KB) instead of the whole state.
+  ///
+  /// Returns whether EVERY section landed. During the one-time migration
+  /// the legacy blob and the sections briefly coexist, which can overflow
+  /// web localStorage's quota — on a write failure the legacy blob is
+  /// slimmed early to free its space and the write retried; if a section
+  /// still can't be written, `false` keeps the caller from slimming a blob
+  /// that is that section's only remaining copy.
+  Future<bool> _persistLocalWorkspaces(SharedPreferences prefs) async {
+    var slimmedForQuota = false;
+    var allOk = true;
+    Future<bool> write(String key, String value) async {
+      try {
+        await prefs.setString(key, value);
+        return true;
+      } catch (_) {
+        if (!slimmedForQuota) {
+          slimmedForQuota = true;
+          try {
+            await prefs.setString(
+              kStorageKeyV4,
+              json.encode(_buildStatePayload()),
+            );
+            await prefs.setString(key, value);
+            return true;
+          } catch (_) {
+            /* fall through */
+          }
+        }
+        return false;
+      }
+    }
+
+    final live = <String>{};
+    for (final entry in workspaces.entries) {
+      final digests = _localWsDigests.putIfAbsent(entry.key, () => {});
+      final sections = workspaceSections(entry.value);
+      for (final s in sections.entries) {
+        final key = '$kWsSectionPrefix${entry.key}.${s.key}';
+        live.add(key);
+        final digest = sectionDigest(s.value);
+        if (digests[s.key] == digest && prefs.containsKey(key)) continue;
+        if (await write(key, json.encode(s.value))) {
+          digests[s.key] = digest;
+        } else {
+          allOk = false;
+        }
+      }
+      digests.removeWhere((k, _) => !sections.containsKey(k));
+    }
+    for (final key in prefs.getKeys().toList()) {
+      if (key.startsWith(kWsSectionPrefix) && !live.contains(key)) {
+        await prefs.remove(key);
+      }
+    }
+    return allOk;
+  }
+
+  /// Rebuilds workspaces from the per-section keys, seeding the digest
+  /// cache so the next save can skip everything unchanged. Families without
+  /// section keys simply aren't in the result (the legacy embedded
+  /// `workspaces` map covers them).
+  Map<String, Workspace> _readLocalWorkspaceSections(SharedPreferences prefs) {
+    final byFam = <String, Map<String, Map<String, dynamic>>>{};
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith(kWsSectionPrefix)) continue;
+      final rest = key.substring(kWsSectionPrefix.length);
+      final dot = rest.indexOf('.');
+      if (dot <= 0) continue;
+      final fid = rest.substring(0, dot);
+      final section = rest.substring(dot + 1);
+      try {
+        final map = Map<String, dynamic>.from(
+          json.decode(prefs.getString(key)!) as Map,
+        );
+        (byFam[fid] ??= {})[section] = map;
+        (_localWsDigests[fid] ??= {})[section] = sectionDigest(map);
+      } catch (_) {
+        /* skip a corrupt section — the rest of the workspace still loads */
+      }
+    }
+    final out = <String, Workspace>{};
+    byFam.forEach((fid, sections) {
+      final ws = workspaceFromSections(sections);
+      if (ws != null) out[fid] = ws;
+    });
+    return out;
   }
 
   Map<String, dynamic> _buildStatePayload() {
@@ -819,11 +1003,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       if (_widgetHideAmounts) 'widgetHideAmounts': true,
+      if (!notificationsEnabled) 'notificationsEnabled': false,
+      if (!deviceCalendarSyncEnabled) 'deviceCalendarSync': false,
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
-      'workspaces': {
-        for (final e in workspaces.entries) e.key: e.value.toJson(),
-      },
+      // Workspaces live under their own per-section keys now (see
+      // [_persistLocalWorkspaces]); the blob keeps meta + families only.
     };
   }
 

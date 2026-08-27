@@ -117,14 +117,55 @@ void main() {
       expect(workspaceFromSections(const {}), isNull);
     });
 
-    test('splits per budget year and per imported calendar', () {
-      final sections = workspaceSections(_sampleWorkspace());
-      expect(
-        sections.keys,
-        containsAll(['settings', 'events', 'lists', 'weekly', 'budget_2026']),
+    test(
+      'splits per budget year, per events year and per imported calendar',
+      () {
+        final sections = workspaceSections(_sampleWorkspace());
+        expect(
+          sections.keys,
+          containsAll([
+            'settings',
+            'events_2026',
+            'lists',
+            'weekly',
+            'budget_2026',
+          ]),
+        );
+        // No monolithic all-events doc any more (it overflowed Firestore's
+        // 1 MB doc limit around ~3,000 events).
+        expect(sections.containsKey('events'), isFalse);
+        expect(sections['import_ic1'], isNotNull);
+        expect(sections['import_ic2'], isNotNull);
+      },
+    );
+
+    test('events span multiple year docs and round-trip', () {
+      final ws = _sampleWorkspace();
+      ws.events.add(
+        CalendarEvent.fromJson({
+          'id': 'ev2',
+          'title': 'NYE party',
+          'date': '2027-12-31',
+        }),
       );
-      expect(sections['import_ic1'], isNotNull);
-      expect(sections['import_ic2'], isNotNull);
+      final sections = workspaceSections(ws);
+      expect(sections['events_2026'], isNotNull);
+      expect(sections['events_2027'], isNotNull);
+      final rebuilt = workspaceFromSections(sections)!;
+      expect(rebuilt.events.map((e) => e.id).toSet(), {'ev1', 'ev2'});
+    });
+
+    test('legacy all-events doc still loads, sharded docs win on id clash', () {
+      final sections = workspaceSections(_sampleWorkspace());
+      sections['events'] = {
+        'events': [
+          {'id': 'ev1', 'title': 'Stale legacy copy', 'date': '2026-03-02'},
+          {'id': 'legacy-only', 'title': 'Old event', 'date': '2024-01-05'},
+        ],
+      };
+      final rebuilt = workspaceFromSections(sections)!;
+      expect(rebuilt.events.singleWhere((e) => e.id == 'ev1').title, 'Dentist');
+      expect(rebuilt.events.any((e) => e.id == 'legacy-only'), isTrue);
     });
 
     test('imported calendars keep their display order', () {
@@ -146,11 +187,11 @@ void main() {
   group('sectionDigest', () {
     test('is stable for identical payloads and differs on any change', () {
       final ws = _sampleWorkspace();
-      final a = sectionDigest(workspaceSections(ws)['events']!);
-      final b = sectionDigest(workspaceSections(ws)['events']!);
+      final a = sectionDigest(workspaceSections(ws)['events_2026']!);
+      final b = sectionDigest(workspaceSections(ws)['events_2026']!);
       expect(a, b);
       ws.events.first.title = 'Doctor';
-      final c = sectionDigest(workspaceSections(ws)['events']!);
+      final c = sectionDigest(workspaceSections(ws)['events_2026']!);
       expect(c, isNot(a));
     });
   });
