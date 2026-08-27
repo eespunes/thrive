@@ -90,7 +90,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Weekend chores');
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('note-paper-2')));
+    // Re-paper via the app-wide colour panel: tap a palette swatch.
+    final swatch = find.byWidgetPredicate(
+      (w) => w.runtimeType.toString() == '_ColorSwatchTile',
+    );
+    await tester.ensureVisible(swatch.at(2));
+    await tester.tap(swatch.at(2));
     await tester.pump();
     await tester.tap(find.text('Save the note'));
     await tester.pumpAndSettle();

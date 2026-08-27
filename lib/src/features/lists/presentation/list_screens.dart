@@ -1,23 +1,69 @@
 part of 'package:family_money_management_app/main.dart';
 
-const Color _kInkOnPaper = Color(0xff2c2920);
-const Color _kFadedOnPaper = Color(0x45000000);
-const Color _kOverdueOnPaper = Color(0xffc2410c);
+/// A note's ink colours. Classic pale papers use the dark handwriting set;
+/// a dark paper picked in the app-wide colour panel flips to white ink so
+/// every line stays readable.
+class _NoteInk {
+  const _NoteInk({
+    required this.ink,
+    required this.faded,
+    required this.overdue,
+    required this.title,
+    required this.chrome,
+    required this.border,
+    required this.solid,
+    required this.onSolid,
+  });
 
-const TextStyle _kNoteTitleStyle = TextStyle(
+  static const light = _NoteInk(
+    ink: Color(0xff2c2920),
+    faded: Color(0x45000000),
+    overdue: Color(0xffc2410c),
+    title: Color(0xff333333),
+    chrome: Color(0x66000000),
+    border: Color(0x33000000),
+    solid: Color(0xff3f3a2e),
+    onSolid: Colors.white,
+  );
+  static const dark = _NoteInk(
+    ink: Colors.white,
+    faded: Color(0x66ffffff),
+    overdue: Color(0xffffb38a),
+    title: Colors.white,
+    chrome: Color(0x99ffffff),
+    border: Color(0x4dffffff),
+    solid: Colors.white,
+    onSolid: Color(0xff2c2920),
+  );
+
+  final Color ink; // open line text
+  final Color faded; // done lines, hints
+  final Color overdue; // overdue due label
+  final Color title; // note title
+  final Color chrome; // fold/edit icons, counts
+  final Color border; // checkbox / qty / add-line borders
+  final Color solid; // filled checkbox & add button
+  final Color onSolid; // glyph on the filled shapes
+}
+
+/// Same 0.55 luminance cut as the app-wide `contrastOn`.
+_NoteInk _inkFor(Color paper) =>
+    paper.computeLuminance() > 0.55 ? _NoteInk.light : _NoteInk.dark;
+
+TextStyle _noteTitleStyle(_NoteInk n) => TextStyle(
   fontFamily: 'Caveat',
-  fontVariations: [FontVariation('wght', 700)],
+  fontVariations: const [FontVariation('wght', 700)],
   fontSize: 23,
   height: 1,
-  color: Color(0xff333333),
+  color: n.title,
 );
 
-TextStyle _lineTextStyle(bool done) => TextStyle(
+TextStyle _lineTextStyle(bool done, _NoteInk n) => TextStyle(
   fontFamily: 'Caveat',
   fontVariations: const [FontVariation('wght', 600)],
   fontSize: 19,
   height: 1.15,
-  color: done ? _kFadedOnPaper : _kInkOnPaper,
+  color: done ? n.faded : n.ink,
   decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
   decorationThickness: 2,
 );
@@ -238,16 +284,21 @@ extension _ThriveListScreens on _ThriveHomeState {
 
   Widget _taskNote(TaskList list, List<ListTask> tasks) {
     final openCount = tasks.where((t) => !t.done).length;
+    final (paper, tape) = _paperFor(list.id, list.color);
+    final ink = _inkFor(paper);
     return _noteShell(
       listId: list.id,
-      color: list.color,
+      paper: paper,
+      tape: tape,
+      ink: ink,
       title: list.name,
       count: openCount > 0 ? '$openCount left' : 'done!',
       onEdit: () => openEditNoteSheet(taskList: list),
-      lines: [for (final t in _sortedTasks(tasks)) _taskLine(list, t)],
+      lines: [for (final t in _sortedTasks(tasks)) _taskLine(list, t, ink)],
       addLine: _NoteAddLine(
         key: ValueKey('note-add-${list.id}'),
         hint: 'add a line…',
+        ink: ink,
         onAdd: (v) => addTaskLine(list.id, v),
       ),
     );
@@ -257,16 +308,21 @@ extension _ThriveListScreens on _ThriveHomeState {
     final openCount = list.items.where((i) => !i.checked).length;
     final rows = list.items.where((i) => !i.checked).toList()
       ..addAll(list.items.where((i) => i.checked));
+    final (paper, tape) = _paperFor(list.id, list.color);
+    final ink = _inkFor(paper);
     return _noteShell(
       listId: list.id,
-      color: list.color,
+      paper: paper,
+      tape: tape,
+      ink: ink,
       title: list.name,
       count: openCount > 0 ? '$openCount to buy' : 'done!',
       onEdit: () => openEditNoteSheet(shopList: list),
-      lines: [for (final it in rows) _shopLine(list, it)],
+      lines: [for (final it in rows) _shopLine(list, it, ink)],
       addLine: _NoteAddLine(
         key: ValueKey('note-add-${list.id}'),
         hint: 'add — try “5x milk”',
+        ink: ink,
         focusNode: list.id == openShopList ? shopQuickAddFocus : null,
         onAdd: (v) => addShopItem(list.id, v),
       ),
@@ -277,14 +333,15 @@ extension _ThriveListScreens on _ThriveHomeState {
   /// fold arrow + ✎, lines, and the in-place add-line (#302/#318).
   Widget _noteShell({
     required String listId,
-    required Color? color,
+    required Color paper,
+    required Color tape,
+    required _NoteInk ink,
     required String title,
     required String count,
     required VoidCallback onEdit,
     required List<Widget> lines,
     required Widget addLine,
   }) {
-    final (paper, tape) = _kNotePapers[_paperIndexFor(listId, color)];
     final folded = foldedNotes.contains(listId);
 
     final note = Container(
@@ -319,7 +376,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                     folded ? 'cright' : 'cdown',
                     size: 16,
                     sw: 2.4,
-                    color: const Color(0x66000000),
+                    color: ink.chrome,
                   ),
                 ),
               ),
@@ -328,17 +385,17 @@ extension _ThriveListScreens on _ThriveHomeState {
                   title,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 2,
-                  style: _kNoteTitleStyle,
+                  style: _noteTitleStyle(ink),
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 count,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: .5,
-                  color: Color(0x66000000),
+                  color: ink.chrome,
                 ),
               ),
               GestureDetector(
@@ -347,12 +404,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 2, 10),
-                  child: ic(
-                    'edit',
-                    size: 15,
-                    sw: 2,
-                    color: const Color(0x66000000),
-                  ),
+                  child: ic('edit', size: 15, sw: 2, color: ink.chrome),
                 ),
               ),
             ],
@@ -400,6 +452,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     required Key key,
     required bool done,
     required bool round,
+    required _NoteInk ink,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -414,19 +467,19 @@ extension _ThriveListScreens on _ThriveHomeState {
           width: 20,
           height: 20,
           decoration: BoxDecoration(
-            color: done ? const Color(0xff3f3a2e) : Colors.transparent,
+            color: done ? ink.solid : Colors.transparent,
             borderRadius: BorderRadius.circular(round ? 99 : 6),
-            border: Border.all(color: const Color(0x33000000), width: 2),
+            border: Border.all(color: ink.border, width: 2),
           ),
           child: done
-              ? Center(child: ic('check', size: 11, sw: 3, color: Colors.white))
+              ? Center(child: ic('check', size: 11, sw: 3, color: ink.onSolid))
               : null,
         ),
       ),
     );
   }
 
-  Widget _taskLine(TaskList list, ListTask t) {
+  Widget _taskLine(TaskList list, ListTask t, _NoteInk ink) {
     final m = _memberById(t.assignee);
     final overdue = !t.done && t.due != null && dueDiffDays(t.due!) < 0;
     return Row(
@@ -436,6 +489,7 @@ extension _ThriveListScreens on _ThriveHomeState {
           key: ValueKey('task-check-${t.id}'),
           done: t.done,
           round: false,
+          ink: ink,
           onTap: () => toggleTask(list.id, t.id),
         ),
         Expanded(
@@ -445,7 +499,7 @@ extension _ThriveListScreens on _ThriveHomeState {
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(t.title, style: _lineTextStyle(t.done)),
+              child: Text(t.title, style: _lineTextStyle(t.done, ink)),
             ),
           ),
         ),
@@ -457,7 +511,7 @@ extension _ThriveListScreens on _ThriveHomeState {
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .5,
-              color: overdue ? _kOverdueOnPaper : _kFadedOnPaper,
+              color: overdue ? ink.overdue : ink.faded,
             ),
           ),
         ],
@@ -486,18 +540,15 @@ extension _ThriveListScreens on _ThriveHomeState {
                     height: 26,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(13),
-                      border: Border.all(
-                        color: const Color(0x40000000),
-                        width: 2,
-                      ),
+                      border: Border.all(color: ink.border, width: 2),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
                         '＋',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: Color(0x60000000),
+                          color: ink.chrome,
                           height: 1,
                         ),
                       ),
@@ -509,7 +560,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  Widget _shopLine(ShoppingList list, ShopItem it) {
+  Widget _shopLine(ShoppingList list, ShopItem it, _NoteInk ink) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -517,6 +568,7 @@ extension _ThriveListScreens on _ThriveHomeState {
           key: ValueKey('shop-check-${it.id}'),
           done: it.checked,
           round: true,
+          ink: ink,
           onTap: () => toggleShop(list.id, it.id),
         ),
         Expanded(
@@ -526,23 +578,24 @@ extension _ThriveListScreens on _ThriveHomeState {
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(it.name, style: _lineTextStyle(it.checked)),
+              child: Text(it.name, style: _lineTextStyle(it.checked, ink)),
             ),
           ),
         ),
         if (it.checked)
           Text(
             '×${it.qty}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: _kFadedOnPaper,
+              color: ink.faded,
             ),
           )
         else ...[
           _qtyBtn(
             key: ValueKey('shop-minus-${it.id}'),
             label: '−',
+            ink: ink,
             onTap: () => shopQty(list.id, it.id, -1),
           ),
           SizedBox(
@@ -550,16 +603,17 @@ extension _ThriveListScreens on _ThriveHomeState {
             child: Text(
               '×${it.qty}',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
-                color: _kInkOnPaper,
+                color: ink.ink,
               ),
             ),
           ),
           _qtyBtn(
             key: ValueKey('shop-plus-${it.id}'),
             label: '＋',
+            ink: ink,
             onTap: () => shopQty(list.id, it.id, 1),
           ),
         ],
@@ -570,6 +624,7 @@ extension _ThriveListScreens on _ThriveHomeState {
   Widget _qtyBtn({
     required Key key,
     required String label,
+    required _NoteInk ink,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -583,16 +638,16 @@ extension _ThriveListScreens on _ThriveHomeState {
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0x33000000)),
+            border: Border.all(color: ink.border),
             borderRadius: BorderRadius.circular(7),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: _kInkOnPaper,
+              color: ink.ink,
               height: 1,
             ),
           ),
@@ -609,10 +664,12 @@ class _NoteAddLine extends StatefulWidget {
   const _NoteAddLine({
     super.key,
     required this.hint,
+    required this.ink,
     required this.onAdd,
     this.focusNode,
   });
   final String hint;
+  final _NoteInk ink;
   final ValueChanged<String> onAdd;
   final FocusNode? focusNode;
 
@@ -642,14 +699,13 @@ class _NoteAddLineState extends State<_NoteAddLine> {
 
   @override
   Widget build(BuildContext context) {
+    final ink = widget.ink;
     return Row(
       children: [
         Expanded(
           child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0x30000000), width: 1.5),
-              ),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: ink.border, width: 1.5)),
             ),
             child: TextField(
               controller: _ctrl,
@@ -660,15 +716,15 @@ class _NoteAddLineState extends State<_NoteAddLine> {
                 fontFamily: 'Caveat',
                 fontVariations: const [FontVariation('wght', 600)],
                 fontSize: 18,
-                color: _kInkOnPaper,
+                color: ink.ink,
               ),
               decoration: InputDecoration(
                 hintText: widget.hint,
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   fontFamily: 'Caveat',
-                  fontVariations: [FontVariation('wght', 600)],
+                  fontVariations: const [FontVariation('wght', 600)],
                   fontSize: 17,
-                  color: Color(0x40000000),
+                  color: ink.faded,
                 ),
                 isDense: true,
                 border: InputBorder.none,
@@ -687,11 +743,11 @@ class _NoteAddLineState extends State<_NoteAddLine> {
               width: 26,
               height: 26,
               decoration: BoxDecoration(
-                color: const Color(0xff3f3a2e),
+                color: ink.solid,
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Center(
-                child: ic('plus', size: 14, sw: 2.6, color: Colors.white),
+                child: ic('plus', size: 14, sw: 2.6, color: ink.onSolid),
               ),
             ),
           ),

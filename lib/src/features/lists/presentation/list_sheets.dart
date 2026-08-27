@@ -11,15 +11,18 @@ const List<(Color, Color)> _kNotePapers = [
   (Color(0xffececec), Color(0xffd4d4d4)),
 ];
 
-/// Stable paper for a list: its chosen `color` when it matches a paper,
-/// otherwise a deterministic pick from its id — never random per build.
-int _paperIndexFor(String id, Color? color) {
+/// Stable (paper, tape) for a list: a classic paper keeps its matching
+/// tape, any other colour from the app-wide picker is used as-is with a
+/// darkened tape, and a list without a colour gets a deterministic pick
+/// from its id — never random per build.
+(Color, Color) _paperFor(String id, Color? color) {
   if (color != null) {
-    for (var i = 0; i < _kNotePapers.length; i++) {
-      if (_kNotePapers[i].$1.toARGB32() == color.toARGB32()) return i;
+    for (final p in _kNotePapers) {
+      if (p.$1.toARGB32() == color.toARGB32()) return p;
     }
+    return (color, Color.lerp(color, const Color(0xff000000), .18)!);
   }
-  return id.hashCode.abs() % _kNotePapers.length;
+  return _kNotePapers[id.hashCode.abs() % _kNotePapers.length];
 }
 
 const List<double> _kNoteRotations = [-1.2, 0.9, -0.5, 1.1];
@@ -90,7 +93,7 @@ class _NoteSheet extends StatefulWidget {
 class _NoteSheetState extends State<_NoteSheet> {
   late String _kind;
   late final TextEditingController _name;
-  late int _paper;
+  late Color _color;
 
   @override
   void initState() {
@@ -103,11 +106,11 @@ class _NoteSheetState extends State<_NoteSheet> {
     _name = TextEditingController(
       text: widget.taskList?.name ?? widget.shopList?.name ?? '',
     );
-    _paper = widget.taskList != null
-        ? _paperIndexFor(widget.taskList!.id, widget.taskList!.color)
+    _color = widget.taskList != null
+        ? _paperFor(widget.taskList!.id, widget.taskList!.color).$1
         : widget.shopList != null
-        ? _paperIndexFor(widget.shopList!.id, widget.shopList!.color)
-        : 0;
+        ? _paperFor(widget.shopList!.id, widget.shopList!.color).$1
+        : _kNotePapers[0].$1;
   }
 
   @override
@@ -118,7 +121,7 @@ class _NoteSheetState extends State<_NoteSheet> {
 
   void _save() {
     final s = widget.state;
-    final paper = _kNotePapers[_paper].$1;
+    final paper = _color;
     if (widget.taskList != null) {
       s.renameTaskList(widget.taskList!.id, _name.text, paper);
     } else if (widget.shopList != null) {
@@ -214,35 +217,9 @@ class _NoteSheetState extends State<_NoteSheet> {
           ),
           _sheetField(
             'Paper',
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (var i = 0; i < _kNotePapers.length; i++)
-                  GestureDetector(
-                    key: ValueKey('note-paper-$i'),
-                    onTap: () => setState(() => _paper = i),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: _kNotePapers[i].$1,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _paper == i
-                              ? B.ink
-                              : Colors.black.withValues(alpha: .08),
-                          width: _paper == i ? 2.5 : 1,
-                        ),
-                      ),
-                      child: _paper == i
-                          ? Center(
-                              child: ic('check', size: 14, sw: 3, color: B.ink),
-                            )
-                          : null,
-                    ),
-                  ),
-              ],
+            _ColorPickerPanel(
+              selected: _color,
+              onChanged: (c) => setState(() => _color = c),
             ),
           ),
           _primaryBtn(
