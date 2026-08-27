@@ -156,10 +156,12 @@ void main() {
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('entry-badge-card')));
+    await tester.pumpAndSettle();
     expect(find.text('DISCOUNT CARD'), findsOneWidget);
-    expect(find.byKey(const ValueKey('exp-card-none')), findsOneWidget);
-    expect(find.byKey(const ValueKey('exp-card-scan')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('exp-card-c1')));
+    expect(find.byKey(const ValueKey('entry-card-none')), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-card-scan')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('entry-card-c1')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();

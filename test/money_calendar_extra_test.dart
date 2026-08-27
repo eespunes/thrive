@@ -47,8 +47,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(dedRow);
     await tester.pumpAndSettle();
-    expect(find.text('IF IT LANDS ON A WEEKEND'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('expense-shift-before')));
+    expect(find.text('PAY DAY — WHICH DAY OF THE MONTH?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('entry-shift-before')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();

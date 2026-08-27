@@ -53,9 +53,15 @@ void main() {
     // Income is an income-direction block now (issue #137).
     await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Persisted');
-    await tester.enterText(find.byType(TextField).at(1), 'Service');
-    await tester.enterText(find.byType(TextField).at(2), '50');
+    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '50');
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-payee')),
+      'Persisted',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-label')),
+      'Service',
+    );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();

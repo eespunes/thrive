@@ -359,6 +359,7 @@ class Workspace {
       data[yKey] = map;
     });
     ensureIncomeCategory(cats, data);
+    migrateDaylessIncome(cats, data);
     final taskLists = <TaskList>[
       for (final l in (j['taskLists'] as List? ?? []))
         TaskList.fromJson(Map<String, dynamic>.from(l as Map)),

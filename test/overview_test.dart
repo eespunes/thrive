@@ -22,13 +22,16 @@ void main() {
     // "Add to Income" button; the item sheet is the shared block-item editor.
     await tester.tap(find.text('Add to Income'));
     await tester.pumpAndSettle();
-    expect(find.text('Add income'), findsWidgets);
-    await tester.enterText(find.byType(TextField).first, 'Employer');
+    expect(find.text('New income'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '100');
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(1), 'Bonus');
-    await tester.enterText(find.byType(TextField).at(2), '100');
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-payee')),
+      'Employer',
+    );
+    await tester.enterText(find.byKey(const ValueKey('entry-label')), 'Bonus');
     await tester.pump();
-    await tester.tap(find.text('Received'));
+    await tester.tap(find.byKey(const ValueKey('entry-stamp')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -39,9 +42,12 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.text('Add to Home'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Thuiswonen');
-    await tester.enterText(find.byType(TextField).at(1), 'Rent');
-    await tester.enterText(find.byType(TextField).at(2), '42');
+    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '42');
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-payee')),
+      'Thuiswonen',
+    );
+    await tester.enterText(find.byKey(const ValueKey('entry-label')), 'Rent');
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -113,12 +119,20 @@ void main() {
       await pumpApp(tester);
       await tester.tap(find.text('Add to Home'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Insurer');
-      await tester.enterText(find.byType(TextField).at(1), 'Insurance');
-      await tester.enterText(find.byType(TextField).at(2), '90');
+      await tester.enterText(find.byKey(const ValueKey('entry-amount')), '90');
+      await tester.enterText(
+        find.byKey(const ValueKey('entry-payee')),
+        'Insurer',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('entry-label')),
+        'Insurance',
+      );
       await tester.pump();
-      // Recurring is on by default; pick the quarterly preset chip.
-      await tester.tap(find.text('Every 3 months'));
+      // Recurring is on by default; pick the quarterly preset in the tray.
+      await tester.tap(find.byKey(const ValueKey('entry-badge-repeat')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('entry-every-3')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
@@ -127,7 +141,7 @@ void main() {
       // Re-open the item and confirm the interval round-tripped.
       await tester.tap(find.text('Insurer - Insurance').first);
       await tester.pumpAndSettle();
-      expect(find.text('Every 3 months'), findsWidgets);
+      expect(find.text('↻ Every 3 mo'), findsOneWidget);
     },
   );
 
@@ -245,10 +259,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Gym - Membership'), findsWidgets);
 
-      // Edit the March occurrence and toggle "Repeat" off.
+      // Edit the March occurrence and switch it to a one-off.
       await tester.tap(find.text('Gym - Membership').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Repeat'));
+      await tester.tap(find.byKey(const ValueKey('entry-badge-repeat')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('entry-repeat-off')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
@@ -277,9 +293,12 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.text('Add to Home'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Gym');
-    await tester.enterText(find.byType(TextField).at(1), 'Membership');
-    await tester.enterText(find.byType(TextField).at(2), '20');
+    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '20');
+    await tester.enterText(find.byKey(const ValueKey('entry-payee')), 'Gym');
+    await tester.enterText(
+      find.byKey(const ValueKey('entry-label')),
+      'Membership',
+    );
     await tester.pump();
     // Recurring is on by default (issue #185), so no extra tap is needed to
     // enable it here.
