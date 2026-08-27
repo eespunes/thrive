@@ -70,6 +70,21 @@ void seedRichWorkspace() {
   });
 }
 
+/// Long-presses the first board widget — the only way into edit mode now
+/// that the header pencil is gone (issue #236).
+Future<void> enterHomeEdit(WidgetTester tester) async {
+  await tester.longPress(
+    find
+        .byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key as ValueKey<String>).value.startsWith('home-w-'),
+        )
+        .first,
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('first run shows the default board with the add affordance', (
     tester,
@@ -91,8 +106,7 @@ void main() {
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     kAnalyticsEvents.clear();
-    await tester.tap(find.byKey(const ValueKey('home-edit-toggle')));
-    await tester.pumpAndSettle();
+    await enterHomeEdit(tester);
     expect(find.byKey(const ValueKey('home-edit-list')), findsOneWidget);
 
     // Remove everything.
@@ -167,8 +181,7 @@ void main() {
 
   testWidgets('size chip cycles only supported sizes', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('home-edit-toggle')));
-    await tester.pumpAndSettle();
+    await enterHomeEdit(tester);
     // Entry 0 is balance (m/l).
     expect(thriveDebug.effectiveHomeBoard()[0].size, 'm');
     await tester.tap(find.byKey(const ValueKey('home-size-0')));
@@ -183,8 +196,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
-    await tester.tap(find.byKey(const ValueKey('home-edit-toggle')));
-    await tester.pumpAndSettle();
+    await enterHomeEdit(tester);
     await tester.tap(find.byKey(const ValueKey('home-edit-opts-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Only my tasks'));
@@ -374,8 +386,7 @@ void main() {
       ],
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('home-edit-toggle')));
-    await tester.pumpAndSettle();
+    await enterHomeEdit(tester);
 
     // Budget blocks: pick a specific block.
     await tester.tap(find.byKey(const ValueKey('home-edit-opts-0')));
