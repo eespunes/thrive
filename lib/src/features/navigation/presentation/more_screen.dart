@@ -1,135 +1,44 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// The redesigned "More" hub: a profile card plus grouped, hairline-divided
-/// setting rows, ported from the design's updated `renderMore()` /
-/// `moreRow()` / `moreGroup()` / `moreProfileCard()` / `sheetInvite()`.
+/// The Settings v2 hub (#272, `Settings v2.dc.html`): a gradient hero
+/// (avatar · name · provider · family switcher pills) with four expanding
+/// cards — Planning, Money, Family, Account — whose closed state shows a
+/// live summary and whose rows carry their current value on the right.
 extension _ThriveMoreScreen on _ThriveHomeState {
   Widget _buildMore() {
-    final f = curFamily();
-    final memberIds = <String>[
-      for (final m in f?.members ?? const <FamilyMember>[]) m.id,
-    ];
-    final catCount = eventCategories.length;
-    final impCount = importedCalendars.length;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+      padding: const EdgeInsets.only(bottom: 14),
       children: [
-        _moreProfileCard(),
-        const SizedBox(height: 18),
-        _moreSecLabel('Planning'),
-        _moreGroup([
-          _moreRow(
-            key: 'more-weekly',
-            icon: 'moon',
-            title: 'Weekly plan',
-            sub: 'Meals & notes for the week',
-            onTap: openWeeklyPlanSheet,
-            trail: _moreMeta(_weekRangeIso(_iso(_weekStart()))),
-          ),
-          _moreRow(
-            key: 'more-calmanage',
-            icon: 'cal',
-            title: 'Categories',
-            sub: 'Colours, icons & member colours',
-            onTap: () =>
-                openCalendarManageSheet(mode: _CalManageMode.categories),
-            trail: _moreMeta('$catCount categor${catCount == 1 ? 'y' : 'ies'}'),
-          ),
-          _moreRow(
-            key: 'more-calimports',
-            icon: 'download',
-            title: 'Imported calendars',
-            sub: 'Feeds & sync',
-            onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
-            trail: _moreMeta('$impCount calendar${impCount == 1 ? '' : 's'}'),
-          ),
-          _moreRow(
-            key: 'more-callayers',
-            icon: 'filter',
-            title: 'Calendar layers',
-            sub: 'Appointments, to-dos & content',
-            onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
-          ),
-          _moreRow(
-            key: 'more-kitchen-settings',
-            icon: 'gear',
-            title: 'Kitchen wall settings',
-            sub: 'Layers & picture mode',
-            onTap: openKitchenWallSettings,
-          ),
-        ]),
-        const SizedBox(height: 18),
-        _moreSecLabel('Money'),
-        _moreGroup([
-          _moreRow(
-            key: 'more-wallet',
-            icon: 'card',
-            title: 'Discount cards',
-            sub: 'Scan one, use it at the till',
-            onTap: openWalletScreen,
-            trail: cards.isEmpty
-                ? null
-                : _moreMeta(
-                    '${cards.length} card${cards.length == 1 ? '' : 's'}',
+        _hubHero(),
+        // Cards tuck into the hero's gradient, per the design's -14px pull.
+        Transform.translate(
+          offset: const Offset(0, -14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _hubPlanningCard(),
+                const SizedBox(height: 10),
+                _hubMoneyCard(),
+                const SizedBox(height: 10),
+                _hubFamilyCard(),
+                const SizedBox(height: 10),
+                _hubAccountCard(),
+                const SizedBox(height: 12),
+                Center(
+                  child: Text(
+                    _appVersion.isEmpty
+                        ? 'Thrive · English (UK)'
+                        : 'Thrive $_appVersion · English (UK)',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: B.muted,
+                    ),
                   ),
-          ),
-          _moreRow(
-            key: 'more-widget-privacy',
-            icon: 'eyeoff',
-            title: 'Hide amounts on phone widgets',
-            sub: 'Home-screen widgets show •••• instead',
-            onTap: toggleWidgetHideAmounts,
-            trail: _moreMeta(widgetHideAmounts ? 'On' : 'Off'),
-            noChev: true,
-          ),
-          _moreRow(
-            key: 'more-finsettings',
-            icon: 'gear',
-            title: 'Finance settings',
-            sub: 'Accounts, blocks & tools',
-            onTap: openFinanceSettingsSheet,
-          ),
-        ]),
-        const SizedBox(height: 18),
-        _moreSecLabel('Family'),
-        _moreGroup([
-          _moreRow(
-            key: 'more-family',
-            icon: 'users',
-            title: 'Members & roles',
-            sub: 'Manage who can see and edit',
-            onTap: openFamilySheet,
-            trail: memberIds.isEmpty ? null : _mStack(memberIds),
-          ),
-          _moreRow(
-            key: 'more-invite',
-            icon: 'plus',
-            title: 'Invite someone',
-            sub: 'Share your join details',
-            onTap: openInviteSheet,
-          ),
-        ]),
-        const SizedBox(height: 18),
-        _moreSecLabel('Account'),
-        _moreGroup([
-          _moreRow(
-            key: 'more-signout',
-            icon: 'back',
-            title: 'Sign out',
-            sub: 'You stay in your families',
-            onTap: signOut,
-            danger: true,
-            noChev: true,
-          ),
-        ]),
-        const SizedBox(height: 18),
-        Center(
-          child: Text(
-            _appVersion.isEmpty ? 'Thrive' : 'Thrive · v$_appVersion',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
+                ),
+              ],
             ),
           ),
         ),
@@ -137,98 +46,645 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     );
   }
 
-  /// Avatar + name/email + chevron, opens the profile sheet. Mirrors
-  /// `moreProfileCard()`; replaces the old separate "Your profile" row.
-  Widget _moreProfileCard() {
-    final u = user;
-    return GestureDetector(
-      key: const ValueKey('more-profile'),
-      onTap: openProfileSheet,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: cardShadow(),
+  // --------------------------------------------------------------- cards
+
+  Widget _hubPlanningCard() {
+    final layers = _kitchenWallLayers(this);
+    final visible = layers
+        .where((l) => kitchenLayerFilter.contains(l.id))
+        .length;
+    final start = _weekStart();
+    var planned = 0;
+    for (var i = 0; i < 7; i++) {
+      final d = weeklyPlan[_iso(start.add(Duration(days: i)))];
+      if (d != null && !d.isEmpty) planned++;
+    }
+    final catCount = eventCategories.length;
+    final impCount = importedCalendars.length;
+    return _hubCard(
+      id: 'planning',
+      icon: 'moon',
+      title: 'Planning',
+      summary:
+          '$visible of ${layers.length} layers on · '
+          'wall ${kitchenEnabled ? 'on' : 'off'}',
+      hint: kitchenEnabled
+          ? 'Per-member: photo tile toggle + reward stars (0–5).'
+          : null,
+      rows: [
+        _hubRow(
+          key: 'more-weekly',
+          label: 'Weekly plan',
+          val: '$planned of 7 planned',
+          onTap: openWeeklyPlanSheet,
         ),
-        child: Row(
-          children: [
-            avatarNode(
-              photo: u?.photo,
-              initials: u?.initials ?? '?',
-              color: u?.color,
-              size: 44,
-              radius: 14,
-              fs: 15,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    u?.name ?? 'You',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: B.ink,
+        _hubRow(
+          key: 'more-calmanage',
+          label: 'Categories',
+          val: '$catCount colour${catCount == 1 ? '' : 's'}',
+          onTap: () => openCalendarManageSheet(mode: _CalManageMode.categories),
+        ),
+        _hubRow(
+          key: 'more-calimports',
+          label: 'Imported calendars',
+          val: impCount == 0 ? 'None yet' : 'All synced',
+          goodVal: impCount > 0,
+          onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
+        ),
+        _hubRow(
+          key: 'more-callayers',
+          label: 'Calendar layers',
+          sub: 'Appointments, to-dos & content',
+          onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
+        ),
+        _hubRow(
+          key: 'more-kitchen-settings',
+          label: 'Kitchen wall',
+          sub: 'The shared tablet screen',
+          val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
+          warnVal: !kitchenEnabled,
+          onTap: openKitchenWallSettings,
+        ),
+      ],
+    );
+  }
+
+  Widget _hubMoneyCard() {
+    final n = cards.length;
+    return _hubCard(
+      id: 'money',
+      icon: 'card',
+      title: 'Money',
+      summary: n == 0
+          ? 'No discount cards yet'
+          : '$n discount card${n == 1 ? '' : 's'}',
+      rows: [
+        _hubRow(
+          key: 'more-wallet',
+          label: 'Discount cards',
+          val: n == 0 ? 'None yet' : '$n card${n == 1 ? '' : 's'}',
+          onTap: openWalletScreen,
+        ),
+        _hubRow(
+          key: 'more-widget-privacy',
+          label: 'Hide amounts on phone widgets',
+          sub: 'Home-screen widgets show •••• instead',
+          tog: widgetHideAmounts,
+          onTog: toggleWidgetHideAmounts,
+        ),
+        _hubRow(
+          key: 'more-finsettings',
+          label: 'Finance settings',
+          sub: 'Accounts, blocks & tools',
+          val: '${accounts.length} account${accounts.length == 1 ? '' : 's'}',
+          onTap: openFinanceSettingsSheet,
+        ),
+      ],
+    );
+  }
+
+  Widget _hubFamilyCard() {
+    final f = curFamily();
+    final members = f?.members ?? const <FamilyMember>[];
+    final owner = amOwner();
+    final ownerName = members
+        .where((m) => m.role == 'owner')
+        .firstOrNull
+        ?.name
+        .split(' ')
+        .first;
+    return _hubCard(
+      id: 'family',
+      icon: 'users',
+      title: 'Family',
+      summary:
+          '${members.length} member${members.length == 1 ? '' : 's'} · '
+          '${owner ? 'you own this family' : 'owned by ${ownerName ?? '?'}'}',
+      hint: owner ? null : 'Only owners can manage members.',
+      rows: [
+        _hubRow(
+          key: 'more-family',
+          label: 'Members & roles',
+          sub: 'Manage who can see and edit',
+          trail: members.isEmpty
+              ? null
+              : _mStack([for (final m in members) m.id]),
+          onTap: openFamilySheet,
+        ),
+        _hubRow(
+          key: 'more-invite',
+          label: 'Invite & share',
+          sub: (f?.username.isNotEmpty ?? false)
+              ? '@${f!.username}'
+              : 'Share your join details',
+          disabled: !owner,
+          disHint: 'Only owners can invite members',
+          onTap: openInviteSheet,
+        ),
+      ],
+    );
+  }
+
+  Widget _hubAccountCard() {
+    final u = user;
+    return _hubCard(
+      id: 'account',
+      icon: 'gear',
+      title: 'Account',
+      summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
+      rows: [
+        _hubRow(
+          key: 'hub-future-dark',
+          label: 'Dark mode',
+          pill: 'future',
+          tog: futureDark,
+          onTog: () => update(() => futureDark = !futureDark),
+        ),
+        _hubRow(
+          key: 'hub-future-language',
+          label: 'Language',
+          pill: 'future',
+          val: 'English (UK)',
+          noChev: true,
+          onTap: () => flash('Only English (UK) for now'),
+        ),
+        _hubRow(
+          key: 'hub-future-notifications',
+          label: 'Notifications',
+          pill: 'future',
+          tog: futureNotifications,
+          onTog: () => update(() => futureNotifications = !futureNotifications),
+        ),
+        _hubRow(
+          key: 'hub-future-calsync',
+          label: 'Sync with device calendar',
+          sub: 'Android · today this happens silently',
+          pill: 'future',
+          tog: futureCalendarSync,
+          onTog: () => update(() => futureCalendarSync = !futureCalendarSync),
+        ),
+        _hubRow(
+          key: 'more-signout',
+          label: 'Sign out',
+          sub: 'You stay in your families — nothing is deleted',
+          danger: true,
+          bg: const Color(0xfffef7f7),
+          noChev: true,
+          onTap: signOut,
+        ),
+        _hubRow(
+          key: 'more-delete-account',
+          label: 'Delete account',
+          sub: _deleteAccountConsequence(),
+          danger: true,
+          bg: B.redSoft,
+          noChev: true,
+          onTap: () => askDelete(
+            'your account',
+            '${_deleteAccountConsequence()} Then you’re signed out. '
+                'This can’t be undone.',
+            () => unawaited(deleteUserAccount()),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _hubProviderLabel() => user?.provider == 'google' ? 'Google' : 'Email';
+
+  /// The honest one-liner under "Delete account": how many families are
+  /// deleted with you vs merely lose you (mirrors the design's
+  /// `deleteAcctSub()`).
+  String _deleteAccountConsequence() {
+    var sole = 0, shared = 0;
+    for (final f in families) {
+      final others = f.members.where(
+        (m) =>
+            m.id != myId &&
+            m.status == 'active' &&
+            (m.uid != null || m.email.isNotEmpty),
+      );
+      others.isEmpty ? sole++ : shared++;
+    }
+    final bits = <String>[
+      if (sole > 0)
+        'deletes $sole famil${sole > 1 ? 'ies' : 'y'} where you’re the '
+            'only member',
+      if (shared > 0)
+        'removes you from $shared shared famil${shared > 1 ? 'ies' : 'y'}',
+    ];
+    if (bits.isEmpty) return 'Deletes your data.';
+    final s = bits.join(' and ');
+    return '${s[0].toUpperCase()}${s.substring(1)}.';
+  }
+
+  // ---------------------------------------------------------------- hero
+
+  /// Gradient hero: avatar + name/email + provider pill (tap → profile) and
+  /// the family switcher pills. Mirrors the design's hub hero.
+  Widget _hubHero() {
+    final u = user;
+    return Container(
+      decoration: const BoxDecoration(gradient: B.grad),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            key: const ValueKey('more-profile'),
+            onTap: openProfileSheet,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: Colors.white.withValues(alpha: .22),
+                    border: Border.all(
+                      color: u?.color ?? Colors.white,
+                      width: 2,
                     ),
                   ),
-                  if ((u?.email ?? '').isNotEmpty)
-                    Text(
-                      u!.email,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: B.soft2,
+                  clipBehavior: Clip.antiAlias,
+                  child: avatarNode(
+                    photo: u?.photo,
+                    initials: u?.initials ?? '?',
+                    color: u?.color,
+                    size: 44,
+                    radius: 14,
+                    fs: 15,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        u?.name ?? 'You',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.3,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if ((u?.email ?? '').isNotEmpty)
+                        Text(
+                          u!.email,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: .85),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _hubProviderLabel(),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ic(
+                  'cright',
+                  size: 16,
+                  sw: 2.2,
+                  color: Colors.white.withValues(alpha: .7),
+                ),
+              ],
+            ),
+          ),
+          if (families.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [for (final fam in families) _hubFamilyPill(fam)],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hubFamilyPill(Family fam) {
+    final current = fam.id == familyId;
+    return GestureDetector(
+      key: ValueKey('hub-fam-${fam.id}'),
+      onTap: () {
+        if (!current) unawaited(switchFamily(fam.id));
+      },
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 160, minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: current ? Colors.white : Colors.white.withValues(alpha: .18),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          fam.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: current ? B.deep : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------- card + rows
+
+  /// An expanding hub card: header with icon tile, title, live summary and a
+  /// chevron; one card open at a time (`hubOpenCard`).
+  Widget _hubCard({
+    required String id,
+    required String icon,
+    required String title,
+    required String summary,
+    required List<Widget> rows,
+    String? hint,
+  }) {
+    final open = hubOpenCard == id;
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: cardShadow(),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          GestureDetector(
+            key: ValueKey('hub-card-$id'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              update(() => hubOpenCard = open ? null : id);
+              if (!open) {
+                logAnalyticsEvent('settings_card_opened', {'card': id});
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: B.soft,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Center(
+                      child: ic(icon, size: 16, sw: 2.2, color: B.primary),
+                    ),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                        Text(
+                          summary,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: B.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Transform.rotate(
+                    angle: open ? math.pi : 0,
+                    child: ic('down', size: 15, sw: 2.2, color: B.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (int i = 0; i < rows.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 6),
+                    rows[i],
+                  ],
+                  if (hint != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                      child: Text(
+                        hint,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: B.muted,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
-            ic('cright', size: 17, sw: 2.2, color: B.muted),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  /// Uppercase muted section label, mirrors `secLabel()`.
-  Widget _moreSecLabel(String t) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-      child: Text(
-        t.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .4,
-          color: B.muted,
+  /// A hub card row, mirroring the design's `row()`: grey rounded row with
+  /// label/sub, a right-side value pill, an optional FUTURE pill, chevron,
+  /// and an optional trailing toggle.
+  Widget _hubRow({
+    required String key,
+    required String label,
+    String? sub,
+    String? val,
+    bool goodVal = false,
+    bool warnVal = false,
+    String? pill,
+    VoidCallback? onTap,
+    bool danger = false,
+    Color? bg,
+    bool noChev = false,
+    bool? tog,
+    VoidCallback? onTog,
+    bool disabled = false,
+    String? disHint,
+    Widget? trail,
+  }) {
+    final row = GestureDetector(
+      key: ValueKey(key),
+      behavior: HitTestBehavior.opaque,
+      // Toggle rows flip on a tap anywhere in the row, not just the track.
+      onTap: disabled
+          ? () => flash(disHint ?? 'Only owners can change this')
+          : (onTap ?? onTog),
+      child: Opacity(
+        opacity: disabled ? .5 : 1,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: bg ?? B.page,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: danger ? B.red : B.ink,
+                      ),
+                    ),
+                    if (sub != null && sub.isNotEmpty)
+                      Text(
+                        sub,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff8a96a8),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (pill != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xfff5f3ff),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    pill.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .3,
+                      color: Color(0xff7c3aed),
+                    ),
+                  ),
+                ),
+              ],
+              if (trail != null) ...[const SizedBox(width: 6), trail],
+              if (val != null && val.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: warnVal
+                        ? B.amberSoft
+                        : (goodVal ? B.greenSoft : const Color(0xffe8ecf2)),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    val,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: warnVal
+                          ? B.amberText
+                          : (goodVal ? B.greenText : B.soft2),
+                    ),
+                  ),
+                ),
+              ],
+              if (onTap != null && !noChev && tog == null) ...[
+                const SizedBox(width: 4),
+                ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+              ],
+            ],
+          ),
         ),
       ),
     );
+    if (tog == null) return row;
+    return Row(
+      children: [
+        Expanded(child: row),
+        const SizedBox(width: 8),
+        _hubToggle(tog, disabled ? null : onTog),
+      ],
+    );
   }
 
-  /// Small pill: muted text on a faint background. Mirrors `moreMeta()`.
-  Widget _moreMeta(String t) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: B.faint,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        t,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: B.soft2,
+  /// The design's small track toggle (42×25, teal when on).
+  Widget _hubToggle(bool on, VoidCallback? onTap) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+        alignment: Alignment.center,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 42,
+          height: 25,
+          padding: const EdgeInsets.all(2.5),
+          alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+          decoration: BoxDecoration(
+            color: on ? B.primary : const Color(0xffcfd6df),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
         ),
       ),
     );
@@ -296,107 +752,6 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// A single grouped-list row: icon tile, title/subtitle, optional trailing
-  /// widget, chevron. Mirrors `moreRow()`.
-  Widget _moreRow({
-    required String key,
-    required String icon,
-    required String title,
-    required String sub,
-    required VoidCallback onTap,
-    Widget? trail,
-    bool danger = false,
-    bool noChev = false,
-  }) {
-    return GestureDetector(
-      key: ValueKey(key),
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: danger ? B.redSoft : B.soft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: ic(
-                  icon,
-                  size: 18,
-                  sw: 2.1,
-                  color: danger ? B.red : B.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: danger ? B.red : B.ink,
-                    ),
-                  ),
-                  Text(
-                    sub,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (trail != null) ...[const SizedBox(width: 8), trail],
-            if (!noChev) ...[
-              const SizedBox(width: 6),
-              ic('cright', size: 17, sw: 2.2, color: B.muted),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// White rounded container with hairline dividers between rows. Mirrors
-  /// `moreGroup()`.
-  Widget _moreGroup(List<Widget> rows) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: cardShadow(),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          for (int i = 0; i < rows.length; i++)
-            Container(
-              decoration: i == 0
-                  ? null
-                  : const BoxDecoration(
-                      border: Border(top: BorderSide(color: B.faint)),
-                    ),
-              child: rows[i],
             ),
         ],
       ),

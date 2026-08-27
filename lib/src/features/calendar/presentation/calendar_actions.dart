@@ -208,11 +208,6 @@ String _monthTitleIso(String iso) {
   return '${kMonthsEn[d.month - 1]} ${d.year}';
 }
 
-String _weekRangeIso(String weekStartIso) {
-  final weekEndIso = _addDaysIso(weekStartIso, 6);
-  return '${_displayDateIso(weekStartIso)} – ${_displayDateIso(weekEndIso)}';
-}
-
 int _customRepeatEvery(CalendarEvent ev) =>
     ev.recurEvery < 1 ? 1 : ev.recurEvery;
 

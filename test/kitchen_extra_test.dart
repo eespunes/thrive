@@ -122,8 +122,7 @@ void main() {
     await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
     await tester.tap(find.byKey(const ValueKey('kitchen-wall-layer-task')));
     await tester.pumpAndSettle();
@@ -137,8 +136,7 @@ void main() {
     await pumpApp(tester, prefs: _prefs(members: []), landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-kitchen-settings');
     expect(find.text('No family members yet.'), findsOneWidget);
   });
 

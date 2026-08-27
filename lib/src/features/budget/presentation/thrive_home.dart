@@ -244,6 +244,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
+
+  // Settings hub (#272): which card is expanded (one at a time, remembered
+  // for the session), plus session-local "future" toggles — visible homes
+  // for not-yet-implemented preferences, never persisted.
+  String? hubOpenCard;
+  bool futureDark = false;
+  bool futureNotifications = true;
+  bool futureCalendarSync = false;
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;

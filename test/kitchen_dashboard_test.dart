@@ -769,8 +769,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
       expect(find.text('Kitchen wall settings'), findsWidgets);
       expect(find.text('Eva Janssen'), findsWidgets);
@@ -810,8 +809,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
     for (final layer in layers) {
       expect(find.text(layer.label), findsOneWidget);
@@ -855,8 +853,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
     await tester.tap(find.byKey(const ValueKey('kitchen-wall-layer-task')));
     await tester.pumpAndSettle();
@@ -876,8 +873,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-kitchen-settings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-kitchen-settings');
     await tester.tap(find.byKey(const ValueKey('kitchen-wall-picmode-erik')));
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(10, 10));
@@ -1190,8 +1186,7 @@ void main() {
       await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('more-callayers')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-callayers');
 
       expect(
         find.byKey(const ValueKey('cal-manage-kitchen-enabled')),

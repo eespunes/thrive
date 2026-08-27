@@ -134,8 +134,7 @@ Future<void> goToTab(WidgetTester tester, String tab) async {
   if (tab == 'settings') {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-finsettings')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'money', 'more-finsettings');
     return;
   }
   if (find.byKey(ValueKey('tab-$tab')).evaluate().isEmpty) {
@@ -143,6 +142,37 @@ Future<void> goToTab(WidgetTester tester, String tab) async {
     await tester.pumpAndSettle();
   }
   await tester.tap(find.byKey(ValueKey('tab-$tab')));
+  await tester.pumpAndSettle();
+}
+
+/// Expands a Settings-hub card (#272) so its rows become tappable. No-op if
+/// the card is already open (one card at a time; probed via its row keys).
+Future<void> openHubCard(
+  WidgetTester tester,
+  String card,
+  String probeRowKey,
+) async {
+  if (find.byKey(ValueKey(probeRowKey)).evaluate().isNotEmpty) return;
+  final header = find.byKey(ValueKey('hub-card-$card'));
+  await tester.scrollUntilVisible(
+    header,
+    80,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(header);
+  await tester.pumpAndSettle();
+}
+
+/// Opens the hub card [card] and taps the row [rowKey] inside it.
+Future<void> tapHubRow(WidgetTester tester, String card, String rowKey) async {
+  await openHubCard(tester, card, rowKey);
+  final row = find.byKey(ValueKey(rowKey));
+  await tester.scrollUntilVisible(
+    row,
+    80,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(row);
   await tester.pumpAndSettle();
 }
 

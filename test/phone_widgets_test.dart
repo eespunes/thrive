@@ -375,10 +375,8 @@ void main() {
     expect(thriveDebug.widgetHideAmounts, isFalse);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('more-widget-privacy')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'money', 'more-widget-privacy');
     expect(thriveDebug.widgetHideAmounts, isTrue);
-    expect(find.text('On'), findsOneWidget);
     expect(
       (thriveDebug.phoneWidgetPayload()['money'] as Map)['balance'],
       '€ ••••',

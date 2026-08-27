@@ -1196,42 +1196,50 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         ),
         const SizedBox(height: 9),
         if (_recur == 'none')
-          // The design's Multi-day box: label, end date, track toggle.
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: B.page,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Multi-day',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: B.text,
+          // The design's Multi-day box: label, end date, track toggle. The
+          // whole row toggles, not just the track.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() {
+              _multiDay = !_multiDay;
+              if (!_multiDay) _endDate = _date;
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: B.page,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Multi-day',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: B.text,
+                      ),
                     ),
                   ),
-                ),
-                if (_multiDay) ...[
-                  _whenBox(
-                    null,
-                    _displayDateIso(_endDate),
-                    _pickEndDate,
-                    white: true,
+                  if (_multiDay) ...[
+                    _whenBox(
+                      null,
+                      _displayDateIso(_endDate),
+                      _pickEndDate,
+                      white: true,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  _trackToggle(
+                    _multiDay,
+                    () => setState(() {
+                      _multiDay = !_multiDay;
+                      if (!_multiDay) _endDate = _date;
+                    }),
                   ),
-                  const SizedBox(width: 10),
                 ],
-                _trackToggle(
-                  _multiDay,
-                  () => setState(() {
-                    _multiDay = !_multiDay;
-                    if (!_multiDay) _endDate = _date;
-                  }),
-                ),
-              ],
+              ),
             ),
           )
         else

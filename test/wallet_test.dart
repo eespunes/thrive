@@ -38,10 +38,9 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
+    await openHubCard(tester, 'money', 'more-wallet');
     expect(find.text('Discount cards'), findsOneWidget);
-    expect(find.text('Scan one, use it at the till'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('more-wallet')));
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'money', 'more-wallet');
     expect(find.text('Nothing scanned yet'), findsOneWidget);
     expect(find.text('No cards yet'), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-scan')), findsOneWidget);
