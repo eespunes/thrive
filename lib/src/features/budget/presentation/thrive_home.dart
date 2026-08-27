@@ -232,6 +232,7 @@ class ThriveDebugController {
     color: color,
   );
   void openQuickAdd() => _s.openQuickAddSheet();
+  void openEvent(CalendarEvent? ev, [String? date]) => _s.openEvent(ev, date);
 }
 
 class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {

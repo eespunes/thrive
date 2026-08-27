@@ -40,12 +40,19 @@ Future<void> _pickDialogDay(WidgetTester tester, int day) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openTray(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.tap(find.byKey(key), warnIfMissed: false);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('event editor start/end time pickers set the time fields', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await _openEditor(tester);
+    await _openTray(tester, const ValueKey('ticket-when'));
 
     // Start time — confirming the picker keeps a valid HH:mm and (for a new
     // event) recomputes the default end time.
@@ -75,6 +82,7 @@ void main() {
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
       await _openEditor(tester);
+      await _openTray(tester, const ValueKey('ticket-when'));
 
       final today = DateTime.now();
 
@@ -113,7 +121,8 @@ void main() {
     await _openEditor(tester);
 
     final today = DateTime.now();
-    await tester.tap(find.text('Weekly'));
+    await _openTray(tester, const ValueKey('ticket-badge-repeat'));
+    await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
     await tester.pumpAndSettle();
     expect(find.text('REPEAT ENDS'), findsOneWidget);
 
@@ -122,16 +131,18 @@ void main() {
     expect(find.byType(DatePickerDialog), findsOneWidget);
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    // Repeat end now shows today's date (alongside the start date field).
-    expect(find.text(_display(today)), findsNWidgets(2));
+    // The repeat-ends field now shows today's date.
+    expect(find.text(_display(today)), findsOneWidget);
 
     final other = _otherDayThisMonth();
     if (other.isAfter(today)) {
-      // Moving the start date past the repeat end clamps the repeat end.
+      // Moving the start date (When tray) past the repeat end clamps it.
+      await _openTray(tester, const ValueKey('ticket-when'));
       await tester.tap(find.text(_display(today)).first);
       await tester.pumpAndSettle();
       await _pickDialogDay(tester, other.day);
-      expect(find.text(_display(other)), findsNWidgets(2));
+      await _openTray(tester, const ValueKey('ticket-badge-repeat'));
+      expect(find.text(_display(other)), findsOneWidget);
     }
   });
 }

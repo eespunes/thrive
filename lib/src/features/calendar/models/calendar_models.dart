@@ -20,6 +20,9 @@ class CalendarEvent {
     this.recurEvery = 1,
     this.recurUnit = 'week',
     List<int>? recurWeekdays,
+    this.monthlyMode = 'date',
+    this.monthlyNth = 1,
+    this.monthlyWeekday = 1,
     this.createdBy,
     List<String>? exceptions,
     this.layerId = kLayerAppt,
@@ -72,6 +75,16 @@ class CalendarEvent {
 
   /// ISO weekday numbers (1=Mon .. 7=Sun) for custom weekly repeats.
   List<int> recurWeekdays;
+
+  /// Monthly repeat flavour (#262): `'date'` (the 28th — historical
+  /// behaviour) or `'nthWeekday'` ("first Monday"). Only meaningful when
+  /// [recur] is `'monthly'`; serialisation omits the fields at their
+  /// defaults so old payloads round-trip unchanged.
+  String monthlyMode;
+
+  /// 1–4 = first…fourth, 5 = last. With [monthlyWeekday] (ISO 1=Mon..7=Sun).
+  int monthlyNth;
+  int monthlyWeekday;
 
   String? createdBy;
 
@@ -138,6 +151,9 @@ class CalendarEvent {
     if (recurEvery != 1) 'recurEvery': recurEvery,
     if (recurUnit != 'week') 'recurUnit': recurUnit,
     if (recurWeekdays.isNotEmpty) 'recurWeekdays': recurWeekdays,
+    if (monthlyMode != 'date') 'monthlyMode': monthlyMode,
+    if (monthlyNth != 1) 'monthlyNth': monthlyNth,
+    if (monthlyWeekday != 1) 'monthlyWeekday': monthlyWeekday,
     if (createdBy != null) 'createdBy': createdBy,
     'exceptions': exceptions,
     if (layerId.isNotEmpty && layerId != kLayerAppt) 'layerId': layerId,
@@ -174,6 +190,9 @@ class CalendarEvent {
             when weekday >= 1 && weekday <= 7)
           weekday,
     ],
+    monthlyMode: j['monthlyMode'] == 'nthWeekday' ? 'nthWeekday' : 'date',
+    monthlyNth: ((j['monthlyNth'] as num?)?.toInt() ?? 1).clamp(1, 5),
+    monthlyWeekday: ((j['monthlyWeekday'] as num?)?.toInt() ?? 1).clamp(1, 7),
     createdBy: j['createdBy']?.toString(),
     exceptions: [
       for (final e in (j['exceptions'] as List? ?? [])) e.toString(),

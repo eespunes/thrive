@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;background:#e2e7ee}
+a{color:#0E9A8D}a:hover{color:#0B7F74}
+input,button{font-family:inherit}
+input[type=range]{accent-color:#0E9A8D}
+</style>
+</helmet>
+
+<section style="padding:46px 40px 30px;background:#e9edf3">
+  <div style="max-width:1900px;margin:0 auto;display:flex;flex-direction:column;gap:26px">
+    <div>
+      <span style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#0E9A8D;text-transform:uppercase">Turn 2 · Usability first</span>
+      <h1 style="margin:6px 0 8px;font-size:34px;font-weight:800;letter-spacing:-.8px">Four solutions that remove decisions</h1>
+      <p style="margin:0;max-width:880px;font-size:14.5px;font-weight:600;line-height:1.6;color:#64748b;text-wrap:pretty">Turn 1 redesigned the controls; these redesign the <b style="color:#0f172a">task</b>. Repeat and reminder are handled together, in plain family language, with the common case at zero or one decision. Same data model underneath, all live.</p>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+      <div id="2a" style="width:390px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">2a</span><span style="font-size:15px;font-weight:800">Two questions, yes or no first</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:16px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5);display:flex;flex-direction:column;gap:13px">
+          <div>
+            <div style="font-size:13.5px;font-weight:800;margin-bottom:8px">Does it happen again?</div>
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ wAgainBtns }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ wAgain }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+                <sc-for list="{{ wCads }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+              </div>
+              <sc-if value="{{ wWeekly }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:5px;margin-top:9px"><sc-for list="{{ wDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px"><sc-for list="{{ wInts }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.onClick }}" style="{{ n.style }}">{{ n.label }}</button></sc-for></div>
+              </sc-if>
+              <sc-if value="{{ wMonthly }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+                  <sc-for list="{{ wMModes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+                </div>
+                <sc-if value="{{ wMNth }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+                    <sc-for list="{{ wNths }}" as="n" hint-placeholder-count="5"><button onClick="{{ n.onClick }}" style="{{ n.style }}">{{ n.label }}</button></sc-for>
+                  </div>
+                  <div style="display:flex;gap:5px;margin-top:9px"><sc-for list="{{ wNthDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for></div>
+                </sc-if>
+              </sc-if>
+            </sc-if>
+          </div>
+          <div style="border-top:1px solid #f0f2f6;padding-top:13px">
+            <div style="font-size:13.5px;font-weight:800;margin-bottom:8px">Want a heads-up?</div>
+            <div style="display:flex;gap:8px">
+              <sc-for list="{{ wRemBtns }}" as="b" hint-placeholder-count="2"><button onClick="{{ b.onClick }}" style="{{ b.style }}">{{ b.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ wRemind }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+                <sc-for list="{{ wRems }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div style="background:#e4f4f1;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:800;color:#0B7F74">{{ wSummary }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Usability case.</b> People can always answer yes/no; they stall on nine-option lists. Both questions default to <b style="color:#0f172a">No</b>, so the common one-off event is zero taps, and detail only appears after a yes — recognition, never recall.</div>
+      </div>
+
+      <div id="2b" style="width:390px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">2b</span><span style="font-size:15px;font-weight:800">Done for you — accept or adjust</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:16px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="font-size:10.5px;font-weight:800;color:#94a0b0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">Demo · what are you creating?</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px">
+            <sc-for list="{{ xEvs }}" as="e" hint-placeholder-count="4"><button onClick="{{ e.onClick }}" style="{{ e.style }}">{{ e.label }}</button></sc-for>
+          </div>
+          <div style="background:#f4f6f9;border-radius:14px;padding:13px 14px">
+            <div style="font-size:13.5px;font-weight:800;line-height:1.45">{{ xPlan }}</div>
+            <div style="font-size:11px;font-weight:600;color:#77839a;margin-top:3px">{{ xWhy }}</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:11px">
+            <button onClick="{{ xAccept }}" style="{{ xAcceptStyle }}">{{ xAcceptLabel }}</button>
+            <button onClick="{{ xAdjust }}" style="appearance:none;cursor:pointer;border:1px solid #e7eaf0;background:#fff;border-radius:12px;padding:11px 16px;font-size:12.5px;font-weight:800;color:#64748b">Adjust</button>
+          </div>
+          <sc-if value="{{ xAdjusting }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ xReps }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ xRems }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Usability case.</b> The title + date already predict the answer ("practice" on a Friday → weekly + 1 h heads-up; "rent" on the 1st → monthly + a day early). Best-case effort: <b style="color:#0f172a">one tap</b>. Adjust keeps full control one level down — never a dead end.</div>
+      </div>
+
+      <div id="2c" style="width:390px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">2c</span><span style="font-size:15px;font-weight:800">Real-life scenarios, one pick</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:10px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <sc-for list="{{ yRows }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.onClick }}" style="{{ r.style }}">
+              <span style="flex:1;text-align:left"><span style="{{ r.tStyle }}">{{ r.label }}</span><br><span style="font-size:10.5px;font-weight:600;color:#77839a">{{ r.sub }}</span></span>
+              <span style="{{ r.check }}">✓</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ yCustom }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:9px;background:#f4f6f9;border-radius:12px;margin-top:4px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ yReps }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ yRems }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.onClick }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+            </div>
+          </sc-if>
+          <div style="margin:8px 4px 4px;font-size:11.5px;font-weight:700;color:#64748b">{{ ySummary }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Usability case.</b> Families don't think "recurrence rule + notification offset" — they think <b style="color:#0f172a">"weekly routine", "monthly bill", "birthday"</b>. One pick sets both values coherently; "Something else" exposes the raw controls for the 5% who need them.</div>
+      </div>
+
+      <div id="2d" style="width:390px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">2d</span><span style="font-size:15px;font-weight:800">Thumb mode — huge targets</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:16px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5);display:flex;flex-direction:column;gap:12px">
+          <button onClick="{{ zTog }}" style="{{ zTogStyle }}">
+            <span style="flex:1;text-align:left;font-size:15px;font-weight:800">Repeats</span>
+            <span style="{{ zTogPill }}"><span style="{{ zTogKnob }}"></span></span>
+          </button>
+          <sc-if value="{{ zOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:7px">
+              <sc-for list="{{ zCads }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ zWeekly }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:6px">
+                <sc-for list="{{ zDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ zMonthly }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:7px">
+                <sc-for list="{{ zMModes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+              </div>
+              <sc-if value="{{ zMNth }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:6px;margin-top:2px">
+                  <sc-for list="{{ zNths }}" as="n" hint-placeholder-count="5"><button onClick="{{ n.onClick }}" style="{{ n.style }}">{{ n.label }}</button></sc-for>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:2px">
+                  <sc-for list="{{ zNthDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for>
+                </div>
+              </sc-if>
+            </sc-if>
+          </sc-if>
+          <div style="border-top:1px solid #f0f2f6;padding-top:12px;display:flex;align-items:center;gap:10px">
+            <span style="flex:1;font-size:15px;font-weight:800">Heads-up</span>
+            <button onClick="{{ zRemDec }}" style="{{ zBigBtn }}">−</button>
+            <span style="min-width:96px;text-align:center;font-size:14px;font-weight:800;color:#0B7F74">{{ zRemLabel }}</span>
+            <button onClick="{{ zRemInc }}" style="{{ zBigBtn }}">+</button>
+          </div>
+          <div style="background:#f4f6f9;border-radius:12px;padding:10px 12px;font-size:11.5px;font-weight:700;color:#64748b">{{ zSummary }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Usability case.</b> Every target ≥48px, high contrast, no scroll, no hidden state — operable one-handed on a bus, by grandparents and kids alike. The − / + stepper walks the nine reminder values in order, so the whole range is reachable without ever reading a list.</div>
+      </div>
+    </div>
+
+    <div style="max-width:860px;background:#0f172a;border-radius:20px;padding:22px 24px;color:#e2e8f0">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;color:#fff">How I'd combine them</div>
+      <div style="font-size:13px;font-weight:600;line-height:1.7"><a href="#2b" style="color:#5eead4">2b</a>'s one-tap proposal on top of <a href="#2a" style="color:#5eead4">2a</a>'s two yes/no questions as the fallback: the tray opens with "Every Friday · heads-up 1 hour — use this?", and declining drops you into the two questions. <a href="#2d" style="color:#5eead4">2d</a>'s target sizes apply everywhere; <a href="#2c" style="color:#5eead4">2c</a> works best for Quick add.</div>
+    </div>
+  </div>
+</section>
+
+<section style="padding:46px 40px 70px;background:radial-gradient(130% 80% at 50% -10%,#f2f5f9,#e2e7ee)">
+  <div style="max-width:1900px;margin:0 auto;display:flex;flex-direction:column;gap:30px">
+    <div>
+      <span style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#0E9A8D;text-transform:uppercase">Turn 1 · Repeat &amp; Reminder — for the 2d ticket editor</span>
+      <h1 style="margin:6px 0 8px;font-size:34px;font-weight:800;letter-spacing:-.8px">Four ways to say "again", four ways to say "ding"</h1>
+      <p style="margin:0;max-width:880px;font-size:14.5px;font-weight:600;line-height:1.6;color:#64748b;text-wrap:pretty">The ticket editor (<b style="color:#0f172a">2d</b> in the previous page) is our new create/edit event. These are drop-in replacements for its Repeat and Reminder trays — all live, all built around the demo event <b style="color:#0f172a">Football practice · Friday 18:00</b>. Same data model as today: repeat never/daily/weekly/monthly/yearly/custom (every 1–6 × unit, weekdays, ends date) and the nine reminder offsets.</p>
+    </div>
+
+    <div style="font-size:12px;font-weight:800;letter-spacing:.4px;color:#0E9A8D;text-transform:uppercase">Repeat · 4 options</div>
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+      <div id="1a" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1a</span><span style="font-size:15px;font-weight:800">The sentence</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:18px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="font-size:16px;font-weight:800;line-height:2;letter-spacing:-.2px">
+            Repeats <button onClick="{{ aCadence }}" style="{{ tok }}">{{ aCadenceLabel }}</button>
+            <sc-if value="{{ aCustom }}" hint-placeholder-val="{{ false }}">
+              every <button onClick="{{ aEvery }}" style="{{ tok }}">{{ aEveryLabel }}</button> <button onClick="{{ aUnit }}" style="{{ tok }}">{{ aUnitLabel }}</button>
+            </sc-if>
+            <sc-if value="{{ aWeekly }}" hint-placeholder-val="{{ false }}">
+              on <span style="display:inline-flex;gap:4px;vertical-align:middle">
+                <sc-for list="{{ aDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for>
+              </span>
+            </sc-if>
+            <sc-if value="{{ aOn }}" hint-placeholder-val="{{ false }}">
+              , ending <button onClick="{{ aEndsTog }}" style="{{ tok }}">{{ aEndsLabel }}</button>
+              <sc-if value="{{ aEndsOn }}" hint-placeholder-val="{{ false }}"><input value="{{ aEnds }}" onChange="{{ aOnEnds }}" type="date" style="border:1px solid #e7eaf0;background:#f4f6f9;border-radius:9px;padding:5px 8px;font-size:12px;font-weight:800;vertical-align:middle"></sc-if>
+            </sc-if>
+          </div>
+          <div style="margin-top:12px;border-top:1px solid #f0f2f6;padding-top:10px;font-size:11.5px;font-weight:700;color:#64748b">{{ aPreview }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> One readable sentence, every word tappable to cycle. No modes, no reveals — custom just grows the sentence. The next-dates line proves what you built.</div>
+      </div>
+
+      <div id="1b" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1b</span><span style="font-size:15px;font-weight:800">Presets from the date</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:10px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <sc-for list="{{ bRows }}" as="r" hint-placeholder-count="6">
+            <button onClick="{{ r.onClick }}" style="{{ r.style }}">
+              <span style="flex:1;text-align:left"><span style="{{ r.tStyle }}">{{ r.label }}</span><br><span style="font-size:10.5px;font-weight:600;color:#77839a">{{ r.sub }}</span></span>
+              <span style="{{ r.check }}">✓</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ bCustom }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#f4f6f9;border-radius:12px;margin-top:4px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:12px;font-weight:800;color:#334155">Every</span>
+                <button onClick="{{ bDec }}" style="{{ stepBtn }}">−</button><span style="font-size:13px;font-weight:800">{{ bEvery }}</span><button onClick="{{ bInc }}" style="{{ stepBtn }}">+</button>
+                <sc-for list="{{ bUnits }}" as="u" hint-placeholder-count="4"><button onClick="{{ u.onClick }}" style="{{ u.style }}">{{ u.label }}</button></sc-for>
+              </div>
+              <sc-if value="{{ bWeekly }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:5px"><sc-for list="{{ bDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for></div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> The date already knows the answer: "Every Friday", "Monthly on the 28th", "Every last Friday" are generated from the picked day, so 90% of repeats are one tap and Custom stays for the rest.</div>
+      </div>
+
+      <div id="1c" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1c</span><span style="font-size:15px;font-weight:800">Pattern painter</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:16px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+            <sc-for list="{{ cModes }}" as="m" hint-placeholder-count="5"><button onClick="{{ m.onClick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for>
+          </div>
+          <sc-if value="{{ cWeekly }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:5px;margin-bottom:12px"><sc-for list="{{ cDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for></div>
+          </sc-if>
+          <div style="background:#f4f6f9;border-radius:14px;padding:11px 12px">
+            <div style="font-size:10.5px;font-weight:800;color:#94a0b0;text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px">{{ cMonthLabel }}</div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">
+              <sc-for list="{{ cCells }}" as="cell" hint-placeholder-count="35">
+                <span style="{{ cell.style }}">{{ cell.n }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:11.5px;font-weight:700;color:#64748b">{{ cSummary }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> You don't read the rule, you <b style="color:#0f172a">see it land on the month</b>. Toggling a weekday repaints the grid instantly — the preview is the control's feedback loop, great for custom weekly patterns.</div>
+      </div>
+
+      <div id="1d" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1d</span><span style="font-size:15px;font-weight:800">Cadence dial</span></div>
+        <div style="background:#0f172a;border-radius:18px;padding:18px;box-shadow:0 14px 30px -24px rgba(15,23,42,.6);color:#fff">
+          <div style="text-align:center;font-size:19px;font-weight:800;letter-spacing:-.3px;margin-bottom:2px">{{ dBig }}</div>
+          <div style="text-align:center;font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:14px">{{ dSub }}</div>
+          <input type="range" min="0" max="5" step="1" value="{{ dIdx }}" onChange="{{ dOnIdx }}" style="width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:9px;font-weight:800;color:#64748b;margin-top:4px"><span>ONCE</span><span>DAY</span><span>WEEK</span><span>MONTH</span><span>YEAR</span><span>CUSTOM</span></div>
+          <sc-if value="{{ dCustom }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:13px">
+              <span style="font-size:12px;font-weight:800;color:#cbd5e1">Every</span>
+              <button onClick="{{ dDec }}" style="{{ dStep }}">−</button><span style="font-size:14px;font-weight:800">{{ dEvery }}</span><button onClick="{{ dInc }}" style="{{ dStep }}">+</button>
+              <sc-for list="{{ dUnits }}" as="u" hint-placeholder-count="4"><button onClick="{{ u.onClick }}" style="{{ u.style }}">{{ u.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ dWeekly }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:5px;justify-content:center;margin-top:10px"><sc-for list="{{ dDays }}" as="w" hint-placeholder-count="7"><button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button></sc-for></div>
+            </sc-if>
+          </sc-if>
+          <sc-if value="{{ dOn }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:13px">
+              <sc-for list="{{ dEndsOpts }}" as="e" hint-placeholder-count="2"><button onClick="{{ e.onClick }}" style="{{ e.style }}">{{ e.label }}</button></sc-for>
+              <sc-if value="{{ dEndsOn }}" hint-placeholder-val="{{ false }}"><input value="{{ dEnds }}" onChange="{{ dOnEnds }}" type="date" style="border:none;background:#1e293b;color:#fff;border-radius:9px;padding:6px 8px;font-size:11.5px;font-weight:800"></sc-if>
+            </div>
+          </sc-if>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> Repeat is really one dimension — <b style="color:#0f172a">how often</b> — so give it one physical control. Slide the cadence, and only the extras that matter (interval, weekdays, ends) fade in beneath. Feels native on the dark ticket theme of 2c.</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:800;letter-spacing:.4px;color:#0E9A8D;text-transform:uppercase;margin-top:8px">Reminder · 4 options</div>
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+      <div id="1e" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1e</span><span style="font-size:15px;font-weight:800">Countdown timeline</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:18px 16px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="font-size:12px;font-weight:800;color:#334155;margin-bottom:14px">{{ eReadout }}</div>
+          <div style="position:relative;height:6px;border-radius:999px;background:#eef1f5;margin:0 8px">
+            <span style="{{ eFill }}"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:-13px">
+            <sc-for list="{{ eStops }}" as="s" hint-placeholder-count="9">
+              <button onClick="{{ s.onClick }}" title="{{ s.title }}" style="{{ s.style }}"></button>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:800;color:#94a0b0;margin-top:6px"><span>OFF</span><span>2d</span><span>1d</span><span>2h</span><span>1h</span><span>30m</span><span>15m</span><span>5m</span><span style="color:#0E9A8D">START</span></div>
+          <div style="margin-top:12px;background:#f4f6f9;border-radius:12px;padding:9px 12px;font-size:11.5px;font-weight:700;color:#64748b">{{ eWhen }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> A reminder is a point on the countdown to the event — so show the countdown. Tapping a notch moves the bell and the copy tells you the actual ring time, not just the offset.</div>
+      </div>
+
+      <div id="1f" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1f</span><span style="font-size:15px;font-weight:800">The sentence</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:18px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="font-size:16px;font-weight:800;line-height:2;letter-spacing:-.2px">
+            Remind everyone <button onClick="{{ fCycle }}" style="{{ tok }}">{{ fLabel }}</button>{{ fTail }}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:11px">
+            <sc-for list="{{ fChips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+          </div>
+          <div style="margin-top:12px;border-top:1px solid #f0f2f6;padding-top:10px;font-size:11.5px;font-weight:700;color:#64748b">{{ fWhen }}</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> Matches the repeat sentence (<a href="#1a">1a</a>) for one consistent language across the tray: tap the token to cycle, or shortcut with the frequent picks below. Reads exactly like the notification will behave.</div>
+      </div>
+
+      <div id="1g" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1g</span><span style="font-size:15px;font-weight:800">Smart suggestion first</span></div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:18px;padding:10px;box-shadow:0 14px 30px -24px rgba(15,23,42,.5)">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px 10px">
+            <span style="font-size:11px;font-weight:800;color:#64748b">Demo: the event is</span>
+            <button onClick="{{ gTogAllDay }}" style="{{ gAllDayChip }}">{{ gAllDayLabel }}</button>
+          </div>
+          <button onClick="{{ gPickSug }}" style="{{ gSugStyle }}">
+            <span style="flex:1;text-align:left"><span style="font-size:12.5px;font-weight:800;color:#0B7F74">Suggested · {{ gSugLabel }}</span><br><span style="font-size:10.5px;font-weight:600;color:#0f766e">{{ gSugSub }}</span></span>
+            <span style="{{ gSugCheck }}">✓</span>
+          </button>
+          <sc-for list="{{ gRows }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.onClick }}" style="{{ r.style }}">
+              <span style="flex:1;text-align:left"><span style="font-size:12.5px;font-weight:800;color:#0f172a">{{ r.label }}</span><br><span style="font-size:10.5px;font-weight:600;color:#77839a">{{ r.sub }}</span></span>
+              <span style="{{ r.check }}">✓</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> The list adapts: timed events suggest "1 hour — time to get there", all-day events suggest "1 day — the evening before" (flip the demo chip). Every row explains itself in family language, killing the offset-math.</div>
+      </div>
+
+      <div id="1h" style="width:380px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1h</span><span style="font-size:15px;font-weight:800">Bell dial</span></div>
+        <div style="background:#0f172a;border-radius:18px;padding:18px;box-shadow:0 14px 30px -24px rgba(15,23,42,.6);color:#fff;text-align:center">
+          <div style="width:74px;height:74px;border-radius:50%;margin:0 auto 8px;display:grid;place-items:center;background:{{ hRing }}">
+            <span style="width:58px;height:58px;border-radius:50%;background:#0f172a;display:grid;place-items:center;font-size:15px;font-weight:800">{{ hShort }}</span>
+          </div>
+          <div style="font-size:15px;font-weight:800;letter-spacing:-.2px">{{ hBig }}</div>
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;margin:2px 0 12px">{{ hSub }}</div>
+          <input type="range" min="0" max="8" step="1" value="{{ hIdx }}" onChange="{{ hOnIdx }}" style="width:100%">
+          <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:800;color:#64748b;margin-top:4px"><span>OFF</span><span>0</span><span>5m</span><span>15m</span><span>30m</span><span>1h</span><span>2h</span><span>1d</span><span>2d</span></div>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">Why.</b> One thumb-slide through all nine values with a big readout — fastest on a phone, zero taps to compare options, and the filling ring gives "how early" a physical feel. Pairs with the cadence dial (<a href="#1d">1d</a>).</div>
+      </div>
+    </div>
+
+    <div style="max-width:860px;background:#0f172a;border-radius:20px;padding:22px 24px;color:#e2e8f0">
+      <div style="font-size:15px;font-weight:800;margin-bottom:10px;color:#fff">My recommendation for the ticket</div>
+      <div style="font-size:13px;font-weight:600;line-height:1.7">Repeat → <a href="#1b" style="color:#5eead4">1b</a> presets-from-the-date with <a href="#1c" style="color:#5eead4">1c</a>'s month preview inside the Custom fold (tap-once for the common cases, see-what-you-built for the rest). Reminder → <a href="#1g" style="color:#5eead4">1g</a> smart rows, keeping <a href="#1e" style="color:#5eead4">1e</a>'s ring-time copy on each row. Say the word and I'll wire the winners into the 2d trays.</div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.UNITS=[['day','days'],['week','weeks'],['month','months'],['year','years']];
+    this.REMS=[['none','No reminder'],['at','On time'],['5m','5 min before'],['15m','15 min before'],['30m','30 min before'],['1h','1 hour before'],['2h','2 hours before'],['1d','1 day before'],['2d','2 days before']];
+    this.REMMIN={none:null,at:0,'5m':5,'15m':15,'30m':30,'1h':60,'2h':120,'1d':1440,'2d':2880};
+    this.EVDATE=this.nextDow(5);this.EVSTART='18:00';
+    this.state={
+      a:{mode:'weekly',every:2,unit:'week',days:[5],endsOn:false,ends:''},
+      b:{sel:'weekly',custom:false,every:2,unit:'week',days:[5]},
+      c:{mode:'weekly',days:[2,5]},
+      d:{idx:2,every:2,unit:'week',days:[1,4],endsOn:false,ends:''},
+      e:'1h',f:'1h',
+      w:{again:false,cad:'weekly',days:[5],remind:true,rem:'1h',mMode:'date',nth:1,nwd:1,int:1},
+      x:{ev:'practice',accepted:false,adjust:false,rep:null,rem:null},
+      yv:{sel:'weekly',rep:'weekly',rem:'1h'},
+      z:{on:false,cad:'week',days:[5],remIdx:5,mMode:'date',nth:1,nwd:1},
+      g:{val:'1h',allDay:false},
+      h:5
+    };
+  }
+  nextDow(dow){const d=new Date();const cur=(d.getDay()+6)%7+1;const add=(dow-cur+7)%7;return new Date(d.getTime()+add*86400000).toISOString().slice(0,10);}
+  fmtD(iso){const d=new Date(iso+'T00:00:00Z');return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][(d.getUTCDay()+6)%7]+' '+d.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];}
+  addD(iso,n){return new Date(new Date(iso+'T00:00:00Z').getTime()+n*86400000).toISOString().slice(0,10);}
+  isoWd(iso){return (new Date(iso+'T00:00:00Z').getUTCDay()+6)%7+1;}
+  nextDates(mode,every,unit,days,from,count){const out=[];let d=from;let guard=0;
+    if(mode==='none')return out;
+    while(out.length<count&&guard<800){guard++;
+      if(mode==='daily')d=this.addD(d,out.length||guard===1?1:1);
+      if(mode==='daily'){out.push(d);continue;}
+      if(mode==='weekly'||(mode==='custom'&&unit==='week')){d=this.addD(d,1);if(days.indexOf(this.isoWd(d))>=0){
+        if(mode==='custom'&&every>1){const w0=Math.floor((new Date(from+'T00:00:00Z')).getTime()/604800000);const w1=Math.floor((new Date(d+'T00:00:00Z')).getTime()/604800000);if((w1-w0)%every!==0)continue;}
+        out.push(d);}continue;}
+      if(mode==='monthly'||(mode==='custom'&&unit==='month')){const dt=new Date(d+'T00:00:00Z');const step=mode==='custom'?every:1;const nd=new Date(Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth()+step,Math.min(dt.getUTCDate(),28)));d=nd.toISOString().slice(0,10);out.push(d);continue;}
+      if(mode==='yearly'||(mode==='custom'&&unit==='year')){const dt=new Date(d+'T00:00:00Z');const step=mode==='custom'?every:1;d=new Date(Date.UTC(dt.getUTCFullYear()+step,dt.getUTCMonth(),dt.getUTCDate())).toISOString().slice(0,10);out.push(d);continue;}
+      if(mode==='custom'&&unit==='day'){d=this.addD(d,every);out.push(d);continue;}
+      break;}
+    return out;}
+  cyc(list,cur){const i=list.indexOf(cur);return list[(i+1)%list.length];}
+  chip(on,dark){return {appearance:'none',cursor:'pointer',border:'1px solid '+(on?'#0E9A8D':(dark?'#334155':'#e7eaf0')),background:on?(dark?'#0E9A8D':'#e4f4f1'):(dark?'transparent':'#fff'),color:on?(dark?'#fff':'#0B7F74'):(dark?'#94a3b8':'#64748b'),borderRadius:'999px',padding:'5px 11px',fontSize:'11px',fontWeight:800,whiteSpace:'nowrap'};}
+  wday(on,dark){return {appearance:'none',cursor:'pointer',width:'28px',height:'28px',borderRadius:'50%',border:'1px solid '+(on?'#0E9A8D':(dark?'#334155':'#e7eaf0')),background:on?'#0E9A8D':(dark?'transparent':'#fff'),color:on?'#fff':(dark?'#94a3b8':'#64748b'),fontSize:'10.5px',fontWeight:800,padding:0,verticalAlign:'middle'};}
+  wdRow(days,onToggle,dark){return [1,2,3,4,5,6,7].map(wd=>({label:['M','T','W','T','F','S','S'][wd-1],onClick:()=>{const a=days.slice();const i=a.indexOf(wd);if(i>=0){if(a.length<=1)return;a.splice(i,1);}else a.push(wd);onToggle(a);},style:this.wday(days.indexOf(wd)>=0,dark)}));}
+  ringTime(rem){const m=this.REMMIN[rem];if(m==null)return 'Nobody gets pinged for this one.';
+    const p=this.EVSTART.split(':');const t=new Date(this.EVDATE+'T00:00:00Z');t.setUTCMinutes(parseInt(p[0],10)*60+parseInt(p[1],10)-m);
+    const hh=(t.getUTCHours()<10?'0':'')+t.getUTCHours();const mm=(t.getUTCMinutes()<10?'0':'')+t.getUTCMinutes();
+    return 'Rings '+hh+':'+mm+' · '+this.fmtD(t.toISOString().slice(0,10));}
+  renderVals(){
+    const S=this.state;const o={};
+    o.tok={appearance:'none',cursor:'pointer',border:'none',background:'#e4f4f1',color:'#0B7F74',borderRadius:'9px',padding:'3px 10px',fontSize:'15px',fontWeight:800,borderBottom:'2px dashed #0E9A8D'};
+    o.stepBtn={appearance:'none',cursor:'pointer',border:'1px solid #e7eaf0',background:'#fff',width:'26px',height:'26px',borderRadius:'8px',fontWeight:800,color:'#64748b'};
+    /* 1a sentence */
+    const A=S.a;const CAD=['none','daily','weekly','monthly','yearly','custom'];
+    o.aCadence=()=>this.setState({a:Object.assign({},A,{mode:this.cyc(CAD,A.mode)})});
+    o.aCadenceLabel={none:'never',daily:'every day',weekly:'every week',monthly:'every month',yearly:'every year',custom:'on a custom rhythm'}[A.mode];
+    o.aCustom=A.mode==='custom';
+    o.aEvery=()=>this.setState({a:Object.assign({},A,{every:A.every>=6?1:A.every+1})});o.aEveryLabel=String(A.every);
+    o.aUnit=()=>this.setState({a:Object.assign({},A,{unit:this.cyc(['day','week','month','year'],A.unit)})});
+    o.aUnitLabel=A.unit+(A.every>1?'s':'');
+    o.aWeekly=A.mode==='weekly'||(A.mode==='custom'&&A.unit==='week');
+    o.aDays=this.wdRow(A.days,(days)=>this.setState({a:Object.assign({},A,{days})}));
+    o.aOn=A.mode!=='none';
+    o.aEndsTog=()=>this.setState({a:Object.assign({},A,{endsOn:!A.endsOn,ends:A.endsOn?'':A.ends})});
+    o.aEndsLabel=A.endsOn?'on':'never';o.aEndsOn=A.endsOn;
+    o.aEnds=A.ends;o.aOnEnds=(e)=>this.setState({a:Object.assign({},A,{ends:e.target.value})});
+    const aNext=this.nextDates(A.mode,A.every,A.unit,A.days,this.EVDATE,3);
+    o.aPreview=A.mode==='none'?'Happens once · '+this.fmtD(this.EVDATE):('Next: '+[this.fmtD(this.EVDATE)].concat(aNext.map(d=>this.fmtD(d))).join(' · ')+' …');
+    /* 1b presets */
+    const Bx=S.b;const evD=new Date(this.EVDATE+'T00:00:00Z');const wdName=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][(evD.getUTCDay()+6)%7];
+    const nth=Math.ceil(evD.getUTCDate()/7);const lastOf=evD.getUTCDate()>new Date(Date.UTC(evD.getUTCFullYear(),evD.getUTCMonth()+1,0)).getUTCDate()-7;
+    const presets=[
+      ['none','Never','Happens once'],
+      ['daily','Every day','Including weekends'],
+      ['weekly','Every '+wdName,'Weekly, from '+this.fmtD(this.EVDATE)],
+      ['monthly','Monthly on the '+evD.getUTCDate()+(evD.getUTCDate()===1?'st':(evD.getUTCDate()===2?'nd':(evD.getUTCDate()===3?'rd':'th'))),'Same date each month'],
+      [lastOf?'monthlast':'monthnth',(lastOf?'Every last ':'Every '+['first','second','third','fourth','fifth'][nth-1]+' ')+wdName,'Same weekday pattern each month'],
+      ['yearly','Every year on '+evD.getUTCDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][evD.getUTCMonth()],'Birthdays & anniversaries'],
+      ['custom','Custom…','Every N days / weeks / months / years']];
+    o.bRows=presets.map(p2=>{const on=Bx.sel===p2[0];return {label:p2[1],sub:p2[2],
+      onClick:()=>this.setState({b:Object.assign({},Bx,{sel:p2[0],custom:p2[0]==='custom'})}),
+      style:{appearance:'none',cursor:'pointer',width:'100%',display:'flex',alignItems:'center',gap:'10px',border:'none',background:on?'#e4f4f1':'transparent',borderRadius:'12px',padding:'9px 12px'},
+      tStyle:{fontSize:'13px',fontWeight:800,color:on?'#0B7F74':'#0f172a'},
+      check:{width:'20px',height:'20px',borderRadius:'50%',background:on?'#0E9A8D':'#f0f2f6',color:on?'#fff':'transparent',display:'grid',placeItems:'center',fontSize:'11px',fontWeight:800,flex:'none'}};});
+    o.bCustom=Bx.custom;
+    o.bEvery=String(Bx.every);
+    o.bDec=()=>this.setState({b:Object.assign({},Bx,{every:Math.max(1,Bx.every-1)})});
+    o.bInc=()=>this.setState({b:Object.assign({},Bx,{every:Math.min(6,Bx.every+1)})});
+    o.bUnits=this.UNITS.map(u=>({label:u[1],onClick:()=>this.setState({b:Object.assign({},Bx,{unit:u[0]})}),style:this.chip(Bx.unit===u[0])}));
+    o.bWeekly=Bx.unit==='week';
+    o.bDays=this.wdRow(Bx.days,(days)=>this.setState({b:Object.assign({},Bx,{days})}));
+    /* 1c pattern painter */
+    const C=S.c;
+    o.cModes=[['weekly','Weekly'],['biweekly','Every 2 weeks'],['monthly','Monthly'],['daily','Daily'],['none','Never']].map(m=>({label:m[1],onClick:()=>this.setState({c:Object.assign({},C,{mode:m[0]})}),style:this.chip(C.mode===m[0])}));
+    o.cWeekly=C.mode==='weekly'||C.mode==='biweekly';
+    o.cDays=this.wdRow(C.days,(days)=>this.setState({c:Object.assign({},C,{days})}));
+    const now=new Date();const y=now.getFullYear(),mo=now.getMonth();
+    o.cMonthLabel=['January','February','March','April','May','June','July','August','September','October','November','December'][mo]+' '+y;
+    const first=new Date(Date.UTC(y,mo,1));const off=(first.getUTCDay()+6)%7;const dim=new Date(Date.UTC(y,mo+1,0)).getUTCDate();
+    const evDay=parseInt(this.EVDATE.slice(8),10);const evMonth=this.EVDATE.slice(0,7)===now.toISOString().slice(0,7);
+    const hits={};
+    if(C.mode!=='none'){for(let day=1;day<=dim;day++){const iso=new Date(Date.UTC(y,mo,day)).toISOString().slice(0,10);
+      if(iso<this.EVDATE)continue;const wd=this.isoWd(iso);
+      if(C.mode==='daily')hits[day]=1;
+      else if(C.mode==='monthly'){if(evMonth?day===evDay:day===evDay)hits[day]=1;}
+      else if(C.days.indexOf(wd)>=0){if(C.mode==='weekly')hits[day]=1;
+        else{const w0=Math.floor(new Date(this.EVDATE+'T00:00:00Z').getTime()/604800000);const w1=Math.floor(new Date(iso+'T00:00:00Z').getTime()/604800000);if(((w1-w0)%2+2)%2===0)hits[day]=1;}}}}
+    const cells=[];for(let i=0;i<off;i++)cells.push({n:'',style:{height:'26px'}});
+    for(let day=1;day<=dim;day++){const on=!!hits[day];
+      cells.push({n:String(day),style:{height:'26px',display:'grid',placeItems:'center',fontSize:'10.5px',fontWeight:800,borderRadius:'8px',background:on?'#0E9A8D':'transparent',color:on?'#fff':'#64748b'}});}
+    o.cCells=cells;
+    const nHits=Object.keys(hits).length;
+    o.cSummary=C.mode==='none'?'No repeats — happens once.':(nHits+' occurrence'+(nHits===1?'':'s')+' this month'+(o.cWeekly?(' · '+C.days.length+' day'+(C.days.length>1?'s':'')+' a week'):''));
+    /* 1d dial */
+    const D=S.d;const DCAD=['none','daily','weekly','monthly','yearly','custom'];
+    const dMode=DCAD[D.idx];
+    o.dIdx=String(D.idx);
+    o.dOnIdx=(e)=>this.setState({d:Object.assign({},D,{idx:parseInt(e.target.value,10)||0})});
+    o.dBig={none:'Happens once',daily:'Every day',weekly:'Every week',monthly:'Every month',yearly:'Every year',custom:'Custom rhythm'}[dMode];
+    const dNext=this.nextDates(dMode,D.every,D.unit,D.days,this.EVDATE,2);
+    o.dSub=dMode==='none'?this.fmtD(this.EVDATE)+' only':('then '+dNext.map(x=>this.fmtD(x)).join(' · ')+' …');
+    o.dCustom=dMode==='custom';
+    o.dEvery=String(D.every);
+    o.dDec=()=>this.setState({d:Object.assign({},D,{every:Math.max(1,D.every-1)})});
+    o.dInc=()=>this.setState({d:Object.assign({},D,{every:Math.min(6,D.every+1)})});
+    o.dStep={appearance:'none',cursor:'pointer',border:'1px solid #334155',background:'transparent',width:'26px',height:'26px',borderRadius:'8px',fontWeight:800,color:'#cbd5e1'};
+    o.dUnits=this.UNITS.map(u=>({label:u[1],onClick:()=>this.setState({d:Object.assign({},D,{unit:u[0]})}),style:this.chip(D.unit===u[0],true)}));
+    o.dWeekly=D.unit==='week';
+    o.dDays=this.wdRow(D.days,(days)=>this.setState({d:Object.assign({},D,{days})}),true);
+    o.dOn=dMode!=='none';
+    o.dEndsOpts=[['never','Never ends'],['on','Ends on a date']].map(e2=>({label:e2[1],onClick:()=>this.setState({d:Object.assign({},D,{endsOn:e2[0]==='on'})}),style:this.chip(D.endsOn===(e2[0]==='on'),true)}));
+    o.dEndsOn=D.endsOn;o.dEnds=D.ends;o.dOnEnds=(e)=>this.setState({d:Object.assign({},D,{ends:e.target.value})});
+    /* 1e timeline */
+    const ORDER=['none','2d','1d','2h','1h','30m','15m','5m','at'];
+    const eIdx=ORDER.indexOf(S.e);
+    o.eReadout=S.e==='none'?'No reminder':((this.REMS.find(x=>x[0]===S.e)||[])[1]+' · Football practice, Fri 18:00');
+    o.eFill={position:'absolute',top:0,bottom:0,left:(eIdx/(ORDER.length-1)*100)+'%',right:0,background:'#0E9A8D',borderRadius:'999px'};
+    o.eStops=ORDER.map((v,i)=>{const on=S.e===v;return {title:(this.REMS.find(x=>x[0]===v)||[])[1],onClick:()=>this.setState({e:v}),
+      style:{appearance:'none',cursor:'pointer',width:'20px',height:'20px',borderRadius:'50%',border:'3px solid '+(i>=eIdx&&S.e!=='none'?'#0E9A8D':'#cfd6df'),background:on?'#0E9A8D':'#fff',padding:0,boxShadow:on?'0 0 0 4px #e4f4f1':'none'}};});
+    o.eWhen=this.ringTime(S.e);
+    /* 1f sentence */
+    const FORD=['none','at','5m','15m','30m','1h','2h','1d','2d'];
+    o.fCycle=()=>this.setState({f:this.cyc(FORD,S.f)});
+    o.fLabel=S.f==='none'?'never':(S.f==='at'?'right when it starts':((this.REMS.find(x=>x[0]===S.f)||[])[1].replace(' before','')+' before'));
+    o.fTail=S.f==='none'?'.':' it starts.';
+    o.fChips=[['at','On time'],['15m','15 min'],['1h','1 hour'],['1d','1 day'],['none','Off']].map(c2=>({label:c2[1],onClick:()=>this.setState({f:c2[0]}),style:this.chip(S.f===c2[0])}));
+    o.fWhen=this.ringTime(S.f);
+    /* 1g smart rows */
+    const G=S.g;const sug=G.allDay?'1d':'1h';
+    o.gTogAllDay=()=>this.setState({g:Object.assign({},G,{allDay:!G.allDay})});
+    o.gAllDayChip=this.chip(true);o.gAllDayLabel=G.allDay?'All-day (tap for 18:00)':'At 18:00 (tap for all-day)';
+    o.gSugLabel=G.allDay?'1 day before':'1 hour before';
+    o.gSugSub=G.allDay?'The evening before, at 19:00 — nothing rings mid-party':'Time to wrap up and get there';
+    o.gPickSug=()=>this.setState({g:Object.assign({},G,{val:sug})});
+    const gOn=G.val===sug;
+    o.gSugStyle={appearance:'none',cursor:'pointer',width:'100%',display:'flex',alignItems:'center',gap:'10px',border:'1px solid #bbf0d3',background:'#e7f7ef',borderRadius:'12px',padding:'10px 12px',marginBottom:'6px'};
+    o.gSugCheck={width:'20px',height:'20px',borderRadius:'50%',background:gOn?'#0E9A8D':'#fff',border:'1px solid #bbf0d3',color:gOn?'#fff':'transparent',display:'grid',placeItems:'center',fontSize:'11px',fontWeight:800,flex:'none'};
+    const gRowsDef=[['none','No reminder','Nothing rings'],['at','When it starts','A nudge at the moment itself'],['15m','15 minutes','Shoes on, out the door'],['2h','2 hours','For things that need prep'],['2d','2 days','Buy the present in time']];
+    o.gRows=gRowsDef.map(r2=>{const on=G.val===r2[0];return {label:r2[1],sub:r2[2],onClick:()=>this.setState({g:Object.assign({},G,{val:r2[0]})}),
+      style:{appearance:'none',cursor:'pointer',width:'100%',display:'flex',alignItems:'center',gap:'10px',border:'none',background:on?'#e4f4f1':'transparent',borderRadius:'12px',padding:'9px 12px'},
+      check:{width:'20px',height:'20px',borderRadius:'50%',background:on?'#0E9A8D':'#f0f2f6',color:on?'#fff':'transparent',display:'grid',placeItems:'center',fontSize:'11px',fontWeight:800,flex:'none'}};});
+    /* 1h bell dial */
+    const HORD=['none','at','5m','15m','30m','1h','2h','1d','2d'];
+    const hVal=HORD[S.h];
+    o.hIdx=String(S.h);
+    o.hOnIdx=(e)=>this.setState({h:parseInt(e.target.value,10)||0});
+    o.hShort=hVal==='none'?'off':(hVal==='at'?'now':hVal);
+    o.hRing='conic-gradient(#0E9A8D '+(S.h/8*360)+'deg,#1e293b 0deg)';
+    o.hBig=(this.REMS.find(x=>x[0]===hVal)||[])[1];
+    o.hSub=this.ringTime(hVal);
+    /* ===== Turn 2 — usability-first ===== */
+    const big=(on)=>({appearance:'none',cursor:'pointer',flex:1,border:'2px solid '+(on?'#0E9A8D':'#e7eaf0'),background:on?'#e4f4f1':'#fff',color:on?'#0B7F74':'#64748b',borderRadius:'14px',padding:'13px 10px',fontSize:'13.5px',fontWeight:800,minHeight:'48px'});
+    const remName=(v)=>(this.REMS.find(x2=>x2[0]===v)||[])[1]||'—';
+    /* 2a two questions */
+    const W=this.state.w;const setW=(p2)=>this.setState({w:Object.assign({},W,p2)});
+    o.wAgainBtns=[[false,'No, just once'],[true,'Yes, it repeats']].map(b2=>({label:b2[1],onClick:()=>setW({again:b2[0]}),style:big(W.again===b2[0])}));
+    o.wAgain=W.again===true;
+    o.wCads=[['daily','Every day'],['weekly','Every week'],['monthly','Every month'],['yearly','Every year']].map(c2=>({label:c2[1],onClick:()=>setW({cad:c2[0]}),style:this.chip(W.cad===c2[0])}));
+    o.wWeekly=W.cad==='weekly';
+    o.wDays=this.wdRow(W.days,(days)=>setW({days}));
+    o.wInts=[1,2,3,4].map(n2=>({label:n2===1?'Every week':'Every '+n2+' weeks',onClick:()=>setW({int:n2}),style:this.chip(W.int===n2)}));
+    const NTHS=['first','second','third','fourth','last'];const WDN=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    o.wMonthly=W.cad==='monthly';
+    o.wMModes=[['date','Same date (the 28th)'],['nth','Same weekday (e.g. first Monday)']].map(m2=>({label:m2[1],onClick:()=>setW({mMode:m2[0]}),style:this.chip(W.mMode===m2[0])}));
+    o.wMNth=W.mMode==='nth';
+    o.wNths=NTHS.map((n2,i)=>({label:n2.charAt(0).toUpperCase()+n2.slice(1),onClick:()=>setW({nth:i+1}),style:this.chip(W.nth===i+1)}));
+    o.wNthDays=[1,2,3,4,5,6,7].map(wd=>({label:['M','T','W','T','F','S','S'][wd-1],onClick:()=>setW({nwd:wd}),style:this.wday(W.nwd===wd)}));
+    o.wRemBtns=[[false,'No thanks'],[true,'Yes, remind us']].map(b2=>({label:b2[1],onClick:()=>setW({remind:b2[0]}),style:big(W.remind===b2[0])}));
+    o.wRemind=W.remind===true;
+    o.wRems=[['at','When it starts'],['15m','15 min'],['1h','1 hour'],['1d','A day early']].map(r2=>({label:r2[1],onClick:()=>setW({rem:r2[0]}),style:this.chip(W.rem===r2[0])}));
+    const wRep=W.again?({daily:'every day',weekly:(W.int>1?('every '+W.int+' weeks on '):'every ')+(W.days.length===1?WDN[W.days[0]-1]:W.days.length+' days'),monthly:(W.mMode==='nth'?('every '+NTHS[W.nth-1]+' '+WDN[W.nwd-1]+' of the month'):'monthly on the 28th'),yearly:'yearly'})[W.cad]:'once';
+    o.wSummary='Happens '+wRep+(W.remind?(' · heads-up '+remName(W.rem).toLowerCase()):' · no reminder')+(W.remind?(' — '+this.ringTime(W.rem).toLowerCase()):'');
+    /* 2b done for you */
+    const X=this.state.x;const setX=(p2)=>this.setState({x:Object.assign({},X,p2)});
+    const PLANS={
+      practice:{label:'Football practice · Fri 18:00',rep:'weekly',rem:'1h',plan:'Every Friday · heads-up 1 hour before',why:'It\u2019s on a weekday evening with a title we\u2019ve seen weekly before.'},
+      rent:{label:'Rent · the 1st',rep:'monthly',rem:'1d',plan:'Monthly on the 1st · reminded a day early',why:'Bills on a fixed date repeat monthly; a day gives time to check the account.'},
+      birthday:{label:'Liv\u2019s birthday',rep:'yearly',rem:'2d',plan:'Every year · reminded 2 days before',why:'Birthdays repeat yearly; two days leaves time for a present.'},
+      dentist:{label:'Dentist visit',rep:'none',rem:'1d',plan:'Happens once · reminded the day before',why:'Appointments rarely repeat; the evening before beats the morning rush.'}};
+    const plan=PLANS[X.ev];const xRep=X.rep||plan.rep;const xRem=X.rem||plan.rem;
+    o.xEvs=Object.keys(PLANS).map(k2=>({label:PLANS[k2].label,onClick:()=>setX({ev:k2,accepted:false,adjust:false,rep:null,rem:null}),style:this.chip(X.ev===k2)}));
+    o.xPlan=(X.rep||X.rem)?((xRep==='none'?'Happens once':{daily:'Every day',weekly:'Every week',monthly:'Monthly',yearly:'Every year'}[xRep])+' · '+(xRem==='none'?'no reminder':('heads-up '+remName(xRem).toLowerCase()))):plan.plan;
+    o.xWhy=plan.why;
+    o.xAccept=()=>setX({accepted:true,adjust:false});
+    o.xAcceptLabel=X.accepted?'Plan applied ✓':'Use this plan';
+    o.xAcceptStyle={appearance:'none',cursor:'pointer',border:'none',flex:1,background:X.accepted?'#0f9d6a':'linear-gradient(135deg,#46B873,#0FA08E 52%,#1684B4)',color:'#fff',borderRadius:'12px',padding:'11px 16px',fontSize:'12.5px',fontWeight:800,minHeight:'44px'};
+    o.xAdjust=()=>setX({adjust:!X.adjust,accepted:false});
+    o.xAdjusting=X.adjust;
+    o.xReps=[['none','Once'],['daily','Daily'],['weekly','Weekly'],['monthly','Monthly'],['yearly','Yearly']].map(r2=>({label:r2[1],onClick:()=>setX({rep:r2[0],accepted:false}),style:this.chip(xRep===r2[0])}));
+    o.xRems=[['none','No reminder'],['at','On time'],['1h','1 hour'],['1d','1 day'],['2d','2 days']].map(r2=>({label:r2[1],onClick:()=>setX({rem:r2[0],accepted:false}),style:this.chip(xRem===r2[0])}));
+    /* 2c scenarios */
+    const Y=this.state.yv;const setY=(p2)=>this.setState({yv:Object.assign({},Y,p2)});
+    const SCEN=[
+      ['once','Just this once','A single event · nudge 1 hour before',{rep:'none',rem:'1h'}],
+      ['weekly','A weekly routine','Same day every week · 1 hour heads-up',{rep:'weekly',rem:'1h'}],
+      ['monthly','A monthly date','Bills, allowance day · reminded a day early',{rep:'monthly',rem:'1d'}],
+      ['yearly','A yearly date','Birthdays & anniversaries · 2 days to get a gift',{rep:'yearly',rem:'2d'}],
+      ['quiet','Quietly on the calendar','No repeats, nothing rings',{rep:'none',rem:'none'}],
+      ['custom','Something else…','Pick repeat and reminder yourself',null]];
+    o.yRows=SCEN.map(s2=>{const on=Y.sel===s2[0];return {label:s2[1],sub:s2[2],
+      onClick:()=>setY(Object.assign({sel:s2[0]},s2[3]||{})),
+      style:{appearance:'none',cursor:'pointer',width:'100%',display:'flex',alignItems:'center',gap:'10px',border:'none',background:on?'#e4f4f1':'transparent',borderRadius:'12px',padding:'10px 12px',minHeight:'48px'},
+      tStyle:{fontSize:'13px',fontWeight:800,color:on?'#0B7F74':'#0f172a'},
+      check:{width:'22px',height:'22px',borderRadius:'50%',background:on?'#0E9A8D':'#f0f2f6',color:on?'#fff':'transparent',display:'grid',placeItems:'center',fontSize:'11px',fontWeight:800,flex:'none'}};});
+    o.yCustom=Y.sel==='custom';
+    o.yReps=[['none','Once'],['daily','Daily'],['weekly','Weekly'],['monthly','Monthly'],['yearly','Yearly']].map(r2=>({label:r2[1],onClick:()=>setY({rep:r2[0]}),style:this.chip(Y.rep===r2[0])}));
+    o.yRems=[['none','No reminder'],['at','On time'],['1h','1 hour'],['1d','1 day'],['2d','2 days']].map(r2=>({label:r2[1],onClick:()=>setY({rem:r2[0]}),style:this.chip(Y.rem===r2[0])}));
+    o.ySummary='Saved as: '+(Y.rep==='none'?'once':Y.rep)+' · '+(Y.rem==='none'?'no reminder':remName(Y.rem).toLowerCase());
+    /* 2d thumb mode */
+    const Z=this.state.z;const setZ=(p2)=>this.setState({z:Object.assign({},Z,p2)});
+    o.zTog=()=>setZ({on:!Z.on});
+    o.zOn=Z.on;
+    o.zTogStyle={appearance:'none',cursor:'pointer',border:'2px solid '+(Z.on?'#0E9A8D':'#e7eaf0'),background:Z.on?'#e4f4f1':'#fff',borderRadius:'16px',padding:'13px 15px',display:'flex',alignItems:'center',gap:'10px',width:'100%',minHeight:'56px',color:'#0f172a'};
+    o.zTogPill={width:'56px',height:'32px',borderRadius:'999px',background:Z.on?'#0E9A8D':'#cfd6df',position:'relative',flex:'none',display:'inline-block'};
+    o.zTogKnob={position:'absolute',top:'3px',left:Z.on?'27px':'3px',width:'26px',height:'26px',borderRadius:'50%',background:'#fff',transition:'left .15s',display:'inline-block'};
+    o.zCads=[['week','Weekly'],['month','Monthly'],['year','Yearly']].map(c2=>({label:c2[1],onClick:()=>setZ({cad:c2[0]}),style:big(Z.cad===c2[0])}));
+    o.zWeekly=Z.cad==='week';
+    o.zMonthly=Z.on&&Z.cad==='month';
+    o.zMModes=[['date','On the 28th'],['nth','On a weekday']].map(m2=>({label:m2[1],onClick:()=>setZ({mMode:m2[0]}),style:big(Z.mMode===m2[0])}));
+    o.zMNth=Z.mMode==='nth';
+    o.zNths=['1st','2nd','3rd','4th','Last'].map((n2,i)=>({label:n2,onClick:()=>setZ({nth:i+1}),style:{appearance:'none',cursor:'pointer',flex:1,height:'44px',borderRadius:'12px',border:'2px solid '+(Z.nth===i+1?'#0E9A8D':'#e7eaf0'),background:Z.nth===i+1?'#0E9A8D':'#fff',color:Z.nth===i+1?'#fff':'#64748b',fontSize:'12.5px',fontWeight:800,padding:0}}));
+    o.zNthDays=[1,2,3,4,5,6,7].map(wd=>({label:['M','T','W','T','F','S','S'][wd-1],onClick:()=>setZ({nwd:wd}),style:{appearance:'none',cursor:'pointer',flex:1,height:'44px',borderRadius:'12px',border:'2px solid '+(Z.nwd===wd?'#0E9A8D':'#e7eaf0'),background:Z.nwd===wd?'#0E9A8D':'#fff',color:Z.nwd===wd?'#fff':'#64748b',fontSize:'13px',fontWeight:800,padding:0}}));
+    o.zDays=[1,2,3,4,5,6,7].map(wd=>{const on=Z.days.indexOf(wd)>=0;return {label:['M','T','W','T','F','S','S'][wd-1],
+      onClick:()=>{const a2=Z.days.slice();const i=a2.indexOf(wd);if(i>=0){if(a2.length<=1)return;a2.splice(i,1);}else a2.push(wd);setZ({days:a2});},
+      style:{appearance:'none',cursor:'pointer',flex:1,height:'48px',borderRadius:'12px',border:'2px solid '+(on?'#0E9A8D':'#e7eaf0'),background:on?'#0E9A8D':'#fff',color:on?'#fff':'#64748b',fontSize:'14px',fontWeight:800,padding:0}};});
+    o.zBigBtn={appearance:'none',cursor:'pointer',border:'2px solid #e7eaf0',background:'#fff',width:'48px',height:'48px',borderRadius:'14px',fontSize:'20px',fontWeight:800,color:'#0E9A8D',flex:'none'};
+    const HREMS=['none','at','5m','15m','30m','1h','2h','1d','2d'];
+    o.zRemDec=()=>setZ({remIdx:Math.max(0,Z.remIdx-1)});
+    o.zRemInc=()=>setZ({remIdx:Math.min(8,Z.remIdx+1)});
+    o.zRemLabel=remName(HREMS[Z.remIdx]);
+    o.zSummary=(Z.on?({week:'Repeats weekly on '+Z.days.length+' day'+(Z.days.length>1?'s':''),month:Z.mMode==='nth'?('Repeats every '+['first','second','third','fourth','last'][Z.nth-1]+' '+WDN[Z.nwd-1]):'Repeats monthly on the 28th',year:'Repeats yearly'})[Z.cad]:'Happens once')+' · '+(HREMS[Z.remIdx]==='none'?'nothing rings':this.ringTime(HREMS[Z.remIdx]).toLowerCase());
+    return o;
+  }
+}
+</script>
+</body>
+</html>
