@@ -6,13 +6,20 @@ part of 'package:family_money_management_app/main.dart';
 /// load).
 const String kStorageKeyV4 = 'thrive.v4';
 
-/// Set at Firebase init, cleared when boot completes. Found still set on the
-/// next launch, it means the previous run died before the first frame — most
-/// likely the Firestore SQLite cache feeding boot a row too big for Android's
-/// ~2MB CursorWindow (a legacy un-migrated family's single `workspace` blob),
-/// which is fatal and un-catchable from Dart. The breaker then clears the
-/// local cache so boot can fall back to a clean server read.
-const String kBootIncompleteKey = 'thrive.bootIncomplete';
+/// Count of consecutive launches that died before boot completed:
+/// incremented at Firebase init, reset to 0 when boot finishes. Two or more
+/// in a row means the previous runs likely died on the Firestore SQLite
+/// cache feeding boot a row too big for Android's ~2MB CursorWindow (a
+/// legacy un-migrated family's single `workspace` blob), which is fatal and
+/// un-catchable from Dart — the breaker then clears the local cache so boot
+/// falls back to a clean server read. A single incomplete boot (one crash,
+/// or the user killing the app mid-boot) is forgiven: clearing on every one
+/// forced the next launch to re-read everything over the network, a
+/// multi-second cold start.
+const String kBootFailStreakKey = 'thrive.bootFailStreak';
+
+/// Legacy boolean predecessor of [kBootFailStreakKey]; removed at init.
+const String kBootIncompleteLegacyKey = 'thrive.bootIncomplete';
 
 /// Prefix for local per-workspace section keys:
 /// `thrive.ws.<familyId>.<sectionId>`, with section payloads exactly as

@@ -536,14 +536,25 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// and was easy to miss when adding a new one.
   void _finishBoot() {
     setState(() => ready = true);
-    // Boot survived — disarm the crash-loop breaker (see kBootIncompleteKey).
+    // Boot survived — disarm the crash-loop breaker (see kBootFailStreakKey).
     unawaited(
       SharedPreferences.getInstance()
-          .then((p) => p.setBool(kBootIncompleteKey, false))
+          .then((p) => p.setInt(kBootFailStreakKey, 0))
           .catchError((Object _) => true),
     );
     unawaited(_rescheduleReminders());
     _handleNotificationDeepLink();
+  }
+
+  /// Decodes a JSON object off the main isolate when it's big. A legacy
+  /// un-migrated state blob can run multi-MB; decoding that synchronously
+  /// stalls the first frame. Small payloads decode inline — an isolate
+  /// round-trip costs more than the decode itself.
+  Future<Map<String, dynamic>> _decodeJsonMap(String raw) async {
+    if (raw.length < 64 * 1024) {
+      return json.decode(raw) as Map<String, dynamic>;
+    }
+    return foundation.compute(_jsonDecodeMap, raw);
   }
 
   Future<void> _boot() async {
@@ -571,7 +582,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (rawV4 != null) {
         try {
           _restoreV4(
-            json.decode(rawV4) as Map<String, dynamic>,
+            await _decodeJsonMap(rawV4),
             sectionWorkspaces: _readLocalWorkspaceSections(prefs),
           );
           for (final f in families) {
@@ -613,7 +624,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     if (rawV4 != null) {
       try {
         _restoreV4(
-          json.decode(rawV4) as Map<String, dynamic>,
+          await _decodeJsonMap(rawV4),
           sectionWorkspaces: _readLocalWorkspaceSections(prefs),
         );
         if (!mounted) return;
@@ -628,7 +639,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final rawV3 = prefs.getString(kStorageKey);
     if (rawV3 != null) {
       try {
-        _restore(json.decode(rawV3) as Map<String, dynamic>);
+        _restore(await _decodeJsonMap(rawV3));
         _seedFamiliesAndWorkspace();
         if (!mounted) return;
         _finishBoot();
@@ -645,6 +656,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Re-derives pending reminders from persisted calendar events. With the
   /// master notifications switch off, everything scheduled is cancelled.
   Future<void> _rescheduleReminders() async {
+    // Startup defers NotificationService.init past the first frame; init()
+    // is memoised, so this await just orders scheduling after it.
+    await NotificationService.init();
     if (!notificationsEnabled) {
       await NotificationService.instance.syncEventReminders(const []);
       return;
@@ -2219,3 +2233,7 @@ class _ConfirmDialog extends StatelessWidget {
     );
   }
 }
+
+/// Top-level so [foundation.compute] can send it to a worker isolate.
+Map<String, dynamic> _jsonDecodeMap(String raw) =>
+    json.decode(raw) as Map<String, dynamic>;

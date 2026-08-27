@@ -2,15 +2,17 @@ part of 'package:family_money_management_app/main.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // None of these depend on each other, so run them concurrently instead of
-  // paying three sequential awaits (NotificationService.init alone parses the
-  // full timezone database) before the first frame.
-  await Future.wait([
-    _lockPortraitOrientation(),
-    _initFirebase(),
-    NotificationService.init(),
-  ]);
+  // These don't depend on each other, so run them concurrently instead of
+  // paying sequential awaits before the first frame.
+  await Future.wait([_lockPortraitOrientation(), _initFirebase()]);
   runApp(const ThriveApp());
+  // NotificationService.init parses the full timezone database — real CPU
+  // that used to gate the first frame. Reminders aren't needed at first
+  // paint, so it runs after it; every reminder-scheduling path awaits the
+  // same memoised init() first, so nothing can race an uninitialised plugin.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(NotificationService.init());
+  });
 }
 
 const List<DeviceOrientation> _portraitOrientations = [
@@ -50,17 +52,21 @@ Future<void> _initFirebase() async {
       // has no provider configured).
       debugPrint('App Check activation failed: $e');
     }
-    // Crash-loop breaker: if the previous launch never finished booting, the
-    // local Firestore cache itself may be what killed it (see
-    // kBootIncompleteKey) — clear it before the first query touches it.
+    // Crash-loop breaker: if the last TWO launches never finished booting,
+    // the local Firestore cache itself may be what's killing boot (see
+    // kBootFailStreakKey) — clear it before the first query touches it.
     // Server data is unaffected; boot simply re-reads over the network.
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(kBootIncompleteKey) ?? false) {
+      final streak = prefs.getInt(kBootFailStreakKey) ?? 0;
+      if (streak >= 2) {
         await FirebaseFirestore.instance.clearPersistence();
-        debugPrint('[boot] previous boot incomplete — cleared Firestore cache');
+        debugPrint(
+          '[boot] $streak incomplete boots in a row — cleared Firestore cache',
+        );
       }
-      await prefs.setBool(kBootIncompleteKey, true);
+      await prefs.setInt(kBootFailStreakKey, streak + 1);
+      unawaited(prefs.remove(kBootIncompleteLegacyKey));
     } catch (e) {
       debugPrint('[boot] crash-loop breaker failed: $e');
     }
