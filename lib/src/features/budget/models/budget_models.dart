@@ -211,6 +211,11 @@ class ExpenseItem {
     this.generated = false,
     this.shift = 'none',
     this.cardId,
+    this.day,
+    this.reviewDay = false,
+    this.exception = false,
+    this.createdBy,
+    this.createdAt,
   });
 
   String id;
@@ -244,9 +249,37 @@ class ExpenseItem {
   String shift;
 
   /// Discount card this item is (to be) paid with (epic #222). May point at
-  /// a card that was since deleted — the finance list then simply shows no
-  /// tag.
+  /// a card that was since deleted — the editor then shows the dangling
+  /// "Card deleted" state until the user unlinks or repicks (#297).
   String? cardId;
+
+  /// Day of the month this entry posts on (#288), replacing the free-text
+  /// [marker]. `null` means unscheduled — kept off the calendar and out of
+  /// the projection (#290). [marker] is still written (derived) so older app
+  /// versions in the same family workspace keep parsing a day.
+  int? day;
+
+  /// One-time "review" flag for legacy dayless income that the migration
+  /// kept on day 1 (#290) — the editor points it out once, then clears it.
+  bool reviewDay;
+
+  /// Transient (never serialized): true when the loaded JSON predates the
+  /// `day` field, i.e. [day] was parsed out of the legacy marker. Lets
+  /// [migrateDaylessIncome] tell legacy dayless income apart from income the
+  /// user explicitly unscheduled after the migration.
+  bool legacyDay = false;
+
+  /// Per-month exception in a recurring series (#292): a "save only this
+  /// month" edit. Exceptions never act as series anchors and are never
+  /// overwritten by [_syncRecurringSeries].
+  bool exception;
+
+  /// Member id of whoever created the entry (#300). Null on entries that
+  /// predate the field — rendered as "—".
+  String? createdBy;
+
+  /// ISO date (yyyy-MM-dd) the entry was created (#300).
+  String? createdAt;
 
   ExpenseItem copyWithId(String newId, {bool? generated}) => ExpenseItem(
     id: newId,
@@ -264,6 +297,9 @@ class ExpenseItem {
     generated: generated ?? this.generated,
     shift: shift,
     cardId: cardId,
+    day: day,
+    createdBy: createdBy,
+    createdAt: createdAt,
   );
 
   Map<String, dynamic> toJson() => {
@@ -285,6 +321,14 @@ class ExpenseItem {
     if (generated) 'generated': true,
     if (shift != 'none') 'shift': shift,
     if (cardId != null && cardId!.isNotEmpty) 'cardId': cardId,
+    // `day` is written explicitly even when null so a deliberate
+    // "unscheduled" round-trips distinctly from pre-migration data, which
+    // has no `day` key at all and falls back to parsing `marker` on load.
+    'day': day,
+    if (reviewDay) 'reviewDay': true,
+    if (exception) 'exception': true,
+    if (createdBy != null) 'createdBy': createdBy,
+    if (createdAt != null) 'createdAt': createdAt,
   };
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) {
@@ -321,7 +365,22 @@ class ExpenseItem {
       cardId: (j['cardId'] as String?)?.trim().isNotEmpty == true
           ? (j['cardId'] as String).trim()
           : null,
-    );
+      // #288 migration: pre-migration items have no `day` key — parse the
+      // free-text marker once ("24th" → 24); unparseable ("-", "") becomes
+      // unscheduled. Post-migration items always carry the key, so an
+      // explicit null (unscheduled) is preserved.
+      day: j.containsKey('day')
+          ? ((j['day'] as num?)?.toInt())?.clamp(1, 31)
+          : dayNumFromMarker((j['marker'] ?? '').toString()),
+      reviewDay: j['reviewDay'] == true,
+      exception: j['exception'] == true,
+      createdBy: (j['createdBy'] as String?)?.trim().isNotEmpty == true
+          ? (j['createdBy'] as String).trim()
+          : null,
+      createdAt: (j['createdAt'] as String?)?.trim().isNotEmpty == true
+          ? (j['createdAt'] as String).trim()
+          : null,
+    )..legacyDay = !j.containsKey('day');
   }
 }
 
@@ -333,10 +392,12 @@ class MonthData {
     this.catsSnapshot,
     this.accountsSnapshot,
     List<String>? seriesStops,
+    List<String>? seriesSkips,
     this.open = 0,
   }) : blocks = blocks ?? {},
        caps = caps ?? {},
-       seriesStops = seriesStops ?? <String>[];
+       seriesStops = seriesStops ?? <String>[],
+       seriesSkips = seriesSkips ?? <String>[];
 
   Map<String, List<ExpenseItem>> blocks;
   Map<String, double> caps;
@@ -344,6 +405,11 @@ class MonthData {
   List<Category>? catsSnapshot;
   List<Account>? accountsSnapshot;
   List<String> seriesStops;
+
+  /// Series ids skipped in just this month (#293 "Skip this month only") —
+  /// the occurrence is removed and [_syncRecurringSeries] won't regenerate
+  /// it, while the series continues in later months.
+  List<String> seriesSkips;
 
   /// Start balance on the 1st of this month (issue #199 — Money calendar).
   /// The running-balance projection and its lowest point are counted from
@@ -361,6 +427,7 @@ class MonthData {
     if (accountsSnapshot != null)
       'accountsSnapshot': accountsSnapshot!.map((a) => a.toJson()).toList(),
     if (seriesStops.isNotEmpty) 'seriesStops': seriesStops,
+    if (seriesSkips.isNotEmpty) 'seriesSkips': seriesSkips,
     if (open != 0) 'open': open,
   };
 
@@ -416,6 +483,9 @@ class MonthData {
       seriesStops: [
         for (final id in (j['seriesStops'] as List? ?? const [])) id.toString(),
       ],
+      seriesSkips: [
+        for (final id in (j['seriesSkips'] as List? ?? const [])) id.toString(),
+      ],
       open: parseNum(j['open']),
     );
   }
@@ -438,6 +508,37 @@ List<Category> ensureIncomeCategory(
   );
   if (hasIncomeItems) cats.insert(0, defaultIncomeCat());
   return cats;
+}
+
+/// One-time migration for legacy dayless income (#290): income used to be
+/// silently posted on day 1 by the Money calendar. The projection no longer
+/// assigns day 1 implicitly, so existing income entries whose marker carried
+/// no day keep their historical day 1 explicitly — flagged `reviewDay` so
+/// the editor asks the user to confirm or unschedule it, once. Runs on every
+/// load; a no-op once all items carry an explicit day. Mutates [data].
+void migrateDaylessIncome(
+  List<Category> cats,
+  Map<int, Map<String, MonthData>> data,
+) {
+  final incomeKeys = {
+    for (final c in cats)
+      if (c.isIncome) c.key,
+  };
+  if (incomeKeys.isEmpty) return;
+  for (final months in data.values) {
+    for (final m in months.values) {
+      if (m.closed) continue;
+      for (final key in incomeKeys) {
+        for (final it in m.blocks[key] ?? const <ExpenseItem>[]) {
+          if (it.day == null && it.legacyDay) {
+            it
+              ..day = 1
+              ..reviewDay = true;
+          }
+        }
+      }
+    }
+  }
 }
 
 List<Account> defaultAccounts() => [

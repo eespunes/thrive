@@ -842,6 +842,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       data[yKey] = map;
     });
     ensureIncomeCategory(cats, data);
+    migrateDaylessIncome(cats, data);
     _syncRecurringSeries();
   }
 
@@ -1218,7 +1219,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           ).compareTo(_monthOrd(b.year, b.monthIdx)),
         );
       if (occurrences.isEmpty) continue;
-      final explicit = occurrences.where((o) => !o.item.generated).toList();
+      // Per-month exceptions (#292) never act as anchors: their edits apply
+      // to their own month only and must not rewrite the months after them.
+      final explicit = occurrences
+          .where((o) => !o.item.generated && !o.item.exception)
+          .toList();
       final anchors = explicit.isNotEmpty ? explicit : [occurrences.first];
       final stopOrds = <int>{
         for (final yr in years)
@@ -1271,6 +1276,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           final month = data[yr]?[kMonthKeys[mIdx]];
           if (month == null) continue;
           if (month.closed) continue;
+          // #293 "Skip this month only": the occurrence was removed for just
+          // this month — don't regenerate it, but keep the series going.
+          if (month.seriesSkips.contains(seriesId)) continue;
           final existing = occurrences
               .where((o) => o.year == yr && o.monthIdx == mIdx)
               .firstOrNull;
@@ -1299,6 +1307,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               ..seriesId = _seriesIdFor(anchor.item)
               ..recurEndDate = anchor.item.recurEndDate
               ..shift = anchor.item.shift
+              ..day = anchor.item.day
+              ..cardId = anchor.item.cardId
+              ..createdBy = anchor.item.createdBy
+              ..createdAt = anchor.item.createdAt
               ..until = anchor.item.recurEndDate ?? anchor.item.until;
           }
           allowedGenerated.add(ord);

@@ -80,6 +80,7 @@ part 'src/features/budget/presentation/thrive_flow.dart';
 part 'src/features/budget/presentation/thrive_stats.dart';
 part 'src/features/budget/presentation/thrive_widgets.dart';
 part 'src/features/budget/presentation/thrive_sheets.dart';
+part 'src/features/budget/presentation/entry_ticket.dart';
 part 'src/features/account/presentation/account_actions.dart';
 part 'src/features/account/presentation/auth_screen.dart';
 part 'src/features/account/presentation/onboarding_screen.dart';

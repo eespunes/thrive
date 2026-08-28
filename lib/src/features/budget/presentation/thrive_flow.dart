@@ -153,11 +153,11 @@ extension _ThriveFlow on _ThriveHomeState {
         // The sheet import has several €0 placeholder rows — they carry no
         // real money movement, so skip them entirely (issue #199).
         if (it.amount == 0) continue;
-        final parsed = dayNumFromMarker(it.marker);
-        // Income with no marker lands on the 1st rather than being dropped
-        // (it's still real, dated money) — expenses with no marker are
-        // genuinely dateless and go to the unscheduled list below.
-        final dv = b.isIncome ? (parsed ?? 1) : parsed;
+        // #290: the entry's day is explicit now — income is never silently
+        // posted on the 1st anymore. Dayless entries of either direction go
+        // to the labelled unscheduled bucket below (legacy dayless income
+        // was migrated to an explicit, review-flagged day 1 on load).
+        final dv = it.day ?? dayNumFromMarker(it.marker);
         final row = _FlowRow(
           kind: b.isIncome ? 'in' : 'out',
           id: it.id,
@@ -597,7 +597,7 @@ extension _ThriveFlow on _ThriveHomeState {
       key: ValueKey('flow-row-${r.kind}-${r.id}'),
       onTap: locked || r.catKey == null
           ? null
-          : () => openExpenseSheet(mode: 'edit', cat: r.catKey!, id: r.id),
+          : () => openEntryTicket(cat: r.catKey!, id: r.id),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 9),
@@ -1318,6 +1318,33 @@ class _FlowDaySheet extends StatelessWidget {
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: B.muted,
+                  ),
+                ),
+              ),
+            ),
+          // #295: the day sheet is no longer view-only — the tapped day
+          // pre-fills the pay day; the block is asked next.
+          if (!locked)
+            GestureDetector(
+              key: ValueKey('flow-day-add-${d.day}'),
+              onTap: () {
+                Navigator.of(context).pop();
+                state.openEntryTicket(presetDay: d.day);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(top: 10),
+                constraints: const BoxConstraints(minHeight: 44),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: B.primary, width: 1.5),
+                ),
+                child: Text(
+                  '＋ Add on the ${ordinal(d.day)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: B.deep,
                   ),
                 ),
               ),

@@ -181,6 +181,16 @@ class _QuickAddSheet extends StatelessWidget {
           'Snap a loyalty card',
           state.openCardScan,
         ),
+        // Money joins the global quick add (#295) — the last missing
+        // feature. Opens the entry ticket with the block picker first.
+        _row(
+          context,
+          const ValueKey('quickadd-expense'),
+          'wallet',
+          'Expense',
+          'Add a money entry to a block',
+          () => state.openEntryTicket(),
+        ),
       ],
     );
   }

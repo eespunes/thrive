@@ -573,7 +573,7 @@ extension _ThriveScreens on _ThriveHomeState {
             _addButton(
               'Add to ${b.title}',
               b.tone,
-              () => openExpenseSheet(mode: 'add', cat: b.key),
+              () => openEntryTicket(cat: b.key),
             ),
         ],
       ),
@@ -639,9 +639,7 @@ extension _ThriveScreens on _ThriveHomeState {
       ],
     };
     final inner = GestureDetector(
-      onTap: locked
-          ? null
-          : () => openExpenseSheet(mode: 'edit', cat: b.key, id: it.id),
+      onTap: locked ? null : () => openEntryTicket(cat: b.key, id: it.id),
       behavior: HitTestBehavior.opaque,
       child: Container(
         color: Colors.white,

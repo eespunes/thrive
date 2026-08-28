@@ -52,17 +52,6 @@ extension _ThriveSheets on _ThriveHomeState {
     );
   }
 
-  void openExpenseSheet({
-    required String mode,
-    required String cat,
-    String? id,
-  }) {
-    _showSheet(
-      monthScoped: true,
-      (ctx) => _ExpenseSheet(state: this, mode: mode, cat: cat, id: id),
-    );
-  }
-
   void openCapSheet(String cat, double? value) {
     _showSheet(
       monthScoped: true,
@@ -78,6 +67,34 @@ extension _ThriveSheets on _ThriveHomeState {
     _showSheet((ctx) => _BlockSheet(state: this, mode: mode, blockKey: key));
   }
 
+  /// If [current] is the series' only real anchor (not generated, not an
+  /// exception), promotes the next generated occurrence after the visible
+  /// month to explicit, so the pristine spec keeps propagating once
+  /// [current] becomes an exception (#292) or is skipped (#293).
+  void _promoteNextGeneratedAnchor(String? seriesId, ExpenseItem current) {
+    if (seriesId == null || current.generated || current.exception) return;
+    final hasOtherAnchor = _seriesOccurrences(seriesId).any(
+      (o) =>
+          !o.item.generated && !o.item.exception && !identical(o.item, current),
+    );
+    if (hasOtherAnchor) return;
+    final future =
+        _seriesOccurrences(seriesId)
+            .where(
+              (o) =>
+                  o.item.generated &&
+                  _monthOrd(o.year, o.monthIdx) > _monthOrd(year, monthIdx),
+            )
+            .toList()
+          ..sort(
+            (a, b) => _monthOrd(
+              a.year,
+              a.monthIdx,
+            ).compareTo(_monthOrd(b.year, b.monthIdx)),
+          );
+    if (future.isNotEmpty) future.first.item.generated = false;
+  }
+
   void _clearSeriesStop(String? seriesId, int yr, int mIdx) {
     if (seriesId == null || seriesId.isEmpty) return;
     data[yr]?[kMonthKeys[mIdx]]?.seriesStops.removeWhere((x) => x == seriesId);
@@ -90,7 +107,14 @@ extension _ThriveSheets on _ThriveHomeState {
         if (_monthOrd(yr, mIdx) < startOrd) continue;
         final month = data[yr]?[kMonthKeys[mIdx]];
         if (month == null || month.closed) continue;
-        month.blocks[catKey]?.removeWhere((it) => _seriesIdFor(it) == seriesId);
+        // Per-month exceptions in later months survive an onward rewrite
+        // (#292) — a "future months" edit composes with an earlier "only
+        // this month" edit instead of silently erasing it.
+        month.blocks[catKey]?.removeWhere(
+          (it) =>
+              _seriesIdFor(it) == seriesId &&
+              !(it.exception && _monthOrd(yr, mIdx) > startOrd),
+        );
       }
     }
   }
@@ -120,6 +144,12 @@ extension _ThriveSheets on _ThriveHomeState {
     });
   }
 
+  /// Saves an entry from the ticket editor (#286). [day] replaces the old
+  /// free-text marker (#288); the derived marker string is still written so
+  /// older app versions in the family keep parsing a day. [scope] applies to
+  /// recurring edits (#292): `'onward'` (default) rewrites this and future
+  /// months, `'month'` turns this month into a per-month exception and
+  /// leaves the series untouched.
   void saveExpense(
     String mode,
     String cat,
@@ -127,7 +157,7 @@ extension _ThriveSheets on _ThriveHomeState {
     required String payee,
     required String label,
     required double amount,
-    required String marker,
+    int? day,
     required bool paid,
     required String account,
     String? until,
@@ -136,13 +166,35 @@ extension _ThriveSheets on _ThriveHomeState {
     String? recurEndDate,
     String shift = 'none',
     String? cardId,
+    String scope = 'onward',
   }) {
     final every = recurEvery < 1 ? 1 : recurEvery;
+    final marker = day == null ? '' : ordinal(day);
     mutate(() {
       final month = data[year]![kMonthKeys[monthIdx]]!;
       final arr = month.blocks.putIfAbsent(cat, () => <ExpenseItem>[]);
       final normalizedEnd = normalizeRecurringEndDate(recurEndDate ?? until);
-      if (mode == 'edit' && id != null) {
+      if (mode == 'edit' && id != null && scope == 'month') {
+        // #292 "Only this month": the item becomes a per-month exception;
+        // the series (its anchor and every other month) stays as it was.
+        final it = arr.where((x) => x.id == id).firstOrNull;
+        if (it != null) {
+          _promoteNextGeneratedAnchor(_seriesIdFor(it), it);
+          it
+            ..payee = payee
+            ..label = label
+            ..amount = amount
+            ..marker = marker
+            ..day = day
+            ..reviewDay = false
+            ..paid = paid
+            ..account = account
+            ..shift = shift
+            ..cardId = cardId
+            ..exception = true
+            ..generated = false;
+        }
+      } else if (mode == 'edit' && id != null) {
         final it = arr.where((x) => x.id == id).firstOrNull;
         if (it != null) {
           // Issue #195: every item — recurring or not — always carries a
@@ -164,6 +216,9 @@ extension _ThriveSheets on _ThriveHomeState {
             ..label = label
             ..amount = amount
             ..marker = marker
+            ..day = day
+            ..reviewDay = false
+            ..exception = false
             ..paid = paid
             ..account = account
             ..seriesId = seriesId
@@ -190,9 +245,12 @@ extension _ThriveSheets on _ThriveHomeState {
             payee: payee,
             label: label,
             marker: marker,
+            day: day,
             amount: amount,
             paid: paid,
             account: account,
+            createdBy: myId,
+            createdAt: _isoOfDate(DateTime.now()),
             until:
                 normalizedEnd ??
                 ((until == null || until.isEmpty) ? null : until),
@@ -209,12 +267,22 @@ extension _ThriveSheets on _ThriveHomeState {
     }, () => flash(mode == 'edit' ? 'Saved' : 'Added ${eur(amount)}'));
   }
 
-  void deleteExpense(String cat, String id) {
+  /// Removes an entry with a scope (#293): `'skip'` drops just this month's
+  /// occurrence and lets the series continue; `'onward'` ends the series
+  /// from this month (history kept). One-offs ignore the scope. The legacy
+  /// swipe shortcut maps onto `'onward'`, its historical behaviour.
+  void deleteExpense(String cat, String id, {String scope = 'onward'}) {
     mutate(() {
       final m = data[year]![kMonthKeys[monthIdx]]!;
       final item = m.blocks[cat]?.where((x) => x.id == id).firstOrNull;
       final seriesId = item == null ? null : _seriesIdFor(item);
-      if (seriesId != null && item?.recurring == true) {
+      if (seriesId != null && item?.recurring == true && scope == 'skip') {
+        _promoteNextGeneratedAnchor(seriesId, item!);
+        m.seriesSkips.removeWhere((x) => x == seriesId);
+        m.seriesSkips.add(seriesId);
+        m.blocks[cat]?.removeWhere((x) => x.id == id);
+        _syncRecurringSeries();
+      } else if (seriesId != null && item?.recurring == true) {
         m.seriesStops.removeWhere((x) => x == seriesId);
         m.seriesStops.add(seriesId);
         _removeRecurringFromCurrentForward(seriesId, cat);
@@ -222,7 +290,46 @@ extension _ThriveSheets on _ThriveHomeState {
         m.blocks[cat]?.removeWhere((x) => x.id == id);
       }
       swipedId = null;
-    }, () => flash('Deleted'));
+    }, () => flash(scope == 'skip' ? 'Skipped this month' : 'Deleted'));
+  }
+
+  /// Moves an entry to another block (#294). For a recurring series the move
+  /// applies from the open month forward — occurrences in earlier months
+  /// stay where they were ("History stays where it was"); both blocks' caps
+  /// recount immediately because they're derived from the moved items.
+  void moveExpenseBlock(String fromCat, String toCat, String id) {
+    if (fromCat == toCat) return;
+    final toTitle = catByKey(toCat)?.title ?? 'block';
+    mutate(() {
+      final m = data[year]![kMonthKeys[monthIdx]]!;
+      final item = m.blocks[fromCat]?.where((x) => x.id == id).firstOrNull;
+      if (item == null) return;
+      final seriesId = _seriesIdFor(item);
+      if (seriesId != null && item.recurring) {
+        final startOrd = _monthOrd(year, monthIdx);
+        for (final yr in data.keys) {
+          for (int mIdx = 0; mIdx < kMonthKeys.length; mIdx++) {
+            if (_monthOrd(yr, mIdx) < startOrd) continue;
+            final month = data[yr]?[kMonthKeys[mIdx]];
+            if (month == null || month.closed) continue;
+            final src = month.blocks[fromCat];
+            if (src == null) continue;
+            final moving = src
+                .where((it) => _seriesIdFor(it) == seriesId)
+                .toList();
+            if (moving.isEmpty) continue;
+            src.removeWhere((it) => _seriesIdFor(it) == seriesId);
+            month.blocks
+                .putIfAbsent(toCat, () => <ExpenseItem>[])
+                .addAll(moving);
+          }
+        }
+        _syncRecurringSeries();
+      } else {
+        m.blocks[fromCat]?.removeWhere((x) => x.id == id);
+        m.blocks.putIfAbsent(toCat, () => <ExpenseItem>[]).add(item);
+      }
+    }, () => flash('Moved to $toTitle — both caps recount from here'));
   }
 
   void saveCap(String cat, String raw) {
@@ -1110,601 +1217,6 @@ class _AccountPickerSheet extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-// ========================================================== expense sheet
-class _ExpenseSheet extends StatefulWidget {
-  const _ExpenseSheet({
-    required this.state,
-    required this.mode,
-    required this.cat,
-    this.id,
-  });
-  final _ThriveHomeState state;
-  final String mode;
-  final String cat;
-  final String? id;
-
-  @override
-  State<_ExpenseSheet> createState() => _ExpenseSheetState();
-}
-
-class _ExpenseSheetState extends State<_ExpenseSheet> {
-  late final TextEditingController _payee;
-  late final TextEditingController _label;
-  late final TextEditingController _amount;
-  late final TextEditingController _marker;
-  String _account = 'shared';
-  bool _paid = false;
-  bool _recurring = true;
-  int _recurEvery = 1;
-  String? _endDate;
-  String _shift = 'none';
-  String? _cardId;
-
-  bool get _editing => widget.mode == 'edit';
-
-  @override
-  void initState() {
-    super.initState();
-    final s = widget.state;
-    ExpenseItem? it;
-    if (_editing) {
-      it = (s.cur()?.blocks[widget.cat] ?? [])
-          .where((x) => x.id == widget.id)
-          .firstOrNull;
-    }
-    _payee = TextEditingController(text: it?.payee ?? '');
-    _label = TextEditingController(text: it?.label ?? '');
-    _amount = TextEditingController(text: it != null ? _numStr(it.amount) : '');
-    _marker = TextEditingController(text: it?.marker ?? '');
-    _account = it?.account ?? 'shared';
-    _paid = it?.paid ?? false;
-    _recurring = it?.recurring ?? true;
-    _recurEvery = it?.recurEvery ?? 1;
-    _endDate = normalizeRecurringEndDate(it?.recurEndDate ?? it?.until);
-    _shift = it?.shift ?? 'none';
-    _cardId = it?.cardId;
-  }
-
-  /// Discount-card picker (issue #230): none / one of the family's cards /
-  /// "Scan new", which drops into the camera import flow.
-  Widget _cardChips(_ThriveHomeState s) {
-    Widget chip(
-      Key key,
-      String label,
-      bool on,
-      VoidCallback onTap, {
-      Color? dot,
-    }) {
-      return GestureDetector(
-        key: key,
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: on ? B.soft : Colors.white,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: on ? B.primary : B.line),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (dot != null) ...[
-                Container(
-                  width: 14,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: dot,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: on ? B.deep : B.text,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Wrap(
-      spacing: 7,
-      runSpacing: 7,
-      children: [
-        chip(
-          const ValueKey('exp-card-none'),
-          'None',
-          _cardId == null,
-          () => setState(() => _cardId = null),
-        ),
-        for (final c in s.cards)
-          chip(
-            ValueKey('exp-card-${c.id}'),
-            c.name,
-            _cardId == c.id,
-            () => setState(() => _cardId = c.id),
-            dot: c.color,
-          ),
-        chip(const ValueKey('exp-card-scan'), 'Scan new', false, () {
-          Navigator.of(context).pop();
-          s.openCardScan();
-        }),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _payee.dispose();
-    _label.dispose();
-    _amount.dispose();
-    _marker.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.state;
-    final cat = s.catByKey(widget.cat)!;
-    final valid =
-        (_payee.text.trim().isNotEmpty || _label.text.trim().isNotEmpty) &&
-        parseNum(_amount.text) >= 0;
-
-    void submit() {
-      s.saveExpense(
-        widget.mode,
-        widget.cat,
-        widget.id,
-        payee: _payee.text.trim(),
-        label: _label.text.trim(),
-        amount: parseNum(_amount.text),
-        marker: _marker.text.trim(),
-        paid: _paid,
-        account: _account,
-        until: _endDate,
-        recurring: _recurring,
-        recurEvery: _recurEvery,
-        recurEndDate: _endDate,
-        shift: _shift,
-        cardId: _cardId,
-      );
-      Navigator.of(context).pop();
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sheetHeadWithTick(
-          context,
-          '${_editing ? 'Edit ' : 'Add '}${cat.title.toLowerCase()}',
-          sub: _editing ? null : 'New item',
-          onConfirm: submit,
-          confirmEnabled: valid,
-        ),
-        Flexible(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _sheetField(
-                  cat.isIncome ? 'From' : 'Company',
-                  _sheetInput(
-                    _payee,
-                    hint: cat.isIncome ? 'e.g. Employer' : 'e.g. Thuiswonen',
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                _sheetField(
-                  'Subcategory',
-                  _sheetInput(
-                    _label,
-                    hint: cat.isIncome ? 'e.g. Salary' : 'e.g. Rent',
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _sheetField(
-                        'Amount (\u20ac)',
-                        _sheetInput(
-                          _amount,
-                          hint: '0,00',
-                          number: true,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: _sheetField(
-                        cat.isIncome || cat.marker == 'day'
-                            ? 'Pay day'
-                            : 'Date',
-                        _sheetInput(
-                          _marker,
-                          hint: cat.isIncome || cat.marker == 'day'
-                              ? '1st'
-                              : '\u2014',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                _shiftField(cat.isIncome ? 'in' : 'out'),
-                _sheetField(
-                  '',
-                  _toggleRow(
-                    'Repeat',
-                    _recurring,
-                    () => setState(() => _recurring = !_recurring),
-                    subtitle:
-                        'Saves edits from this month forward without changing history',
-                    activeColor: B.primary,
-                  ),
-                ),
-                if (_recurring) _sheetField('Repeat every', _recurEveryRow()),
-                if (cat.hasUntil || _recurring)
-                  _sheetField(
-                    _recurring ? 'Repeat until' : 'End date',
-                    _endDateField(context),
-                  ),
-                _sheetField(
-                  cat.isIncome
-                      ? 'Received into'
-                      : (cat.isSavings ? 'Save from' : 'Pay from'),
-                  _accChips(),
-                ),
-                if (!cat.isIncome) _sheetField('Discount card', _cardChips(s)),
-                _sheetField(
-                  'Status',
-                  _toggleRow(
-                    cat.isIncome
-                        ? 'Received'
-                        : (cat.isSavings ? 'Saved this month' : 'Paid'),
-                    _paid,
-                    () => setState(() => _paid = !_paid),
-                  ),
-                ),
-                if (_editing)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 13, bottom: 2),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ic('cleft', size: 13, sw: 2.4, color: B.muted),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Swipe the row left to delete',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: B.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _accChips() {
-    return Row(
-      children: [
-        for (final a in widget.state.accounts) ...[
-          if (a != widget.state.accounts.first) const SizedBox(width: 8),
-          Expanded(child: _accChip(a)),
-        ],
-      ],
-    );
-  }
-
-  Widget _accChip(Account a) {
-    final sel = a.key == _account;
-    return GestureDetector(
-      onTap: () => setState(() => _account = a.key),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
-        decoration: BoxDecoration(
-          color: sel ? B.soft : Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(color: sel ? B.primary : B.line),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: a.color,
-                borderRadius: BorderRadius.circular(7),
-              ),
-              alignment: Alignment.center,
-              child: glyphTile(
-                size: 24,
-                radius: 7,
-                picture: a.picture,
-                emoji: a.emoji,
-                emojiSize: 13,
-                fallback: Text(
-                  a.initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              a.short,
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: B.text,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // coverage:ignore-start
-  Future<void> _pickEndDate(BuildContext context) async {
-    final initial = _endDate == null ? null : DateTime.tryParse(_endDate!);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate:
-          initial ?? DateTime(widget.state.year, widget.state.monthIdx + 1, 1),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100, 12, 31),
-    );
-    if (picked == null || !mounted) return;
-    setState(
-      () => _endDate =
-          '${picked.year.toString().padLeft(4, '0')}-'
-          '${picked.month.toString().padLeft(2, '0')}-'
-          '${picked.day.toString().padLeft(2, '0')}',
-    );
-  }
-  // coverage:ignore-end
-
-  Widget _endDateField(BuildContext context) {
-    final label = _endDate == null
-        ? 'Choose date'
-        : '${untilLabel(_endDate)} · ${_endDate!}';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          key: const ValueKey('expense-end-date'),
-          onTap: () => _pickEndDate(context),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: B.line),
-            ),
-            child: Row(
-              children: [
-                ic('cal', size: 15, sw: 2.2, color: B.soft2),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _endDate == null ? B.muted : B.text,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_endDate != null)
-          GestureDetector(
-            onTap: () => setState(() => _endDate = null),
-            child: const Padding(
-              padding: EdgeInsets.only(top: 8, left: 2),
-              child: Text(
-                'Clear end date',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: B.red,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// The weekend rule field (issue #199 — Money calendar): 'none' keeps the
-  /// marker's exact day, 'before' moves it to the last working day before a
-  /// Saturday/Sunday (typical for salary), 'after' to the first working day
-  /// after. Shared by expense and income items alike since income is just an
-  /// income-direction block.
-  Widget _shiftField(String kind) {
-    const opts = [
-      ('none', 'Keep the date', 'pin'),
-      ('before', 'Friday before', 'cleft'),
-      ('after', 'Monday after', 'cright'),
-    ];
-    Widget btn((String, String, String) o) {
-      final on = _shift == o.$1;
-      return Expanded(
-        child: GestureDetector(
-          key: ValueKey('expense-shift-${o.$1}'),
-          onTap: () => setState(() => _shift = o.$1),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            decoration: BoxDecoration(
-              color: on ? B.soft : Colors.white,
-              border: Border.all(color: on ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ic(o.$3, size: 15, sw: 2.3, color: on ? B.deep : B.muted),
-                const SizedBox(height: 5),
-                Text(
-                  o.$2,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: on ? B.deep : B.text,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final helper = _shift == 'none'
-        ? 'The calendar keeps this exact day, weekend or not.'
-        : _shift == 'before'
-        ? 'Typical for salary \u2014 ${kind == 'in' ? 'paid' : 'taken'} on the last working day before the weekend.'
-        : 'Moves to the first working day after the weekend.';
-    return _sheetField(
-      'If it lands on a weekend',
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              for (final o in opts) ...[
-                if (o != opts.first) const SizedBox(width: 8),
-                btn(o),
-              ],
-            ],
-          ),
-          const SizedBox(height: 7),
-          Text(
-            helper,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Interval picker for the custom "repeat every N months" setting
-  /// (issue #191). Common presets cover the typical cases (monthly,
-  /// quarterly, yearly...) while the stepper lets any interval be dialled in.
-  Widget _recurEveryRow() {
-    const presets = [1, 2, 3, 6, 12];
-    Widget stepBtn(String icon, VoidCallback onTap) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: B.line),
-        ),
-        child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
-      ),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final option in presets) ...[
-                GestureDetector(
-                  key: ValueKey('expense-recur-every-$option'),
-                  onTap: () => setState(() => _recurEvery = option),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 13,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _recurEvery == option ? B.soft : Colors.white,
-                      border: Border.all(
-                        color: _recurEvery == option ? B.primary : B.line,
-                      ),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      option == 1 ? 'Monthly' : 'Every $option months',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: _recurEvery == option ? B.deep : B.soft2,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 7),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 9),
-        Row(
-          children: [
-            stepBtn(
-              'cleft',
-              () =>
-                  setState(() => _recurEvery = (_recurEvery - 1).clamp(1, 60)),
-            ),
-            Expanded(
-              child: Text(
-                _recurEvery == 1 ? 'Every month' : 'Every $_recurEvery months',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: B.ink,
-                ),
-              ),
-            ),
-            stepBtn(
-              'cright',
-              () =>
-                  setState(() => _recurEvery = (_recurEvery + 1).clamp(1, 60)),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
