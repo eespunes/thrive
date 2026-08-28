@@ -1,146 +1,100 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_money_management_app/main.dart';
+
 import 'helpers.dart';
 
 void main() {
-  testWidgets('delete an account from settings with confirm', (tester) async {
+  testWidgets('delete an account from its studio, entries move to the first '
+      'remaining one', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    expect(find.byKey(const ValueKey('acc-eva-delete')), findsNothing);
-    final accountSwipe = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('acc-eva'))),
-    );
-    await accountSwipe.moveBy(const Offset(-24, 0));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('acc-eva-delete')), findsOneWidget);
-    await accountSwipe.moveBy(const Offset(-196, 0));
-    await accountSwipe.up();
+    await tester.tap(find.byKey(const ValueKey('accounts-row-eva')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('acc-eva-delete')),
-      warnIfMissed: false,
-    );
+    await tester.tap(find.byKey(const ValueKey('studio-delete')));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Items paid from this account will move to your last account.'),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('Delete').last);
+    // The counting confirm names the FIRST remaining account.
+    expect(find.textContaining('first remaining account'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
     await tester.pumpAndSettle();
+    expect(find.text("Eva's account"), findsNothing);
   });
 
-  testWidgets('edit a block (change icon & color) and save', (tester) async {
+  testWidgets('edit a block scope chips and save', (tester) async {
     await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
+    await goToTab(tester, 'blocks');
+    await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
     await tester.pumpAndSettle();
     expect(find.text('Edit block'), findsOneWidget);
-    // tap the "Every month" / "This month only" scope toggle
-    await tester.tap(find.text('This month only'));
+    await tester.tap(find.byKey(const ValueKey('block-applies-month')));
     await tester.pump();
-    await tester.tap(find.text('Every month').last);
+    await tester.tap(find.byKey(const ValueKey('block-applies-every')));
     await tester.pump();
-    await tester.tap(find.text('Save block'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
+    expect(find.text('Budget blocks'), findsWidgets);
   });
 
-  testWidgets('delete a block from settings with confirm', (tester) async {
+  testWidgets('delete a block from its studio moves entries elsewhere', (
+    tester,
+  ) async {
     await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    expect(find.byKey(const ValueKey('blk-health-delete')), findsNothing);
-    final blockSwipe = await tester.startGesture(
-      tester.getCenter(find.byKey(const ValueKey('blk-health'))),
-    );
-    await blockSwipe.moveBy(const Offset(-24, 0));
-    await tester.pump();
-    expect(find.byKey(const ValueKey('blk-health-delete')), findsOneWidget);
-    await blockSwipe.moveBy(const Offset(-196, 0));
-    await blockSwipe.up();
+    await goToTab(tester, 'blocks');
+    await tester.tap(find.byKey(const ValueKey('blocks-row-health')));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('blk-health-delete')),
-      warnIfMissed: false,
-    );
+    await tester.tap(find.byKey(const ValueKey('studio-delete')));
     await tester.pumpAndSettle();
     expect(
-      find.text(
-        'It stays in any closed months. Open months lose this block and its items.',
-      ),
+      find.textContaining('Closed months keep their history'),
       findsOneWidget,
     );
-    await tester.tap(find.text('Delete').last);
+    await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('blocks-row-health')), findsNothing);
   });
 
-  testWidgets('reorder accounts and blocks', (tester) async {
-    await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    // tap an edit then close to ensure rows are interactive; reorder buttons are
-    // custom-painted, so just exercise edit sheets for two blocks.
-    await tester.tap(find.byKey(const ValueKey('blk-edit-food')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Save block'));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('block editor exposes more colors', (tester) async {
-    await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
-    await tester.pumpAndSettle();
-    expect(find.text('Palette'), findsOneWidget);
-    // Pick a swatch from the expanded gradient grid.
-    await tester.tap(find.byType(AnimatedContainer).last);
-    await tester.pump();
-  });
-
-  testWidgets('RGB/Hex tab lets typing channel values and hex update color', (
+  testWidgets('hold-drag reorders accounts and blocks for the whole family', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
+    final firstBefore = thriveDebug.accounts.first.key;
+    await holdDragReorder(
+      tester,
+      find.byKey(ValueKey('accounts-row-$firstBefore')),
+      120,
+    );
+    expect(thriveDebug.accounts.first.key, isNot(firstBefore));
+    expect(find.text('Order saved for the whole family'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
-    // Switch to the RGB / Hex tab.
-    await tester.tap(find.text('RGB / Hex'));
+    await tapHubRow(tester, 'money', 'more-blocks');
+    final firstBlock = thriveDebug.cats.first.key;
+    await holdDragReorder(
+      tester,
+      find.byKey(ValueKey('blocks-row-$firstBlock')),
+      120,
+    );
+    expect(thriveDebug.cats.first.key, isNot(firstBlock));
+  });
+
+  testWidgets('block studio colour dots update the accent', (tester) async {
+    await pumpApp(tester);
+    await goToTab(tester, 'blocks');
+    await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
     await tester.pumpAndSettle();
-
-    // Type a value directly into each channel field via the OS keyboard.
-    await tester.enterText(
-      find.byKey(const ValueKey('red-channel-input')),
-      '10',
+    // Pick the amber palette dot.
+    await tester.tap(
+      find.byKey(ValueKey('badge-color-${const Color(0xffd97706).toARGB32()}')),
     );
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('green-channel-input')),
-      '20',
-    );
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('blue-channel-input')),
-      '30',
-    );
-    await tester.pump();
-
-    // Type a hex value directly.
-    await tester.enterText(
-      find.byKey(const ValueKey('hex-color-input')),
-      'ABCDEF',
-    );
-    await tester.pump();
-
-    // Drag the opacity slider.
-    final opacitySlider = find.byType(GestureDetector).last;
-    await tester.drag(opacitySlider, const Offset(20, 0));
-    await tester.pump();
-
-    // Go back to the Palette tab and pick a swatch to ensure both tabs work
-    // together within the same panel session.
-    await tester.tap(find.text('Palette'));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(AnimatedContainer).last);
-    await tester.pump();
+    expect(
+      thriveDebug.cats.firstWhere((c) => c.key == 'home').tone,
+      const Color(0xffd97706),
+    );
   });
 
   testWidgets('remove a limit via cap sheet', (tester) async {
