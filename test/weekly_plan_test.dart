@@ -1,12 +1,15 @@
+import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
+/// Opens the FULL weekly planner (breakfast/lunch/dinner grid) on its own
+/// tab. The More hub's "Weekly plan" row now opens the compact Settings v2
+/// dinner sub-page instead (#282) — covered by its own test below.
 Future<void> goToWeekly(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('nav-more')));
+  thriveDebug.goTab('weekly');
   await tester.pumpAndSettle();
-  await tapHubRow(tester, 'planning', 'more-weekly');
 }
 
 void main() {
@@ -60,10 +63,14 @@ void main() {
 
     expect(find.text('Pasta with tomato sauce'), findsOneWidget);
 
-    // Surfaces on Home's "Today's dinner" glance card.
-    await tester.tap(find.byKey(const ValueKey('nav-home')));
-    await tester.pumpAndSettle();
-    expect(find.text('Pasta with tomato sauce'), findsOneWidget);
+    // Persisted on today's day plan (the Home meals board widget reads the
+    // same map).
+    expect(
+      thriveDebug.weeklyPlan.values.any(
+        (d) => d.dinner == 'Pasta with tomato sauce',
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('set breakfast and lunch, then clear the dinner meal', (
@@ -176,4 +183,36 @@ void main() {
 
     expect(before, isNot(equals(after)));
   });
+
+  testWidgets(
+    'More → Weekly plan opens the inline dinner sub-page and autosaves (#282)',
+    (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'planning', 'more-weekly');
+
+      expect(find.text('Weekly plan'), findsWidgets);
+      expect(find.textContaining('saves as you go'), findsOneWidget);
+      expect(find.byKey(const ValueKey('weekly-dinner-6')), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('weekly-dinner-0')),
+        'Pizza night',
+      );
+      await tester.pump();
+      expect(
+        thriveDebug.weeklyPlan.values.any((d) => d.dinner == 'Pizza night'),
+        isTrue,
+      );
+
+      // Clearing the field prunes the (now empty) day again.
+      await tester.enterText(find.byKey(const ValueKey('weekly-dinner-0')), '');
+      await tester.pump();
+      expect(
+        thriveDebug.weeklyPlan.values.any((d) => d.dinner == 'Pizza night'),
+        isFalse,
+      );
+    },
+  );
 }

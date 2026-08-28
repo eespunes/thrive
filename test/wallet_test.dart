@@ -32,7 +32,7 @@ Future<void> dismissSheet(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('wallet sheet from More: empty state, scan entry, footer', (
+  testWidgets('wallet sub-page from More: empty state and scan entry (#282)', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -41,20 +41,34 @@ void main() {
     await openHubCard(tester, 'money', 'more-wallet');
     expect(find.text('Discount cards'), findsOneWidget);
     await tapHubRow(tester, 'money', 'more-wallet');
-    expect(find.text('Nothing scanned yet'), findsOneWidget);
-    expect(find.text('No cards yet'), findsOneWidget);
-    expect(find.byKey(const ValueKey('wallet-scan')), findsOneWidget);
-    expect(find.byKey(const ValueKey('wallet-pin')), findsOneWidget);
-    expect(find.textContaining('Photograph the barcode side'), findsOneWidget);
 
-    // "Scan a card" hands over to the pick stage of the scan sheet.
-    await tester.tap(find.byKey(const ValueKey('wallet-scan')));
+    // The Settings v2 wallet sub-page (#282) with no cards yet.
+    expect(find.textContaining('can use these at the till'), findsOneWidget);
+    expect(find.textContaining('No cards yet — add one'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wallet-sub-add')), findsOneWidget);
+
+    // "＋ Add a card" hands over to the pick stage of the scan sheet
+    // (scanner path unchanged).
+    await tester.tap(find.byKey(const ValueKey('wallet-sub-add')));
     await tester.pumpAndSettle();
     expect(find.text('Scan a discount card'), findsOneWidget);
     expect(find.text('Take a photo of the card'), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-scan-camera')), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-scan-gallery')), findsOneWidget);
     await dismissSheet(tester);
+  });
+
+  testWidgets('wallet sheet still shows empty state, scan entry and footer', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    thriveDebug.openWalletScreen();
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing scanned yet'), findsOneWidget);
+    expect(find.text('No cards yet'), findsOneWidget);
+    expect(find.byKey(const ValueKey('wallet-scan')), findsOneWidget);
+    expect(find.byKey(const ValueKey('wallet-pin')), findsOneWidget);
+    expect(find.textContaining('Photograph the barcode side'), findsOneWidget);
   });
 
   testWidgets('wallet row -> card face -> "Scanned at the till" logs a use', (
@@ -275,7 +289,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.text('This card will be removed for everyone in the family.'),
+      find.text('The whole family loses this card at the till.'),
       findsOneWidget,
     );
     await tester.tap(find.text('Delete').last);

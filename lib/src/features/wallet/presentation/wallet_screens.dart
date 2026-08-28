@@ -49,7 +49,7 @@ extension _ThriveWallet on _ThriveHomeState {
   void confirmDeleteCard(DiscountCard c) {
     askDelete(
       c.name,
-      'This card will be removed for everyone in the family.',
+      'The whole family loses this card at the till.',
       () => mutate(
         () => cards.removeWhere((x) => x.id == c.id),
         () => flash('Card removed'),
