@@ -510,7 +510,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   bool isCalendarIdentityColorAvailable(
     Color color, {
     String? exceptCategoryId,
-    String? exceptMemberId,
   }) {
     return true;
   }
@@ -692,19 +691,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     });
   }
 
-  /// Swaps the layer at [id]'s position with the adjacent one in
-  /// [direction] (-1 = up, +1 = down); a no-op at either end (mirrors the
-  /// design's `moveLayer()`).
-  void moveCalendarLayer(String id, int direction) => mutate(() {
-    final i = calendarLayers.indexWhere((l) => l.id == id);
-    if (i < 0) return;
-    final j = i + direction;
-    if (j < 0 || j >= calendarLayers.length) return;
-    final tmp = calendarLayers[i];
-    calendarLayers[i] = calendarLayers[j];
-    calendarLayers[j] = tmp;
-  });
-
   bool canDeleteCalendarLayer(CalendarLayerDef layer) => true;
 
   String _calendarLayerDeleteFallback(String deletedId) {
@@ -738,13 +724,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       kitchenLayerFilter.remove(id);
     }, () => flash('Layer deleted'));
   }
-
-  /// Toggles a calendar layer's visibility. [CalendarLayerDef] itself only
-  /// defines which layers exist plus their order/colour/icon/label —
-  /// [layerFilter] membership is the single source of truth for whether a
-  /// layer is currently visible (reuses [toggleLayerFilter]'s "can't
-  /// disable the last layer" guard).
-  void toggleCalendarLayerEnabled(String id) => toggleLayerFilter(id);
 
   /// The 42-cell (6x7) month grid starting on the Monday on/before the 1st.
   List<String> monthGrid(String anchor) {
@@ -1177,17 +1156,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // ---------------------------------------------------------- categories
-  void openCategory(EventCategory? cat, {String layerId = kLayerAppt}) {
-    _showSheet(
-      (ctx) => _CategorySheet(state: this, category: cat, layerId: layerId),
-    );
-  }
-
-  /// Opens the layer sheet — pass `null` to create a new layer.
-  void openCalendarLayer(CalendarLayerDef? layer) {
-    _showSheet((ctx) => _LayerSheet(state: this, layer: layer));
-  }
-
   void saveCategory({
     String? id,
     required String name,
@@ -1236,20 +1204,6 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- imports
-  void openCalendarManageSheet({
-    _CalManageMode mode = _CalManageMode.categories,
-  }) {
-    _showSheet((ctx) => _CalendarManageSheet(state: this, mode: mode));
-  }
-
-  void openImportCalendarSheet() {
-    _showSheet((ctx) => _ImportCalendarSheet(state: this));
-  }
-
-  void openEditImportCalendarSheet(ImportedCalendar calendar) {
-    _showSheet((ctx) => _ImportCalendarSheet(state: this, calendar: calendar));
-  }
-
   /// Imports a calendar from an ICS/web-link feed at [url] (e.g. an ecal.com
   /// or other calendar-subscription link, RFC 5545) — the only supported
   /// import source; Google/Apple account sync is out of scope (#161).

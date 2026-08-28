@@ -165,10 +165,11 @@ void main() {
     expect(find.text('Budget blocks'), findsOneWidget);
     expect(find.text('${defaultCats().length} blocks'), findsOneWidget);
 
-    // Budget blocks lands on the old Finance settings sheet for now.
+    // Budget blocks opens the Settings v2 sub-screen (#329).
     await tester.tap(find.byKey(const ValueKey('more-blocks')));
     await tester.pumpAndSettle();
-    expect(find.text('Finance settings'), findsWidgets);
+    expect(find.text('Budget blocks'), findsWidgets);
+    expect(find.byKey(const ValueKey('blocks-warn-toggle')), findsOneWidget);
   });
 
   testWidgets('Family card lists members with role, status and avatar', (
@@ -236,6 +237,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text('You sign in with Google — there’s no password to reset'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Invite & share opens the join-details sheet with copyable '
+      'username', (tester) async {
+    await pumpApp(tester, prefs: seededHubPrefs(), landOnDefaultTab: true);
+    await openMore(tester);
+    await tapHubRow(tester, 'family', 'more-invite');
+    expect(find.text('Invite someone'), findsOneWidget);
+    expect(find.text('JOIN DETAILS'), findsOneWidget);
+    expect(find.text('janssen'), findsOneWidget);
+    // Local family with no password → the honest "not set" copy.
+    expect(
+      find.text('Not set — anyone with the username can join.'),
       findsOneWidget,
     );
   });

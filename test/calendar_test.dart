@@ -1226,8 +1226,8 @@ void main() {
     expect(scheduler.cancelledEvents, [eventId]);
   });
 
-  testWidgets('creating a category from the event editor lands on '
-      'Categories with it listed', (tester) async {
+  testWidgets('creating a category from the event editor opens the '
+      'full-screen category studio (#325)', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -1238,15 +1238,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('New category'), findsWidgets);
 
-    await tester.enterText(find.byType(TextField).first, 'Work');
+    await tester.enterText(
+      find.byKey(const ValueKey('badge-stage-name')),
+      'Work',
+    );
     await tester.pump();
-    await tester.tap(find.text('Add category'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
-    // Saving routes to "Categories" with the new category listed (matches
-    // the design's `saveCategory()`).
-    expect(find.text('Categories'), findsWidgets);
-    expect(find.text('Work'), findsWidgets);
+    expect(thriveDebug.eventCategories.map((c) => c.name), contains('Work'));
   });
 
   testWidgets('calendar settings marks categories and assigned imports', (
@@ -1284,28 +1284,21 @@ void main() {
     );
     await openCalManage(tester);
 
-    final catMarker = tester.widget<Container>(
-      find.byKey(const ValueKey('cat-marker-family')),
-    );
-    expect(catMarker.color, categoryColor);
-    expect(catMarker.constraints?.maxWidth, 4);
+    // The categories sub-screen (#325) lists the seeded category with its
+    // layer + assignment subtitle.
+    expect(find.byKey(const ValueKey('cats-row-family')), findsOneWidget);
+    expect(find.textContaining('no one assigned'), findsOneWidget);
 
-    // Close the categories sheet before opening the imports sheet.
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
 
     await openCalManage(tester, imports: true);
-    final impMarker = tester.widget<Container>(
-      find.byKey(const ValueKey('imp-marker-school-feed')),
-    );
-    expect(impMarker.color, categoryColor);
-    expect(impMarker.constraints?.maxWidth, 4);
-    final importVisual = find.byKey(const ValueKey('imp-visual-school-feed'));
-    expect(
-      find.descendant(of: importVisual, matching: find.byType(SvgPicture)),
-      findsOneWidget,
-    );
-    expect(find.text('Family · ICS / web link · 1 event'), findsOneWidget);
+    // The imports sub-screen (#326) carries the assigned category, feed
+    // type, event count and sync state in the row subtitle, plus the
+    // Shown status pill.
+    expect(find.byKey(const ValueKey('imports-row-school-feed')), findsOne);
+    expect(find.textContaining('Family · ICS · 1 event'), findsOneWidget);
+    expect(find.text('Shown'), findsOneWidget);
   });
 
   testWidgets('editing an imported calendar updates its settings', (
@@ -1334,29 +1327,35 @@ void main() {
     );
     await openCalManage(tester, imports: true);
 
-    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
     await tester.pumpAndSettle();
     expect(find.text('Edit imported calendar'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).at(1), 'School training');
-    await tester.tap(find.text('Show this calendar'));
+    await tester.enterText(
+      find.byKey(const ValueKey('imp-name')),
+      'School training',
+    );
+    await tester.tap(find.byKey(const ValueKey('imp-visible')));
     await tester.pumpAndSettle();
-    final swatch = find.byType(AnimatedContainer).last;
-    final newColor =
-        (tester.widget<AnimatedContainer>(swatch).decoration as BoxDecoration)
-            .color!;
-    await tester.tap(swatch);
+    final newColor = kCatColors[2];
+    await tester.ensureVisible(
+      find.byKey(ValueKey('badge-color-${newColor.toARGB32()}')),
+    );
+    await tester.tap(
+      find.byKey(ValueKey('badge-color-${newColor.toARGB32()}')),
+      warnIfMissed: false,
+    );
     await tester.pump();
-    await tester.tap(find.text('Save calendar'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
     expect(find.text('School training'), findsWidgets);
-    final marker = tester.widget<Container>(
-      find.byKey(const ValueKey('imp-marker-training-feed')),
-    );
-    expect(marker.color, newColor);
+    expect(find.text('Hidden'), findsOneWidget);
+    final cal = thriveDebug.importedCalendars.single;
+    expect(cal.color, newColor);
+    expect(cal.visible, isFalse);
 
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
@@ -1389,31 +1388,34 @@ void main() {
       landOnDefaultTab: true,
     );
     await openCalManage(tester, imports: true);
-    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
     await tester.pumpAndSettle();
 
-    // Picking a category hides the free colour swatches and shows the
-    // "controls this calendar colour" note instead.
-    await tester.tap(find.text('Work').last);
-    await tester.pumpAndSettle();
-    expect(
-      find.textContaining('controls this calendar colour'),
-      findsOneWidget,
+    // Category chips carry the category's tint; picking one tags the feed
+    // (the badge colour stays the feed's own, per the #326 design).
+    await tester.ensureVisible(find.byKey(const ValueKey('imp-cat-work')));
+    await tester.tap(
+      find.byKey(const ValueKey('imp-cat-work')),
+      warnIfMissed: false,
     );
-
-    await tester.tap(find.text('Save calendar'));
     await tester.pumpAndSettle();
-    final marker = tester.widget<Container>(
-      find.byKey(const ValueKey('imp-marker-training-feed')),
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.importedCalendars.single.category, 'work');
+    expect(find.textContaining('Work · ICS'), findsOneWidget);
+
+    // Clearing the category ("None") untags it again.
+    await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('imp-cat-none')));
+    await tester.tap(
+      find.byKey(const ValueKey('imp-cat-none')),
+      warnIfMissed: false,
     );
-    expect(marker.color, kCatColors.first);
-
-    // Clearing the category ("None") brings the swatches back.
-    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('None'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
-    expect(find.text('Palette'), findsOneWidget);
+    expect(thriveDebug.importedCalendars.single.category, isNull);
   });
 
   testWidgets('changing an imported calendar reminder persists it', (
@@ -1442,36 +1444,29 @@ void main() {
     );
     await openCalManage(tester, imports: true);
 
-    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
+    await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
     await tester.pumpAndSettle();
-    expect(find.text('REMINDER'), findsOneWidget);
+    expect(find.text('DEFAULT REMINDER'), findsOneWidget);
 
     await tester.dragUntilVisible(
-      find.text('1 day before'),
+      find.byKey(const ValueKey('imp-reminder-1d')),
       find.byType(SingleChildScrollView).last,
       const Offset(-50, 0),
     );
-    await tester.tap(find.text('1 day before'));
+    await tester.tap(
+      find.byKey(const ValueKey('imp-reminder-1d')),
+      warnIfMissed: false,
+    );
     await tester.pump();
-    await tester.tap(find.text('Save calendar'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('imp-settings-training-feed')));
-    await tester.pumpAndSettle();
-    final chip = tester
-        .widgetList<Container>(
-          find.ancestor(
-            of: find.text('1 day before'),
-            matching: find.byType(Container),
-          ),
-        )
-        .first;
-    final decoration = chip.decoration as BoxDecoration;
-    expect(decoration.color, B.soft);
+    expect(thriveDebug.importedCalendars.single.reminder, '1d');
   });
 
   testWidgets(
-    'category, event, member colour and imported-calendar pickers all expose more colors',
+    'the event colour tray keeps the two-tab panel; studio editors use the '
+    'badge dot row (#325/#326)',
     (tester) async {
       final imported = ImportedCalendar(
         id: 'training-feed',
@@ -1489,44 +1484,32 @@ void main() {
       );
       await goToCalendar(tester);
 
-      // Category sheet.
+      // Category studio: the fixed badge-colour dot row (no RGB/Hex panel).
       await openCalManage(tester);
-      await tester.tap(find.text('New category'));
-      await tester.pumpAndSettle();
-      expect(find.text('Palette'), findsOneWidget);
-      await tester.tap(find.byType(AnimatedContainer).last);
-      await tester.pump();
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-
-      // Family member colours.
-      await goToCalendar(tester);
-      await openCalManage(tester);
-      expect(find.text('Palette'), findsWidgets);
-
-      // Close the categories sheet before opening the imports sheet.
-      await tester.tapAt(const Offset(10, 10));
-      await tester.pumpAndSettle();
-
-      // Imported calendar sheet.
-      await openCalManage(tester, imports: true);
-      await tester.tap(
-        find.byKey(const ValueKey('imp-settings-training-feed')),
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Palettes',
       );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Palette'), findsOneWidget);
-      await tester.tap(find.byType(AnimatedContainer).last);
-      await tester.pump();
+      expect(find.text('BADGE COLOUR'), findsOneWidget);
+      expect(find.text('Palette'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
 
-      await tester.tapAt(const Offset(10, 10));
+      // Imported-calendar studio: same dot row.
+      await openCalManage(tester, imports: true);
+      await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
+      expect(find.text('BADGE COLOUR'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
-      // Event editor.
+      // Event editor keeps the app's single two-tab colour panel.
       await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
@@ -1538,7 +1521,6 @@ void main() {
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
       await openTicketTray(tester, const ValueKey('ticket-colour'));
-      // The colour tray shows the app's single two-tab colour panel.
       expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
@@ -1551,19 +1533,22 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    // Create the category via the management sheet first.
+    // Create the category via the Categories sub-screen first (#325
+    // add-then-open: the add row creates it and opens its studio).
     await openCalManage(tester);
-    await tester.tap(find.text('New category'));
+    await tester.enterText(
+      find.byKey(const ValueKey('list-add-input')),
+      'Family',
+    );
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Family');
-    await tester.pump();
-    await tester.tap(find.text('Add category'));
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(find.text('Family'), findsWidgets);
 
-    // Dismiss the management sheet (tap the barrier above it), then create
-    // an event and pick the new category.
-    await tester.tapAt(const Offset(10, 10));
+    // Back out of the sub-screen, then create an event and pick the new
+    // category.
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
     await goToCalendar(tester);
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
@@ -1855,24 +1840,27 @@ void main() {
     await goToCalendar(tester);
 
     await openCalManage(tester, imports: true);
-    expect(find.text('Nothing imported yet.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
 
-    await tester.tap(find.text('Import a calendar'));
-    await tester.pumpAndSettle();
+    // Paste-a-link add flow (#326): importing opens the feed editor, where
+    // the name can be set before saving.
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const ValueKey('list-add-input')),
       'https://example.com/team.ics',
     );
-    await tester.enterText(find.byType(TextField).at(1), 'Erik · Work');
-    await tester.pump();
-    await tester.tap(find.text('Import calendar'));
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit imported calendar'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('imp-name')),
+      'Erik · Work',
+    );
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
     expect(find.text('Erik · Work'), findsWidgets);
 
-    // Dismiss the management sheet (tap the barrier above it) to reach the
-    // calendar screen underneath.
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
@@ -1911,18 +1899,19 @@ void main() {
       await goToCalendar(tester);
 
       await openCalManage(tester, imports: true);
-      await tester.tap(find.text('Import a calendar'));
-      await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextField).first,
+        find.byKey(const ValueKey('list-add-input')),
         'https://example.com/team.ics',
       );
-      await tester.tap(find.text('Import location'));
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
+      await tester.pumpAndSettle();
+      // The editor opens straight after importing — flip Location off there.
+      await tester.tap(find.byKey(const ValueKey('imp-location')));
       await tester.pump();
-      await tester.tap(find.text('Import calendar'));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
 
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
@@ -1951,14 +1940,14 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
       await openCalManage(tester, imports: true);
-      await tester.tap(find.text('Import a calendar'));
-      await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextField).first,
+        find.byKey(const ValueKey('list-add-input')),
         'https://example.com/team.ics',
       );
-      await tester.pump();
-      await tester.tap(find.text('Import calendar'));
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
+      await tester.pumpAndSettle();
+      // The editor opens straight after importing; keep the defaults.
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
 
       // Auto-sync is on by default: change what the feed returns, then
@@ -1974,9 +1963,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
       await tapHubRow(tester, 'planning', 'more-calimports');
-      await tester.tap(find.text('Auto-syncs on open'));
+      final calId = thriveDebug.importedCalendars.single.id;
+      await tester.tap(find.byKey(ValueKey('imp-chip-autosync-$calId')));
       await tester.pumpAndSettle();
-      expect(find.text('Auto-sync off'), findsOneWidget);
+      expect(find.text('✕ Auto-sync off'), findsOneWidget);
 
       title = 'Match day v3';
       await rebootApp(tester);
@@ -2001,28 +1991,24 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
     await openCalManage(tester, imports: true);
-    await tester.tap(find.text('Import a calendar'));
-    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const ValueKey('list-add-input')),
       'https://example.com/team.ics',
     );
-    await tester.pump();
-    await tester.tap(find.text('Import calendar'));
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
     icsHttpGetOverride = (uri) async => http.Response('nope', 500);
-    // The sync-button key is per-calendar-id (`imp-sync-<id>`); find it
-    // generically since the generated id isn't known here.
-    final syncBtn = find.byWidgetPredicate(
-      (w) =>
-          w.key is ValueKey &&
-          (w.key as ValueKey).value.toString().startsWith('imp-sync-'),
-    );
-    await tester.tap(syncBtn);
+    // The per-row "↻ Sync now" quick chip is keyed per calendar id.
+    final calId = thriveDebug.importedCalendars.single.id;
+    await tester.tap(find.byKey(ValueKey('imp-chip-sync-$calId')));
     await tester.pumpAndSettle();
 
     expect(find.text('Calendar link returned 500'), findsOneWidget);
+    expect(thriveDebug.failedImportIds, contains(calId));
+    expect(find.text('Failing'), findsWidgets);
   });
 
   testWidgets(
@@ -2042,23 +2028,23 @@ void main() {
       await pumpApp(tester, landOnDefaultTab: true);
       await goToCalendar(tester);
       await openCalManage(tester, imports: true);
-      await tester.tap(find.text('Import a calendar'));
-      await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextField).first,
+        find.byKey(const ValueKey('list-add-input')),
         'https://example.com/team.ics',
       );
-      await tester.pump();
-      await tester.tap(find.text('Import calendar'));
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
 
-      // Toggle both chips off from the manage sheet (post-import).
-      await tester.tap(find.text('Location'));
+      // Toggle both quick chips off from the list (post-import).
+      final calId = thriveDebug.importedCalendars.single.id;
+      await tester.tap(find.byKey(ValueKey('imp-chip-loc-$calId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Description'));
+      await tester.tap(find.byKey(ValueKey('imp-chip-desc-$calId')));
       await tester.pumpAndSettle();
 
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
@@ -2084,29 +2070,30 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
     await openCalManage(tester, imports: true);
-    await tester.tap(find.text('Import a calendar'));
-    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const ValueKey('list-add-input')),
       'https://example.com/team.ics',
     );
-    await tester.enterText(find.byType(TextField).at(1), 'Fixtures');
-    await tester.pump();
-    await tester.tap(find.text('Import calendar'));
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('imp-name')), 'Fixtures');
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(find.text('Fixtures'), findsWidgets);
 
-    // "Fixtures" also appears as the imported event's card tag underneath
-    // the modal sheet — target the sheet row (rendered last) specifically.
-    await tester.drag(find.text('Fixtures').last, const Offset(-220, 0));
+    // Removal lives inside the feed studio — its counting confirm states
+    // the events disappear (#326).
+    final calId = thriveDebug.importedCalendars.single.id;
+    await tester.tap(find.byKey(ValueKey('imports-row-$calId')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    await tester.tap(find.byKey(const ValueKey('studio-delete')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    expect(find.textContaining('disappear from the calendar'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
     await tester.pumpAndSettle();
 
+    expect(thriveDebug.importedCalendars, isEmpty);
     expect(find.text('Fixtures'), findsNothing);
-    expect(find.text('Nothing imported yet.'), findsOneWidget);
   });
 
   testWidgets(
@@ -2116,29 +2103,26 @@ void main() {
       await goToCalendar(tester);
 
       await openCalManage(tester);
-      await tester.tap(find.text('New category'));
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Family',
+      );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Family');
-      await tester.pump();
-      await tester.tap(find.text('Add category'));
-      await tester.pumpAndSettle();
-      expect(find.text('Family'), findsWidgets);
-
-      // Edit: tap the category row, rename, save.
-      await tester.tap(find.text('Family').last);
-      await tester.pumpAndSettle();
+      // Add-then-open: rename inside the studio and save.
       expect(find.text('Edit category'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).first, 'Household');
+      await tester.enterText(
+        find.byKey(const ValueKey('badge-stage-name')),
+        'Household',
+      );
       await tester.pump();
-      await tester.tap(find.text('Save category'));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
       expect(find.text('Household'), findsWidgets);
-      // Only the hub's Family card title remains behind the sheet.
-      expect(find.text('Family'), findsOneWidget);
 
       // Assign it to an event, then delete the category and confirm the
       // event survives without it.
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
@@ -2152,15 +2136,18 @@ void main() {
       await tester.pumpAndSettle();
 
       await openCalManage(tester);
-      await tester.tap(find.text('Household').last);
+      final catId = thriveDebug.eventCategories.single.id;
+      await tester.tap(find.byKey(ValueKey('cats-row-$catId')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete category'));
+      await tester.tap(find.byKey(const ValueKey('studio-delete')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      // The counting confirm spells out the events keep their times.
+      expect(find.textContaining('keep their times'), findsWidgets);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Household'), findsNothing);
-      await tester.tapAt(const Offset(10, 10));
+      expect(thriveDebug.eventCategories, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       expect(find.text('Dinner'), findsWidgets);
@@ -2337,13 +2324,15 @@ void main() {
       await goToCalendar(tester);
 
       await openCalManage(tester);
-      await tester.tap(find.text('New category'));
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Work',
+      );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Work');
-      await tester.pump();
-      await tester.tap(find.text('Add category'));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
       await goToCalendar(tester);
@@ -2378,13 +2367,15 @@ void main() {
 
       // A category filter for a different category also hides it.
       await openCalManage(tester);
-      await tester.tap(find.text('New category'));
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Personal',
+      );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Personal');
-      await tester.pump();
-      await tester.tap(find.text('Add category'));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
       await goToCalendar(tester);
@@ -2405,15 +2396,17 @@ void main() {
       await goToCalendar(tester);
 
       await openCalManage(tester);
-      await tester.tap(find.text('New category'));
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Chores',
+      );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Chores');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('category-layer-task')));
+      await tester.tap(find.byKey(const ValueKey('cat-layer-task')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add category'));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
       await goToCalendar(tester);
@@ -2696,25 +2689,22 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
     await openCalManage(tester, imports: true);
-    await tester.tap(find.text('Import a calendar'));
-    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const ValueKey('list-add-input')),
       'https://example.com/team.ics',
     );
-    await tester.pump();
-    await tester.tap(find.text('Import calendar'));
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
-    final visToggle = find.byWidgetPredicate(
-      (w) =>
-          w.key is ValueKey &&
-          (w.key as ValueKey).value.toString().startsWith('imp-toggle-'),
-    );
-    await tester.tap(visToggle);
+    // The per-row 👁/🚫 quick chip flips visibility.
+    final calId = thriveDebug.importedCalendars.single.id;
+    await tester.tap(find.byKey(ValueKey('imp-chip-vis-$calId')));
     await tester.pumpAndSettle();
+    expect(find.text('Hidden'), findsOneWidget);
 
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
@@ -2735,14 +2725,13 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
     await openCalManage(tester, imports: true);
-    await tester.tap(find.text('Import a calendar'));
-    await tester.pumpAndSettle();
     await tester.enterText(
-      find.byType(TextField).first,
+      find.byKey(const ValueKey('list-add-input')),
       'https://example.com/team.ics',
     );
-    await tester.pump();
-    await tester.tap(find.text('Import calendar'));
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
     icsHttpGetOverride = (uri) async => http.Response(
@@ -2752,15 +2741,12 @@ void main() {
       'DTSTART:${today}T110000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n',
       200,
     );
-    final syncBtn = find.byWidgetPredicate(
-      (w) =>
-          w.key is ValueKey &&
-          (w.key as ValueKey).value.toString().startsWith('imp-sync-'),
-    );
-    await tester.tap(syncBtn);
+    final calId = thriveDebug.importedCalendars.single.id;
+    await tester.tap(find.byKey(ValueKey('imp-chip-sync-$calId')));
     await tester.pumpAndSettle();
 
     expect(find.text('Calendar synced (2 events)'), findsOneWidget);
+    expect(find.textContaining('2 events · Synced just now'), findsOneWidget);
   });
 
   // Note: coverage for tasks with a due date appearing on the calendar (and
@@ -3645,8 +3631,8 @@ void main() {
 
     testWidgets(
       'Calendar layers settings: add a custom layer, edit it, use it for '
-      'a new event, reorder it, then swipe-delete it (reassigning the '
-      'event back to To-Dos)',
+      'a new event, reorder it, then delete it from its studio '
+      '(reassigning the event back to To-Dos)',
       (tester) async {
         final today = todayIso();
         await pumpApp(tester, landOnDefaultTab: true);
@@ -3655,128 +3641,65 @@ void main() {
         await tester.pumpAndSettle();
         await tapHubRow(tester, 'planning', 'more-callayers');
 
-        // Default layers behave like any other layer and can be swiped to
-        // delete.
-        expect(
-          find.byKey(const ValueKey('cal-manage-layer-appt')),
-          findsOneWidget,
+        expect(find.byKey(const ValueKey('layers-row-appt')), findsOneWidget);
+
+        // Add by label (#327): stays on the list and toasts.
+        await tester.enterText(
+          find.byKey(const ValueKey('list-add-input')),
+          'Workouts',
         );
-
-        // The first layer's up-arrow is a no-op at the top; tapping it must
-        // not open the row's edit form (that's a distinct tap target).
-        await tester.tap(
-          find.byKey(const ValueKey('cal-manage-layer-up-appt')),
-        );
+        await tester.tap(find.byKey(const ValueKey('list-add-button')));
         await tester.pumpAndSettle();
-        expect(find.text('Appointments'), findsOneWidget);
-        expect(find.text('Edit layer'), findsNothing);
-
-        // Open the add-layer form. Layers use the shared app colour picker
-        // and the shared emoji/picture picker; the old icon grid is gone.
-        await tester.ensureVisible(find.text('+ Add layer'));
-        await tester.tap(find.text('+ Add layer'));
-        await tester.pumpAndSettle();
-        // "+ Add layer" opens the New layer popup (same sheet as edit).
-        expect(find.text('New layer'), findsOneWidget);
-        await tester.enterText(find.byType(TextField).first, 'Workouts');
-        await tester.pump();
-        expect(find.text('ICON'), findsNothing);
-        await tester.ensureVisible(find.text('Palette'));
-        await tester.pumpAndSettle();
-        expect(find.text('Palette'), findsOneWidget);
-        expect(find.text('RGB / Hex'), findsOneWidget);
-        await tester.ensureVisible(find.byKey(const ValueKey('glyph-upload')));
-        expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
-        expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-        await tester.pumpAndSettle();
-
-        // The form resets and the new layer now shows in the list, with a
-        // switch (enabled by default) and up/down controls; no inline
-        // delete "x" any more (that moved to swipe + the edit form).
-        expect(find.text('+ Add layer'), findsOneWidget);
         expect(find.text('Workouts'), findsOneWidget);
-        final upBtn = find.byWidgetPredicate(
-          (w) =>
-              w.key is ValueKey<String> &&
-              (w.key! as ValueKey<String>).value.startsWith(
-                'cal-manage-layer-up-',
-              ) &&
-              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-content'),
-        );
-        final downBtn = find.byWidgetPredicate(
-          (w) =>
-              w.key is ValueKey<String> &&
-              (w.key! as ValueKey<String>).value.startsWith(
-                'cal-manage-layer-down-',
-              ) &&
-              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-content'),
-        );
-        expect(upBtn, findsOneWidget);
-        expect(downBtn, findsOneWidget);
+        final layerId = thriveDebug.calendarLayers
+            .singleWhere((l) => l.label == 'Workouts')
+            .id;
+        expect(thriveDebug.layerFilter, contains(layerId));
 
-        // "Workouts" was appended last, so moving it up then back down
-        // exercises both the working move (not the no-op at an end) and
-        // its round-trip.
-        await tester.ensureVisible(find.text('Workouts'));
-        final workoutsYBefore = tester.getTopLeft(find.text('Workouts')).dy;
-        await tester.ensureVisible(upBtn);
-        await tester.tap(upBtn);
+        // Hold-and-drag reorder: "Workouts" was appended last; dragging it
+        // up one slot moves it before "Content" in the shared order.
+        await tester.ensureVisible(find.byKey(ValueKey('layers-row-$layerId')));
+        final rowFinder = find.byKey(ValueKey('layers-row-$layerId'));
+        final gesture = await tester.startGesture(tester.getCenter(rowFinder));
+        await tester.pump(const Duration(milliseconds: 400));
+        for (var i = 0; i < 8; i++) {
+          await gesture.moveBy(const Offset(0, -10));
+          await tester.pump(const Duration(milliseconds: 30));
+        }
+        await gesture.up();
         await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Workouts'));
         expect(
-          tester.getTopLeft(find.text('Workouts')).dy,
-          lessThan(workoutsYBefore),
+          thriveDebug.calendarLayers
+              .map((l) => l.label)
+              .toList()
+              .indexOf('Workouts'),
+          lessThan(3),
         );
-        await tester.ensureVisible(downBtn);
-        await tester.tap(downBtn);
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(find.text('Workouts'));
-        expect(tester.getTopLeft(find.text('Workouts')).dy, workoutsYBefore);
 
-        // Disable then re-enable it via its switch.
-        final switchBtn = find.byWidgetPredicate(
-          (w) =>
-              w.key is ValueKey<String> &&
-              (w.key! as ValueKey<String>).value.startsWith(
-                'cal-manage-layer-switch-',
-              ) &&
-              !(w.key! as ValueKey<String>).value.endsWith('-appt') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-task') &&
-              !(w.key! as ValueKey<String>).value.endsWith('-content'),
-        );
-        await tester.ensureVisible(switchBtn);
-        await tester.tap(switchBtn);
+        // Disable then re-enable it via its row toggle.
+        await tester.tap(find.byKey(ValueKey('layers-toggle-$layerId')));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(switchBtn);
-        await tester.tap(switchBtn);
+        expect(thriveDebug.layerFilter, isNot(contains(layerId)));
+        await tester.tap(find.byKey(ValueKey('layers-toggle-$layerId')));
         await tester.pumpAndSettle();
+        expect(thriveDebug.layerFilter, contains(layerId));
 
-        // Tapping the row opens it for editing, pre-filled — rename it and
-        // save.
-        await tester.ensureVisible(find.text('Workouts'));
-        await tester.tap(find.text('Workouts'));
+        // Tapping the row opens its studio, pre-filled — rename and save.
+        await tester.tap(find.byKey(ValueKey('layers-row-$layerId')));
         await tester.pumpAndSettle();
         expect(find.text('Edit layer'), findsOneWidget);
-        expect(find.text('ICON'), findsNothing);
-        expect(find.text('Palette'), findsOneWidget);
-        expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
-        expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
-        await tester.enterText(find.byType(TextField).first, 'Fitness');
+        await tester.enterText(
+          find.byKey(const ValueKey('badge-stage-name')),
+          'Fitness',
+        );
         await tester.pump();
-        final saveBtn = find.byKey(const ValueKey('sheet-confirm'));
-        await tester.ensureVisible(saveBtn);
-        await tester.tap(saveBtn);
+        await tester.tap(find.byKey(const ValueKey('studio-save')));
         await tester.pumpAndSettle();
         expect(find.text('Fitness'), findsOneWidget);
         expect(find.text('Workouts'), findsNothing);
 
-        // Dismiss the layers settings sheet before switching tabs.
-        await tester.tapAt(const Offset(10, 10));
+        // Back out of the sub-screen before switching tabs.
+        await tester.tap(find.byKey(const ValueKey('studio-back')));
         await tester.pumpAndSettle();
 
         // Create a calendar event directly on the renamed "Fitness" layer
@@ -3809,31 +3732,28 @@ void main() {
           findsNothing,
         );
 
-        // Deleting the layer via swipe-to-delete (same pattern as
-        // categories) reassigns "Gym session" back to To-Dos instead of
-        // leaving it pointed at a deleted layer.
+        // Deleting the layer from its studio (#327) reassigns "Gym session"
+        // back to To-Dos instead of leaving it pointed at a deleted layer.
         await tester.tap(find.byKey(const ValueKey('nav-more')));
         await tester.pumpAndSettle();
         await tapHubRow(tester, 'planning', 'more-callayers');
         final fitnessLayerId = thriveDebug.calendarLayers
             .singleWhere((layer) => layer.label == 'Fitness')
             .id;
-        final fitnessRow = find.byKey(
-          ValueKey('cal-manage-layer-$fitnessLayerId'),
-        );
+        final fitnessRow = find.byKey(ValueKey('layers-row-$fitnessLayerId'));
         await tester.ensureVisible(fitnessRow);
-        await tester.drag(fitnessRow, const Offset(-220, 0));
+        await tester.tap(fitnessRow);
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(ValueKey('cal-manage-layer-$fitnessLayerId-delete')),
-        );
+        await tester.tap(find.byKey(const ValueKey('studio-delete')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Delete').last);
+        // The counting confirm counts the event it takes with it.
+        expect(find.textContaining('1 event'), findsWidgets);
+        await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
         await tester.pumpAndSettle();
         expect(fitnessRow, findsNothing);
 
-        // Dismiss the layers settings sheet before switching tabs.
-        await tester.tapAt(const Offset(10, 10));
+        // Back out of the sub-screen before switching tabs.
+        await tester.tap(find.byKey(const ValueKey('studio-back')));
         await tester.pumpAndSettle();
 
         await goToCalendar(tester);
@@ -3850,22 +3770,24 @@ void main() {
       },
     );
 
-    testWidgets('default calendar layers can be swipe-deleted', (tester) async {
+    testWidgets('default calendar layers delete down to the min-1 guard '
+        '(#327)', (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
 
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
       await tapHubRow(tester, 'planning', 'more-callayers');
 
-      for (final id in ['appt', 'task', 'content']) {
-        final row = find.byKey(ValueKey('cal-manage-layer-$id'));
+      // The first two default layers delete like any custom layer.
+      for (final id in ['appt', 'task']) {
+        final row = find.byKey(ValueKey('layers-row-$id'));
         expect(row, findsOneWidget);
         await tester.ensureVisible(row);
-        await tester.drag(row, const Offset(-220, 0));
+        await tester.tap(row);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ValueKey('cal-manage-layer-$id-delete')));
+        await tester.tap(find.byKey(const ValueKey('studio-delete')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Delete').last);
+        await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
         await tester.pumpAndSettle();
 
         expect(row, findsNothing);
@@ -3876,10 +3798,15 @@ void main() {
         expect(thriveDebug.layerFilter.contains(id), isFalse);
       }
 
-      expect(
-        find.text('No layers yet — add one to start organizing your calendar.'),
-        findsOneWidget,
-      );
+      // The last remaining layer's studio has NO delete link (min-1) and
+      // its visibility toggle refuses to switch the last layer off.
+      await tester.tap(find.byKey(const ValueKey('layers-toggle-content')));
+      await tester.pumpAndSettle();
+      expect(thriveDebug.layerFilter, contains('content'));
+      expect(find.text('At least one layer stays on'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('layers-row-content')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('studio-delete')), findsNothing);
     });
 
     testWidgets('creating the very first layer retroactively reassigns every '

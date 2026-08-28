@@ -155,32 +155,34 @@ void main() {
   );
 
   testWidgets(
-    'More → Finance settings opens as a sheet with settings content',
+    'More → Accounts opens the Settings v2 accounts sub-screen (#328)',
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
 
       await tapHubRow(tester, 'money', 'more-finsettings');
-      expect(find.text('Finance settings'), findsWidgets);
-      expect(find.text('Add account'), findsOneWidget);
+      expect(find.text('Accounts'), findsWidgets);
+      expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
 
-      // Dismiss the sheet and land back on the More hub, not a sub-tab.
-      await tester.tapAt(const Offset(200, 60));
+      // Back lands on the More hub, not a sub-tab.
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       expect(find.text('More'), findsWidgets);
       expect(find.byKey(const ValueKey('more-finsettings')), findsOneWidget);
     },
   );
 
-  testWidgets('More → Weekly plan opens as a sheet', (tester) async {
+  testWidgets('More → Weekly plan opens the dinner sub-page (#282)', (
+    tester,
+  ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
     await tapHubRow(tester, 'planning', 'more-weekly');
     expect(find.text('Weekly plan'), findsWidgets);
-    expect(find.byKey(const ValueKey('week-prev')), findsOneWidget);
+    expect(find.byKey(const ValueKey('weekly-dinner-0')), findsOneWidget);
   });
 
   testWidgets('More → profile card opens the existing profile sheet', (
@@ -204,7 +206,7 @@ void main() {
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
-  testWidgets('More → Categories opens the category management sheet', (
+  testWidgets('More → Categories opens the categories sub-screen (#325)', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -213,10 +215,14 @@ void main() {
 
     await tapHubRow(tester, 'planning', 'more-calmanage');
     expect(find.text('Categories'), findsWidgets);
-    expect(find.text('No categories yet.'), findsOneWidget);
+    expect(
+      find.textContaining('Colours & icons used across the calendar'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
   });
 
-  testWidgets('More → Imported calendars opens the imports management sheet', (
+  testWidgets('More → Imported calendars opens the imports sub-screen (#326)', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -225,11 +231,12 @@ void main() {
 
     await tapHubRow(tester, 'planning', 'more-calimports');
     expect(find.text('Imported calendars'), findsWidgets);
-    expect(find.text('Nothing imported yet.'), findsOneWidget);
+    expect(find.textContaining('Only ICS/web links'), findsOneWidget);
+    expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
   });
 
   testWidgets(
-    'More → Calendar layers opens the layers management sheet and its '
+    'More → Calendar layers opens the layers sub-screen (#327) and its '
     'toggles drive layerFilter',
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
@@ -241,24 +248,14 @@ void main() {
       expect(find.text('Appointments'), findsOneWidget);
       expect(find.text('To-Dos'), findsOneWidget);
       expect(find.text('Content'), findsOneWidget);
-      expect(find.text('+ Add layer'), findsOneWidget);
-
-      // The switch reflects `layerFilter` membership for the layer.
-      var taskSwitch = tester.widget<Switch>(
-        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
-      );
-      expect(taskSwitch.value, isTrue);
+      expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
+      expect(thriveDebug.layerFilter, contains('task'));
 
       // Disabling the to-dos layer here drives the same `layerFilter` the
       // calendar's filter sheet reads from.
-      await tester.tap(
-        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
-      );
+      await tester.tap(find.byKey(const ValueKey('layers-toggle-task')));
       await tester.pumpAndSettle();
-      taskSwitch = tester.widget<Switch>(
-        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
-      );
-      expect(taskSwitch.value, isFalse);
+      expect(thriveDebug.layerFilter, isNot(contains('task')));
 
       await tester.runAsync(
         () async => Future<void>.delayed(const Duration(milliseconds: 250)),
@@ -267,11 +264,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
       await tapHubRow(tester, 'planning', 'more-callayers');
-
-      taskSwitch = tester.widget<Switch>(
-        find.byKey(const ValueKey('cal-manage-layer-switch-task')),
-      );
-      expect(taskSwitch.value, isFalse);
+      expect(thriveDebug.layerFilter, isNot(contains('task')));
     },
   );
 }

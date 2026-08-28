@@ -85,22 +85,20 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           key: 'more-weekly',
           label: 'Weekly plan',
           val: '$planned of 7 planned',
-          onTap: openWeeklyPlanSheet,
+          onTap: openWeeklyPlanScreen,
         ),
         _hubRow(
           key: 'more-calmanage',
           label: 'Categories',
           val: '$catCount badge${catCount == 1 ? '' : 's'}',
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.categories),
+          onTap: openCategoriesScreen,
         ),
         _hubRow(
           key: 'more-memcolors',
           label: 'Member colours',
           sub: 'Each person’s identity colour',
           val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
-          // The dedicated member-colours sub-screen lands in a later phase;
-          // until then the family sheet is where colours are edited.
-          onTap: openFamilySheet,
+          onTap: openMemberColoursScreen,
         ),
         _hubRow(
           key: 'more-calimports',
@@ -110,14 +108,14 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               : (failing > 0 ? '$failing failing' : 'All synced'),
           warnVal: failing > 0,
           goodVal: impCount > 0 && failing == 0,
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
+          onTap: openImportedCalendarsScreen,
         ),
         _hubRow(
           key: 'more-callayers',
           label: 'Calendar layers',
           sub: 'Appointments, to-dos & content',
           val: '$layersOn of ${calendarLayers.length} on',
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
+          onTap: openCalendarLayersScreen,
         ),
         _hubRow(
           key: 'more-kitchen-settings',
@@ -125,7 +123,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           sub: 'The shared tablet screen',
           val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
           warnVal: !kitchenEnabled,
-          onTap: openKitchenWallSettings,
+          onTap: openKitchenWallScreen,
         ),
       ],
     );
@@ -145,7 +143,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           key: 'more-wallet',
           label: 'Discount cards',
           val: n == 0 ? 'None yet' : '$n card${n == 1 ? '' : 's'}',
-          onTap: openWalletScreen,
+          onTap: openWalletSubScreen,
         ),
         _hubRow(
           key: 'more-widget-privacy',
@@ -154,23 +152,21 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           tog: widgetHideAmounts,
           onTog: toggleWidgetHideAmounts,
         ),
-        // Both money rows still land on the old Finance settings sheet until
-        // the dedicated Accounts / Budget blocks sub-screens ship (#324
-        // follow-ups). The Accounts row keeps the historical
-        // 'more-finsettings' key so existing flows keep working.
+        // The Accounts row keeps the historical 'more-finsettings' key so
+        // existing flows keep working.
         _hubRow(
           key: 'more-finsettings',
           label: 'Accounts',
           sub: 'Who pays from where',
           val: '${accounts.length} account${accounts.length == 1 ? '' : 's'}',
-          onTap: openFinanceSettingsSheet,
+          onTap: openAccountsScreen,
         ),
         _hubRow(
           key: 'more-blocks',
           label: 'Budget blocks',
           sub: 'The columns of the monthly budget',
           val: '${cats.length} block${cats.length == 1 ? '' : 's'}',
-          onTap: openFinanceSettingsSheet,
+          onTap: openBudgetBlocksScreen,
         ),
       ],
     );
@@ -788,56 +784,6 @@ extension _ThriveMoreScreen on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- sheets
-  void openWeeklyPlanSheet() {
-    _showSheet(
-      (ctx) => ValueListenableBuilder<int>(
-        valueListenable: _rev,
-        builder: (context, _, _) => _sheetEmbed(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _sheetHead(ctx, 'Weekly plan', 'Meals & notes for the week'),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _weekSubHeader(),
-              ),
-            ],
-          ),
-          _buildWeeklyPlan(embed: true),
-        ),
-      ),
-    );
-  }
-
-  void openFinanceSettingsSheet() {
-    _showSheet(
-      (ctx) => ValueListenableBuilder<int>(
-        valueListenable: _rev,
-        builder: (context, _, _) => _sheetEmbed(
-          _sheetHead(ctx, 'Finance settings', 'Accounts, blocks & tools'),
-          _buildSettings(embed: true),
-        ),
-      ),
-    );
-  }
-
-  /// Wraps sheet-embedded tab content: keeps the sheet's own header/side
-  /// padding but lets the embedded body (which already carries its own
-  /// internal padding, or intentionally has none) render without doubling up
-  /// or overflowing horizontally. Mirrors `sheetEmbed()`.
-  Widget _sheetEmbed(Widget head, Widget body) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * .78,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          head,
-          Expanded(child: ClipRect(child: body)),
-        ],
-      ),
-    );
-  }
-
   void openInviteSheet() {
     _showSheet((ctx) => _InviteSheet(state: this));
   }

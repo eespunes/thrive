@@ -17,15 +17,6 @@ Future<void> _openEditor(WidgetTester tester) async {
   expect(find.text('New event'), findsOneWidget);
 }
 
-Future<void> _pickEmoji(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byType(Tab).at(1));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('😀').first);
-  await tester.pumpAndSettle();
-}
-
 Future<void> _openTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
   await tester.tap(find.byKey(key), warnIfMissed: false);
@@ -194,35 +185,49 @@ void main() {
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-calmanage');
 
-    await tester.tap(find.text('New category'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'Work');
-    await tester.pump();
-    await _pickEmoji(tester);
-    // Assign a member, un-assign, re-assign.
-    await tester.tap(find.byKey(const ValueKey('cat-member-me')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('cat-member-me')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('cat-member-me')));
-    await tester.pump();
-    await tester.ensureVisible(find.text('Add category'));
-    await tester.tap(find.text('Add category'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Work'), findsWidgets);
-    expect(find.text('1 member'), findsOneWidget);
-
-    // Swipe the category row open and delete it.
-    final cat = thriveDebug.eventCategories.single;
-    await tester.drag(
-      find.byKey(ValueKey('cat-${cat.id}')),
-      const Offset(-220, 0),
+    // Add-then-open (#325): typing a name creates the category with
+    // defaults and lands straight in its full-screen studio.
+    await tester.enterText(
+      find.byKey(const ValueKey('list-add-input')),
+      'Work',
     );
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').first, warnIfMissed: false);
+    expect(find.text('Edit category'), findsOneWidget);
+
+    // Free emoji input on the badge stage (no fixed grid).
+    await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    await tester.enterText(
+      find.byKey(const ValueKey('badge-stage-emoji-input')),
+      '😀',
+    );
+    await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
+    await tester.pumpAndSettle();
+
+    // Assign a member, un-assign, re-assign.
+    await tester.tap(find.byKey(const ValueKey('cat-person-me')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('cat-person-me')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('cat-person-me')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
+    await tester.pumpAndSettle();
+
+    final cat = thriveDebug.eventCategories.single;
+    expect(cat.emoji, '😀');
+    expect(cat.members, ['me']);
+    expect(find.text('Work'), findsWidgets);
+    expect(find.textContaining('1 member'), findsOneWidget);
+
+    // Delete from inside the studio — the counting confirm spells out that
+    // events keep their times.
+    await tester.tap(find.byKey(ValueKey('cats-row-${cat.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
     await tester.pumpAndSettle();
     expect(thriveDebug.eventCategories, isEmpty);
   });
@@ -235,32 +240,42 @@ void main() {
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-callayers');
 
-    await tester.tap(find.text('+ Add layer'));
+    // Adding a layer toasts and stays on the list (#327).
+    await tester.enterText(
+      find.byKey(const ValueKey('list-add-input')),
+      'Sports',
+    );
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
     await tester.pumpAndSettle();
-    // "+ Add layer" now opens the New layer popup (same sheet as edit).
-    expect(find.text('New layer'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'Sports');
-    await tester.pump();
-    await _pickEmoji(tester);
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-    await tester.pumpAndSettle();
-
     final layer = thriveDebug.calendarLayers.firstWhere(
       (l) => l.label == 'Sports',
     );
 
-    // Edit the custom layer, change its emoji, then delete it.
-    await tester.tap(find.byKey(ValueKey('cal-manage-layer-edit-${layer.id}')));
+    // Edit the custom layer, set an emoji through the free input, save.
+    await tester.tap(find.byKey(ValueKey('layers-row-${layer.id}')));
     await tester.pumpAndSettle();
-    await _pickEmoji(tester);
-    await tester.ensureVisible(
-      find.byKey(ValueKey('cal-manage-layer-delete-${layer.id}')),
-    );
-    await tester.tap(
-      find.byKey(ValueKey('cal-manage-layer-delete-${layer.id}')),
-    );
+    expect(find.text('Edit layer'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+    await tester.enterText(
+      find.byKey(const ValueKey('badge-stage-emoji-input')),
+      '⚽',
+    );
+    await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
+    await tester.pumpAndSettle();
+    expect(
+      thriveDebug.calendarLayers.firstWhere((l) => l.id == layer.id).emoji,
+      '⚽',
+    );
+
+    // Delete it from its studio; the counting confirm moves its events.
+    await tester.tap(find.byKey(ValueKey('layers-row-${layer.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
     await tester.pumpAndSettle();
     expect(thriveDebug.calendarLayers.where((l) => l.id == layer.id), isEmpty);
   });
