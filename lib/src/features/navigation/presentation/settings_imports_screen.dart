@@ -115,6 +115,8 @@ class _ImportedCalendarsScreen extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: s._rev,
       builder: (context, _, _) => SettingsSubScreen(
+        sync: s.syncStatus,
+        offline: s.netOffline,
         title: 'Imported calendars',
         subtitle: 'Read-only ICS feeds',
         intro:

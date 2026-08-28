@@ -122,6 +122,8 @@ class _BudgetBlocksScreen extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: s._rev,
       builder: (context, _, _) => SettingsSubScreen(
+        sync: s.syncStatus,
+        offline: s.netOffline,
         title: 'Budget blocks',
         subtitle: 'The columns of the monthly budget',
         intro:

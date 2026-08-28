@@ -46,6 +46,8 @@ class _KitchenWallScreen extends StatelessWidget {
             .where((m) => m.status == 'active')
             .toList();
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: 'Kitchen wall',
           subtitle: 'The shared tablet screen',
           intro:

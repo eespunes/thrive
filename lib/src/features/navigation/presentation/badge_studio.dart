@@ -175,6 +175,7 @@ Widget studioBackHeader({
   required String title,
   String? subtitle,
   required VoidCallback onBack,
+  Widget? trailing,
 }) {
   return Padding(
     padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -226,6 +227,7 @@ Widget studioBackHeader({
             ],
           ),
         ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing],
       ],
     ),
   );
@@ -720,10 +722,19 @@ class SettingsSubScreen extends StatefulWidget {
     this.emptyAddHint = 'Type a name first',
     this.onBack,
     this.onToast,
+    this.sync,
+    this.offline,
   });
 
   final String title;
   final String? subtitle;
+
+  /// Write-status pill in the header (#283): "Saving… → Saved ✓", or
+  /// "Queued — offline" while disconnected. Null hides the slot.
+  final foundation.ValueListenable<SettingsSyncStatus?>? sync;
+
+  /// When it reports true, the amber offline strip renders under the header.
+  final foundation.ValueListenable<bool>? offline;
 
   /// The one-liner under the header explaining the screen.
   final String? intro;
@@ -772,11 +783,26 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
               title: widget.title,
               subtitle: widget.subtitle,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+              trailing: widget.sync == null
+                  ? null
+                  : ValueListenableBuilder<SettingsSyncStatus?>(
+                      valueListenable: widget.sync!,
+                      builder: (context, status, _) => status == null
+                          ? const SizedBox.shrink()
+                          : settingsSyncPill(status),
+                    ),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                 children: [
+                  if (widget.offline != null)
+                    ValueListenableBuilder<bool>(
+                      valueListenable: widget.offline!,
+                      builder: (context, off, _) => off
+                          ? settingsOfflineBanner()
+                          : const SizedBox.shrink(),
+                    ),
                   if (widget.intro != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),

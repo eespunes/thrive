@@ -390,6 +390,41 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String? get toast => _toastNotifier.value;
   Timer? _toastTimer;
 
+  /// Write-status pill on the Settings v2 sub-page headers (#283): every
+  /// mutation blips "Saving…" → "Saved ✓" (or "Queued — offline" while the
+  /// cloud can't be reached). Writes already queue via the local store /
+  /// Firestore's offline cache — this only SURFACES it.
+  final ValueNotifier<SettingsSyncStatus?> syncStatus =
+      ValueNotifier<SettingsSyncStatus?>(null);
+
+  /// Whether the last cloud commit failed (offline / rules): flips the sync
+  /// pill to "Queued — offline" and shows the amber banner on sub-pages.
+  /// Always false in local/demo mode, where SharedPreferences writes are the
+  /// durable store and never "queue".
+  final ValueNotifier<bool> netOffline = ValueNotifier<bool>(false);
+  Timer? _syncSettleTimer;
+  Timer? _syncClearTimer;
+
+  /// Design `syncBlip()`: saving (or queued) now, settle after 600ms, clear
+  /// 1800ms later.
+  void syncBlip() {
+    if (!mounted) return;
+    syncStatus.value = netOffline.value
+        ? SettingsSyncStatus.queued
+        : SettingsSyncStatus.saving;
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
+    _syncSettleTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      syncStatus.value = netOffline.value
+          ? SettingsSyncStatus.queued
+          : SettingsSyncStatus.saved;
+      _syncClearTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) syncStatus.value = null;
+      });
+    });
+  }
+
   /// When set, the toast pill carries an Undo button that runs this and
   /// dismisses the toast (fridge door #315: cross-off has no confirm dialog,
   /// only a 4-second Undo).
@@ -492,6 +527,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _flushPersist();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
     shopQuickAddFocus.dispose();
     calPageController.dispose();
     calWeekPageController.dispose();
@@ -1122,6 +1159,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(fn);
     _rev.value++;
     _schedulePersist();
+    syncBlip();
     cb?.call();
   }
 

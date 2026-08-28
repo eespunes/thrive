@@ -36,6 +36,8 @@ class _CategoriesScreen extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: s._rev,
       builder: (context, _, _) => SettingsSubScreen(
+        sync: s.syncStatus,
+        offline: s.netOffline,
         title: 'Categories',
         subtitle: 'Colours & icons across the calendar',
         intro: 'Colours & icons used across the calendar. Tap one to edit it.',

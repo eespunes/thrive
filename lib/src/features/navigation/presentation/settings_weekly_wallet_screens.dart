@@ -64,6 +64,8 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
         '${start.day} ${kMonthsEn[start.month - 1].substring(0, 3)} – '
         '${end.day} ${kMonthsEn[end.month - 1].substring(0, 3)}';
     return SettingsSubScreen(
+      sync: s.syncStatus,
+      offline: s.netOffline,
       title: 'Weekly plan',
       subtitle: 'Meals for the week',
       intro: 'Dinner plan · $range — type straight in, it saves as you go.',
@@ -138,6 +140,8 @@ class _WalletSubScreen extends StatelessWidget {
       builder: (context, _, _) {
         final famName = s.curFamily()?.name ?? 'your family';
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: 'Discount cards',
           subtitle: 'The family wallet',
           intro:

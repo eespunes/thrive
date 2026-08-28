@@ -527,6 +527,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     if (f == null) return;
     update(() => fn(f));
     _persist();
+    syncBlip();
     if (toast != null) flash(toast);
   }
 

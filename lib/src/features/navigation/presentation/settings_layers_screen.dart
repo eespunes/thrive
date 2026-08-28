@@ -52,6 +52,8 @@ class _CalendarLayersScreen extends StatelessWidget {
       builder: (context, _, _) {
         final layers = s.calendarLayers;
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: 'Calendar layers',
           subtitle: 'Appointments, to-dos & content',
           intro:
