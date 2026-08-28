@@ -192,8 +192,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       hint: owner ? null : 'Only owners can manage members.',
       rows: [
         // The member list lives directly on the card (#330): avatar, role and
-        // status per row. Tapping opens the family sheet, where the member
-        // actions live until the dedicated actions sheet ships.
+        // status per row. Tapping opens the family management page (#275).
         for (final m in members)
           _hubRow(
             key: 'more-member-${m.id}',
@@ -216,7 +215,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               fs: 10,
               opacity: m.status == 'invited' ? .55 : 1,
             ),
-            onTap: openFamilySheet,
+            onTap: openFamilyScreen,
           ),
         _hubRow(
           key: 'more-invite',
@@ -295,12 +294,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           danger: true,
           bg: B.redSoft,
           noChev: true,
-          onTap: () => askDelete(
-            'your account',
-            '${_deleteAccountConsequence()} Then you’re signed out. '
-                'This can’t be undone.',
-            () => unawaited(deleteUserAccount()),
-          ),
+          onTap: openDeleteAccountSheet,
         ),
       ],
     );
@@ -348,7 +342,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         children: [
           GestureDetector(
             key: const ValueKey('more-profile'),
-            onTap: openProfileSheet,
+            onTap: openProfileScreen,
             behavior: HitTestBehavior.opaque,
             child: Row(
               children: [
@@ -784,10 +778,6 @@ extension _ThriveMoreScreen on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- sheets
-  void openInviteSheet() {
-    _showSheet((ctx) => _InviteSheet(state: this));
-  }
-
   /// "Create or join a family" chooser behind the hero's ＋ pill (#330).
   void openCreateOrJoinSheet() {
     _showSheet(
@@ -935,190 +925,5 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       debugPrint('[account] password reset failed: $e');
       flash('Couldn’t send the link — try again later');
     }
-  }
-}
-
-/// "Invite someone" sheet: family join details (username + optional
-/// password, masked with a reveal toggle) so anyone can join by entering
-/// them. Mirrors the design's `sheetInvite()`.
-class _InviteSheet extends StatefulWidget {
-  const _InviteSheet({required this.state});
-  final _ThriveHomeState state;
-
-  @override
-  State<_InviteSheet> createState() => _InviteSheetState();
-}
-
-class _InviteSheetState extends State<_InviteSheet> {
-  bool _showPw = false;
-  String? _pw;
-  bool _hasPw = false;
-  bool _pwLoaded = false;
-
-  _ThriveHomeState get s => widget.state;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPassword();
-  }
-
-  Future<void> _loadPassword() async {
-    final f = s.curFamily();
-    if (f == null) return;
-    final pw = await s.fetchFamilyPassword(f);
-    // The plaintext is only known in the session that typed it (it is never
-    // persisted); a password can still be SET without being displayable.
-    final hasPw = pw != null || await s.familyHasPassword(f);
-    if (!mounted) return;
-    setState(() {
-      _pw = pw;
-      _hasPw = hasPw;
-      _pwLoaded = true;
-    });
-  }
-
-  void _copy(String label, String value) {
-    if (value.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: value));
-    s.flash('$label copied');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final f = s.curFamily();
-    if (f == null) return const SizedBox.shrink();
-    final pw = _pw;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _sheetHead(context, 'Invite someone', 'Share your join details'),
-          Container(
-            margin: const EdgeInsets.only(bottom: 18),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: B.soft,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: B.greenLine),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'JOIN DETAILS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.deep,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _credRow(
-                  'Family username',
-                  f.username,
-                  onCopy: () => _copy('Username', f.username),
-                ),
-                const SizedBox(height: 8),
-                if (pw != null && pw.isNotEmpty)
-                  _credRow(
-                    'Family password',
-                    _showPw ? pw : '•' * pw.length,
-                    icon: _showPw ? 'eyeoff' : 'eye',
-                    iconKey: const ValueKey('invite-password-toggle'),
-                    onIcon: () => setState(() => _showPw = !_showPw),
-                    onCopy: () => _copy('Password', pw),
-                  )
-                else if (!_pwLoaded)
-                  const Text(
-                    'Loading…',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
-                  )
-                else
-                  Text(
-                    _hasPw
-                        ? 'Password is set, but only shown in the session '
-                              'that typed it — share it directly.'
-                        : 'Not set — anyone with the username can join.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _credRow(
-    String label,
-    String value, {
-    String? icon,
-    VoidCallback? onIcon,
-    required VoidCallback onCopy,
-    Key? iconKey,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: B.line),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: B.muted,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.ink,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (icon != null)
-            GestureDetector(
-              key: iconKey,
-              onTap: onIcon,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: ic(icon, size: 16, sw: 2.1, color: B.deep),
-              ),
-            ),
-          GestureDetector(
-            onTap: onCopy,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: ic('copy', size: 15, sw: 2.2, color: B.deep),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

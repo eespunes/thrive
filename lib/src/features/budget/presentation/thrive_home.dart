@@ -1847,7 +1847,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             children: [
               GestureDetector(
                 key: const ValueKey('profile-avatar'),
-                onTap: user != null ? openProfileSheet : null,
+                onTap: user != null ? openProfileScreen : null,
                 child: Container(
                   width: 34,
                   height: 34,

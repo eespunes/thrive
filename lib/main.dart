@@ -98,3 +98,4 @@ part 'src/features/navigation/presentation/settings_blocks_screen.dart';
 part 'src/features/navigation/presentation/settings_members_screen.dart';
 part 'src/features/navigation/presentation/settings_kitchen_screen.dart';
 part 'src/features/navigation/presentation/settings_weekly_wallet_screens.dart';
+part 'src/features/navigation/presentation/settings_family_screens.dart';
