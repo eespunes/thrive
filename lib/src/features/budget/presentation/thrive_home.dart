@@ -155,6 +155,12 @@ class ThriveDebugController {
   }
 
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
+
+  /// Session-only sync-failure markers for imported calendars (#330) — lets
+  /// tests drive the hub's amber "N failing" value without a real network.
+  Set<String> get failedImportIds => _s.failedImportIds;
+  void markImportFailed(String id) =>
+      _s.update(() => _s.failedImportIds.add(id));
   void askDelete(
     String name,
     String message,
@@ -252,6 +258,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // for not-yet-implemented preferences, never persisted.
   String? hubOpenCard;
   bool futureDark = false;
+
+  /// Imported calendars whose last sync attempt failed this session (#330):
+  /// drives the hub's amber "N failing" value. Session-only — the data model
+  /// is unchanged; a successful sync clears the id again.
+  final Set<String> failedImportIds = <String>{};
 
   // Real, persisted preferences surfaced by the hub's Account card: the
   // master reminder switch and the Android device-calendar mirror.

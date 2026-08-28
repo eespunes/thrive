@@ -1428,14 +1428,17 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     try {
       events = await fetchIcsEvents(url);
     } on IcsImportException catch (e) {
+      update(() => failedImportIds.add(id));
       return e.message;
     } catch (e) {
       debugPrint('[calendar] ics refresh failed: $e');
+      update(() => failedImportIds.add(id));
       return 'Could not sync that calendar';
     }
 
     mutate(
       () {
+        failedImportIds.remove(id);
         resolvedCal.events = _applyImportPrefs(
           events,
           includeLocation: resolvedCal.includeLocation,
@@ -1490,11 +1493,15 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         _lastAutoSync[due[i].id] = now;
       } else {
         debugPrint('[calendar] auto-sync ${due[i].id} failed: $result');
+        update(() => failedImportIds.add(due[i].id));
       }
     }
     if (synced.isEmpty) return;
 
     mutate(() {
+      for (final cal in synced.keys) {
+        failedImportIds.remove(cal.id);
+      }
       synced.forEach((cal, events) {
         cal.events = _applyImportPrefs(
           events,

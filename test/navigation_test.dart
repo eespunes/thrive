@@ -98,10 +98,13 @@ void main() {
       'more-wallet',
       'more-widget-privacy',
       'more-finsettings',
+      'more-blocks',
     ]) {
       expect(find.byKey(ValueKey(key)), findsOneWidget);
     }
-    await openHubCard(tester, 'family', 'more-family');
+    // Family card: the member list lives directly on the card (#330).
+    await openHubCard(tester, 'family', 'more-member-me');
+    expect(find.byKey(const ValueKey('more-member-me')), findsOneWidget);
     expect(find.byKey(const ValueKey('more-invite')), findsOneWidget);
     await openHubCard(tester, 'account', 'more-signout');
     expect(find.byKey(const ValueKey('more-signout')), findsOneWidget);
@@ -197,7 +200,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tapHubRow(tester, 'family', 'more-family');
+    await tapHubRow(tester, 'family', 'more-member-me');
     expect(find.textContaining('separate budget'), findsOneWidget);
   });
 
