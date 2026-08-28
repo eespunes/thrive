@@ -170,6 +170,29 @@ class ThriveDebugController {
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
   void flash(String msg) => _s.flash(msg);
+
+  /// Sync/offline indicator plumbing (#283), so tests can read the pill
+  /// state and simulate the offline queue without a real backend.
+  ValueNotifier<SettingsSyncStatus?> get syncStatus => _s.syncStatus;
+  ValueNotifier<bool> get netOffline => _s.netOffline;
+  void syncBlip() => _s.syncBlip();
+  void saveMemberStudio(
+    String id, {
+    required String name,
+    required String email,
+    required Color color,
+    String? photo,
+    String? emoji,
+    bool? kid,
+  }) => _s.saveMemberStudio(
+    id,
+    name: name,
+    email: email,
+    color: color,
+    photo: photo,
+    emoji: emoji,
+    kid: kid,
+  );
   void showError(String? msg) => _s.showError(msg);
   void dismissError() => _s.dismissError();
   String? get toast => _s.toast;

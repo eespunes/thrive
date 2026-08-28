@@ -111,8 +111,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Join family'), findsWidgets);
 
-    // Dismiss and take the create branch too.
-    await tester.tapAt(const Offset(200, 40));
+    // Back out of the pushed join page (#284) and take the create branch.
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('hub-fam-add')));
     await tester.pumpAndSettle();
