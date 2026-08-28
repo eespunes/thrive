@@ -226,6 +226,35 @@ class ThriveDebugController {
   Map<String, DayPlan> get weeklyPlan => _s.weeklyPlan;
   Map<String, int> get starsMap => _s.starsMap;
   List<ImportedCalendar> get importedCalendars => _s.importedCalendars;
+  List<Account> get accounts => _s.accounts;
+  List<Category> get cats => _s.cats;
+  Map<int, Map<String, MonthData>> get data => _s.data;
+  Map<String, bool> get picMembers => _s.picMembers;
+  List<String> get kitchenLayerFilter => _s.kitchenLayerFilter;
+  bool get budgetLimitWarn => _s.budgetLimitWarn;
+  void saveExpense(
+    String mode,
+    String cat,
+    String? id, {
+    required String payee,
+    required String label,
+    required double amount,
+    int? day,
+    required bool paid,
+    required String account,
+    required bool recurring,
+  }) => _s.saveExpense(
+    mode,
+    cat,
+    id,
+    payee: payee,
+    label: label,
+    amount: amount,
+    day: day,
+    paid: paid,
+    account: account,
+    recurring: recurring,
+  );
   void addCalendarLayer({
     required String label,
     required String icon,
@@ -268,6 +297,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // master reminder switch and the Android device-calendar mirror.
   bool notificationsEnabled = true;
   bool deviceCalendarSyncEnabled = true;
+
+  /// "Warn near block limits" (#329): a toast nudge when a block's planned
+  /// total crosses 90% of this month's cap. Persisted per device.
+  bool budgetLimitWarn = true;
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -807,6 +840,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
     _widgetHideAmounts = saved['widgetHideAmounts'] == true;
+    budgetLimitWarn = saved['budgetLimitWarnOff'] != true;
     notificationsEnabled = saved['notificationsEnabled'] != false;
     deviceCalendarSyncEnabled = saved['deviceCalendarSync'] != false;
     _syncRecurringSeries();
@@ -860,15 +894,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Resolves `screen` (Finance tab's overview/stats sub-view) and `tab`
   /// (top-level nav) from a saved blob. `rawTab` is null for saves written
   /// before the 5-tab nav existed (or the v3 store, which never had a
-  /// concept of tabs) — in that case a legacy `screen: 'settings'` becomes
-  /// `finsettings` (More stays highlighted, matching #149), and any other
-  /// legacy screen keeps the user on the Finance tab where they left off
-  /// instead of dropping them onto the new Home placeholder.
+  /// concept of tabs) — in that case a legacy `screen: 'settings'` lands on
+  /// the More hub (its finance rows now open the Settings v2 sub-screens),
+  /// and any other legacy screen keeps the user on the Finance tab where
+  /// they left off instead of dropping them onto the new Home placeholder.
   void _restoreNav(Object? rawScreen, Object? rawTab) {
     final legacyScreen = (rawScreen ?? 'overview').toString();
     if (legacyScreen == 'settings') {
       screen = 'overview';
-      tab = 'finsettings';
+      tab = 'more';
       return;
     }
     screen = const {'overview', 'stats', 'flow'}.contains(legacyScreen)
@@ -1041,6 +1075,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       if (_widgetHideAmounts) 'widgetHideAmounts': true,
+      if (!budgetLimitWarn) 'budgetLimitWarnOff': true,
       if (!notificationsEnabled) 'notificationsEnabled': false,
       if (!deviceCalendarSyncEnabled) 'deviceCalendarSync': false,
       'familyId': familyId,

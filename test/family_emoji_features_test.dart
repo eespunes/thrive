@@ -1,5 +1,3 @@
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart'
-    show EmojiPicker;
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,19 +9,6 @@ Future<void> _openJoinSheet(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('profile-join-family')));
   await tester.pumpAndSettle();
-}
-
-/// The glyph picker no longer has a free-form field; an emoji is chosen
-/// through the in-app picker that opens from the + tile. The Recents tab
-/// starts empty, so we hop to Smileys (tab 1) and tap its first emoji (😀).
-Future<String> _pickEmoji(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byType(Tab).at(1));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('😀').first);
-  await tester.pumpAndSettle();
-  return '😀';
 }
 
 void main() {
@@ -143,102 +128,92 @@ void main() {
   });
 
   group('issue #131 — emoji / picture for accounts & blocks', () {
-    testWidgets(
-      'budget block sheet replaces the icon grid with emoji picking',
-      (tester) async {
-        await pumpApp(tester);
-        await goToTab(tester, 'settings');
-        await tester.tap(find.text('Add budget block'));
-        await tester.pumpAndSettle();
-        expect(find.text('New budget block'), findsOneWidget);
+    Future<void> typeStageEmoji(WidgetTester tester, String emoji) async {
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('badge-stage-emoji-input')),
+        emoji,
+      );
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
+      await tester.pumpAndSettle();
+    }
 
-        // The legacy icon field is gone; the emoji/picture picker replaces it.
-        // Field labels render upper-cased.
-        expect(find.text('ICON'), findsNothing);
-        expect(find.text('EMOJI OR PICTURE'), findsOneWidget);
-        expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
-
-        // Name the block and pick an emoji from the in-app picker, then create
-        // it. The preset icon grid and the old free-form field are both gone.
-        await tester.enterText(find.byType(TextField).at(0), 'Games');
-        await tester.pump();
-        final emoji = await _pickEmoji(tester);
-        await tester.tap(find.text('Create block'));
-        await tester.pumpAndSettle();
-
-        // The chosen emoji renders for the new block.
-        expect(find.text('Games'), findsWidgets);
-        expect(find.text(emoji), findsWidgets);
-      },
-    );
-
-    testWidgets('tapping the + tile opens the in-app emoji picker', (
+    testWidgets('block studio accepts any typed OS emoji as the badge', (
       tester,
     ) async {
       await pumpApp(tester);
-      await goToTab(tester, 'settings');
-      await tester.tap(find.text('Add budget block'));
+      await goToTab(tester, 'blocks');
+      await tester.enterText(
+        find.byKey(const ValueKey('list-add-input')),
+        'Games',
+      );
+      await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-
-      expect(find.byType(EmojiPicker), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+      expect(find.text('Edit block'), findsOneWidget);
+      await typeStageEmoji(tester, '🎮');
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.byType(EmojiPicker), findsOneWidget);
+      expect(find.text('Games'), findsWidgets);
+      expect(find.text('🎮'), findsWidgets);
     });
 
-    testWidgets('account sheet offers emoji selection above the name', (
+    testWidgets('the emoji link opens the free OS-keyboard input, not a grid', (
       tester,
     ) async {
       await pumpApp(tester);
-      await goToTab(tester, 'settings');
-      await tester.tap(find.text('Add account'));
+      await goToTab(tester, 'blocks');
+      await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
       await tester.pumpAndSettle();
-      expect(find.text('EMOJI OR PICTURE'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).at(0), 'Travel fund');
-      await tester.pump();
-      final emoji = await _pickEmoji(tester);
-      await tester.tap(find.text('Add account').last);
+      expect(
+        find.byKey(const ValueKey('badge-stage-emoji-input')),
+        findsNothing,
+      );
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
       await tester.pumpAndSettle();
-
-      expect(find.text('Travel fund'), findsWidgets);
-      expect(find.text(emoji), findsWidgets);
+      expect(
+        find.byKey(const ValueKey('badge-stage-emoji-input')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('editing an account can set an emoji', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'settings');
-      await tester.tap(find.byKey(const ValueKey('acc-edit-eva')));
+      await tester.tap(find.byKey(const ValueKey('accounts-row-eva')));
       await tester.pumpAndSettle();
       expect(find.text('Edit account'), findsOneWidget);
-      final emoji = await _pickEmoji(tester);
-      await tester.tap(find.text('Save account'));
+      await typeStageEmoji(tester, '🌷');
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text(emoji), findsWidgets);
+      expect(find.text('🌷'), findsWidgets);
     });
 
     testWidgets('editing a block can set an emoji', (tester) async {
       await pumpApp(tester);
-      await goToTab(tester, 'settings');
-      await tester.tap(find.byKey(const ValueKey('blk-edit-home')));
+      await goToTab(tester, 'blocks');
+      await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
       await tester.pumpAndSettle();
       expect(find.text('Edit block'), findsOneWidget);
-      final emoji = await _pickEmoji(tester);
-      await tester.tap(find.text('Save block'));
+      await typeStageEmoji(tester, '🏠');
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text(emoji), findsWidgets);
+      expect(find.text('🏠'), findsWidgets);
     });
 
-    testWidgets('the glyph picker can clear a chosen emoji', (tester) async {
+    testWidgets('applying an empty emoji just nudges', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'settings');
-      await tester.tap(find.text('Add account'));
+      await tester.tap(find.byKey(const ValueKey('accounts-row-eva')));
       await tester.pumpAndSettle();
-      await _pickEmoji(tester);
-      expect(find.byKey(const ValueKey('glyph-clear')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('glyph-clear')));
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
       await tester.pump();
-      expect(find.byKey(const ValueKey('glyph-clear')), findsNothing);
+      expect(
+        find.text('Type an emoji first — any one your keyboard has'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('glyphTile renders an uploaded picture over the fallback', (
