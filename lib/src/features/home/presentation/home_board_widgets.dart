@@ -1221,7 +1221,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
   Widget _wImportedCals(BoardEntry e, int index) {
     final today = todayIso();
     return _bCard(
-      onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
+      onTap: () => openImportedCalendarsScreen(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1240,7 +1240,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
             _wEmptyLine(
               'No feeds yet.',
               'Import one',
-              () => openCalendarManageSheet(mode: _CalManageMode.imports),
+              () => openImportedCalendarsScreen(),
             )
           else
             for (final (i, cal) in importedCalendars.indexed) ...[
