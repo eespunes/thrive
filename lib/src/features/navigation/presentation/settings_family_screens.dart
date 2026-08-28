@@ -424,6 +424,8 @@ class _ProfileScreen extends StatelessWidget {
         final myRow = s.myMemberRow();
         final hasPhoto = (identity.photo ?? '').isNotEmpty;
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: 'Profile',
           subtitle: 'One identity, mirrored everywhere',
           onToast: s.flash,
@@ -591,7 +593,7 @@ class _ProfileScreen extends StatelessWidget {
                     Expanded(
                       child: _smallPillButton(
                         'Create a family',
-                        s.openNewFamilySheet,
+                        s.openCreateFamilyScreen,
                         key: const ValueKey('profile-new-family'),
                         primary: true,
                       ),
@@ -600,7 +602,7 @@ class _ProfileScreen extends StatelessWidget {
                     Expanded(
                       child: _smallPillButton(
                         'Join a family',
-                        s.openJoinFamilySheet,
+                        s.openJoinFamilyScreen,
                         key: const ValueKey('profile-join-family'),
                       ),
                     ),
@@ -691,6 +693,8 @@ class _FamilyScreen extends StatelessWidget {
         final owner = s.canRenameFamily();
         final canInvite = s.canInviteMembers();
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: f.name,
           subtitle:
               '${f.members.length} member${f.members.length == 1 ? '' : 's'}',

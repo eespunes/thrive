@@ -27,6 +27,7 @@ extension _ThriveMembersScreen on _ThriveHomeState {
     required Color color,
     String? photo,
     String? emoji,
+    bool? kid,
   }) {
     _withCurFamily((f) {
       for (final m in f.members) {
@@ -38,6 +39,12 @@ extension _ThriveMembersScreen on _ThriveHomeState {
           ..color = color
           ..photo = photo
           ..emoji = emoji;
+        // Kid profiles (#245): flips member↔kid only — an owner can never be
+        // downgraded to a kid, and only owners may change roles (never their
+        // own row, so a kid can't unlock itself).
+        if (kid != null && m.role != 'owner' && m.id != myId && amOwner()) {
+          m.role = kid ? 'kid' : 'member';
+        }
       }
     }, 'Member saved — updated everywhere');
     if (id == myId && user != null) {
@@ -68,6 +75,8 @@ class _MemberColoursScreen extends StatelessWidget {
             .where((m) => m.status == 'active')
             .toList();
         return SettingsSubScreen(
+          sync: s.syncStatus,
+          offline: s.netOffline,
           title: 'Member colours',
           subtitle: 'Each person’s identity colour',
           intro:
@@ -129,6 +138,7 @@ class _MemberStudioState extends State<_MemberStudio> {
   String? _photo;
   String? _emoji;
   late Color _color;
+  late bool _kid;
 
   _ThriveHomeState get s => widget.state;
 
@@ -146,6 +156,14 @@ class _MemberStudioState extends State<_MemberStudio> {
     _photo = m?.photo;
     _emoji = m?.emoji;
     _color = m?.color ?? kMemberColors.first;
+    _kid = m?.role == 'kid';
+  }
+
+  /// The kid toggle shows only where a role change is even possible: the
+  /// viewer is an owner, and the row is neither an owner nor themselves.
+  bool get _canToggleKid {
+    final m = _member;
+    return m != null && m.role != 'owner' && m.id != s.myId && s.amOwner();
   }
 
   @override
@@ -162,6 +180,7 @@ class _MemberStudioState extends State<_MemberStudio> {
       color: _color,
       photo: _photo,
       emoji: _emoji,
+      kid: _canToggleKid ? _kid : null,
     );
     Navigator.of(context).maybePop();
   }
@@ -205,6 +224,16 @@ class _MemberStudioState extends State<_MemberStudio> {
           controller: _email,
           hint: 'Email (optional — for members without a login)',
         ),
+        // Kid profiles (#245): the toggle moved here when the old member
+        // edit sheet was retired.
+        if (_canToggleKid)
+          studioToggleRow(
+            key: const ValueKey('member-kid-toggle'),
+            label: 'Kid profile',
+            sub: 'Home shows only kid-safe widgets for them',
+            value: _kid,
+            onChanged: () => setState(() => _kid = !_kid),
+          ),
         BadgeColorRow(
           label: 'Badge colour — unique per family',
           colors: [

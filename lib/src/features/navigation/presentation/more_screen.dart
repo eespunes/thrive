@@ -796,7 +796,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             sub: 'You’ll be the owner',
             onTap: () {
               Navigator.of(ctx).pop();
-              openNewFamilySheet();
+              openCreateFamilyScreen();
             },
           ),
           const SizedBox(height: 7),
@@ -806,7 +806,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             sub: 'With their username & password',
             onTap: () {
               Navigator.of(ctx).pop();
-              openJoinFamilySheet();
+              openJoinFamilyScreen();
             },
           ),
           const SizedBox(height: 14),

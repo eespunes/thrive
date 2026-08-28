@@ -349,7 +349,19 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
-      expect(find.text('That username is taken'), findsOneWidget);
+      expect(find.text('“@beach-house” is taken'), findsOneWidget);
+      // Design #284: a "use @…" chip offers the next free handle; tapping
+      // it claims the suggestion.
+      final chip = find.byKey(const ValueKey('nf-use-suggestion'));
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      final username = tester.widget<TextField>(
+        find.byKey(const ValueKey('nf-username')),
+      );
+      expect(username.controller!.text, isNot('beach-house'));
+      expect(username.controller!.text, startsWith('beach-house'));
+      expect(find.textContaining('is available ✓'), findsOneWidget);
     });
 
     testWidgets('family credentials card copies the username', (tester) async {
