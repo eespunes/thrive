@@ -246,13 +246,11 @@ void main() {
     await pumpApp(tester, prefs: seededHubPrefs(), landOnDefaultTab: true);
     await openMore(tester);
     await tapHubRow(tester, 'family', 'more-invite');
-    expect(find.text('Invite someone'), findsOneWidget);
-    expect(find.text('JOIN DETAILS'), findsOneWidget);
-    expect(find.text('janssen'), findsOneWidget);
-    // Local family with no password → the honest "not set" copy.
-    expect(
-      find.text('Not set — anyone with the username can join.'),
-      findsOneWidget,
-    );
+    // The Settings v2 invite sheet (#278): copyable @username and, for a
+    // local family with no password, the amber "anyone can join" state.
+    expect(find.textContaining('Invite to'), findsOneWidget);
+    expect(find.text('@janssen'), findsWidgets);
+    expect(find.byKey(const ValueKey('iv-pw-none')), findsOneWidget);
+    expect(find.byKey(const ValueKey('iv-copy-user')), findsOneWidget);
   });
 }

@@ -185,7 +185,7 @@ void main() {
     expect(find.byKey(const ValueKey('weekly-dinner-0')), findsOneWidget);
   });
 
-  testWidgets('More → profile card opens the existing profile sheet', (
+  testWidgets('More → profile card opens the profile page (#274)', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -197,13 +197,16 @@ void main() {
     expect(find.text('eva.janssen@gmail.com'), findsWidgets);
   });
 
-  testWidgets('More → Family opens the existing family sheet', (tester) async {
+  testWidgets('More → Family opens the family management page (#275)', (
+    tester,
+  ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
     await tapHubRow(tester, 'family', 'more-member-me');
-    expect(find.textContaining('separate budget'), findsOneWidget);
+    expect(find.byKey(const ValueKey('family-name-input')), findsOneWidget);
+    expect(find.byKey(const ValueKey('family-leave')), findsOneWidget);
   });
 
   testWidgets('More → Categories opens the categories sub-screen (#325)', (

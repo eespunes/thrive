@@ -53,15 +53,12 @@ void main() {
       findsOneWidget,
     );
 
+    // The profile page (#274) shows the same photo in its identity card.
     await tester.tap(find.byKey(const ValueKey('profile-avatar')));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('profile-view-avatar')),
-        matching: find.byType(Image),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-photo-btn')), findsOneWidget);
+    expect(find.text('Change photo'), findsOneWidget);
   });
 
   testWidgets('accounts & blocks sub-screens render from the Money card', (
@@ -182,8 +179,15 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'account', 'more-delete-account');
-    expect(find.text('Delete').evaluate().isNotEmpty, isTrue);
-    await tester.tap(find.text('Delete').last);
+    // The hardened confirm (#280) requires typing DELETE before the button
+    // arms; the untyped button is a no-op.
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('da-input')), 'delete');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
     await tester.pumpAndSettle();
     // Deleting the account signs the user out, landing on the auth gate.
     expect(find.text('Continue with Google'), findsOneWidget);
@@ -198,15 +202,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('profile-join-family')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
-    await tester.enterText(find.byType(TextField).at(1), 'demo');
+    await tester.enterText(
+      find.byKey(const ValueKey('jf-username')),
+      'vanderberg',
+    );
+    await tester.enterText(find.byKey(const ValueKey('jf-password')), 'demo');
     await tester.tap(find.text('Join family'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'account', 'more-delete-account');
-    await tester.tap(find.text('Delete').last);
+    // The confirm names the real consequence for a shared family.
+    expect(
+      find.textContaining(
+        'Removes you from 2 shared families. Then you’re signed out.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byKey(const ValueKey('da-input')), 'DELETE');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
     await tester.pumpAndSettle();
     expect(find.text('Continue with Google'), findsOneWidget);
   });

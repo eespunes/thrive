@@ -4,6 +4,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
+Future<void> _openFamilyPage(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('nav-more')));
+  await tester.pumpAndSettle();
+  await openHubCard(tester, 'family', 'more-invite');
+  final row = find.byKey(ValueKey('more-member-${thriveDebug.myId}'));
+  await tester.scrollUntilVisible(
+    row,
+    80,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _openJoinSheet(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('profile-avatar')));
   await tester.pumpAndSettle();
@@ -28,8 +42,11 @@ void main() {
       // No registry seed: the built-in van der Berg demo no longer exists.
       await pumpApp(tester);
       await _openJoinSheet(tester);
-      await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
-      await tester.enterText(find.byType(TextField).at(1), 'demo');
+      await tester.enterText(
+        find.byKey(const ValueKey('jf-username')),
+        'vanderberg',
+      );
+      await tester.enterText(find.byKey(const ValueKey('jf-password')), 'demo');
       await tester.tap(find.text('Join family'));
       await tester.pumpAndSettle();
       expect(find.text('No family found with that username'), findsOneWidget);
@@ -41,18 +58,20 @@ void main() {
       await pumpApp(tester, prefs: joinableFamilyPrefs());
       // Join the seeded family as a regular member.
       await _openJoinSheet(tester);
-      await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
-      await tester.enterText(find.byType(TextField).at(1), 'demo');
+      await tester.enterText(
+        find.byKey(const ValueKey('jf-username')),
+        'vanderberg',
+      );
+      await tester.enterText(find.byKey(const ValueKey('jf-password')), 'demo');
       await tester.tap(find.text('Join family'));
       await tester.pumpAndSettle();
       expect(find.text('Joined van der Berg family'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
 
       final fid = thriveDebug.familyId;
-      // Open the joined family's sheet.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ValueKey('profile-family-$fid')));
-      await tester.pumpAndSettle();
+      // Open the joined family's management page (#275).
+      await _openFamilyPage(tester);
 
       // A member sees the leave button but not the (owner-only) delete button.
       expect(find.byKey(const ValueKey('family-leave')), findsOneWidget);
@@ -60,7 +79,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('family-leave')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Leave').last);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
 
       expect(find.text('Left van der Berg family'), findsOneWidget);
@@ -95,10 +114,7 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
-      await tester.pumpAndSettle();
+      await _openFamilyPage(tester);
 
       // Owner of fam_main (which has an active member) sees both buttons; the
       // leave button is rendered above the delete button. The owner can always
@@ -111,14 +127,11 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
-      await tester.pumpAndSettle();
+      await _openFamilyPage(tester);
 
       await tester.tap(find.byKey(const ValueKey('family-delete')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
 
       // No families remain, so the create/join onboarding gate returns.
