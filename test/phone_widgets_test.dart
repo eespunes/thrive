@@ -11,7 +11,17 @@ import 'helpers.dart';
 // till-code PNG, background widget actions on the raw v4 blob, deep-link
 // routing and the hide-amounts privacy option.
 
-Workspace _ws() {
+/// Payload-building tests pin the clock: with the real date, any bill whose
+/// due day is <= today counts as "due today", so fixed markers like '28'
+/// made the money assertions fail from the 28th of each month onward.
+final DateTime _testNow = DateTime(2026, 3, 10);
+
+String _iso(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+Workspace _ws([DateTime? now]) {
   final month = MonthData();
   month.blocks['income'] = [
     ExpenseItem.fromJson({
@@ -36,7 +46,7 @@ Workspace _ws() {
       'id': 'net',
       'payee': 'Internet and TV',
       'label': 'Internet',
-      'marker': '${DateTime.now().day}',
+      'marker': '${(now ?? DateTime.now()).day}',
       'amount': 94.95,
       'paid': false,
       'account': 'shared',
@@ -60,7 +70,7 @@ Workspace _ws() {
     }),
     Category.fromJson({'key': 'home', 'title': 'Home', 'icon': 'home'}),
   ];
-  final now = DateTime.now();
+  now ??= DateTime.now();
   return Workspace(
     accounts: [],
     cats: cats,
@@ -71,7 +81,7 @@ Workspace _ws() {
       CalendarEvent(
         id: 'ev1',
         title: 'Dentist',
-        date: todayIso(),
+        date: _iso(now),
         start: '14:30',
         end: '15:00',
         color: const Color(0xffe11d48),
@@ -125,9 +135,10 @@ Workspace _ws() {
 }
 
 Map<String, dynamic> _payload({bool hide = false, bool kid = false}) {
-  final now = DateTime.now();
+  final now = _testNow;
   return buildPhoneWidgetPayload(
-    ws: _ws(),
+    now: now,
+    ws: _ws(now),
     year: now.year,
     monthIdx: now.month - 1,
     kid: kid,
@@ -149,7 +160,7 @@ void main() {
     expect((bills[0] as Map)['due'], 'Today');
     expect((bills[0] as Map)['primary'], isTrue);
     expect((bills[1] as Map)['label'], 'Insurance');
-    expect(money['monthKey'], kMonthKeys[DateTime.now().month - 1]);
+    expect(money['monthKey'], kMonthKeys[_testNow.month - 1]);
   });
 
   test('payload: today events, tasks, top card and shopping', () {

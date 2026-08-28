@@ -61,6 +61,25 @@ class NotificationService implements NotificationScheduler {
       tz.setLocalLocation(tz.getLocation(info.identifier));
     } catch (e) {
       debugPrint('[notifications] timezone detection failed: $e');
+      _setFallbackLocationFromOffset();
+    }
+  }
+
+  /// Last-resort zone when [FlutterTimezone] fails: any database location
+  /// whose current offset matches the OS clock. Leaving tz.local at the
+  /// package default (UTC) would shift every reminder by the UTC offset.
+  static void _setFallbackLocationFromOffset() {
+    try {
+      final now = DateTime.now();
+      final offset = now.timeZoneOffset;
+      for (final location in tz.timeZoneDatabase.locations.values) {
+        if (location.timeZone(now.millisecondsSinceEpoch).offset == offset) {
+          tz.setLocalLocation(location);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('[notifications] timezone fallback failed: $e');
     }
   }
 
@@ -211,12 +230,12 @@ class NotificationService implements NotificationScheduler {
         minute = int.tryParse(parts[1]) ?? minute;
       }
     }
-    var when = tz.TZDateTime.local(
-      date.year,
-      date.month,
-      date.day,
-      hour,
-      minute,
+    // Compose with the platform's DateTime, whose UTC offset comes from the
+    // OS and is correct even when timezone detection failed and tz.local is
+    // still the package default (UTC); TZDateTime.from keeps the instant.
+    var when = tz.TZDateTime.from(
+      DateTime(date.year, date.month, date.day, hour, minute),
+      tz.local,
     );
     final reminder = event.reminder;
     if (reminder != 'at') {

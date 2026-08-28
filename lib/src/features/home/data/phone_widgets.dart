@@ -137,10 +137,14 @@ Map<String, dynamic> buildPhoneWidgetPayload({
   required int monthIdx,
   required bool kid,
   required bool hideAmounts,
+  DateTime? now,
 }) {
   final month = ws.data[year]?[kMonthKeys[monthIdx]];
-  final now = DateTime.now();
-  final today = todayIso();
+  now ??= DateTime.now();
+  final today =
+      '${now.year.toString().padLeft(4, '0')}-'
+      '${now.month.toString().padLeft(2, '0')}-'
+      '${now.day.toString().padLeft(2, '0')}';
 
   // ------------------------------------------------------------- money
   double expIncome = 0, totalBudget = 0, totalPaid = 0, dueToday = 0;
