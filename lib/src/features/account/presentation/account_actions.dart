@@ -567,20 +567,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }, 'Member updated');
   }
 
-  void setMemberColor(String id, Color color) {
-    if (!isCalendarIdentityColorAvailable(color, exceptMemberId: id)) {
-      flash('That colour is already used');
-      return;
-    }
-    _withCurFamily((f) {
-      for (final m in f.members) {
-        if (m.id == id) {
-          m.color = color;
-        }
-      }
-    }, 'Member colour updated');
-  }
-
   Future<void> switchFamily(String id) async {
     if (id == familyId) return;
     // A debounced edit to the CURRENT family may still be pending; persist it

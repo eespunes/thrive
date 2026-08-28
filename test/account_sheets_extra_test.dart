@@ -257,39 +257,62 @@ void main() {
     },
   );
 
-  testWidgets('member colour row in Categories management recolours a member', (
+  testWidgets('member studio recolours a member with unique-per-family dots', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tapHubRow(tester, 'planning', 'more-calmanage');
-
-    final row = find.byKey(const ValueKey('cal-member-colour-me'));
-    await tester.ensureVisible(row);
-    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'planning', 'more-memcolors');
 
     Color myColor() =>
         thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'me').color;
     final before = myColor();
+    final taken = thriveDebug
+        .curFamily()!
+        .members
+        .where((m) => m.id != 'me')
+        .map((m) => m.color)
+        .toSet();
 
-    // The colour panel is always visible — no expand toggle any more.
-    Finder swatches() => find.descendant(
-      of: row,
-      matching: find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == '_ColorSwatchTile',
-      ),
+    await tester.tap(find.byKey(const ValueKey('memcolors-row-me')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit member'), findsOneWidget);
+
+    // Pick the first free colour dot, save, and the member row updates
+    // everywhere.
+    final free = kMemberColors.firstWhere(
+      (c) => c != before && !taken.contains(c),
     );
-    expect(swatches(), findsWidgets);
+    await tester.ensureVisible(
+      find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
+    );
+    await tester.tap(
+      find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
+      warnIfMissed: false,
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
+    await tester.pumpAndSettle();
+    expect(myColor(), free);
 
-    // Tap swatches until one actually changes the colour (the current and
-    // other members' colours are no-ops).
-    final count = swatches().evaluate().length;
-    for (var i = 0; i < count; i++) {
-      await tester.tap(swatches().at(i), warnIfMissed: false);
+    // A colour worn by someone else is dimmed and only toasts.
+    if (taken.isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('memcolors-row-me')));
+      await tester.pumpAndSettle();
+      final takenColor = taken.first;
+      await tester.ensureVisible(
+        find.byKey(ValueKey('badge-color-${takenColor.toARGB32()}')),
+      );
+      await tester.tap(
+        find.byKey(ValueKey('badge-color-${takenColor.toARGB32()}')),
+        warnIfMissed: false,
+      );
       await tester.pump();
-      if (myColor() != before) break;
+      expect(thriveDebug.toast, 'That colour is taken in this family');
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      expect(myColor(), free);
     }
-    expect(myColor(), isNot(before));
   });
 }
