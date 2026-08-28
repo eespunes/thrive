@@ -676,6 +676,7 @@ Widget _sheetField(String label, Widget child) {
 
 Widget _sheetInput(
   TextEditingController ctrl, {
+  Key? key,
   String hint = '',
   bool number = false,
   bool obscure = false,
@@ -687,6 +688,7 @@ Widget _sheetInput(
   TextCapitalization? capitalization,
 }) {
   return TextField(
+    key: key,
     controller: ctrl,
     focusNode: focusNode,
     onChanged: onChanged,
