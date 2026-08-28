@@ -45,10 +45,7 @@ Map<String, Object> _seededPrefs(Map<String, List<ExpenseItem>> juneBlocks) {
   };
   final data = <String, dynamic>{'2026': yearData()};
   (data['2026'] as Map<String, dynamic>)['Juni'] = MonthData(
-    blocks: {
-      for (final c in cats) c.key: <ExpenseItem>[],
-      ...juneBlocks,
-    },
+    blocks: {for (final c in cats) c.key: <ExpenseItem>[], ...juneBlocks},
   ).toJson();
   return {
     'flutter.$kStorageKey': json.encode({
@@ -332,96 +329,97 @@ void main() {
     expect(thriveDebug.cards.single.timesUsed, 1);
   });
 
-  testWidgets('seeded edge states: clamp, ghost account, dead card, migration', (
-    tester,
-  ) async {
-    await pumpApp(
-      tester,
-      prefs: _seededPrefs({
-        'home': [
-          ExpenseItem(
-            id: 'r31',
-            payee: 'Clamp',
-            label: 'Rent',
-            marker: '31st',
-            day: 31,
-            amount: 40,
-            paid: false,
-            account: 'ghost-acc',
-            recurring: false,
-            cardId: 'ghost-card',
-          ),
-          ExpenseItem(
-            id: 'ends',
-            payee: 'Ends',
-            label: 'Loan',
-            marker: '1st',
-            day: 1,
-            amount: 10,
-            paid: false,
-            account: 'shared',
-            recurring: true,
-            seriesId: 'ends-series',
-            recurEndDate: '2026-09-15',
-          ),
-        ],
-        kIncomeBlockKey: [
-          ExpenseItem(
-            id: 'mig',
-            payee: 'Boss',
-            label: 'Cash',
-            marker: '',
-            day: 1,
-            amount: 100,
-            paid: false,
-            account: 'shared',
-            recurring: false,
-          )..reviewDay = true,
-        ],
-      }),
-    );
+  testWidgets(
+    'seeded edge states: clamp, ghost account, dead card, migration',
+    (tester) async {
+      await pumpApp(
+        tester,
+        prefs: _seededPrefs({
+          'home': [
+            ExpenseItem(
+              id: 'r31',
+              payee: 'Clamp',
+              label: 'Rent',
+              marker: '31st',
+              day: 31,
+              amount: 40,
+              paid: false,
+              account: 'ghost-acc',
+              recurring: false,
+              cardId: 'ghost-card',
+            ),
+            ExpenseItem(
+              id: 'ends',
+              payee: 'Ends',
+              label: 'Loan',
+              marker: '1st',
+              day: 1,
+              amount: 10,
+              paid: false,
+              account: 'shared',
+              recurring: true,
+              seriesId: 'ends-series',
+              recurEndDate: '2026-09-15',
+            ),
+          ],
+          kIncomeBlockKey: [
+            ExpenseItem(
+              id: 'mig',
+              payee: 'Boss',
+              label: 'Cash',
+              marker: '',
+              day: 1,
+              amount: 100,
+              paid: false,
+              account: 'shared',
+              recurring: false,
+            )..reviewDay = true,
+          ],
+        }),
+      );
 
-    // Deleted account + deleted card + day-31 clamp, all on one ticket.
-    await tester.tap(find.text('Clamp - Rent').first);
-    await tester.pumpAndSettle();
-    expect(find.text('⚠ Card deleted'), findsOneWidget);
-    expect(find.textContaining('clamped'), findsOneWidget);
-    await _tapKey(tester, 'entry-tab-account');
-    expect(
-      find.textContaining('The original account was deleted'),
-      findsOneWidget,
-    );
-    await _tapKey(tester, 'entry-acc-eva');
-    expect(
-      find.textContaining('The original account was deleted'),
-      findsNothing,
-    );
-    await _tapKey(tester, 'entry-badge-card');
-    expect(
-      find.text('This card was deleted from the wallet.'),
-      findsOneWidget,
-    );
-    await _tapKey(tester, 'entry-card-unlink');
-    expect(find.text('⚠ Card deleted'), findsNothing);
-    await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
-    await tester.pumpAndSettle();
+      // Deleted account + deleted card + day-31 clamp, all on one ticket.
+      await tester.tap(find.text('Clamp - Rent').first);
+      await tester.pumpAndSettle();
+      expect(find.text('⚠ Card deleted'), findsOneWidget);
+      expect(find.textContaining('clamped'), findsOneWidget);
+      await _tapKey(tester, 'entry-tab-account');
+      expect(
+        find.textContaining('The original account was deleted'),
+        findsOneWidget,
+      );
+      await _tapKey(tester, 'entry-acc-eva');
+      expect(
+        find.textContaining('The original account was deleted'),
+        findsNothing,
+      );
+      await _tapKey(tester, 'entry-badge-card');
+      expect(
+        find.text('This card was deleted from the wallet.'),
+        findsOneWidget,
+      );
+      await _tapKey(tester, 'entry-card-unlink');
+      expect(find.text('⚠ Card deleted'), findsNothing);
+      await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
+      await tester.pumpAndSettle();
 
-    // A stored end date round-trips into the repeat summary.
-    await tester.tap(find.text('Ends - Loan').first);
-    await tester.pumpAndSettle();
-    await _tapKey(tester, 'entry-badge-repeat');
-    expect(find.textContaining('until Sep 2026'), findsOneWidget);
-    await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
-    await tester.pumpAndSettle();
+      // A stored end date round-trips into the repeat summary.
+      await tester.tap(find.text('Ends - Loan').first);
+      await tester.pumpAndSettle();
+      await _tapKey(tester, 'entry-badge-repeat');
+      expect(find.textContaining('until Sep 2026'), findsOneWidget);
+      await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
+      await tester.pumpAndSettle();
 
-    // Migrated dayless income asks to confirm the day (#288).
-    await tester.tap(find.text('Boss - Cash').first);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Migrated: this income'), findsOneWidget);
-    // Income unscheduled hint is the by-choice one.
-    await _tapKey(tester, 'entry-day-unscheduled');
-    expect(find.textContaining('by choice'), findsOneWidget);
-  });
+      // Migrated dayless income asks to confirm the day (#288).
+      await tester.tap(find.text('Boss - Cash').first);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Migrated: this income'), findsOneWidget);
+      // Income unscheduled hint is the by-choice one.
+      await _tapKey(tester, 'entry-day-unscheduled');
+      expect(find.textContaining('by choice'), findsOneWidget);
+    },
+  );
 
   testWidgets('closing the month mid-edit seals the ticket (#298)', (
     tester,
