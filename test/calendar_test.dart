@@ -475,6 +475,10 @@ void main() {
   testWidgets('month events use flat solid colors and category visuals', (
     tester,
   ) async {
+    // Pin "today" to mid-month: a real month-end date renders the event into
+    // both the month cell and the grid's adjacent-month overflow row (#flaky).
+    debugNowOverride = () => DateTime(2026, 6, 15);
+    addTearDown(() => debugNowOverride = null);
     const categoryColor = Color(0xff0f9d6a);
     const plainColor = Color(0xffd97706);
     final category = EventCategory(
@@ -2592,6 +2596,10 @@ void main() {
   testWidgets(
     'multi-day event renders as a month span and agenda-style detail',
     (tester) async {
+      // Pin "today" to mid-month so the 3-day span stays within one month grid
+      // and isn't also drawn in the adjacent-month overflow row (#flaky).
+      debugNowOverride = () => DateTime(2026, 6, 15);
+      addTearDown(() => debugNowOverride = null);
       final end = addDaysForTest(todayIso(), 2);
       await pumpApp(
         tester,
@@ -3097,6 +3105,10 @@ void main() {
       'completes that date — a later occurrence stays visible, visible '
       'count unchanged, and untouched (not done)',
       (tester) async {
+        // Pin "today" to mid-month so today+7 stays in the same month grid and
+        // the later occurrence is visible rather than in the next month (#flaky).
+        debugNowOverride = () => DateTime(2026, 6, 15);
+        addTearDown(() => debugNowOverride = null);
         final today = todayIso();
         final future = addDaysForTest(today, 7);
         await pumpApp(

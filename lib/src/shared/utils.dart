@@ -11,9 +11,15 @@ String uid() {
   return 'x$rand${_uidCounter.toRadixString(36)}';
 }
 
+/// Test-only override for the clock behind [todayIso]. Production leaves this
+/// null. Widget tests whose result must not depend on the real calendar date
+/// (e.g. month-boundary rendering, which duplicates events into the adjacent
+/// month's overflow row) set it and reset it in a tearDown.
+DateTime Function()? debugNowOverride;
+
 /// Today's date as `YYYY-MM-DD`, mirrors the design's `TODAY` constant.
 String todayIso() {
-  final now = DateTime.now();
+  final now = debugNowOverride?.call() ?? DateTime.now();
   return '${now.year.toString().padLeft(4, '0')}-'
       '${now.month.toString().padLeft(2, '0')}-'
       '${now.day.toString().padLeft(2, '0')}';
@@ -61,7 +67,20 @@ double parseNum(Object? v) {
   if (v is String) {
     final t = v.trim();
     if (t == '-' || t.isEmpty) return 0;
-    final n = double.tryParse(t.replaceAll(',', '.'));
+    final lastDot = t.lastIndexOf('.');
+    final lastComma = t.lastIndexOf(',');
+    String normalized;
+    if (lastDot >= 0 && lastComma >= 0) {
+      // Both separators present: the last one is the decimal separator,
+      // the other is thousands grouping ("1.234,56" and "1,234.56").
+      normalized = lastComma > lastDot
+          ? t.replaceAll('.', '').replaceAll(',', '.')
+          : t.replaceAll(',', '');
+    } else {
+      // Only one (or neither) separator: treat ',' as decimal.
+      normalized = t.replaceAll(',', '.');
+    }
+    final n = double.tryParse(normalized);
     return n == null || n.isNaN ? 0 : n;
   }
   return 0;
