@@ -771,13 +771,14 @@ void main() {
       await tester.pumpAndSettle();
       await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
-      expect(find.text('Kitchen wall settings'), findsWidgets);
+      expect(find.text('Kitchen wall'), findsWidgets);
       expect(find.text('Eva Janssen'), findsWidgets);
       expect(find.text('Erik Janssen'), findsWidgets);
 
-      await tester.tap(find.byKey(const ValueKey('kitchen-wall-picmode-erik')));
+      // Tapping the member row flips its photo-tile mode (#281).
+      await tester.tap(find.byKey(const ValueKey('kitchen-member-erik')));
       await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(10, 10));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
       await _openKitchenDashboard(tester);
@@ -812,11 +813,8 @@ void main() {
     await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
     for (final layer in layers) {
-      expect(find.text(layer.label), findsOneWidget);
-      final toggle = tester.widget<Switch>(
-        find.byKey(ValueKey('kitchen-wall-layer-${layer.id}')),
-      );
-      expect(toggle.value, isTrue);
+      expect(find.text('${layer.label} layer'), findsOneWidget);
+      expect(find.byKey(ValueKey('kitchen-layer-${layer.id}')), findsOneWidget);
     }
   });
 
@@ -855,9 +853,9 @@ void main() {
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
-    await tester.tap(find.byKey(const ValueKey('kitchen-wall-layer-task')));
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-task')));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
 
     await _openKitchenDashboard(tester);
@@ -874,9 +872,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-kitchen-settings');
-    await tester.tap(find.byKey(const ValueKey('kitchen-wall-picmode-erik')));
+    await tester.tap(find.byKey(const ValueKey('kitchen-member-erik')));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
 
     await _openKitchenDashboard(tester);

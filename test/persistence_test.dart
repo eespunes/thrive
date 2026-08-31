@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_money_management_app/main.dart';
+
 import 'helpers.dart';
 
 void main() {
@@ -72,14 +74,21 @@ void main() {
     expect(find.text('Persisted - Service'), findsWidgets);
   });
 
-  testWidgets('reorder accounts and blocks via arrows', (tester) async {
+  testWidgets('hold-drag reorder persists across a reboot', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'settings');
-    // Move the 2nd account up and 1st block down.
-    await tester.tap(find.byKey(const ValueKey('acc-move-erik-up')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('blk-move-home-down')));
-    await tester.pumpAndSettle();
+    final firstBefore = thriveDebug.accounts.first.key;
+    await holdDragReorder(
+      tester,
+      find.byKey(ValueKey('accounts-row-$firstBefore')),
+      120,
+    );
+    final orderAfter = [for (final a in thriveDebug.accounts) a.key];
+    expect(orderAfter.first, isNot(firstBefore));
+    // The debounced persist runs on a 2s timer.
+    await tester.pump(const Duration(seconds: 3));
+    await rebootApp(tester);
+    expect([for (final a in thriveDebug.accounts) a.key], orderAfter);
   });
 
   testWidgets('change year in month picker creates the year', (tester) async {

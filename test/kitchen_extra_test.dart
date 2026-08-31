@@ -124,10 +124,20 @@ void main() {
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-kitchen-settings');
 
-    await tester.tap(find.byKey(const ValueKey('kitchen-wall-layer-task')));
+    // Off, then back on.
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-task')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('kitchen-wall-layer-task')));
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-task')));
     await tester.pumpAndSettle();
+
+    // The min-1 guard toasts instead of hiding the last layer (#281).
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-task')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-content')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('kitchen-layer-appt')));
+    await tester.pump();
+    expect(thriveDebug.toast, 'At least one layer stays visible');
   });
 
   testWidgets('kitchen dashboard with no family members shows an empty note', (
@@ -137,7 +147,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
     await tapHubRow(tester, 'planning', 'more-kitchen-settings');
-    expect(find.text('No family members yet.'), findsOneWidget);
+    // The sub-page still lists the layers, but no member rows exist.
+    expect(find.byKey(const ValueKey('kitchen-layer-task')), findsOneWidget);
+    expect(find.textContaining('reward stars'), findsNothing);
   });
 
   testWidgets(

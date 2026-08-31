@@ -125,16 +125,19 @@ Future<void> rebootApp(WidgetTester tester) async {
   await tester.pumpAndSettle(const Duration(milliseconds: 100));
 }
 
-/// Navigates to a Finance sub-screen (overview | stats), or to Finance
-/// settings via the More hub (settings). `settings` moved out of the Finance
-/// switcher and behind More → Finance settings when the 5-tab nav shipped
-/// (issue #149); `overview`/`stats` still live in the Finance tab's own
-/// switcher.
+/// Navigates to a Finance sub-screen (overview | stats), or to the
+/// Settings v2 sub-screens behind the More hub: `settings` opens the
+/// Accounts sub-screen (#328, historical `more-finsettings` key) and
+/// `blocks` the Budget-blocks sub-screen (#329).
 Future<void> goToTab(WidgetTester tester, String tab) async {
-  if (tab == 'settings') {
+  if (tab == 'settings' || tab == 'blocks') {
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    await tapHubRow(tester, 'money', 'more-finsettings');
+    await tapHubRow(
+      tester,
+      'money',
+      tab == 'blocks' ? 'more-blocks' : 'more-finsettings',
+    );
     return;
   }
   if (find.byKey(ValueKey('tab-$tab')).evaluate().isEmpty) {
@@ -173,6 +176,22 @@ Future<void> tapHubRow(WidgetTester tester, String card, String rowKey) async {
     scrollable: find.byType(Scrollable).first,
   );
   await tester.tap(row);
+  await tester.pumpAndSettle();
+}
+
+/// Performs a Settings-v2 hold-and-drag reorder (#324 `HoldDragList`): a
+/// ~0.3s press on [row] lifts it, then it drags by [dy] and drops.
+Future<void> holdDragReorder(WidgetTester tester, Finder row, double dy) async {
+  final gesture = await tester.startGesture(tester.getCenter(row));
+  await tester.pump(const Duration(milliseconds: 400));
+  // Stepped moves with pumps in between — a single jump can slip past the
+  // ReorderableListView's drag recognizer.
+  const steps = 8;
+  for (var i = 0; i < steps; i++) {
+    await gesture.moveBy(Offset(0, dy / steps));
+    await tester.pump(const Duration(milliseconds: 30));
+  }
+  await gesture.up();
   await tester.pumpAndSettle();
 }
 

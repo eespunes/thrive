@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
+import 'settings_v2_seed.dart';
 
 /// Boots the app as a signed-in user that has no family yet, which lands on the
 /// onboarding gate (create / join a family).
@@ -227,9 +228,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Create a family'), findsWidgets);
 
-      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
-      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
-      await tester.enterText(find.byType(TextField).at(2), 'sandy');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'Beach House',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-username')),
+        'beach-house',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-password')),
+        'sandy',
+      );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
 
@@ -244,9 +254,15 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
-      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
-      await tester.enterText(find.byType(TextField).at(2), '12');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'Beach House',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-username')),
+        'beach-house',
+      );
+      await tester.enterText(find.byKey(const ValueKey('nf-password')), '12');
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
       expect(
@@ -263,8 +279,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Join a family'), findsWidgets);
 
-      await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
-      await tester.enterText(find.byType(TextField).at(1), 'demo');
+      await tester.enterText(
+        find.byKey(const ValueKey('jf-username')),
+        'vanderberg',
+      );
+      await tester.enterText(find.byKey(const ValueKey('jf-password')), 'demo');
       await tester.tap(find.text('Join family'));
       await tester.pumpAndSettle();
       expect(find.text('Joined van der Berg family'), findsOneWidget);
@@ -279,12 +298,17 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).at(0), 'The Janssens');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'The Janssens',
+      );
       // Let the debounce + availability lookup resolve.
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
 
-      final username = tester.widget<TextField>(find.byType(TextField).at(1));
+      final username = tester.widget<TextField>(
+        find.byKey(const ValueKey('nf-username')),
+      );
       expect(username.controller!.text, 'the-janssens');
       expect(find.text('Suggested · available'), findsOneWidget);
     });
@@ -296,21 +320,48 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
-      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
-      await tester.enterText(find.byType(TextField).at(2), 'sandy');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'Beach House',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-username')),
+        'beach-house',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-password')),
+        'sandy',
+      );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
 
-      // Reopen the sheet and reuse the same handle.
+      // Reopen the sheet and reuse the same handle (back out of the pushed
+      // profile page first).
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-username')),
+        'beach-house',
+      );
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
-      expect(find.text('That username is taken'), findsOneWidget);
+      expect(find.text('“@beach-house” is taken'), findsOneWidget);
+      // Design #284: a "use @…" chip offers the next free handle; tapping
+      // it claims the suggestion.
+      final chip = find.byKey(const ValueKey('nf-use-suggestion'));
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      final username = tester.widget<TextField>(
+        find.byKey(const ValueKey('nf-username')),
+      );
+      expect(username.controller!.text, isNot('beach-house'));
+      expect(username.controller!.text, startsWith('beach-house'));
+      expect(find.textContaining('is available ✓'), findsOneWidget);
     });
 
     testWidgets('family credentials card copies the username', (tester) async {
@@ -320,24 +371,29 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'Beach House');
-      await tester.enterText(find.byType(TextField).at(1), 'beach-house');
-      await tester.enterText(find.byType(TextField).at(2), 'sandy');
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'Beach House',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-username')),
+        'beach-house',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-password')),
+        'sandy',
+      );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
 
-      // Open the active family's sheet via the profile family row.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      // Open the family management page (#275) and copy the @username.
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
+      await openMoreHub(tester);
+      await tapHubRow(tester, 'family', 'more-member-me');
+      await tester.tap(find.byKey(const ValueKey('family-username-copy')));
       await tester.pumpAndSettle();
-      // Switch to the beach-house family chip if a switcher is shown.
-      final chip = find.byKey(const ValueKey('family-copy-username'));
-      if (chip.evaluate().isNotEmpty) {
-        await tester.tap(chip);
-        await tester.pumpAndSettle();
-        expect(find.text('Username copied'), findsOneWidget);
-      }
+      expect(find.text('"@beach-house" copied'), findsOneWidget);
     });
   });
 }

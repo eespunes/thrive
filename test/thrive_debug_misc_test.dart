@@ -51,8 +51,9 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(thriveDebug.familyId, 'fam_x');
-    // Legacy 'settings' screen routes to Finance settings.
-    expect(thriveDebug.tab, 'finsettings');
+    // Legacy 'settings' screen routes to the More hub, whose Money rows now
+    // open the Settings v2 sub-screens.
+    expect(thriveDebug.tab, 'more');
   });
 
   testWidgets('askDelete with a custom confirm label can be cancelled', (

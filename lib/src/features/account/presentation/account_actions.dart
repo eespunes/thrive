@@ -26,12 +26,20 @@ extension _ThriveAccountActions on _ThriveHomeState {
   /// True when the signed-in user owns the current family (or there is none).
   bool amOwner() {
     final f = curFamily();
-    if (f == null) return true;
+    if (f == null || f.members.isEmpty) return true;
     for (final m in f.members) {
       if (m.id == myId) return m.role == 'owner';
     }
-    return true;
+    // The signed-in user has no member row in this family — never assume
+    // ownership by default (#273): show the member (least-privilege) UI.
+    return false;
   }
+
+  /// A login-less member (e.g. a kid added by name): no auth uid, no email,
+  /// and already active (invited rows are a separate state). Anyone in the
+  /// family can manage them, since they can never sign in themselves.
+  bool isLoginlessMember(FamilyMember m) =>
+      m.uid == null && m.status != 'invited' && m.email.trim().isEmpty;
 
   /// Renders an avatar: a cropped photo, an emoji tile, else a colored
   /// initials tile.
@@ -433,6 +441,54 @@ extension _ThriveAccountActions on _ThriveHomeState {
   }
 
   // ----------------------------------------------------------- profile
+  /// Saves the profile name only (#274 — explicit Save, no per-keystroke
+  /// writes) and mirrors it to the user's member row in every family.
+  void saveProfileName(String name) {
+    final u = user;
+    if (u == null || name.trim().isEmpty) return;
+    update(() {
+      u
+        ..name = name.trim()
+        ..initials = initialsOf(name);
+      _syncMe(u);
+    });
+    _persistUser();
+    _persist();
+    flash('Name saved — mirrored to your member rows');
+  }
+
+  /// Sets or removes the profile photo and mirrors it everywhere (#274).
+  void saveProfilePhoto(String? photo) {
+    final u = user;
+    if (u == null) return;
+    update(() {
+      u.photo = (photo == null || photo.isEmpty) ? null : photo;
+      _syncMe(u);
+    });
+    _persistUser();
+    _persist();
+    flash(
+      u.photo == null
+          ? 'Photo removed — back to initials'
+          : 'Photo updated everywhere — hub, wall & member rows',
+    );
+  }
+
+  /// Sets the user's identity colour and mirrors it to their member row in
+  /// every family (#274). Callers guard against colours already taken in the
+  /// current family — including the user's own picker.
+  void saveProfileColor(Color color) {
+    final u = user;
+    if (u == null) return;
+    update(() {
+      u.color = color;
+      _syncMe(u);
+    });
+    _persistUser();
+    _persist();
+    flash('Colour updated everywhere');
+  }
+
   void saveProfile(String name, String? photo, Color? color) {
     final u = user;
     if (u == null) return;
@@ -471,15 +527,32 @@ extension _ThriveAccountActions on _ThriveHomeState {
     if (f == null) return;
     update(() => fn(f));
     _persist();
+    syncBlip();
     if (toast != null) flash(toast);
   }
 
   void renameFamily(String name) => _withCurFamily((f) => f.name = name);
 
+  /// The first palette colour no member of [f] wears yet — colours are unique
+  /// per family. Falls back to the length-modulo pick when all are taken.
+  Color _freeMemberColor(Family f) {
+    for (final c in kMemberColors) {
+      if (!f.members.any((m) => m.color == c)) return c;
+    }
+    return kMemberColors[f.members.length % kMemberColors.length];
+  }
+
+  /// Invites someone by email only (#278): the invited row's name is derived
+  /// from the address until they join and bring their own identity.
+  void inviteMemberByEmail(String email) {
+    final name = email.split('@').first.trim();
+    inviteMember(name.isEmpty ? email : name, email);
+  }
+
   void inviteMember(String name, String email) {
     final f = curFamily();
     if (f == null) return;
-    final color = kMemberColors[f.members.length % kMemberColors.length];
+    final color = _freeMemberColor(f);
     _withCurFamily((f) {
       f.members.add(
         FamilyMember(
@@ -492,7 +565,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
           status: 'invited',
         ),
       );
-    }, 'Invite sent to ${name.split(' ').first}');
+    }, 'Added as invited — remember to share the join details');
   }
 
   /// Adds a member with no email/login — e.g. a kid who won't sign in
@@ -502,7 +575,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
   void addMember(String name, {String? photo, String? emoji}) {
     final f = curFamily();
     if (f == null) return;
-    final color = kMemberColors[f.members.length % kMemberColors.length];
+    final color = _freeMemberColor(f);
     _withCurFamily((f) {
       f.members.add(
         FamilyMember(
@@ -565,20 +638,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
         }
       }
     }, 'Member updated');
-  }
-
-  void setMemberColor(String id, Color color) {
-    if (!isCalendarIdentityColorAvailable(color, exceptMemberId: id)) {
-      flash('That colour is already used');
-      return;
-    }
-    _withCurFamily((f) {
-      for (final m in f.members) {
-        if (m.id == id) {
-          m.color = color;
-        }
-      }
-    }, 'Member colour updated');
   }
 
   Future<void> switchFamily(String id) async {
@@ -724,6 +783,55 @@ extension _ThriveAccountActions on _ThriveHomeState {
     return hash is String && hash.isNotEmpty;
   }
 
+  /// Sets a new join password for the current family (#278). The old one
+  /// stops working immediately; only the salted hash is persisted, and the
+  /// plaintext is cached in memory so the invite sheet can show it this
+  /// session ("known-this-session" state). Returns an error message or null.
+  Future<String?> resetFamilyPassword(String password) async {
+    final f = curFamily();
+    if (f == null) return 'No family selected';
+    if (password.length < 4) return 'Password must be at least 4 characters';
+    final uid = _firebaseUid();
+    // coverage:ignore-start
+    if (uid != null) {
+      try {
+        final joinSalt = newJoinSalt();
+        final joinHash = hashFamilyPasswordV2(password, joinSalt);
+        await _familyDocRef(f.id)
+            .update({'joinHash': joinHash, 'joinScheme': 2})
+            .timeout(kCloudOpTimeout);
+        await _familyHandleRef(
+          f.username,
+        ).update({'joinSalt': joinSalt}).timeout(kCloudOpTimeout);
+      } catch (e) {
+        debugPrint('[cloud] resetFamilyPassword failed: $e');
+        return 'Could not update the password right now';
+      }
+    } else {
+      // coverage:ignore-end
+      final reg = await loadRegistry();
+      final entry = reg[f.username];
+      final map = entry is Map
+          ? Map<String, dynamic>.from(entry)
+          : <String, dynamic>{
+              'username': f.username,
+              'name': f.name,
+              'members': [for (final m in f.members) m.toJson()],
+            };
+      map
+        ..remove('password')
+        ..['passHash'] = hashFamilyPassword(
+          password,
+          _localJoinSalt(f.username),
+        );
+      reg[f.username] = map;
+      await saveRegistry(reg);
+    }
+    _sessionFamilyPasswords[f.id] = password;
+    flash('Password set — visible this session only');
+    return null;
+  }
+
   /// True when [slug] is a valid handle that no family has claimed yet. Checks
   /// the families already loaded, then the cloud handle registry (signed-in) or
   /// the local registry (offline/demo). On an unknown/errored lookup it returns
@@ -867,12 +975,21 @@ extension _ThriveAccountActions on _ThriveHomeState {
     flash('Created $name');
   }
 
-  /// Leaves family [id]: the signed-in user drops their own membership while the
-  /// family stays intact for everyone else (issue #133). An owner who leaves
-  /// hands the family to a randomly chosen remaining member (preferring an
-  /// already-active one); a regular member simply leaves. Leaving the last
-  /// family lands the user back on the onboarding gate.
-  void leaveFamily(String id) {
+  /// Members of [f] who could take over ownership: active account members
+  /// (they have a login) other than the signed-in user (#279).
+  List<FamilyMember> successorCandidates(Family f) => [
+    for (final m in f.members)
+      if (m.id != myId && m.status == 'active' && !isLoginlessMember(m)) m,
+  ];
+
+  /// Leaves family [id] (issue #133, reworked in #279): the signed-in user
+  /// drops their own membership while the family stays intact for everyone
+  /// else. An owner leaving hands the family to [successorId] — an explicit,
+  /// atomic transfer (role + `ownerUid` together), never a silent random one;
+  /// without any account-member candidate the family is deleted instead, so
+  /// no family is ever left with zero owners. Leaving the last family lands
+  /// the user back on the onboarding gate.
+  void leaveFamily(String id, {String? successorId}) {
     Family? fam;
     for (final f in families) {
       if (f.id == id) {
@@ -886,13 +1003,19 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final iAmOwner = fam.members.any(
       (m) => m.id == selfId && m.role == 'owner',
     );
-    final others = fam.members.where((m) => m.id != selfId).toList();
 
-    // An owner leaving must hand ownership off so the family keeps an owner.
-    if (iAmOwner && others.isNotEmpty) {
-      final active = others.where((m) => m.status == 'active').toList();
-      final pool = active.isNotEmpty ? active : others;
-      final heir = pool[math.Random().nextInt(pool.length)];
+    if (iAmOwner) {
+      final candidates = successorCandidates(fam);
+      if (candidates.isEmpty) {
+        // No account member can take over — the family goes with the owner.
+        deleteFamily(id);
+        return;
+      }
+      // Atomic ownership transfer: role AND owner uid flip together.
+      final heir = candidates.firstWhere(
+        (m) => m.id == successorId,
+        orElse: () => candidates.first,
+      );
       heir.role = 'owner';
       fam.ownerUid = heir.uid;
     }

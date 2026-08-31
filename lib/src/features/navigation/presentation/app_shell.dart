@@ -1,8 +1,8 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// Top-level nav tab keys, as validated on restore. Mirrors the design's
-/// `renderNav()` items plus the "More" sub-screens (`weekly`, `finsettings`)
-/// that keep the More tab highlighted (`isActive` in `renderNav()`).
+/// `renderNav()` items plus the "More" sub-screen (`weekly`) that keeps the
+/// More tab highlighted (`isActive` in `renderNav()`).
 const Set<String> kValidTabs = {
   'home',
   'calendar',
@@ -10,7 +10,6 @@ const Set<String> kValidTabs = {
   'finance',
   'more',
   'weekly',
-  'finsettings',
 };
 
 /// The 5-tab bottom nav bar, the Quick-Add FAB, the "More" hub, and the
@@ -27,8 +26,7 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   bool _navActive(String key) =>
-      key == tab ||
-      (key == 'more' && const {'more', 'weekly', 'finsettings'}.contains(tab));
+      key == tab || (key == 'more' && const {'more', 'weekly'}.contains(tab));
 
   double _bottomSystemInset(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -195,8 +193,6 @@ extension _ThriveAppShell on _ThriveHomeState {
         );
       case 'weekly':
         return ('Weekly plan', 'Meals & notes for the week');
-      case 'finsettings':
-        return ('Finance settings', 'Accounts, blocks & tools');
       case 'more':
         return ('More', 'Tools & settings');
       default:
@@ -204,13 +200,10 @@ extension _ThriveAppShell on _ThriveHomeState {
     }
   }
 
-  /// Sub-header row for non-finance tabs. `finsettings` shows a back-to-More
-  /// row; `lists` shows a back-to-"All lists" row when a list is open, else
-  /// the all/assigned-to-me filter — mirroring `tabSubHeader(tab)`.
+  /// Sub-header row for non-finance tabs. `lists` shows a back-to-"All
+  /// lists" row when a list is open, else the all/assigned-to-me filter —
+  /// mirroring `tabSubHeader(tab)`.
   Widget? _tabSubHeader(String t) {
-    if (t == 'finsettings') {
-      return _backRow('More', () => goTab('more'));
-    }
     if (t == 'lists') {
       return _segRow(
         const [('all', 'Everyone'), ('me', 'Just me')],
@@ -291,48 +284,11 @@ extension _ThriveAppShell on _ThriveHomeState {
         return _buildListsHub();
       case 'weekly':
         return _buildWeeklyPlan();
-      case 'finsettings':
-        return _buildSettings();
       case 'more':
         return _buildMore();
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  /// A generic "← label" pill button, used for the finsettings → More
-  /// back row (and reusable by future sub-screens). Mirrors `backRow()`.
-  Widget _backRow(String label, VoidCallback onBack) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: GestureDetector(
-        key: const ValueKey('back-row'),
-        onTap: onBack,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: B.line),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ic('back', size: 16, sw: 2.2, color: B.soft2),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   // The "More" hub now lives in `more_screen.dart` (`_buildMore()`), which

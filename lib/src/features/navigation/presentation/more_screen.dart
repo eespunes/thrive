@@ -61,12 +61,21 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     }
     final catCount = eventCategories.length;
     final impCount = importedCalendars.length;
+    final failing = importedCalendars
+        .where((c) => failedImportIds.contains(c.id))
+        .length;
+    final activeMembers = (curFamily()?.members ?? const <FamilyMember>[])
+        .where((m) => m.status == 'active')
+        .length;
+    final layersOn = calendarLayers
+        .where((l) => layerFilter.contains(l.id))
+        .length;
     return _hubCard(
       id: 'planning',
       icon: 'moon',
       title: 'Planning',
       summary:
-          '$visible of ${layers.length} layers on · '
+          '$layersOn of ${calendarLayers.length} layers on · '
           'wall ${kitchenEnabled ? 'on' : 'off'}',
       hint: kitchenEnabled
           ? 'Per-member: photo tile toggle + reward stars (0–5).'
@@ -76,26 +85,37 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           key: 'more-weekly',
           label: 'Weekly plan',
           val: '$planned of 7 planned',
-          onTap: openWeeklyPlanSheet,
+          onTap: openWeeklyPlanScreen,
         ),
         _hubRow(
           key: 'more-calmanage',
           label: 'Categories',
-          val: '$catCount colour${catCount == 1 ? '' : 's'}',
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.categories),
+          val: '$catCount badge${catCount == 1 ? '' : 's'}',
+          onTap: openCategoriesScreen,
+        ),
+        _hubRow(
+          key: 'more-memcolors',
+          label: 'Member colours',
+          sub: 'Each person’s identity colour',
+          val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
+          onTap: openMemberColoursScreen,
         ),
         _hubRow(
           key: 'more-calimports',
           label: 'Imported calendars',
-          val: impCount == 0 ? 'None yet' : 'All synced',
-          goodVal: impCount > 0,
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.imports),
+          val: impCount == 0
+              ? 'None yet'
+              : (failing > 0 ? '$failing failing' : 'All synced'),
+          warnVal: failing > 0,
+          goodVal: impCount > 0 && failing == 0,
+          onTap: openImportedCalendarsScreen,
         ),
         _hubRow(
           key: 'more-callayers',
           label: 'Calendar layers',
           sub: 'Appointments, to-dos & content',
-          onTap: () => openCalendarManageSheet(mode: _CalManageMode.layers),
+          val: '$layersOn of ${calendarLayers.length} on',
+          onTap: openCalendarLayersScreen,
         ),
         _hubRow(
           key: 'more-kitchen-settings',
@@ -103,7 +123,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           sub: 'The shared tablet screen',
           val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
           warnVal: !kitchenEnabled,
-          onTap: openKitchenWallSettings,
+          onTap: openKitchenWallScreen,
         ),
       ],
     );
@@ -123,7 +143,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           key: 'more-wallet',
           label: 'Discount cards',
           val: n == 0 ? 'None yet' : '$n card${n == 1 ? '' : 's'}',
-          onTap: openWalletScreen,
+          onTap: openWalletSubScreen,
         ),
         _hubRow(
           key: 'more-widget-privacy',
@@ -132,12 +152,21 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           tog: widgetHideAmounts,
           onTog: toggleWidgetHideAmounts,
         ),
+        // The Accounts row keeps the historical 'more-finsettings' key so
+        // existing flows keep working.
         _hubRow(
           key: 'more-finsettings',
-          label: 'Finance settings',
-          sub: 'Accounts, blocks & tools',
+          label: 'Accounts',
+          sub: 'Who pays from where',
           val: '${accounts.length} account${accounts.length == 1 ? '' : 's'}',
-          onTap: openFinanceSettingsSheet,
+          onTap: openAccountsScreen,
+        ),
+        _hubRow(
+          key: 'more-blocks',
+          label: 'Budget blocks',
+          sub: 'The columns of the monthly budget',
+          val: '${cats.length} block${cats.length == 1 ? '' : 's'}',
+          onTap: openBudgetBlocksScreen,
         ),
       ],
     );
@@ -162,15 +191,32 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           '${owner ? 'you own this family' : 'owned by ${ownerName ?? '?'}'}',
       hint: owner ? null : 'Only owners can manage members.',
       rows: [
-        _hubRow(
-          key: 'more-family',
-          label: 'Members & roles',
-          sub: 'Manage who can see and edit',
-          trail: members.isEmpty
-              ? null
-              : _mStack([for (final m in members) m.id]),
-          onTap: openFamilySheet,
-        ),
+        // The member list lives directly on the card (#330): avatar, role and
+        // status per row. Tapping opens the family management page (#275).
+        for (final m in members)
+          _hubRow(
+            key: 'more-member-${m.id}',
+            label: m.id == myId ? '${m.name} (you)' : m.name,
+            sub: m.status == 'invited'
+                ? 'Invited · hasn’t joined yet'
+                : (m.email.isNotEmpty ? m.email : 'Active member'),
+            pill: m.role == 'owner'
+                ? 'owner'
+                : (m.status == 'invited' ? 'invited' : null),
+            pillKind: m.role == 'owner' ? 'owner' : 'invited',
+            bg: m.status == 'invited' ? const Color(0xfffffdf5) : null,
+            trail: avatarNode(
+              photo: m.photo,
+              emoji: m.emoji,
+              initials: m.initials,
+              color: m.color,
+              size: 26,
+              radius: 13,
+              fs: 10,
+              opacity: m.status == 'invited' ? .55 : 1,
+            ),
+            onTap: openFamilyScreen,
+          ),
         _hubRow(
           key: 'more-invite',
           label: 'Invite & share',
@@ -194,6 +240,20 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
       rows: [
         _hubRow(
+          key: 'hub-notifications',
+          label: 'Notifications',
+          sub: 'Event reminders on this phone',
+          tog: notificationsEnabled,
+          onTog: toggleNotificationsEnabled,
+        ),
+        _hubRow(
+          key: 'hub-calsync',
+          label: 'Sync with device calendar',
+          sub: 'Android · mirrors events into the system calendar',
+          tog: deviceCalendarSyncEnabled,
+          onTog: toggleDeviceCalendarSync,
+        ),
+        _hubRow(
           key: 'hub-future-dark',
           label: 'Dark mode',
           pill: 'future',
@@ -209,18 +269,14 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           onTap: () => flash('Only English (UK) for now'),
         ),
         _hubRow(
-          key: 'hub-notifications',
-          label: 'Notifications',
-          sub: 'Event reminders on this phone',
-          tog: notificationsEnabled,
-          onTog: toggleNotificationsEnabled,
-        ),
-        _hubRow(
-          key: 'hub-calsync',
-          label: 'Sync with device calendar',
-          sub: 'Android · mirrors events into the system calendar',
-          tog: deviceCalendarSyncEnabled,
-          onTog: toggleDeviceCalendarSync,
+          key: 'hub-resetpw',
+          label: 'Reset password',
+          sub: u?.provider == 'google'
+              ? 'You sign in with Google — no password here'
+              : 'We’ll email you a reset link',
+          disabled: u?.provider == 'google',
+          disHint: 'You sign in with Google — there’s no password to reset',
+          onTap: openResetPasswordSheet,
         ),
         _hubRow(
           key: 'more-signout',
@@ -238,12 +294,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           danger: true,
           bg: B.redSoft,
           noChev: true,
-          onTap: () => askDelete(
-            'your account',
-            '${_deleteAccountConsequence()} Then you’re signed out. '
-                'This can’t be undone.',
-            () => unawaited(deleteUserAccount()),
-          ),
+          onTap: openDeleteAccountSheet,
         ),
       ],
     );
@@ -291,7 +342,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         children: [
           GestureDetector(
             key: const ValueKey('more-profile'),
-            onTap: openProfileSheet,
+            onTap: openProfileScreen,
             behavior: HitTestBehavior.opaque,
             child: Row(
               children: [
@@ -372,15 +423,17 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               ],
             ),
           ),
-          if (families.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [for (final fam in families) _hubFamilyPill(fam)],
-              ),
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Wrap(
+              spacing: 7,
+              runSpacing: 7,
+              children: [
+                for (final fam in families) _hubFamilyPill(fam),
+                _hubCreateOrJoinPill(),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -388,6 +441,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
 
   Widget _hubFamilyPill(Family fam) {
     final current = fam.id == familyId;
+    final n = fam.members.length;
     return GestureDetector(
       key: ValueKey('hub-fam-${fam.id}'),
       onTap: () {
@@ -401,13 +455,38 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
-          fam.name,
+          '${fam.name} · $n',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
             color: current ? B.deep : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "＋ Create or join a family" entry alongside the switcher pills.
+  Widget _hubCreateOrJoinPill() {
+    return GestureDetector(
+      key: const ValueKey('hub-fam-add'),
+      onTap: openCreateOrJoinSheet,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .12),
+          border: Border.all(color: Colors.white.withValues(alpha: .5)),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: const Text(
+          '＋ Create or join a family',
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
           ),
         ),
       ),
@@ -536,6 +615,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     bool goodVal = false,
     bool warnVal = false,
     String? pill,
+    String pillKind = 'future',
     VoidCallback? onTap,
     bool danger = false,
     Color? bg,
@@ -599,16 +679,24 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xfff5f3ff),
+                    color: pillKind == 'owner'
+                        ? B.soft
+                        : (pillKind == 'invited'
+                              ? B.amberSoft
+                              : const Color(0xfff5f3ff)),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     pill.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .3,
-                      color: Color(0xff7c3aed),
+                      color: pillKind == 'owner'
+                          ? B.deep
+                          : (pillKind == 'invited'
+                                ? B.amberText
+                                : const Color(0xff7c3aed)),
                     ),
                   ),
                 ),
@@ -689,311 +777,153 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     );
   }
 
-  /// Overlapping avatar stack (up to 4, then a "+N" bubble). Mirrors
-  /// `mStack()`.
-  Widget _mStack(List<String> ids, {double size = 24}) {
-    final f = curFamily();
-    if (f == null) return const SizedBox.shrink();
-    final shown = ids.take(4).toList();
-    final overflow = ids.length - shown.length;
-    return SizedBox(
-      height: size,
-      width:
-          size +
-          (shown.length - 1) * size * .68 +
-          (overflow > 0 ? size * .68 : 0),
-      child: Stack(
-        children: [
-          for (int i = 0; i < shown.length; i++)
-            Positioned(
-              left: i * size * .68,
-              child: Container(
-                width: size,
-                height: size,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: () {
-                  final m = f.members.where((x) => x.id == shown[i]);
-                  if (m.isEmpty) return const SizedBox.shrink();
-                  final mem = m.first;
-                  return avatarNode(
-                    photo: mem.photo,
-                    emoji: mem.emoji,
-                    initials: mem.initials,
-                    color: mem.color,
-                    size: size,
-                    radius: size / 2,
-                    fs: size * .4,
-                  );
-                }(),
-              ),
-            ),
-          if (overflow > 0)
-            Positioned(
-              left: shown.length * size * .68,
-              child: Container(
-                width: size,
-                height: size,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: B.faint,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: Text(
-                  '+$overflow',
-                  style: TextStyle(
-                    fontSize: size * .38,
-                    fontWeight: FontWeight.w800,
-                    color: B.soft2,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   // -------------------------------------------------------------- sheets
-  void openWeeklyPlanSheet() {
+  /// "Create or join a family" chooser behind the hero's ＋ pill (#330).
+  void openCreateOrJoinSheet() {
     _showSheet(
-      (ctx) => ValueListenableBuilder<int>(
-        valueListenable: _rev,
-        builder: (context, _, _) => _sheetEmbed(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _sheetHead(ctx, 'Weekly plan', 'Meals & notes for the week'),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _weekSubHeader(),
-              ),
-            ],
-          ),
-          _buildWeeklyPlan(embed: true),
-        ),
-      ),
-    );
-  }
-
-  void openFinanceSettingsSheet() {
-    _showSheet(
-      (ctx) => ValueListenableBuilder<int>(
-        valueListenable: _rev,
-        builder: (context, _, _) => _sheetEmbed(
-          _sheetHead(ctx, 'Finance settings', 'Accounts, blocks & tools'),
-          _buildSettings(embed: true),
-        ),
-      ),
-    );
-  }
-
-  /// Wraps sheet-embedded tab content: keeps the sheet's own header/side
-  /// padding but lets the embedded body (which already carries its own
-  /// internal padding, or intentionally has none) render without doubling up
-  /// or overflowing horizontally. Mirrors `sheetEmbed()`.
-  Widget _sheetEmbed(Widget head, Widget body) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * .78,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          head,
-          Expanded(child: ClipRect(child: body)),
-        ],
-      ),
-    );
-  }
-
-  void openInviteSheet() {
-    _showSheet((ctx) => _InviteSheet(state: this));
-  }
-}
-
-/// "Invite someone" sheet: family join details (username + optional
-/// password, masked with a reveal toggle) so anyone can join by entering
-/// them. Mirrors the design's `sheetInvite()`.
-class _InviteSheet extends StatefulWidget {
-  const _InviteSheet({required this.state});
-  final _ThriveHomeState state;
-
-  @override
-  State<_InviteSheet> createState() => _InviteSheetState();
-}
-
-class _InviteSheetState extends State<_InviteSheet> {
-  bool _showPw = false;
-  String? _pw;
-  bool _hasPw = false;
-  bool _pwLoaded = false;
-
-  _ThriveHomeState get s => widget.state;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPassword();
-  }
-
-  Future<void> _loadPassword() async {
-    final f = s.curFamily();
-    if (f == null) return;
-    final pw = await s.fetchFamilyPassword(f);
-    // The plaintext is only known in the session that typed it (it is never
-    // persisted); a password can still be SET without being displayable.
-    final hasPw = pw != null || await s.familyHasPassword(f);
-    if (!mounted) return;
-    setState(() {
-      _pw = pw;
-      _hasPw = hasPw;
-      _pwLoaded = true;
-    });
-  }
-
-  void _copy(String label, String value) {
-    if (value.isEmpty) return;
-    Clipboard.setData(ClipboardData(text: value));
-    s.flash('$label copied');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final f = s.curFamily();
-    if (f == null) return const SizedBox.shrink();
-    final pw = _pw;
-    return SingleChildScrollView(
-      child: Column(
+      (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _sheetHead(context, 'Invite someone', 'Share your join details'),
-          Container(
-            margin: const EdgeInsets.only(bottom: 18),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: B.soft,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: B.greenLine),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'JOIN DETAILS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .3,
-                    color: B.deep,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _credRow(
-                  'Family username',
-                  f.username,
-                  onCopy: () => _copy('Username', f.username),
-                ),
-                const SizedBox(height: 8),
-                if (pw != null && pw.isNotEmpty)
-                  _credRow(
-                    'Family password',
-                    _showPw ? pw : '•' * pw.length,
-                    icon: _showPw ? 'eyeoff' : 'eye',
-                    iconKey: const ValueKey('invite-password-toggle'),
-                    onIcon: () => setState(() => _showPw = !_showPw),
-                    onCopy: () => _copy('Password', pw),
-                  )
-                else if (!_pwLoaded)
-                  const Text(
-                    'Loading…',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
-                  )
-                else
-                  Text(
-                    _hasPw
-                        ? 'Password is set, but only shown in the session '
-                              'that typed it — share it directly.'
-                        : 'Not set — anyone with the username can join.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: B.soft2,
-                    ),
-                  ),
-              ],
-            ),
+          _sheetHead(
+            ctx,
+            'Create or join a family',
+            'One account, all your families',
           ),
+          _sheetOptionRow(
+            key: 'hub-create-family',
+            title: 'Create a family',
+            sub: 'You’ll be the owner',
+            onTap: () {
+              Navigator.of(ctx).pop();
+              openCreateFamilyScreen();
+            },
+          ),
+          const SizedBox(height: 7),
+          _sheetOptionRow(
+            key: 'hub-join-family',
+            title: 'Join a family',
+            sub: 'With their username & password',
+            onTap: () {
+              Navigator.of(ctx).pop();
+              openJoinFamilyScreen();
+            },
+          ),
+          const SizedBox(height: 14),
         ],
       ),
     );
   }
 
-  Widget _credRow(
-    String label,
-    String value, {
-    String? icon,
-    VoidCallback? onIcon,
-    required VoidCallback onCopy,
-    Key? iconKey,
+  Widget _sheetOptionRow({
+    required String key,
+    required String title,
+    required String sub,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: B.line),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: B.muted,
+    return GestureDetector(
+      key: ValueKey(key),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 50),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xfff8fafc),
+          border: Border.all(color: B.line),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: B.ink,
+                    ),
                   ),
-                ),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.ink,
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xff8a96a8),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          if (icon != null)
-            GestureDetector(
-              key: iconKey,
-              onTap: onIcon,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: ic(icon, size: 16, sw: 2.1, color: B.deep),
+                ],
               ),
             ),
+            ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reset password sheet (#330): a small confirm that emails the signed-in
+  /// address a reset link (email-provider accounts only).
+  void openResetPasswordSheet() {
+    _showSheet(
+      (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _sheetHead(
+            ctx,
+            'Reset password',
+            'We’ll email ${user?.email ?? 'you'} a reset link. '
+                'Your current password keeps working until you set a new one.',
+          ),
           GestureDetector(
-            onTap: onCopy,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: ic('copy', size: 15, sw: 2.2, color: B.deep),
+            key: const ValueKey('resetpw-send'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              Navigator.of(ctx).pop();
+              unawaited(sendPasswordReset());
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: B.primary,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: const Text(
+                'Send reset link',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
+          const SizedBox(height: 14),
         ],
       ),
     );
+  }
+
+  /// Sends the Firebase password-reset email for the signed-in address.
+  /// Local/demo mode (no Firebase app) just explains itself in a toast.
+  Future<void> sendPasswordReset() async {
+    final email = user?.email ?? '';
+    if (email.isEmpty) {
+      flash('No email on this account');
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      flash('Reset link sent to $email');
+    } catch (e) {
+      debugPrint('[account] password reset failed: $e');
+      flash('Couldn’t send the link — try again later');
+    }
   }
 }

@@ -673,12 +673,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       await batch.commit();
     } catch (e) {
       debugPrint('[cloud] persist commit failed for ${f.id}: $e');
-      // Caches untouched — the next persist retries these exact sections.
+      // Surface the queue on the Settings v2 sub-pages (#283): the header
+      // pill flips to "Queued — offline" and the amber banner appears; the
+      // queued sections retry on the next persist.
       if (mounted) {
-        showError('Could not sync your latest changes — will retry.');
+        if (!netOffline.value) {
+          netOffline.value = true;
+          showError('Could not sync your latest changes — will retry.');
+        }
+        if (syncStatus.value != null) {
+          syncStatus.value = SettingsSyncStatus.queued;
+        }
       }
+      // Caches untouched — the next persist retries these exact sections.
       return;
     }
+    if (mounted && netOffline.value) netOffline.value = false;
     for (final apply in staged) {
       apply();
     }

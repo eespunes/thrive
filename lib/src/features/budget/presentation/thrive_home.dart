@@ -155,6 +155,12 @@ class ThriveDebugController {
   }
 
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
+
+  /// Session-only sync-failure markers for imported calendars (#330) — lets
+  /// tests drive the hub's amber "N failing" value without a real network.
+  Set<String> get failedImportIds => _s.failedImportIds;
+  void markImportFailed(String id) =>
+      _s.update(() => _s.failedImportIds.add(id));
   void askDelete(
     String name,
     String message,
@@ -164,6 +170,29 @@ class ThriveDebugController {
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
   void flash(String msg) => _s.flash(msg);
+
+  /// Sync/offline indicator plumbing (#283), so tests can read the pill
+  /// state and simulate the offline queue without a real backend.
+  ValueNotifier<SettingsSyncStatus?> get syncStatus => _s.syncStatus;
+  ValueNotifier<bool> get netOffline => _s.netOffline;
+  void syncBlip() => _s.syncBlip();
+  void saveMemberStudio(
+    String id, {
+    required String name,
+    required String email,
+    required Color color,
+    String? photo,
+    String? emoji,
+    bool? kid,
+  }) => _s.saveMemberStudio(
+    id,
+    name: name,
+    email: email,
+    color: color,
+    photo: photo,
+    emoji: emoji,
+    kid: kid,
+  );
   void showError(String? msg) => _s.showError(msg);
   void dismissError() => _s.dismissError();
   String? get toast => _s.toast;
@@ -220,6 +249,35 @@ class ThriveDebugController {
   Map<String, DayPlan> get weeklyPlan => _s.weeklyPlan;
   Map<String, int> get starsMap => _s.starsMap;
   List<ImportedCalendar> get importedCalendars => _s.importedCalendars;
+  List<Account> get accounts => _s.accounts;
+  List<Category> get cats => _s.cats;
+  Map<int, Map<String, MonthData>> get data => _s.data;
+  Map<String, bool> get picMembers => _s.picMembers;
+  List<String> get kitchenLayerFilter => _s.kitchenLayerFilter;
+  bool get budgetLimitWarn => _s.budgetLimitWarn;
+  void saveExpense(
+    String mode,
+    String cat,
+    String? id, {
+    required String payee,
+    required String label,
+    required double amount,
+    int? day,
+    required bool paid,
+    required String account,
+    required bool recurring,
+  }) => _s.saveExpense(
+    mode,
+    cat,
+    id,
+    payee: payee,
+    label: label,
+    amount: amount,
+    day: day,
+    paid: paid,
+    account: account,
+    recurring: recurring,
+  );
   void addCalendarLayer({
     required String label,
     required String icon,
@@ -253,10 +311,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String? hubOpenCard;
   bool futureDark = false;
 
+  /// Imported calendars whose last sync attempt failed this session (#330):
+  /// drives the hub's amber "N failing" value. Session-only — the data model
+  /// is unchanged; a successful sync clears the id again.
+  final Set<String> failedImportIds = <String>{};
+
   // Real, persisted preferences surfaced by the hub's Account card: the
   // master reminder switch and the Android device-calendar mirror.
   bool notificationsEnabled = true;
   bool deviceCalendarSyncEnabled = true;
+
+  /// "Warn near block limits" (#329): a toast nudge when a block's planned
+  /// total crosses 90% of this month's cap. Persisted per device.
+  bool budgetLimitWarn = true;
   String statsMode = 'month'; // month | year | all
   int? statsHeroSelIdx;
   String? statsHeroSelFor;
@@ -345,6 +412,41 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   final ValueNotifier<String?> _toastNotifier = ValueNotifier<String?>(null);
   String? get toast => _toastNotifier.value;
   Timer? _toastTimer;
+
+  /// Write-status pill on the Settings v2 sub-page headers (#283): every
+  /// mutation blips "Saving…" → "Saved ✓" (or "Queued — offline" while the
+  /// cloud can't be reached). Writes already queue via the local store /
+  /// Firestore's offline cache — this only SURFACES it.
+  final ValueNotifier<SettingsSyncStatus?> syncStatus =
+      ValueNotifier<SettingsSyncStatus?>(null);
+
+  /// Whether the last cloud commit failed (offline / rules): flips the sync
+  /// pill to "Queued — offline" and shows the amber banner on sub-pages.
+  /// Always false in local/demo mode, where SharedPreferences writes are the
+  /// durable store and never "queue".
+  final ValueNotifier<bool> netOffline = ValueNotifier<bool>(false);
+  Timer? _syncSettleTimer;
+  Timer? _syncClearTimer;
+
+  /// Design `syncBlip()`: saving (or queued) now, settle after 600ms, clear
+  /// 1800ms later.
+  void syncBlip() {
+    if (!mounted) return;
+    syncStatus.value = netOffline.value
+        ? SettingsSyncStatus.queued
+        : SettingsSyncStatus.saving;
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
+    _syncSettleTimer = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      syncStatus.value = netOffline.value
+          ? SettingsSyncStatus.queued
+          : SettingsSyncStatus.saved;
+      _syncClearTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) syncStatus.value = null;
+      });
+    });
+  }
 
   /// When set, the toast pill carries an Undo button that runs this and
   /// dismisses the toast (fridge door #315: cross-off has no confirm dialog,
@@ -448,6 +550,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _flushPersist();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
     shopQuickAddFocus.dispose();
     calPageController.dispose();
     calWeekPageController.dispose();
@@ -796,6 +900,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     layerFilter = _savedLayerFilter(saved['layerFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
     _widgetHideAmounts = saved['widgetHideAmounts'] == true;
+    budgetLimitWarn = saved['budgetLimitWarnOff'] != true;
     notificationsEnabled = saved['notificationsEnabled'] != false;
     deviceCalendarSyncEnabled = saved['deviceCalendarSync'] != false;
     _syncRecurringSeries();
@@ -849,15 +954,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Resolves `screen` (Finance tab's overview/stats sub-view) and `tab`
   /// (top-level nav) from a saved blob. `rawTab` is null for saves written
   /// before the 5-tab nav existed (or the v3 store, which never had a
-  /// concept of tabs) — in that case a legacy `screen: 'settings'` becomes
-  /// `finsettings` (More stays highlighted, matching #149), and any other
-  /// legacy screen keeps the user on the Finance tab where they left off
-  /// instead of dropping them onto the new Home placeholder.
+  /// concept of tabs) — in that case a legacy `screen: 'settings'` lands on
+  /// the More hub (its finance rows now open the Settings v2 sub-screens),
+  /// and any other legacy screen keeps the user on the Finance tab where
+  /// they left off instead of dropping them onto the new Home placeholder.
   void _restoreNav(Object? rawScreen, Object? rawTab) {
     final legacyScreen = (rawScreen ?? 'overview').toString();
     if (legacyScreen == 'settings') {
       screen = 'overview';
-      tab = 'finsettings';
+      tab = 'more';
       return;
     }
     screen = const {'overview', 'stats', 'flow'}.contains(legacyScreen)
@@ -1030,6 +1135,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       if (_widgetHideAmounts) 'widgetHideAmounts': true,
+      if (!budgetLimitWarn) 'budgetLimitWarnOff': true,
       if (!notificationsEnabled) 'notificationsEnabled': false,
       if (!deviceCalendarSyncEnabled) 'deviceCalendarSync': false,
       'familyId': familyId,
@@ -1076,6 +1182,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     setState(fn);
     _rev.value++;
     _schedulePersist();
+    syncBlip();
     cb?.call();
   }
 
@@ -1801,7 +1908,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             children: [
               GestureDetector(
                 key: const ValueKey('profile-avatar'),
-                onTap: user != null ? openProfileSheet : null,
+                onTap: user != null ? openProfileScreen : null,
                 child: Container(
                   width: 34,
                   height: 34,

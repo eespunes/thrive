@@ -14,6 +14,8 @@ import 'package:zxing2/qrcode.dart'
         QRCodeReader,
         RGBLuminanceSource;
 
+import 'package:flutter/gestures.dart'
+    show DelayedMultiDragGestureRecognizer, MultiDragGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/services.dart';
@@ -86,3 +88,14 @@ part 'src/features/account/presentation/auth_screen.dart';
 part 'src/features/account/presentation/onboarding_screen.dart';
 part 'src/features/account/presentation/account_sheets.dart';
 part 'src/features/navigation/presentation/more_screen.dart';
+part 'src/features/navigation/presentation/badge_studio.dart';
+part 'src/features/navigation/presentation/settings_shared.dart';
+part 'src/features/navigation/presentation/settings_layers_screen.dart';
+part 'src/features/navigation/presentation/settings_categories_screen.dart';
+part 'src/features/navigation/presentation/settings_imports_screen.dart';
+part 'src/features/navigation/presentation/settings_accounts_screen.dart';
+part 'src/features/navigation/presentation/settings_blocks_screen.dart';
+part 'src/features/navigation/presentation/settings_members_screen.dart';
+part 'src/features/navigation/presentation/settings_kitchen_screen.dart';
+part 'src/features/navigation/presentation/settings_weekly_wallet_screens.dart';
+part 'src/features/navigation/presentation/settings_family_screens.dart';

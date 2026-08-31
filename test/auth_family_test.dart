@@ -113,39 +113,86 @@ void main() {
   });
 
   group('profile', () {
-    testWidgets('opens profile and edits the display name', (tester) async {
+    testWidgets('opens the profile page and saves the name explicitly', (
+      tester,
+    ) async {
       await pumpApp(tester);
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
-      expect(find.text('Your profile'), findsOneWidget);
-      expect(find.text('Janssen family'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
+      expect(find.text('Janssen family'), findsWidgets);
 
-      await tester.tap(find.byKey(const ValueKey('profile-edit')));
-      await tester.pumpAndSettle();
-      expect(find.text('Edit profile'), findsOneWidget);
-
-      await tester.enterText(find.byType(TextField).first, 'Eva Smit');
-      await tester.tap(find.text('Save profile'));
-      await tester.pumpAndSettle();
-      expect(find.text('Profile updated'), findsOneWidget);
-    });
-
-    testWidgets('profile colour picker exposes more colors', (tester) async {
-      await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-edit')));
-      await tester.pumpAndSettle();
-      expect(find.text('Palette'), findsOneWidget);
-      await tester.tap(find.byType(AnimatedContainer).last);
+      await tester.enterText(
+        find.byKey(const ValueKey('profile-name-input')),
+        'Eva Smit',
+      );
       await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('profile-name-save')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Name saved — mirrored to your member rows'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('sign out returns to the auth screen', (tester) async {
+    testWidgets('profile colour picker mirrors a free colour everywhere', (
+      tester,
+    ) async {
       await pumpApp(tester);
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-signout')));
+      final taken = thriveDebug
+          .curFamily()!
+          .members
+          .where((m) => m.id != 'me')
+          .map((m) => m.color)
+          .toSet();
+      final free = kMemberColors.lastWhere((c) => !taken.contains(c));
+      await tester.ensureVisible(
+        find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
+      );
+      await tester.tap(
+        find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Colour updated everywhere'), findsOneWidget);
+      expect(thriveDebug.user!.color, free);
+      expect(
+        thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'me').color,
+        free,
+      );
+    });
+
+    testWidgets('a colour worn by someone else is locked in YOUR OWN picker', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      final other = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id != 'me',
+      );
+      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(ValueKey('badge-color-${other.color.toARGB32()}')),
+      );
+      await tester.tap(
+        find.byKey(ValueKey('badge-color-${other.color.toARGB32()}')),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      // Self-colour bypass fixed (#274): taken colours only toast.
+      expect(find.text('That colour is taken in this family'), findsOneWidget);
+      expect(thriveDebug.user!.color, isNot(other.color));
+    });
+
+    testWidgets('sign out from the hub returns to the auth screen', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
+      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'account', 'more-signout');
       await tester.pumpAndSettle();
       expect(find.text('Welcome back'), findsOneWidget);
     });
@@ -153,34 +200,37 @@ void main() {
 
   group('family management', () {
     Future<void> openFamily(WidgetTester tester) async {
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'family', 'more-member-me');
     }
 
-    testWidgets('opens the family sheet with members', (tester) async {
+    testWidgets('opens the family page with members', (tester) async {
       await pumpApp(tester);
       await openFamily(tester);
-      expect(find.text('YOU'), findsOneWidget);
-      expect(find.text('Erik Janssen'), findsOneWidget);
-      expect(find.text('Owner'), findsOneWidget);
+      expect(find.text('Eva Janssen (you)'), findsOneWidget);
+      expect(find.text('OWNER'), findsOneWidget);
+      expect(find.byKey(const ValueKey('family-name-input')), findsOneWidget);
+      expect(find.byKey(const ValueKey('family-invite-share')), findsOneWidget);
     });
 
-    testWidgets('invites a new member', (tester) async {
+    testWidgets('invites a new member by email', (tester) async {
       await pumpApp(tester);
       await openFamily(tester);
-      await tester.tap(find.byKey(const ValueKey('family-invite')));
+      await tester.tap(find.byKey(const ValueKey('family-invite-share')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Lisa Janssen');
-      await tester.enterText(find.byType(TextField).at(2), 'lisa@email.com');
+      await tester.enterText(
+        find.byKey(const ValueKey('iv-email')),
+        'lisa@email.com',
+      );
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('invite-send')));
+      await tester.tap(find.byKey(const ValueKey('iv-add-email')));
       await tester.pumpAndSettle();
-      // Invite card closed and the new (invited) member is listed.
-      expect(find.text('Send invite'), findsNothing);
-      expect(find.text('Lisa Janssen'), findsWidgets);
-      expect(find.text('Invited'), findsOneWidget);
+      // Close the sheet; the invited row is on the family page.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.text('INVITED'), findsOneWidget);
+      expect(find.text('Invited · hasn’t joined yet'), findsOneWidget);
     });
 
     testWidgets('creates a separate family workspace', (tester) async {
@@ -189,140 +239,161 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
-      expect(find.text('Create a family'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).first, 'Beach house');
+      expect(find.text('Create a family'), findsWidgets);
+      await tester.enterText(
+        find.byKey(const ValueKey('nf-name')),
+        'Beach house',
+      );
       await tester.pump();
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
-      // Sheet closed; reopening the profile lists the new family.
-      expect(find.text('Create a family'), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
+      // Sheet closed; the profile family list shows the new family.
+      expect(find.byKey(const ValueKey('nf-name')), findsNothing);
       expect(find.text('Beach house'), findsWidgets);
+      expect(thriveDebug.families.any((f) => f.name == 'Beach house'), isTrue);
     });
   });
 
   group('family actions', () {
     Future<void> openFamily(WidgetTester tester) async {
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
-      await tester.pumpAndSettle();
+      await tapHubRow(tester, 'family', 'more-member-me');
     }
 
-    Future<void> inviteLisa(WidgetTester tester) async {
-      await tester.tap(find.byKey(const ValueKey('family-invite')));
+    Future<String> inviteLisa(WidgetTester tester) async {
+      thriveDebug.inviteMember('Lisa Janssen', 'lisa@email.com');
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Lisa Janssen');
-      await tester.enterText(find.byType(TextField).at(2), 'lisa@email.com');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('invite-send')));
-      await tester.pumpAndSettle();
-    }
-
-    Finder keyStartsWith(String prefix, {String? not}) {
-      return find.byWidgetPredicate((w) {
-        final k = w.key;
-        if (k is! ValueKey) return false;
-        final v = '${k.value}';
-        return v.startsWith(prefix) && v != not;
-      });
-    }
-
-    testWidgets('owner renames the family', (tester) async {
-      await pumpApp(tester);
-      await openFamily(tester);
-      await tester.enterText(find.byType(TextField).first, 'The Smiths');
-      await tester.pump();
-      expect(find.text('The Smiths'), findsWidgets);
-    });
-
-    testWidgets('owner edits an invited member', (tester) async {
-      await pumpApp(tester);
-      await openFamily(tester);
-      await inviteLisa(tester);
-      await tester.tap(find.text('Lisa Janssen').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Edit member'), findsOneWidget);
-      await tester.enterText(find.byType(TextField).last, 'lisab@email.com');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('member-save')));
-      await tester.pumpAndSettle();
-      expect(find.text('Member updated'), findsOneWidget);
-    });
-
-    testWidgets('owner toggles role and removes a member', (tester) async {
-      await pumpApp(tester);
-      await openFamily(tester);
-      await inviteLisa(tester);
-
-      await tester.tap(find.text('Invited'));
-      await tester.pumpAndSettle();
-      expect(find.text('Role updated'), findsOneWidget);
-
-      final lisaId = thriveDebug
+      return thriveDebug
           .curFamily()!
           .members
           .firstWhere((m) => m.name == 'Lisa Janssen')
           .id;
-      await tester.drag(
-        find.byKey(ValueKey('member-$lisaId')),
-        const Offset(-220, 0),
+    }
+
+    testWidgets('owner renames the family with an explicit save', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('family-name-input')),
+        'The Smiths',
       );
+      await tester.pump();
+      // No per-keystroke write (#275).
+      expect(thriveDebug.curFamily()!.name, isNot('The Smiths'));
+      await tester.tap(find.byKey(const ValueKey('family-name-save')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(ValueKey('member-$lisaId-delete')),
-        warnIfMissed: false,
+      expect(find.text('Family renamed'), findsOneWidget);
+      expect(thriveDebug.curFamily()!.name, 'The Smiths');
+    });
+
+    testWidgets('owner edits an invited member via the actions sheet', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      final lisaId = await inviteLisa(tester);
+      await tester.tap(find.byKey(ValueKey('fam-member-$lisaId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-edit')));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit member'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('member-email')),
+        'lisab@email.com',
       );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      expect(find.text('Member saved — updated everywhere'), findsOneWidget);
+    });
+
+    testWidgets('owner revokes an invite from the actions sheet', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      final lisaId = await inviteLisa(tester);
+      await tester.tap(find.byKey(ValueKey('fam-member-$lisaId')));
+      await tester.pumpAndSettle();
+      // Invited rows never offer a role toggle (#275).
+      expect(find.byKey(const ValueKey('ma-role')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('ma-revoke')));
+      await tester.pumpAndSettle();
+      expect(find.text('Revoke Lisa Janssen’s invite?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
+      await tester.pumpAndSettle();
+      expect(find.text('Member removed'), findsOneWidget);
+      expect(
+        thriveDebug.curFamily()!.members.any((m) => m.id == lisaId),
+        isFalse,
+      );
+    });
+
+    testWidgets('owner promotes then removes an active account member', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await openFamily(tester);
+      final other = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.id != 'me' && m.status == 'active',
+      );
+
+      await tester.tap(find.byKey(ValueKey('fam-member-${other.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-role')));
+      await tester.pumpAndSettle();
+      expect(find.text('Role updated'), findsOneWidget);
+      expect(other.role, 'owner');
+
+      // Demote again, then remove with the counting confirm.
+      await tester.tap(find.byKey(ValueKey('fam-member-${other.id}')));
+      await tester.pumpAndSettle();
+      expect(find.text('Demote to member'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('ma-role')));
+      await tester.pumpAndSettle();
+      expect(other.role, 'member');
+
+      await tester.tap(find.byKey(ValueKey('fam-member-${other.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-remove')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
       expect(find.text('Member removed'), findsOneWidget);
     });
 
     testWidgets('switches to and deletes another family', (tester) async {
       await pumpApp(tester);
+      await thriveDebug.createFamily('Beach house');
+      await tester.pumpAndSettle();
+      expect(thriveDebug.curFamily()!.name, 'Beach house');
 
-      // Create a second family.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-new-family')));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Beach house');
-      await tester.pump();
-      await tester.tap(find.text('Create family'));
-      await tester.pumpAndSettle();
-
-      // Open the original family sheet, then switch via the chip switcher.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        keyStartsWith('family-chip-', not: 'family-chip-fam_main'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Switched to Beach house'), findsOneWidget);
-
-      // Delete the now-current family.
+      // Delete the now-current family from its management page.
+      await openFamily(tester);
       await tester.tap(find.byKey(const ValueKey('family-delete')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      expect(find.text('Delete Beach house?'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
       expect(find.text('Family deleted'), findsOneWidget);
+      expect(thriveDebug.families.any((f) => f.name == 'Beach house'), isFalse);
     });
 
     testWidgets('cancels a member edit', (tester) async {
       await pumpApp(tester);
       await openFamily(tester);
-      await inviteLisa(tester);
-      await tester.tap(find.text('Lisa Janssen').last);
+      final lisaId = await inviteLisa(tester);
+      await tester.tap(find.byKey(ValueKey('fam-member-$lisaId')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-edit')));
       await tester.pumpAndSettle();
       expect(find.text('Edit member'), findsOneWidget);
-      expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('member-save')), findsNothing);
+      expect(find.text('Edit member'), findsNothing);
     });
 
     testWidgets('owner adds a member with no email (e.g. a kid)', (
@@ -331,17 +402,22 @@ void main() {
       await pumpApp(tester);
       await openFamily(tester);
 
-      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      await tester.tap(find.byKey(const ValueKey('family-add-loginless')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
+      await tester.enterText(
+        find.byKey(const ValueKey('iv-ll-name')),
+        'Emma Bakker',
+      );
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('add-member-save')));
+      await tester.tap(find.byKey(const ValueKey('iv-add-ll')));
       await tester.pumpAndSettle();
-
       expect(find.text('Emma added'), findsOneWidget);
-      expect(find.text('Emma Bakker'), findsOneWidget);
-      expect(find.text('No login'), findsOneWidget);
-      expect(find.text('Member'), findsWidgets);
+
+      // Close the invite sheet: the login-less row style shows on the page.
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.text('NO LOGIN'), findsOneWidget);
+      expect(find.text('No login — managed by anyone'), findsOneWidget);
 
       final added = thriveDebug.curFamily()!.members.firstWhere(
         (m) => m.name == 'Emma Bakker',
@@ -351,44 +427,39 @@ void main() {
       expect(added.status, 'active');
     });
 
-    testWidgets('owner edits a login-less member\'s name, emoji and picture', (
+    testWidgets('owner edits a login-less member\'s name and emoji', (
       tester,
     ) async {
       await pumpApp(tester);
       await openFamily(tester);
-
-      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      thriveDebug.addMember('Emma Bakker');
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('add-member-save')));
-      await tester.pumpAndSettle();
-
       final added = thriveDebug.curFamily()!.members.firstWhere(
         (m) => m.name == 'Emma Bakker',
       );
 
-      // Tap the row to open the member edit popup.
-      await tester.tap(find.text('Emma Bakker'));
+      await tester.tap(find.byKey(ValueKey('fam-member-${added.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-edit')));
       await tester.pumpAndSettle();
       expect(find.text('Edit member'), findsOneWidget);
-      expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
 
-      // Pick an emoji through the in-app picker (issue precedent from
-      // family_emoji_features_test.dart: hop to the Smileys tab and tap
-      // the first emoji since Recents starts empty).
-      await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
+      // Type any OS emoji through the badge stage's free input.
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(Tab).at(1));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('😀').first);
+      await tester.enterText(
+        find.byKey(const ValueKey('badge-stage-emoji-input')),
+        '😀',
+      );
+      await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
       await tester.pumpAndSettle();
 
-      // Change the name too.
-      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
+      await tester.enterText(
+        find.byKey(const ValueKey('badge-stage-name')),
+        'Emma B.',
+      );
       await tester.pump();
-
-      await tester.tap(find.byKey(const ValueKey('member-save')));
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
 
       final updated = thriveDebug.curFamily()!.members.firstWhere(
@@ -397,7 +468,6 @@ void main() {
       expect(updated.name, 'Emma B.');
       expect(updated.emoji, '😀');
       expect(updated.photo, isNull);
-      expect(find.text('😀'), findsWidgets);
     });
 
     testWidgets('a non-owner member can edit and remove a login-less member', (
@@ -405,13 +475,11 @@ void main() {
     ) async {
       await pumpApp(tester);
       await openFamily(tester);
-
-      await tester.tap(find.byKey(const ValueKey('family-add-member')));
+      thriveDebug.addMember('Emma Bakker');
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(1), 'Emma Bakker');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('add-member-save')));
-      await tester.pumpAndSettle();
+      final added = thriveDebug.curFamily()!.members.firstWhere(
+        (m) => m.name == 'Emma Bakker',
+      );
 
       // Demote 'me' to a plain member.
       final me = thriveDebug.curFamily()!.members.firstWhere(
@@ -420,45 +488,34 @@ void main() {
       me.role = 'member';
       expect(thriveDebug.amOwner(), isFalse);
 
-      // A non-owner can still open the edit popup for a login-less member...
-      await tester.tap(find.text('Emma Bakker'));
+      // A non-owner still edits a login-less member...
+      await tester.tap(find.byKey(ValueKey('fam-member-${added.id}')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('ma-edit')));
       await tester.pumpAndSettle();
       expect(find.text('Edit member'), findsOneWidget);
-      expect(find.byKey(const ValueKey('member-save')), findsOneWidget);
-      await tester.enterText(find.text('Emma Bakker'), 'Emma B.');
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('member-save')));
-      await tester.pumpAndSettle();
-      expect(
-        thriveDebug
-            .curFamily()!
-            .members
-            .firstWhere((m) => m.name == 'Emma B.')
-            .name,
+      await tester.enterText(
+        find.byKey(const ValueKey('badge-stage-name')),
         'Emma B.',
       );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      expect(
+        thriveDebug.curFamily()!.members.any((m) => m.name == 'Emma B.'),
+        isTrue,
+      );
 
-      // ...and remove them too.
-      final emmaId = thriveDebug
-          .curFamily()!
-          .members
-          .firstWhere((m) => m.name == 'Emma B.')
-          .id;
-      await tester.drag(
-        find.byKey(ValueKey('member-$emmaId')),
-        const Offset(-220, 0),
-      );
+      // ...and removes them too.
+      await tester.tap(find.byKey(ValueKey('fam-member-${added.id}')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(ValueKey('member-$emmaId-delete')),
-        warnIfMissed: false,
-      );
+      await tester.tap(find.byKey(const ValueKey('ma-remove')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete').last);
+      await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));
       await tester.pumpAndSettle();
       expect(find.text('Member removed'), findsOneWidget);
       expect(
-        thriveDebug.curFamily()!.members.any((m) => m.name == 'Emma B.'),
+        thriveDebug.curFamily()!.members.any((m) => m.id == added.id),
         isFalse,
       );
     });

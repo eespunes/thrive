@@ -53,94 +53,141 @@ void main() {
       findsOneWidget,
     );
 
+    // The profile page (#274) shows the same photo in its identity card.
     await tester.tap(find.byKey(const ValueKey('profile-avatar')));
     await tester.pumpAndSettle();
-    expect(
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-photo-btn')), findsOneWidget);
+    expect(find.text('Change photo'), findsOneWidget);
+  });
+
+  testWidgets('accounts & blocks sub-screens render from the Money card', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToTab(tester, 'settings');
+    // Accounts sub-screen (#328).
+    expect(find.text('Accounts'), findsWidgets);
+    expect(find.text("Eva's account"), findsOneWidget);
+    expect(find.text('Short · Eva'), findsOneWidget);
+    expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
+    await tester.pumpAndSettle();
+    // Budget blocks sub-screen (#329).
+    await tapHubRow(tester, 'money', 'more-blocks');
+    expect(find.text('Budget blocks'), findsWidgets);
+    expect(find.byKey(const ValueKey('blocks-warn-toggle')), findsOneWidget);
+    expect(find.text('Warn near block limits'), findsOneWidget);
+  });
+
+  testWidgets('add a new account opens its studio and saves', (tester) async {
+    await pumpApp(tester);
+    await goToTab(tester, 'settings');
+    await tester.enterText(
+      find.byKey(const ValueKey('list-add-input')),
+      'Travel fund',
+    );
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
+    await tester.pumpAndSettle();
+    // Add-then-open: the studio opens on the freshly created account.
+    expect(find.text('Edit account'), findsOneWidget);
+    expect(find.text('Travel fund'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('acc-short')), 'TR');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
+    await tester.pumpAndSettle();
+    expect(find.text('Travel fund'), findsOneWidget);
+    expect(find.text('Short · TR'), findsOneWidget);
+  });
+
+  testWidgets('edit an existing account requires the short label', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await goToTab(tester, 'settings');
+    await tester.tap(find.byKey(const ValueKey('accounts-row-eva')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit account'), findsOneWidget);
+    // Clearing the required short label greys the save button out.
+    await tester.enterText(find.byKey(const ValueKey('acc-short')), '');
+    await tester.pump();
+    var box = tester.widget<AnimatedContainer>(
       find.descendant(
-        of: find.byKey(const ValueKey('profile-view-avatar')),
-        matching: find.byType(Image),
+        of: find.byKey(const ValueKey('studio-save')),
+        matching: find.byType(AnimatedContainer),
       ),
-      findsOneWidget,
+    );
+    expect((box.decoration as BoxDecoration?)?.color, const Color(0xffe2e8f0));
+    await tester.enterText(find.byKey(const ValueKey('acc-short')), 'EV');
+    await tester.pump(const Duration(milliseconds: 200));
+    box = tester.widget<AnimatedContainer>(
+      find.descendant(
+        of: find.byKey(const ValueKey('studio-save')),
+        matching: find.byType(AnimatedContainer),
+      ),
+    );
+    expect(
+      (box.decoration as BoxDecoration?)?.color,
+      isNot(const Color(0xffe2e8f0)),
     );
   });
 
-  testWidgets('settings renders accounts, blocks and delete account', (
+  testWidgets('add a block with this-month-only + end dates via the studio', (
     tester,
   ) async {
     await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    expect(find.text('Accounts'), findsWidgets);
-    expect(find.text('Budget blocks'), findsWidgets);
-    expect(find.text('Copy a month'), findsNothing);
-    expect(find.text('Add account'), findsOneWidget);
-    expect(find.text('Add budget block'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
-  });
-
-  testWidgets('add a new account', (tester) async {
-    await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.text('Add account'));
+    await goToTab(tester, 'blocks');
+    await tester.enterText(
+      find.byKey(const ValueKey('list-add-input')),
+      'Kids',
+    );
+    await tester.tap(find.byKey(const ValueKey('list-add-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Add account'), findsWidgets);
-    // The glyph picker has no text field now (issue #131), so the name and
-    // short-label fields are the first two text inputs.
-    await tester.enterText(find.byType(TextField).at(0), 'Travel fund');
-    await tester.enterText(find.byType(TextField).at(1), 'TR');
+    expect(find.text('Edit block'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('block-applies-month')));
     await tester.pump();
-    await tester.tap(find.text('Add account').last);
+    // The amber this-month-only note appears.
+    expect(find.textContaining('Only appears in'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('block-enddate')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
-    expect(find.text('Travel fund'), findsWidgets);
+    expect(find.text('Kids'), findsOneWidget);
+    // Amber "this month only" value + end dates on the row.
+    expect(find.textContaining('only · end dates'), findsOneWidget);
   });
 
-  testWidgets('edit an existing account', (tester) async {
-    await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    expect(find.text("Eva's account"), findsWidgets);
-    await tester.tap(find.byKey(const ValueKey('acc-edit-eva')));
-    await tester.pumpAndSettle();
-    expect(find.text('Edit account'), findsOneWidget);
-  });
-
-  testWidgets('add a new budget block with this-month-only + until', (
+  testWidgets('receives direction hides limit, end date and savings', (
     tester,
   ) async {
     await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.text('Add budget block'));
+    await goToTab(tester, 'blocks');
+    await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
     await tester.pumpAndSettle();
-    expect(find.text('New budget block'), findsOneWidget);
-    // The glyph picker has no text field now (issue #131), so the block name
-    // is the first text input.
-    await tester.enterText(find.byType(TextField).at(0), 'Kids');
+    expect(find.byKey(const ValueKey('block-limit')), findsOneWidget);
+    expect(find.byKey(const ValueKey('block-enddate')), findsOneWidget);
+    expect(find.byKey(const ValueKey('block-savings')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('block-dir-in')));
     await tester.pump();
-    await tester.tap(find.text('This month only'));
-    await tester.pump();
-    await tester.tap(find.text('Track end date'));
-    await tester.pump();
-    await tester.tap(find.text('Create block'));
-    await tester.pumpAndSettle();
-    expect(find.text('Kids'), findsWidgets);
-  });
-
-  testWidgets('account color picker exposes more colors', (tester) async {
-    await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.text('Add account'));
-    await tester.pumpAndSettle();
-    expect(find.text('Palette'), findsOneWidget);
-    await tester.tap(find.byType(AnimatedContainer).last);
-    await tester.pump();
+    expect(find.byKey(const ValueKey('block-limit')), findsNothing);
+    expect(find.byKey(const ValueKey('block-enddate')), findsNothing);
+    expect(find.byKey(const ValueKey('block-savings')), findsNothing);
   });
 
   testWidgets('delete account confirms then signs out', (tester) async {
     await pumpApp(tester);
-    await goToTab(tester, 'settings');
-    await tester.tap(find.text('Delete account'));
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
-    // Confirm dialog has a Delete action.
-    expect(find.text('Delete').evaluate().isNotEmpty, isTrue);
-    await tester.tap(find.text('Delete').last);
+    await tapHubRow(tester, 'account', 'more-delete-account');
+    // The hardened confirm (#280) requires typing DELETE before the button
+    // arms; the untyped button is a no-op.
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('da-input')), 'delete');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
     await tester.pumpAndSettle();
     // Deleting the account signs the user out, landing on the auth gate.
     expect(find.text('Continue with Google'), findsOneWidget);
@@ -155,15 +202,29 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('profile-join-family')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'vanderberg');
-    await tester.enterText(find.byType(TextField).at(1), 'demo');
+    await tester.enterText(
+      find.byKey(const ValueKey('jf-username')),
+      'vanderberg',
+    );
+    await tester.enterText(find.byKey(const ValueKey('jf-password')), 'demo');
     await tester.tap(find.text('Join family'));
     await tester.pumpAndSettle();
-
-    await goToTab(tester, 'settings');
-    await tester.tap(find.text('Delete account'));
+    await tester.tap(find.byKey(const ValueKey('studio-back')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete').last);
+
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+    await tapHubRow(tester, 'account', 'more-delete-account');
+    // The confirm names the real consequence for a shared family.
+    expect(
+      find.textContaining(
+        'Removes you from 2 shared families. Then you’re signed out.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byKey(const ValueKey('da-input')), 'DELETE');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('da-confirm')));
     await tester.pumpAndSettle();
     expect(find.text('Continue with Google'), findsOneWidget);
   });

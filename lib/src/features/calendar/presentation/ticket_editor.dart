@@ -1282,7 +1282,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           key: const ValueKey('event-new-category'),
           onTap: () {
             Navigator.of(context).pop();
-            s.openCategory(null, layerId: _layerId);
+            s.openNewCategoryStudio(layerId: _layerId);
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 7),
