@@ -59,13 +59,68 @@ Uint8List renderCardCodePng(DiscountCard card, {int scale = 3}) {
   return img.encodePng(image);
 }
 
-/// Background widget actions (issue #252): applied directly to the raw v4
-/// state blob by the background isolate, so a tick or a pay works without
-/// opening the app. The app reconciles + syncs on next launch. Returns
-/// true when something changed.
-bool applyPhoneWidgetAction(Map<String, dynamic> v4, Uri uri) {
+/// Loads the active family's raw workspace JSON for the background isolate.
+/// Workspaces moved out of the v4 blob into per-section keys
+/// ([kWsSectionPrefix], see `_persistLocalWorkspaces`), so the section keys
+/// are the source of truth; the legacy `workspaces` map still embedded in
+/// older blobs is only a fallback. Returns null when neither exists (e.g.
+/// cloud mode, where local state is wiped).
+Map<String, dynamic>? phoneWidgetLoadWorkspaceJson(
+  SharedPreferences prefs,
+  Map<String, dynamic> v4,
+) {
   final familyId = (v4['familyId'] ?? '').toString();
-  final ws = (v4['workspaces'] as Map?)?[familyId] as Map?;
+  final prefix = '$kWsSectionPrefix$familyId.';
+  final sections = <String, Map<String, dynamic>>{};
+  for (final key in prefs.getKeys()) {
+    if (!key.startsWith(prefix)) continue;
+    try {
+      sections[key.substring(prefix.length)] = Map<String, dynamic>.from(
+        json.decode(prefs.getString(key)!) as Map,
+      );
+    } catch (_) {
+      // Skip a corrupt section — same tolerance as the app's restore.
+    }
+  }
+  final fromSections = workspaceFromSections(sections);
+  if (fromSections != null) return fromSections.toJson();
+  // Legacy blob with embedded workspaces. The shallow copy shares the
+  // nested lists/maps, so mutations remain visible through [v4] and a
+  // legacy write-back of the whole blob persists them.
+  final legacy = (v4['workspaces'] as Map?)?[familyId];
+  return legacy is Map ? Map<String, dynamic>.from(legacy) : null;
+}
+
+/// Writes a mutated workspace JSON back to the SAME place it was read from,
+/// so the main app's restore (which prefers section keys over the embedded
+/// map) picks the change up: per-family section keys when any exist,
+/// otherwise the legacy embedded `workspaces` map inside the v4 blob.
+Future<void> phoneWidgetSaveWorkspaceJson(
+  SharedPreferences prefs,
+  Map<String, dynamic> v4,
+  Map<String, dynamic> wsJson,
+) async {
+  final familyId = (v4['familyId'] ?? '').toString();
+  final prefix = '$kWsSectionPrefix$familyId.';
+  if (prefs.getKeys().any((k) => k.startsWith(prefix))) {
+    final sections = workspaceSections(Workspace.fromJson(wsJson));
+    for (final s in sections.entries) {
+      final encoded = json.encode(s.value);
+      if (prefs.getString('$prefix${s.key}') != encoded) {
+        await prefs.setString('$prefix${s.key}', encoded);
+      }
+    }
+    return;
+  }
+  ((v4['workspaces'] ??= <String, dynamic>{}) as Map)[familyId] = wsJson;
+  await prefs.setString(kStorageKeyV4, json.encode(v4));
+}
+
+/// Background widget actions (issue #252): applied to the active family's
+/// raw workspace JSON by the background isolate, so a tick or a pay works
+/// without opening the app. The app reconciles + syncs on next launch.
+/// Returns true when something changed.
+bool applyPhoneWidgetAction(Map<String, dynamic>? ws, Uri uri) {
   if (ws == null) return false;
   switch (uri.queryParameters['do']) {
     case 'tick_task':
@@ -110,14 +165,16 @@ bool applyPhoneWidgetAction(Map<String, dynamic> v4, Uri uri) {
   return false;
 }
 
-/// Rebuilds the widget payload straight from a raw v4 blob — used by the
-/// background isolate after [applyPhoneWidgetAction] so widgets refresh
-/// without the app running.
-Map<String, dynamic>? phoneWidgetPayloadFromV4(Map<String, dynamic> v4) {
-  final familyId = (v4['familyId'] ?? '').toString();
-  final raw = (v4['workspaces'] as Map?)?[familyId];
-  if (raw is! Map) return null;
-  final ws = Workspace.fromJson(Map<String, dynamic>.from(raw));
+/// Rebuilds the widget payload from the slim v4 meta blob plus the active
+/// family's raw workspace JSON (from [phoneWidgetLoadWorkspaceJson]) — used
+/// by the background isolate after [applyPhoneWidgetAction] so widgets
+/// refresh without the app running.
+Map<String, dynamic>? phoneWidgetPayloadFromV4(
+  Map<String, dynamic> v4,
+  Map<String, dynamic>? wsJson,
+) {
+  if (wsJson == null) return null;
+  final ws = Workspace.fromJson(Map<String, dynamic>.from(wsJson));
   final year = (v4['year'] as num?)?.toInt() ?? DateTime.now().year;
   final monthIdx = ((v4['monthIdx'] as num?)?.toInt() ?? 0).clamp(0, 11);
   return buildPhoneWidgetPayload(
@@ -390,8 +447,11 @@ extension _ThrivePhoneWidgets on _ThriveHomeState {
 }
 
 /// Background entry point for in-widget actions (issue #252): mutates the
-/// local v4 blob, rebuilds the payload and refreshes the widgets — all
-/// without opening the app. The app reconciles + syncs on next launch.
+/// active family's local workspace (per-section keys, with the legacy
+/// embedded-v4 map as fallback), rebuilds the payload and refreshes the
+/// widgets — all without opening the app. The app reconciles + syncs on
+/// next launch. In cloud mode local state is wiped, so there is nothing to
+/// mutate and the action is a no-op.
 // Runs in a headless isolate with live plugins.
 // coverage:ignore-start
 @pragma('vm:entry-point')
@@ -402,9 +462,10 @@ Future<void> phoneWidgetBackgroundCallback(Uri? uri) async {
     final raw = prefs.getString(kStorageKeyV4);
     if (raw == null) return;
     final v4 = json.decode(raw) as Map<String, dynamic>;
-    if (!applyPhoneWidgetAction(v4, uri)) return;
-    await prefs.setString(kStorageKeyV4, json.encode(v4));
-    final payload = phoneWidgetPayloadFromV4(v4);
+    final ws = phoneWidgetLoadWorkspaceJson(prefs, v4);
+    if (ws == null || !applyPhoneWidgetAction(ws, uri)) return;
+    await phoneWidgetSaveWorkspaceJson(prefs, v4, ws);
+    final payload = phoneWidgetPayloadFromV4(v4, ws);
     if (payload != null) {
       await HomeWidget.saveWidgetData('payload', json.encode(payload));
     }

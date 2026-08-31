@@ -461,6 +461,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     if (_persistTimer?.isActive != true) return;
     _persistTimer?.cancel();
     unawaited(_persist());
+    // The debounced path also refreshes the Android home-screen widgets
+    // (issue #252); a flush must too, or backgrounding inside the debounce
+    // window left the widgets showing pre-edit data.
+    unawaited(pushPhoneWidgets());
   }
 
   Future<void> _refreshReminderSchedule() async {
@@ -538,6 +542,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
     _localSelfUidCache = await _localSelfUid();
+    // Per-device settings restore on EVERY boot path — cloud boots have no
+    // v4 blob to carry them, and a local v4 restore later simply re-applies
+    // the same values.
+    _restoreDevicePrefs(prefs);
 
     // Firebase boot sync is integration-only here.
     // coverage:ignore-start
@@ -562,13 +570,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             json.decode(rawV4) as Map<String, dynamic>,
             sectionWorkspaces: _readLocalWorkspaceSections(prefs),
           );
-          for (final f in families) {
-            f.ownerUid ??= uid;
-            if (!f.memberUids.contains(uid)) f.memberUids.add(uid);
-            if (f.username.trim().isEmpty) f.username = familySlug(f.name);
-          }
           if (!mounted) return;
           _finishBoot();
+          // The local→cloud promotion — EVERY local family pushed (not just
+          // the active one), the local pseudo-uid remapped to the Firebase
+          // uid, and local copies deleted only after the writes are queued —
+          // lives in [_persist]'s cloud branch, shared with the mid-session
+          // sign-in path.
           await _persist();
           await bindCloudSync(uid);
           return;
@@ -874,19 +882,50 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
+    // Per-DEVICE settings (reminders, device-calendar mirror, widget privacy,
+    // active tab) live under their own small key on every persist. They never
+    // ride the cloud user doc and are never deleted by the cloud-mode local
+    // wipe below — before this, they only lived inside the v4 blob, which
+    // cloud mode deletes, so they silently reset on every cloud boot.
+    await _persistDevicePrefs(prefs);
     if (_cloudBacked) {
-      await prefs.remove(kStorageKeyV4);
-      await prefs.remove(kStorageKey);
-      for (final key in prefs.getKeys().toList()) {
-        if (key.startsWith(kWsSectionPrefix)) await prefs.remove(key);
-      }
       // Never push an EMPTY family set to the cloud. An empty in-memory
       // `families` only occurs transiently — during sign-in (before cloudBoot
       // has loaded them) and during sign-out (after they're cleared) — and
       // writing `familyIds: []` then would wipe the account's membership and
       // strand it on the onboarding gate next login (issue #128). Deliberate
       // "leave/delete my last family" flows update the user doc on their own.
-      if (families.isNotEmpty) await _pushCloudState();
+      // Nor may the local copies be deleted then: local storage may still
+      // hold families the cloud has never seen.
+      if (families.isEmpty) return;
+      final hasLocalState =
+          prefs.containsKey(kStorageKeyV4) ||
+          prefs.getKeys().any((k) => k.startsWith(kWsSectionPrefix));
+      if (hasLocalState && !_applyingCloudSnapshot && _firebaseUid() != null) {
+        // First cloud persist while local v4/section storage still exists:
+        // this is the local→cloud promotion (fresh boot with a signed-in
+        // user, or a mid-session sign-in). cloudPersist only writes the
+        // ACTIVE family's docs, so pushing it and wiping local storage used
+        // to lose every OTHER local family forever — their ids lingered in
+        // the user doc's `familyIds` with no `families/{id}` doc behind
+        // them. Promote ALL of them (after remapping this device's local
+        // pseudo-uid to the Firebase uid so the pre-sign-in "you" doesn't
+        // survive as a ghost member row).
+        final meUid = _firebaseUid()!;
+        _promoteLocalFamiliesForCloud(meUid);
+        await _persistAllFamilies(meUid);
+        await _recordMembership(meUid);
+      } else {
+        await _pushCloudState();
+      }
+      // Delete the local copies only NOW — after the cloud writes committed
+      // (or were durably queued by the SDK's offline persistence). Deleting
+      // first meant a failed/never-run cloud write destroyed the only copy.
+      await prefs.remove(kStorageKeyV4);
+      await prefs.remove(kStorageKey);
+      for (final key in prefs.getKeys().toList()) {
+        if (key.startsWith(kWsSectionPrefix)) await prefs.remove(key);
+      }
       return;
     }
     // Sections FIRST, the slim meta blob last: if the process dies between
@@ -898,6 +937,51 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final ok = await _persistLocalWorkspaces(prefs);
     if (ok) {
       await prefs.setString(kStorageKeyV4, json.encode(_buildStatePayload()));
+    }
+    // Local/demo shared families: keep the registry's mirror of each
+    // family current (issue: another local user who joined only ever saw
+    // the workspace as it was at creation time). Best-effort: the registry
+    // embeds whole workspaces and can hit the web localStorage quota — the
+    // primary v4/section writes above are already safe.
+    try {
+      await _refreshLocalRegistry();
+    } catch (e) {
+      debugPrint('[persist] registry refresh failed: $e');
+    }
+  }
+
+  /// Serializes the per-device settings (see [_persistDevicePrefs]).
+  Map<String, dynamic> _devicePrefsPayload() => {
+    'tab': tab,
+    'widgetHideAmounts': _widgetHideAmounts,
+    'notificationsEnabled': notificationsEnabled,
+    'deviceCalendarSync': deviceCalendarSyncEnabled,
+  };
+
+  /// Writes the per-device settings under [kDevicePrefsKey] — a key that
+  /// survives the cloud-mode wipe of v4/section storage.
+  Future<void> _persistDevicePrefs(SharedPreferences prefs) async {
+    try {
+      await prefs.setString(kDevicePrefsKey, json.encode(_devicePrefsPayload()));
+    } catch (_) {
+      /* best-effort: quota/serialization failures never block a persist */
+    }
+  }
+
+  /// Restores the per-device settings on boot (local AND cloud paths). A v4
+  /// blob restored afterwards carries the same values, so order is harmless.
+  void _restoreDevicePrefs(SharedPreferences prefs) {
+    final raw = prefs.getString(kDevicePrefsKey);
+    if (raw == null) return;
+    try {
+      final m = Map<String, dynamic>.from(json.decode(raw) as Map);
+      _widgetHideAmounts = m['widgetHideAmounts'] == true;
+      notificationsEnabled = m['notificationsEnabled'] != false;
+      deviceCalendarSyncEnabled = m['deviceCalendarSync'] != false;
+      final t = (m['tab'] ?? '').toString();
+      if (kValidTabs.contains(t)) tab = t;
+    } catch (_) {
+      /* corrupt prefs — keep the defaults */
     }
   }
 

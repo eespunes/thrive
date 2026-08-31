@@ -207,11 +207,22 @@ extension _ThriveAccountActions on _ThriveHomeState {
   }
   // coverage:ignore-end
 
-  void signOut() {
+  Future<void> signOut() async {
     // Drop any debounced persist BEFORE clearing state: the timer would
     // otherwise fire up to 2s after sign-out and write the previous
     // account's data back to local storage under the fresh session.
+    final hadPendingPersist = _persistTimer?.isActive == true;
     _persistTimer?.cancel();
+    // For cloud-backed users, flush that pending edit to Firestore first —
+    // cancelling alone silently dropped the last ~2s of edits. Bounded by
+    // [kCloudOpTimeout] so sign-out can't hang offline.
+    if (hadPendingPersist && _cloudBacked && _firebaseUid() != null) {
+      try {
+        await _persist().timeout(kCloudOpTimeout);
+      } catch (e) {
+        debugPrint('[cloud] sign-out flush failed: $e');
+      }
+    }
     update(() {
       user = null;
       families = [];
@@ -520,11 +531,59 @@ extension _ThriveAccountActions on _ThriveHomeState {
     }, '${name.split(' ').first} added');
   }
 
-  void removeMember(String id) {
-    _withCurFamily(
-      (f) => f.members.removeWhere((m) => m.id == id),
-      'Member removed',
+  /// Sweeps legacy "ghost" uids out of [f.memberUids]: the old removeMember
+  /// deleted a member's display row but left their uid behind, so those users
+  /// kept full access via the security rules and an owner leaving such a
+  /// family could strand it ownerless (no heir row, yet memberUids non-empty
+  /// so cloudLeaveFamily never deletes it). Only the RULES owner (matching
+  /// `ownerUid`) may run this — non-owner memberUids writes are rejected
+  /// wholesale, see removeMember.
+  ///
+  /// Caution: a joiner briefly has a uid in memberUids before their display
+  /// row lands (cloudJoinFamily writes the row best-effort after the
+  /// arrayUnion), so a sweep in that window would evict a real member. Only
+  /// call this from the leave-family path, where a stranded ownerless family
+  /// is the greater harm and the window is negligible.
+  void _sweepGhostMemberUids(Family f) {
+    final myUid = _firebaseUid();
+    if (myUid == null || myUid != f.ownerUid) return;
+    final rowUids = {
+      for (final m in f.members)
+        if (m.uid != null && m.uid!.isNotEmpty) m.uid!,
+    };
+    f.memberUids.removeWhere(
+      (u) => u != f.ownerUid && !rowUids.contains(u),
     );
+  }
+
+  void removeMember(String id) {
+    _withCurFamily((f) {
+      // Also revoke the member's real access: security rules gate reads and
+      // writes on `memberUids`, so deleting only the display row would leave
+      // a removed (signed-in) member with full access to the family. Only the
+      // owner may change `memberUids` arbitrarily per the rules, so a
+      // non-owner's local removal must not touch it (the meta write would be
+      // rejected wholesale and break sync). The rules key ownership off
+      // `ownerUid`, not the display role, so gate on that — not amOwner().
+      final myUid = _firebaseUid();
+      final amRulesOwner =
+          myUid == null ? amOwner() : myUid == f.ownerUid;
+      for (final m in f.members) {
+        if (m.id == id) {
+          final memberUid = m.uid;
+          if (amRulesOwner &&
+              memberUid != null &&
+              memberUid.isNotEmpty &&
+              memberUid != f.ownerUid) {
+            f.memberUids.remove(memberUid);
+          }
+          break;
+        }
+      }
+      f.members.removeWhere((m) => m.id == id);
+      // No ghost-uid sweep here: a freshly-joined member can briefly have a
+      // uid without a display row and must not be evicted (see helper docs).
+    }, 'Member removed');
   }
 
   void toggleMemberRole(String id) {
@@ -889,9 +948,34 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final others = fam.members.where((m) => m.id != selfId).toList();
 
     // An owner leaving must hand ownership off so the family keeps an owner.
-    if (iAmOwner && others.isNotEmpty) {
-      final active = others.where((m) => m.status == 'active').toList();
-      final pool = active.isNotEmpty ? active : others;
+    // Only members with a real Firebase uid present in `memberUids` can
+    // inherit: kids added via addMember have no uid, and handing them the
+    // family would set `ownerUid` to null — the rules' isOwnerHandoff rejects
+    // that write and the family resurrects on next boot. When no such heir
+    // exists the leaver is the only real user, so no handoff happens: their
+    // uid is removed below, `memberUids` goes empty, and cloudLeaveFamily
+    // deletes the family docs outright.
+    // Legacy data: drop ghost uids (no matching member row) first, so a
+    // family whose only real member is the departing owner ends with an empty
+    // memberUids and gets deleted by cloudLeaveFamily instead of being
+    // stranded ownerless (owner-only, see _sweepGhostMemberUids).
+    _sweepGhostMemberUids(fam);
+    final myUid = _firebaseUid();
+    final famMemberUids = fam.memberUids;
+    final eligible = myUid == null
+        ? others
+        : others
+              .where(
+                (m) =>
+                    m.uid != null &&
+                    m.uid!.isNotEmpty &&
+                    m.uid != myUid &&
+                    famMemberUids.contains(m.uid),
+              )
+              .toList();
+    if (iAmOwner && eligible.isNotEmpty) {
+      final active = eligible.where((m) => m.status == 'active').toList();
+      final pool = active.isNotEmpty ? active : eligible;
       final heir = pool[math.Random().nextInt(pool.length)];
       heir.role = 'owner';
       fam.ownerUid = heir.uid;
