@@ -11,9 +11,15 @@ String uid() {
   return 'x$rand${_uidCounter.toRadixString(36)}';
 }
 
+/// Test-only override for the clock behind [todayIso]. Production leaves this
+/// null. Widget tests whose result must not depend on the real calendar date
+/// (e.g. month-boundary rendering, which duplicates events into the adjacent
+/// month's overflow row) set it and reset it in a tearDown.
+DateTime Function()? debugNowOverride;
+
 /// Today's date as `YYYY-MM-DD`, mirrors the design's `TODAY` constant.
 String todayIso() {
-  final now = DateTime.now();
+  final now = debugNowOverride?.call() ?? DateTime.now();
   return '${now.year.toString().padLeft(4, '0')}-'
       '${now.month.toString().padLeft(2, '0')}-'
       '${now.day.toString().padLeft(2, '0')}';
