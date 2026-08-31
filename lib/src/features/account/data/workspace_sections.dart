@@ -148,6 +148,159 @@ String metaDocDigest(Map<String, dynamic> doc) => sectionDigest({
   'members': doc['members'],
 });
 
+// ------------------------------------------------------- dirty-section merge
+
+/// Decodes [raw] as a list of id-keyed item maps, or null when the shape
+/// doesn't match (any non-map entry or missing/empty id) — the caller then
+/// falls back to keeping the local payload wholesale.
+List<Map<String, dynamic>>? _asIdItemList(Object? raw) {
+  if (raw is! List) return null;
+  final out = <Map<String, dynamic>>[];
+  for (final e in raw) {
+    if (e is! Map || (e['id']?.toString() ?? '').isEmpty) return null;
+    out.add(Map<String, dynamic>.from(e));
+  }
+  return out;
+}
+
+/// Union of two id-keyed item lists, local-preferring: local items keep their
+/// order and content (this device may hold unsaved edits to them); remote-only
+/// items are appended in remote order (they are another member's concurrent
+/// additions — the lost-update case this merge exists for). Items present
+/// only locally are kept too: they are either local additions not yet pushed,
+/// or remote deletions — resurrecting a remote-deleted item is the deliberate
+/// trade-off versus losing another member's addition. When [combine] is given
+/// it merges an item present on both sides (used for nested lists).
+/// Returns null when either side's shape is unexpected.
+List<Map<String, dynamic>>? _unionById(
+  Object? localRaw,
+  Object? remoteRaw, {
+  Map<String, dynamic> Function(
+    Map<String, dynamic> local,
+    Map<String, dynamic> remote,
+  )?
+  combine,
+}) {
+  final local = _asIdItemList(localRaw);
+  final remote = _asIdItemList(remoteRaw);
+  if (local == null || remote == null) return null;
+  final localIds = {for (final e in local) e['id'].toString()};
+  final remoteById = {for (final e in remote) e['id'].toString(): e};
+  return [
+    for (final e in local)
+      combine != null && remoteById.containsKey(e['id'].toString())
+          ? combine(e, remoteById[e['id'].toString()]!)
+          : e,
+    for (final e in remote)
+      if (!localIds.contains(e['id'].toString())) e,
+  ];
+}
+
+/// Merges one nested list container (a task/shopping list) present both
+/// locally and remotely: local list fields win, the inner [itemsKey] items
+/// are unioned by id (local versions win, remote-only items appended).
+Map<String, dynamic> _mergeListContainer(
+  String itemsKey,
+  Map<String, dynamic> local,
+  Map<String, dynamic> remote,
+) => {
+  ...local,
+  itemsKey: _unionById(local[itemsKey], remote[itemsKey]) ?? local[itemsKey],
+};
+
+/// Merges a budget `months` map (month key → MonthData json) at item level:
+/// months only remote are added; months on both sides keep local fields
+/// (caps, closed, open, snapshots) but union each `blocks` expense list by
+/// id; block keys only remote are added. Falls back to [local] wholesale on
+/// any unexpected shape.
+Map<String, dynamic> _mergeBudgetMonths(
+  Map<String, dynamic> local,
+  Map<String, dynamic> remote,
+) {
+  final out = <String, dynamic>{...local};
+  remote.forEach((mk, remoteMonthRaw) {
+    final localMonthRaw = local[mk];
+    if (localMonthRaw == null) {
+      out[mk] = remoteMonthRaw; // month another member just created
+      return;
+    }
+    if (localMonthRaw is! Map || remoteMonthRaw is! Map) return; // keep local
+    final localMonth = Map<String, dynamic>.from(localMonthRaw);
+    final localBlocks = localMonth['blocks'];
+    final remoteBlocks = remoteMonthRaw['blocks'];
+    if (localBlocks is! Map || remoteBlocks is! Map) return; // keep local
+    final blocks = <String, dynamic>{
+      for (final e in localBlocks.entries) e.key.toString(): e.value,
+    };
+    remoteBlocks.forEach((bk, remoteList) {
+      final key = bk.toString();
+      if (!blocks.containsKey(key)) {
+        blocks[key] = remoteList;
+      } else {
+        blocks[key] = _unionById(blocks[key], remoteList) ?? blocks[key];
+      }
+    });
+    out[mk] = {...localMonth, 'blocks': blocks};
+  });
+  return out;
+}
+
+/// Item-level merge of a locally-dirty section [local] with the server's
+/// concurrent version [remote] (see `_bindActiveFamily`'s snapshot merge).
+/// Wholesale keeping the dirty local payload — the previous behavior — made
+/// the next persist overwrite and permanently delete anything another family
+/// member added to the same section concurrently. For sections whose payload
+/// is a list of id-keyed items (events, cards, task/shopping lists, budget
+/// month blocks) this unions by item id: LOCAL versions win for items on both
+/// sides, remote-only items are ADDED, local-only items are KEPT (accepting
+/// that a remotely-deleted item may resurrect — losing a deletion is the
+/// deliberately chosen lesser evil versus losing an addition). Non-list
+/// payloads (`settings`, `weekly`, imports) and anything whose runtime shape
+/// doesn't match expectations keep the existing dirty-local-wins behavior.
+Map<String, dynamic> mergeDirtySection(
+  String id,
+  Map<String, dynamic> local,
+  Map<String, dynamic> remote,
+) {
+  if (id == 'events' || id.startsWith('events_')) {
+    final events = _unionById(local['events'], remote['events']);
+    if (events == null) return local;
+    return {...local, 'events': events};
+  }
+  if (id == 'cards') {
+    final cards = _unionById(local['cards'], remote['cards']);
+    if (cards == null) return local;
+    return {...local, 'cards': cards};
+  }
+  if (id == 'lists') {
+    final tasks = _unionById(
+      local['taskLists'],
+      remote['taskLists'],
+      combine: (l, r) => _mergeListContainer('tasks', l, r),
+    );
+    final shopping = _unionById(
+      local['shoppingLists'],
+      remote['shoppingLists'],
+      combine: (l, r) => _mergeListContainer('items', l, r),
+    );
+    if (tasks == null && shopping == null) return local;
+    return {...local, 'taskLists': ?tasks, 'shoppingLists': ?shopping};
+  }
+  if (id.startsWith('budget_')) {
+    final localMonths = local['months'];
+    final remoteMonths = remote['months'];
+    if (localMonths is! Map || remoteMonths is! Map) return local;
+    return {
+      ...local,
+      'months': _mergeBudgetMonths(
+        Map<String, dynamic>.from(localMonths),
+        Map<String, dynamic>.from(remoteMonths),
+      ),
+    };
+  }
+  return local; // settings / weekly / imports: dirty-local-wins as before
+}
+
 /// Legacy single-doc workspace: families that predate the subcollection split
 /// still carry the whole workspace as one map on the meta doc.
 Workspace workspaceFromDoc(Map<String, dynamic> doc) {

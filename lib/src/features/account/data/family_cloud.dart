@@ -26,6 +26,12 @@ const String kRegistryKey = 'thrive.registry';
 /// which used to collide whenever two real people's rows both carried it.
 const String kLocalSelfUidKey = 'thrive.localSelfUid';
 
+/// Per-DEVICE settings (reminders switch, device-calendar mirror, widget
+/// privacy, active tab). Kept OUTSIDE the v4 blob — which cloud mode deletes
+/// on every persist — so a cloud-backed device no longer loses them on every
+/// boot. Never mirrored to the cloud user doc: they describe this device.
+const String kDevicePrefsKey = 'thrive.deviceprefs.v1';
+
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
 /// it, so with offline persistence a dropped connection would otherwise hang
 /// the UI forever. Bounding every await turns that into a recoverable error.
@@ -429,7 +435,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _migrateLegacyMeIds(f, meUid);
     }
     await _persistAllFamilies(meUid);
-    await _writeUserDoc(meUid);
+    await _recordMembership(meUid);
     return true;
   }
 
@@ -445,7 +451,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (_applyingCloudSnapshot) return;
         // Home board edits made on another device (issue #240). Compared as
         // JSON so the every-persist rewrite of the user doc doesn't loop.
-        final remoteBoard = parseHomeBoard(data['homeBoard']);
+        // Skip our own local echo (same guard as the workspace stream) so a
+        // pending local write can't be re-adopted as if it were remote.
+        final remoteBoard = snap.metadata.hasPendingWrites
+            ? null
+            : parseHomeBoard(data['homeBoard']);
         if (remoteBoard != null &&
             json.encode([for (final e in remoteBoard) e.toJson()]) !=
                 json.encode([
@@ -454,8 +464,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           homeBoard = remoteBoard;
           if (mounted) update(() {});
         }
+        // `activeFamilyId` is treated as per-device view state: every
+        // device's persist rewrites it in the user doc, so adopting it from
+        // every snapshot made two devices of one account parked on different
+        // families switch each other back and forth on every edit. Boot
+        // still seeds the initial active family from the user doc (see
+        // _applyFamilyDocs); here it's only the fallback for a device whose
+        // current active id is no longer valid (e.g. just evicted from it).
         final active = (data['activeFamilyId'] ?? familyId).toString();
-        if (active != familyId && workspaces.containsKey(active)) {
+        if (!workspaces.containsKey(familyId) &&
+            active != familyId &&
+            workspaces.containsKey(active)) {
           _applyingCloudSnapshot = true;
           familyId = active;
           _adoptActiveWorkspace();
@@ -472,6 +491,43 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _bindActiveFamily(meUid);
     } catch (e) {
       debugPrint('[cloud] bindCloudSync failed: $e');
+    }
+  }
+
+  /// Removes a family this user no longer belongs to from local state and
+  /// falls back to the next family — or the create/join gate when it was the
+  /// last one. Shared by the snapshot-based membership check below and the
+  /// stream `onError` handlers (an evicted device's reads are denied by the
+  /// security rules, so eviction can arrive as a permission error too).
+  void _dropFamilyLocally(String fid) {
+    final present = families.any((f) => f.id == fid);
+    if (!present && fid != familyId) return;
+    _applyingCloudSnapshot = true;
+    families = families.where((f) => f.id != fid).toList();
+    workspaces.remove(fid);
+    if (fid == familyId) {
+      familyId = families.isNotEmpty ? families.first.id : 'fam_main';
+      _adoptActiveWorkspace();
+    }
+    _applyingCloudSnapshot = false;
+    if (mounted) update(() {});
+  }
+
+  /// Shared `onError` for both family streams. A stream error KILLS the
+  /// subscription, so without this an evicted device (whose reads the rules
+  /// now deny) kept stale data silently and every persist failed until
+  /// restart. Permission-denied means we're no longer a member — run the same
+  /// cleanup as the snapshot-based membership check; anything else is at
+  /// least surfaced instead of dying unnoticed.
+  void _onFamilyStreamError(String fid, String label, Object e) {
+    if (e is FirebaseException && e.code == 'permission-denied') {
+      debugPrint('[cloud] $label stream denied for $fid — dropping family');
+      _dropFamilyLocally(fid);
+      return;
+    }
+    debugPrint('[cloud] $label stream failed for $fid: $e');
+    if (mounted) {
+      showError('Lost sync with your family — restart the app if it persists.');
     }
   }
 
@@ -523,7 +579,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         local.forEach((id, payload) {
           final localDigest = sectionDigest(payload);
           if (localDigest != known[id] && localDigest != incomingDigests[id]) {
-            merged[id] = payload; // locally dirty — keep ours
+            // Locally dirty. Wholesale keeping our copy used to discard —
+            // and, on the next persist, permanently DELETE — anything another
+            // member added to the same section concurrently. Instead, union
+            // id-keyed items: keep local versions, add remote-only items
+            // (see [mergeDirtySection] for the exact per-section semantics
+            // and the deletion-resurrection trade-off).
+            final remote = incoming[id];
+            merged[id] = remote == null
+                ? payload
+                : mergeDirtySection(id, payload, remote);
           }
         });
         final ws = workspaceFromSections(merged);
@@ -544,7 +609,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           update(() {});
           _rescheduleReminders();
         }
-      });
+      }, onError: (Object e) => _onFamilyStreamError(fid, 'workspace', e));
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
@@ -556,17 +621,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         // the active-family stream fires on our own leave-write and keeps
         // re-adding a family we just left (issue #133).
         if (!fam.memberUids.contains(meUid)) {
-          final present = families.any((f) => f.id == fid);
-          if (!present && fid != familyId) return;
-          _applyingCloudSnapshot = true;
-          families = families.where((f) => f.id != fid).toList();
-          workspaces.remove(fid);
-          if (fid == familyId) {
-            familyId = families.isNotEmpty ? families.first.id : 'fam_main';
-            _adoptActiveWorkspace();
-          }
-          _applyingCloudSnapshot = false;
-          if (mounted) update(() {});
+          _dropFamilyLocally(fid);
           return;
         }
         // Change detection by content digest over the meta fields we own —
@@ -595,7 +650,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           update(() {});
           _rescheduleReminders();
         }
-      });
+      }, onError: (Object e) => _onFamilyStreamError(fid, 'family', e));
     } catch (e) {
       debugPrint('[cloud] family stream failed: $e');
     }
@@ -604,13 +659,21 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // ----------------------------------------------------------- persist
   Future<void> cloudPersist(String meUid) async {
     if (_applyingCloudSnapshot) return;
-    await _writeUserDoc(meUid);
+    // Workspace sections FIRST: they carry the user's actual edits, and the
+    // batch.commit() only needs to START for Firestore to durably queue it
+    // offline. The user-doc mirror used to be awaited unbounded before this —
+    // offline, that set() never resolves (writes only ack from the backend),
+    // so the section persist was never reached and edits never entered the
+    // SDK's offline queue at all (silent data loss on app kill).
     final f = curFamily();
     if (f != null) {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
       await _persistFamilySections(f, workspaces[f.id] ?? Workspace.empty());
     }
+    // Best-effort, bounded mirror write: a timeout just means no backend ack
+    // yet — the set() is already queued by the SDK and will land when online.
+    await _recordMembership(meUid);
   }
 
   /// Writes [f]'s metadata doc and only the workspace section docs whose
@@ -711,7 +774,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Persists the user-doc mirror (profile, `familyIds`, active family, view
-  /// state) and AWAITS the backend ack, so a freshly created or joined family is
+  /// state), bounded by [kCloudOpTimeout] and swallowing failures — the
+  /// canonical way to await [_writeUserDoc] anywhere an unbounded hang would
+  /// block a user-visible flow (its `set()` only acks from the backend, so
+  /// offline it never resolves, though the SDK has already queued the write).
+  /// Originally added so a freshly created or joined family is
   /// durably recorded in Firestore before we leave the flow. This closes the gap
   /// where an app closed right after create/join — before any edit triggered a
   /// persist — would lose its `familyIds` and bounce the user back to the
@@ -723,6 +790,62 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       await _writeUserDoc(meUid).timeout(kCloudOpTimeout);
     } catch (e) {
       debugPrint('[cloud] recordMembership failed: $e');
+    }
+  }
+
+  /// Prepares every locally-held family for its first cloud persist (the
+  /// local→cloud promotion in `_persist`): claims ownership/membership for
+  /// [meUid], backfills usernames, rewrites any legacy literal `'me'` rows,
+  /// and — crucially — remaps this device's local pseudo-uid to the Firebase
+  /// [meUid] across member rows, memberUids and workspace references. The
+  /// old promotion only ADDED [meUid] to `memberUids`, leaving the
+  /// pseudo-uid self row behind as a ghost second member.
+  void _promoteLocalFamiliesForCloud(String meUid) {
+    final localId = _localSelfUidCache;
+    for (final f in families) {
+      f.ownerUid ??= meUid;
+      if (f.username.trim().isEmpty) f.username = familySlug(f.name);
+      _migrateLegacyMeIds(f, meUid);
+      if (localId != null && localId != meUid) {
+        if (f.ownerUid == localId) f.ownerUid = meUid;
+        for (final m in f.members) {
+          if (m.id == localId) m.id = meUid;
+          if (m.uid == localId) m.uid = meUid;
+        }
+        f.memberUids = {
+          for (final u in f.memberUids) u == localId ? meUid : u,
+        }.toList();
+      }
+      if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
+    }
+    if (localId != null && localId != meUid) {
+      for (final ws in workspaces.values) {
+        _remapMemberIdInWorkspace(ws, localId, meUid);
+      }
+    }
+  }
+
+  /// Rewrites every workspace reference to member id [from] (attendees,
+  /// creators, assignees, shopping adders) to [to] — the same reference set
+  /// the legacy `'me'` migration covers.
+  void _remapMemberIdInWorkspace(Workspace ws, String from, String to) {
+    for (final ev in ws.events) {
+      if (ev.attendees.contains(from)) {
+        ev.attendees = [for (final a in ev.attendees) a == from ? to : a];
+      }
+      if (ev.createdBy == from) ev.createdBy = to;
+    }
+    for (final list in ws.taskLists) {
+      for (final t in list.tasks) {
+        if (t.assignee == from) t.assignee = to;
+        if (t.createdBy == from) t.createdBy = to;
+        if (t.completedBy == from) t.completedBy = to;
+      }
+    }
+    for (final list in ws.shoppingLists) {
+      for (final item in list.items) {
+        if (item.addedBy == from) item.addedBy = to;
+      }
     }
   }
 
@@ -1028,7 +1151,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           'memberUids': FieldValue.arrayRemove([meUid]),
         });
       }
-      await _writeUserDoc(meUid);
+      await _recordMembership(meUid);
       return null;
     } catch (e) {
       debugPrint('[cloud] deleteFamily failed: $e');
@@ -1058,7 +1181,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           workspaces[fam.id] ?? Workspace.empty(),
         );
       }
-      await _writeUserDoc(meUid);
+      await _recordMembership(meUid);
       return null;
     } catch (e) {
       debugPrint('[cloud] leaveFamily failed: $e');
@@ -1167,6 +1290,31 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       reg[slug] = map;
     }
     await saveRegistry(reg);
+  }
+
+  /// Mirrors each locally-persisted family's live state (name, picture,
+  /// members, workspace) into its registry entry on every local persist.
+  /// The registry used to be written only at create/join time, so another
+  /// local user joining later saw the shared workspace frozen at creation.
+  /// Families without a registry entry (e.g. the seeded `fam_main`) are
+  /// untouched.
+  Future<void> _refreshLocalRegistry() async {
+    if (families.isEmpty) return;
+    final reg = await loadRegistry();
+    if (reg.isEmpty) return;
+    var changed = false;
+    for (final f in families) {
+      final entry = reg[f.username];
+      if (entry is! Map) continue;
+      final map = Map<String, dynamic>.from(entry);
+      map['name'] = f.name;
+      map['picture'] = f.picture;
+      map['members'] = f.members.map((m) => m.toJson()).toList();
+      map['workspace'] = (workspaces[f.id] ?? Workspace.empty()).toJson();
+      reg[f.username] = map;
+      changed = true;
+    }
+    if (changed) await saveRegistry(reg);
   }
 
   Future<String?> localCreateFamily({

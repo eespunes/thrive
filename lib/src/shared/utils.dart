@@ -61,7 +61,20 @@ double parseNum(Object? v) {
   if (v is String) {
     final t = v.trim();
     if (t == '-' || t.isEmpty) return 0;
-    final n = double.tryParse(t.replaceAll(',', '.'));
+    final lastDot = t.lastIndexOf('.');
+    final lastComma = t.lastIndexOf(',');
+    String normalized;
+    if (lastDot >= 0 && lastComma >= 0) {
+      // Both separators present: the last one is the decimal separator,
+      // the other is thousands grouping ("1.234,56" and "1,234.56").
+      normalized = lastComma > lastDot
+          ? t.replaceAll('.', '').replaceAll(',', '.')
+          : t.replaceAll(',', '');
+    } else {
+      // Only one (or neither) separator: treat ',' as decimal.
+      normalized = t.replaceAll(',', '.');
+    }
+    final n = double.tryParse(normalized);
     return n == null || n.isNaN ? 0 : n;
   }
   return 0;

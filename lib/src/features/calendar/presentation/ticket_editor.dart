@@ -333,7 +333,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
       layerId: _layerId,
       todo: _todo,
       done: _todo && _recur == 'none' ? _done : (widget.event?.done ?? false),
-      doneDates: widget.event?.doneDates,
+      doneDates: widget.event == null ? null : Map.of(widget.event!.doneDates),
     );
     if (_todo && _recur != 'none' && widget.event != null) {
       edited.doneDates[widget.date] = _done;

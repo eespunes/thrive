@@ -245,4 +245,197 @@ void main() {
       expect(out.last.status, 'invited');
     });
   });
+
+  group('mergeDirtySection', () {
+    Map<String, dynamic> ev(String id, [String title = 't']) => {
+      'id': id,
+      'title': title,
+    };
+
+    test('events: unions by id — remote adds kept, local wins on both', () {
+      final local = {
+        'events': [ev('a', 'local-edit'), ev('b')],
+      };
+      final remote = {
+        'events': [ev('a', 'remote-edit'), ev('c', 'remote-add')],
+      };
+      final merged = mergeDirtySection('events_2026', local, remote);
+      final ids = [for (final e in merged['events'] as List) e['id']];
+      expect(ids, ['a', 'b', 'c']);
+      // Local version wins for items present on both sides.
+      expect((merged['events'] as List).first['title'], 'local-edit');
+    });
+
+    test('events: malformed shape falls back to local wholesale', () {
+      final local = {
+        'events': [ev('a')],
+      };
+      expect(
+        mergeDirtySection('events_2026', local, {'events': 'nope'}),
+        local,
+      );
+      expect(
+        mergeDirtySection('events_2026', local, {
+          'events': [
+            {'title': 'no id'},
+          ],
+        }),
+        local,
+      );
+      // Input payload never mutated.
+      expect((local['events'] as List).length, 1);
+    });
+
+    test('cards: unions by id', () {
+      final merged = mergeDirtySection(
+        'cards',
+        {
+          'cards': [ev('c1')],
+        },
+        {
+          'cards': [ev('c1'), ev('c2')],
+        },
+      );
+      expect([for (final c in merged['cards'] as List) c['id']], ['c1', 'c2']);
+    });
+
+    test('lists: unions lists AND items within a shared list', () {
+      final local = {
+        'taskLists': [
+          {
+            'id': 'tl1',
+            'name': 'local-name',
+            'tasks': [ev('t1', 'local')],
+          },
+        ],
+        'shoppingLists': [
+          {
+            'id': 'sl1',
+            'items': [ev('s1')],
+          },
+        ],
+      };
+      final remote = {
+        'taskLists': [
+          {
+            'id': 'tl1',
+            'name': 'remote-name',
+            'tasks': [ev('t1', 'remote'), ev('t2', 'remote-add')],
+          },
+          {'id': 'tl2', 'tasks': <Object>[]},
+        ],
+        'shoppingLists': [
+          {
+            'id': 'sl1',
+            'items': [ev('s2')],
+          },
+        ],
+      };
+      final merged = mergeDirtySection('lists', local, remote);
+      final tls = (merged['taskLists'] as List).cast<Map>();
+      expect([for (final l in tls) l['id']], ['tl1', 'tl2']);
+      // List-level fields keep the local version.
+      expect(tls.first['name'], 'local-name');
+      final tasks = (tls.first['tasks'] as List).cast<Map>();
+      expect([for (final t in tasks) t['id']], ['t1', 't2']);
+      expect(tasks.first['title'], 'local');
+      final items = ((merged['shoppingLists'] as List).first['items'] as List)
+          .cast<Map>();
+      expect([for (final i in items) i['id']], ['s1', 's2']);
+    });
+
+    test('budget: merges per month at block-item level', () {
+      final local = {
+        'months': {
+          'Juli': {
+            'blocks': {
+              'home': [ev('x1', 'local')],
+            },
+            'caps': {'home': 100},
+            'closed': true,
+          },
+        },
+      };
+      final remote = {
+        'months': {
+          'Juli': {
+            'blocks': {
+              'home': [ev('x1', 'remote'), ev('x2', 'remote-add')],
+              'food': [ev('f1')],
+            },
+            'caps': {'home': 999},
+            'closed': false,
+          },
+          'Juni': {
+            'blocks': {
+              'home': [ev('y1')],
+            },
+          },
+        },
+      };
+      final merged = mergeDirtySection('budget_2026', local, remote);
+      final months = merged['months'] as Map;
+      // Remote-only month added wholesale.
+      expect(months.containsKey('Juni'), isTrue);
+      final juli = months['Juli'] as Map;
+      // Month-level fields keep the local version.
+      expect((juli['caps'] as Map)['home'], 100);
+      expect(juli['closed'], isTrue);
+      final home = ((juli['blocks'] as Map)['home'] as List).cast<Map>();
+      expect([for (final i in home) i['id']], ['x1', 'x2']);
+      expect(home.first['title'], 'local');
+      // Remote-only block added.
+      expect((juli['blocks'] as Map).containsKey('food'), isTrue);
+    });
+
+    test('budget: unexpected month shape keeps local', () {
+      final local = {
+        'months': {'Juli': 'weird'},
+      };
+      final merged = mergeDirtySection('budget_2026', local, {
+        'months': {
+          'Juli': {'blocks': <String, Object>{}},
+        },
+      });
+      expect((merged['months'] as Map)['Juli'], 'weird');
+    });
+
+    test('settings/weekly/imports keep dirty-local-wins', () {
+      final settings = <String, dynamic>{'kitchenEnabled': true};
+      expect(
+        mergeDirtySection('settings', settings, {'kitchenEnabled': false}),
+        same(settings),
+      );
+      final weekly = <String, dynamic>{
+        'weeklyPlan': {'mon': <String, Object>{}},
+      };
+      expect(
+        mergeDirtySection('weekly', weekly, {'weeklyPlan': <String, Object>{}}),
+        same(weekly),
+      );
+      final imp = <String, dynamic>{'calendar': <String, Object>{}, 'order': 0};
+      expect(mergeDirtySection('import_ic1', imp, {}), same(imp));
+    });
+
+    test('a merged events section still decodes via workspaceFromSections', () {
+      final merged = {
+        ...workspaceSections(Workspace.empty()),
+        'events_2026': mergeDirtySection(
+          'events_2026',
+          {
+            'events': [
+              {'id': 'a', 'title': 'A', 'date': '2026-01-01'},
+            ],
+          },
+          {
+            'events': [
+              {'id': 'b', 'title': 'B', 'date': '2026-01-02'},
+            ],
+          },
+        ),
+      };
+      final ws = workspaceFromSections(merged)!;
+      expect({for (final e in ws.events) e.id}, {'a', 'b'});
+    });
+  });
 }

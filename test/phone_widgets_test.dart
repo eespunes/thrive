@@ -4,6 +4,7 @@ import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers.dart';
 
@@ -240,25 +241,18 @@ void main() {
   });
 
   group('applyPhoneWidgetAction', () {
-    Map<String, dynamic> v4() => {
-      'familyId': 'fam',
-      'year': DateTime.now().year,
-      'monthIdx': DateTime.now().month - 1,
-      'workspaces': {'fam': _ws().toJson()},
-    };
+    Map<String, dynamic> wsJson() => _ws().toJson();
 
     test('tick_task toggles the task in place', () {
-      final blob = v4();
+      final raw = wsJson();
       final uri = Uri.parse('thrive://act?do=tick_task&list=tl1&task=t1');
-      expect(applyPhoneWidgetAction(blob, uri), isTrue);
-      final ws = Workspace.fromJson(
-        Map<String, dynamic>.from((blob['workspaces'] as Map)['fam'] as Map),
-      );
+      expect(applyPhoneWidgetAction(raw, uri), isTrue);
+      final ws = Workspace.fromJson(raw);
       expect(ws.taskLists.first.tasks.first.done, isTrue);
       // Unknown task: no change.
       expect(
         applyPhoneWidgetAction(
-          blob,
+          raw,
           Uri.parse('thrive://act?do=tick_task&list=tl1&task=nope'),
         ),
         isFalse,
@@ -266,35 +260,32 @@ void main() {
     });
 
     test('pay_bill pays the item and logs a card use', () {
-      final blob = v4();
+      final raw = wsJson();
       final monthKey = kMonthKeys[DateTime.now().month - 1];
       final uri = Uri.parse(
         'thrive://act?do=pay_bill&year=${DateTime.now().year}'
         '&month=$monthKey&cat=home&id=net',
       );
-      expect(applyPhoneWidgetAction(blob, uri), isTrue);
-      final ws = Workspace.fromJson(
-        Map<String, dynamic>.from((blob['workspaces'] as Map)['fam'] as Map),
-      );
+      expect(applyPhoneWidgetAction(raw, uri), isTrue);
+      final ws = Workspace.fromJson(raw);
       final it = ws.data.values.first.values.first.blocks['home']!.firstWhere(
         (x) => x.id == 'net',
       );
       expect(it.paid, isTrue);
       expect(ws.cards.firstWhere((c) => c.id == 'c1').timesUsed, 15);
       // Already paid: refuses.
-      expect(applyPhoneWidgetAction(blob, uri), isFalse);
+      expect(applyPhoneWidgetAction(raw, uri), isFalse);
     });
 
     test('closed months and unknown actions refuse', () {
-      final blob = v4();
+      final raw = wsJson();
       final monthKey = kMonthKeys[DateTime.now().month - 1];
-      final wsMap = (blob['workspaces'] as Map)['fam'] as Map;
-      (((wsMap['data'] as Map)['${DateTime.now().year}'] as Map)[monthKey]
+      (((raw['data'] as Map)['${DateTime.now().year}'] as Map)[monthKey]
               as Map)['closed'] =
           true;
       expect(
         applyPhoneWidgetAction(
-          blob,
+          raw,
           Uri.parse(
             'thrive://act?do=pay_bill&year=${DateTime.now().year}'
             '&month=$monthKey&cat=home&id=net',
@@ -303,24 +294,127 @@ void main() {
         isFalse,
       );
       expect(
-        applyPhoneWidgetAction(blob, Uri.parse('thrive://act?do=wat')),
+        applyPhoneWidgetAction(raw, Uri.parse('thrive://act?do=wat')),
         isFalse,
       );
-      expect(
-        applyPhoneWidgetAction({'familyId': 'x'}, Uri.parse('thrive://act')),
-        isFalse,
-      );
+      expect(applyPhoneWidgetAction(null, Uri.parse('thrive://act')), isFalse);
     });
 
     test('phoneWidgetPayloadFromV4 rebuilds after an action', () {
-      final blob = v4();
+      final raw = wsJson();
+      final v4 = {
+        'familyId': 'fam',
+        'year': DateTime.now().year,
+        'monthIdx': DateTime.now().month - 1,
+      };
       applyPhoneWidgetAction(
-        blob,
+        raw,
         Uri.parse('thrive://act?do=tick_task&list=tl1&task=t1'),
       );
-      final p = phoneWidgetPayloadFromV4(blob)!;
+      final p = phoneWidgetPayloadFromV4(v4, raw)!;
       expect(((p['today'] as Map)['tasks'] as List), isEmpty);
-      expect(phoneWidgetPayloadFromV4({'familyId': 'x'}), isNull);
+      expect(phoneWidgetPayloadFromV4({'familyId': 'x'}, null), isNull);
+    });
+  });
+
+  group('background storage bridge (section keys, issue #252 regression)', () {
+    // The main app no longer embeds workspaces in the v4 blob: they live in
+    // per-section `thrive.ws.<familyId>.<section>` keys. The background
+    // isolate must read and write THOSE, or widget actions silently no-op.
+    Map<String, dynamic> slimV4() => {
+      'familyId': 'fam',
+      'year': DateTime.now().year,
+      'monthIdx': DateTime.now().month - 1,
+      'families': [],
+    };
+
+    Future<SharedPreferences> prefsWithSections() async {
+      final sections = workspaceSections(_ws());
+      SharedPreferences.setMockInitialValues({
+        kStorageKeyV4: json.encode(slimV4()),
+        for (final s in sections.entries)
+          '$kWsSectionPrefix'
+              'fam.${s.key}': json.encode(
+            s.value,
+          ),
+      });
+      return SharedPreferences.getInstance();
+    }
+
+    test('loads the workspace from section keys, not the slim blob', () async {
+      final prefs = await prefsWithSections();
+      final raw = phoneWidgetLoadWorkspaceJson(prefs, slimV4());
+      expect(raw, isNotNull);
+      final ws = Workspace.fromJson(raw!);
+      expect(ws.taskLists.first.tasks.first.id, 't1');
+      expect(ws.cards.length, 2);
+    });
+
+    test('action round-trip: mutate, save, and the app-style restore sees '
+        'it', () async {
+      final prefs = await prefsWithSections();
+      final v4 = slimV4();
+      final raw = phoneWidgetLoadWorkspaceJson(prefs, v4)!;
+      expect(
+        applyPhoneWidgetAction(
+          raw,
+          Uri.parse('thrive://act?do=tick_task&list=tl1&task=t1'),
+        ),
+        isTrue,
+      );
+      await phoneWidgetSaveWorkspaceJson(prefs, v4, raw);
+      // The write-back lands in the section keys (what _restoreV4 prefers),
+      // NOT in the slim blob.
+      expect(
+        json.decode(prefs.getString(kStorageKeyV4)!),
+        isNot(contains('workspaces')),
+      );
+      final lists = Map<String, dynamic>.from(
+        json.decode(prefs.getString('${kWsSectionPrefix}fam.lists')!) as Map,
+      );
+      final restored = Workspace.fromJson({
+        ...phoneWidgetLoadWorkspaceJson(prefs, v4)!,
+      });
+      expect(restored.taskLists.first.tasks.first.done, isTrue);
+      expect(
+        ((lists['taskLists'] as List).first as Map)['tasks'],
+        anyElement(predicate((t) => (t as Map)['done'] == true)),
+      );
+      // And the refreshed payload reflects the tick.
+      final p = phoneWidgetPayloadFromV4(v4, raw)!;
+      expect((p['today'] as Map)['tasks'] as List, isEmpty);
+    });
+
+    test('legacy blob with embedded workspaces still works and writes back '
+        'to the blob', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final v4 = {
+        ...slimV4(),
+        'workspaces': {'fam': _ws().toJson()},
+      };
+      final raw = phoneWidgetLoadWorkspaceJson(prefs, v4)!;
+      expect(
+        applyPhoneWidgetAction(
+          raw,
+          Uri.parse('thrive://act?do=tick_task&list=tl1&task=t1'),
+        ),
+        isTrue,
+      );
+      await phoneWidgetSaveWorkspaceJson(prefs, v4, raw);
+      final saved =
+          json.decode(prefs.getString(kStorageKeyV4)!) as Map<String, dynamic>;
+      final ws = Workspace.fromJson(
+        Map<String, dynamic>.from((saved['workspaces'] as Map)['fam'] as Map),
+      );
+      expect(ws.taskLists.first.tasks.first.done, isTrue);
+    });
+
+    test('no local workspace at all (cloud mode wipe): load returns '
+        'null', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      expect(phoneWidgetLoadWorkspaceJson(prefs, slimV4()), isNull);
     });
   });
 
