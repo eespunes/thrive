@@ -141,20 +141,18 @@ void main() {
       await pumpApp(tester);
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
-      final taken = thriveDebug
-          .curFamily()!
-          .members
-          .where((m) => m.id != 'me')
-          .map((m) => m.color)
-          .toSet();
-      final free = kMemberColors.lastWhere((c) => !taken.contains(c));
-      await tester.ensureVisible(
-        find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
+      final free = kMemberColors.last;
+      final freeHex = (free.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
+        6,
+        '0',
       );
-      await tester.tap(
-        find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
-        warnIfMissed: false,
+      await tester.tap(find.text('RGB / Hex'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('hex-color-input')),
+        freeHex,
       );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
       expect(find.text('Colour updated everywhere'), findsOneWidget);
       expect(thriveDebug.user!.color, free);
@@ -162,28 +160,6 @@ void main() {
         thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'me').color,
         free,
       );
-    });
-
-    testWidgets('a colour worn by someone else is locked in YOUR OWN picker', (
-      tester,
-    ) async {
-      await pumpApp(tester);
-      final other = thriveDebug.curFamily()!.members.firstWhere(
-        (m) => m.id != 'me',
-      );
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(ValueKey('badge-color-${other.color.toARGB32()}')),
-      );
-      await tester.tap(
-        find.byKey(ValueKey('badge-color-${other.color.toARGB32()}')),
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      // Self-colour bypass fixed (#274): taken colours only toast.
-      expect(find.text('That colour is taken in this family'), findsOneWidget);
-      expect(thriveDebug.user!.color, isNot(other.color));
     });
 
     testWidgets('sign out from the hub returns to the auth screen', (

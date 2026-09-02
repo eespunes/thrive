@@ -141,7 +141,7 @@ class BadgeStudioScaffold extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: saveEnabled
                       ? contrastOn(accent)
-                      : const Color(0xff94a0b0),
+                      : B.muted,
                 ),
               ),
             ),
@@ -513,90 +513,6 @@ class _BadgeStageState extends State<BadgeStage> {
   }
 }
 
-// ------------------------------------------------------------- colour row
-
-/// "Badge colour" dot row near the bottom of the form. Colours in [taken]
-/// render dimmed with an × and only toast (member colours are unique per
-/// family); the selected dot carries an ink ring and a ✓.
-class BadgeColorRow extends StatelessWidget {
-  const BadgeColorRow({
-    super.key,
-    this.label = 'Badge colour',
-    this.colors = kMemberColors,
-    required this.selected,
-    this.taken = const <Color>[],
-    required this.onPick,
-    this.onToast,
-    this.takenHint = 'That colour is taken in this family',
-  });
-
-  final String label;
-  final List<Color> colors;
-  final Color selected;
-  final List<Color> taken;
-  final ValueChanged<Color> onPick;
-  final ValueChanged<String>? onToast;
-  final String takenHint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .4,
-              color: B.muted,
-            ),
-          ),
-        ),
-        Wrap(
-          spacing: 9,
-          runSpacing: 9,
-          children: [
-            for (final c in colors)
-              GestureDetector(
-                key: ValueKey('badge-color-${c.toARGB32()}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: taken.contains(c)
-                    ? () => onToast?.call(takenHint)
-                    : () => onPick(c),
-                child: Opacity(
-                  opacity: taken.contains(c) ? .25 : 1,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: c == selected
-                          ? Border.all(color: B.ink, width: 3)
-                          : null,
-                    ),
-                    child: Text(
-                      c == selected ? '✓' : (taken.contains(c) ? '×' : ''),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: contrastOn(c),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 // -------------------------------------------------------- counting confirm
 
 /// The counting confirm sheet under every delete link: the message spells
@@ -615,7 +531,13 @@ Future<void> showCountingConfirmSheet(
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x73101828),
     builder: (ctx) => Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      // Keep the confirm buttons clear of the Android system navigation bar.
+      padding: EdgeInsets.fromLTRB(
+        16,
+        16,
+        16,
+        20 + MediaQuery.of(ctx).padding.bottom,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),

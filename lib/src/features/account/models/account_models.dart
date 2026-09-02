@@ -32,10 +32,10 @@ const String kUserKey = 'thrive.user';
 
 /// Member avatar palette, mirrored from the design's `MEMBER_COLORS`.
 const List<Color> kMemberColors = [
-  Color(0xff0E9A8D),
+  B.primary,
   Color(0xff1684B4),
   Color(0xff7c3aed),
-  Color(0xffd97706),
+  B.amber,
   Color(0xffe11d48),
   Color(0xff54A96A),
 ];

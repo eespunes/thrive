@@ -598,11 +598,6 @@ class _CardScanSheetState extends State<_CardScanSheet> {
 
   Widget _reviewStage() {
     final photo = _photo;
-    final cols = <Color>[
-      _color,
-      for (final c in kCardPalette)
-        if (c.toARGB32() != _color.toARGB32()) c,
-    ];
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,30 +713,9 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         ),
         _sheetField(
           'Card colour',
-          Wrap(
-            spacing: 9,
-            runSpacing: 9,
-            children: [
-              for (final col in cols)
-                GestureDetector(
-                  key: ValueKey('card-color-${col.toARGB32()}'),
-                  onTap: () => setState(() => _color = col),
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: col,
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(
-                        color: _color.toARGB32() == col.toARGB32()
-                            ? B.ink
-                            : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          _ColorPickerPanel(
+            selected: _color,
+            onChanged: (c) => setState(() => _color = c),
           ),
         ),
         _sheetField(

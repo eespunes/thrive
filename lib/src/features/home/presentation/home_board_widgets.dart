@@ -384,7 +384,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     if (day - today <= 3) return ('In ${day - today}d', B.amber);
     return (
       '$day ${kMonthsEn[monthIdx].substring(0, 3)}',
-      const Color(0xff94a0b0),
+      B.muted,
     );
   }
 
@@ -706,7 +706,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     required String title,
     required Widget value,
     required String sub,
-    Color subColor = const Color(0xff94a0b0),
+    Color subColor = B.muted,
     required VoidCallback onOpen,
   }) {
     return _bCard(
@@ -1179,7 +1179,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
       sub: sub,
       subColor: next != null && next.date == todayIso()
           ? const Color(0xffe11d48)
-          : const Color(0xff94a0b0),
+          : B.muted,
       onOpen: () => goTab('calendar'),
     );
   }
@@ -1522,7 +1522,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: i == 0 ? B.primary : const Color(0xff94a0b0),
+                            color: i == 0 ? B.primary : B.muted,
                           ),
                         ),
                       ),
@@ -1536,7 +1536,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                                 ? FontWeight.w700
                                 : FontWeight.w800,
                             color: dinner == null
-                                ? const Color(0xff94a0b0)
+                                ? B.muted
                                 : B.ink,
                           ),
                         ),

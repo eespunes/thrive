@@ -22,30 +22,9 @@ void main() {
     expect(find.byKey(const ValueKey('memcolors-row-m2')), findsOneWidget);
     // Lisa is invited → not listed here.
     expect(find.byKey(const ValueKey('memcolors-row-m3')), findsNothing);
-    expect(find.textContaining('unique per family'), findsOneWidget);
+    expect(find.textContaining('updates it everywhere'), findsOneWidget);
     // No delete anywhere on this flow.
     expect(find.byKey(const ValueKey('studio-delete')), findsNothing);
-  });
-
-  testWidgets('taken colours are dimmed and explain themselves', (
-    tester,
-  ) async {
-    await openMembers(tester);
-    await tester.tap(find.byKey(const ValueKey('memcolors-row-m2')));
-    await tester.pumpAndSettle();
-    expect(find.text('Edit member'), findsOneWidget);
-    // Eva's + Lisa's colours are taken for Erik.
-    final takenDot = find.byKey(
-      ValueKey('badge-color-${kMemberColors[0].toARGB32()}'),
-    );
-    await tester.tap(takenDot);
-    await tester.pump();
-    expect(find.text('That colour is taken in this family'), findsOneWidget);
-    // Erik keeps his own colour.
-    final erik = thriveDebug.families.first.members.firstWhere(
-      (m) => m.id == 'm2',
-    );
-    expect(erik.color, kMemberColors[1]);
   });
 
   testWidgets('picking a free colour + name + email saves everywhere', (
@@ -63,10 +42,18 @@ void main() {
       'erik@home.nl',
     );
     final freeColor = kMemberColors[4];
-    await tester.tap(
-      find.byKey(ValueKey('badge-color-${freeColor.toARGB32()}')),
+    final freeHex = (freeColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
+      6,
+      '0',
     );
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('RGB / Hex'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('hex-color-input')),
+      freeHex,
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(find.text('Member saved — updated everywhere'), findsOneWidget);

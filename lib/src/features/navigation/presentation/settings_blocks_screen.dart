@@ -423,11 +423,9 @@ class _BlockStudioState extends State<_BlockStudio> {
           ),
         ],
         const SizedBox(height: 4),
-        BadgeColorRow(
-          colors: [if (!kCatPalette.contains(_tone)) _tone, ...kCatPalette],
+        _ColorPickerPanel(
           selected: _tone,
-          onPick: (c) => setState(() => _tone = c),
-          onToast: s.flash,
+          onChanged: (c) => setState(() => _tone = c),
         ),
       ],
     );

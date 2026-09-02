@@ -1342,14 +1342,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('imp-visible')));
     await tester.pumpAndSettle();
     final newColor = kCatColors[2];
-    await tester.ensureVisible(
-      find.byKey(ValueKey('badge-color-${newColor.toARGB32()}')),
+    final newHex = (newColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
+      6,
+      '0',
     );
-    await tester.tap(
-      find.byKey(ValueKey('badge-color-${newColor.toARGB32()}')),
-      warnIfMissed: false,
+    await tester.tap(find.text('RGB / Hex'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('hex-color-input')),
+      newHex,
     );
-    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
 
@@ -1469,8 +1473,7 @@ void main() {
   });
 
   testWidgets(
-    'the event colour tray keeps the two-tab panel; studio editors use the '
-    'badge dot row (#325/#326)',
+    'every colour chooser uses the shared two-tab panel (#325/#326)',
     (tester) async {
       final imported = ImportedCalendar(
         id: 'training-feed',
@@ -1488,7 +1491,7 @@ void main() {
       );
       await goToCalendar(tester);
 
-      // Category studio: the fixed badge-colour dot row (no RGB/Hex panel).
+      // Category studio: the shared two-tab colour panel.
       await openCalManage(tester);
       await tester.enterText(
         find.byKey(const ValueKey('list-add-input')),
@@ -1496,18 +1499,19 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      expect(find.text('BADGE COLOUR'), findsOneWidget);
-      expect(find.text('Palette'), findsNothing);
+      expect(find.text('Palette'), findsWidgets);
+      expect(find.text('RGB / Hex'), findsWidgets);
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
-      // Imported-calendar studio: same dot row.
+      // Imported-calendar studio: same shared panel.
       await openCalManage(tester, imports: true);
       await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
       await tester.pumpAndSettle();
-      expect(find.text('BADGE COLOUR'), findsOneWidget);
+      expect(find.text('Palette'), findsWidgets);
+      expect(find.text('RGB / Hex'), findsWidgets);
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('studio-back')));

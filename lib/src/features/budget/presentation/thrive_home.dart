@@ -1959,6 +1959,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   // ------------------------------------------------------------- header
   Widget _buildHeader() {
+    // The More hub owns its own gradient hero (avatar · name · family pills),
+    // per `Settings v2.dc.html`: the hero sits at the very top of the screen,
+    // so the shared tab header is suppressed here to avoid a double header.
+    if (tab == 'more') return const SizedBox.shrink();
     String title = 'Thrive';
     String subtitle = 'Loading…';
     if (ready) {

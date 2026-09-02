@@ -703,7 +703,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                       style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xff94a0b0),
+                        color: B.muted,
                       ),
                     ),
                     const SizedBox(width: 5),
@@ -894,7 +894,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                           style: const TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xff94a0b0),
+                            color: B.muted,
                           ),
                         ),
                       ),
@@ -967,7 +967,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                     letterSpacing: .8,
                     color: _paid
                         ? const Color(0xff16a34a)
-                        : const Color(0xff94a0b0),
+                        : B.muted,
                   ),
                 ),
               ),
@@ -1320,7 +1320,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xff94a0b0),
+                    color: B.muted,
                   ),
                 ),
               ),
@@ -1344,7 +1344,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Color(0xff94a0b0),
+              color: B.muted,
               height: 1.5,
             ),
           ),
@@ -1632,7 +1632,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xff94a0b0),
+            color: B.muted,
             height: 1.5,
           ),
         ),

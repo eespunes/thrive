@@ -10,13 +10,6 @@ extension _ThriveMembersScreen on _ThriveHomeState {
     pushSettingsPage<void>((_) => _MemberColoursScreen(state: this));
   }
 
-  /// Colours worn by OTHER members of the current family (colours are
-  /// unique per family).
-  List<Color> memberColorsTaken(String exceptMemberId) => [
-    for (final m in curFamily()?.members ?? const <FamilyMember>[])
-      if (m.id != exceptMemberId) m.color,
-  ];
-
   /// Saves a member-studio edit in one go: identity fields plus colour, and
   /// mirrors the change onto the signed-in user when editing yourself so the
   /// hero/profile stay in sync everywhere.
@@ -83,8 +76,8 @@ class _MemberColoursScreen extends StatelessWidget {
               'Each member’s identity colour — used on avatars, events and '
               'lists. Tap a member to edit.',
           footnote:
-              'Colours are unique per family. Changing one updates it '
-              'everywhere at once — calendar, lists and widgets.',
+              'Changing a colour updates it everywhere at once — calendar, '
+              'lists and widgets.',
           onToast: s.flash,
           children: [
             for (final m in members)
@@ -187,7 +180,6 @@ class _MemberStudioState extends State<_MemberStudio> {
 
   @override
   Widget build(BuildContext context) {
-    final taken = s.memberColorsTaken(widget.memberId);
     return BadgeStudioScaffold(
       title: 'Edit member',
       subtitle: 'Badge, name & identity colour',
@@ -234,28 +226,9 @@ class _MemberStudioState extends State<_MemberStudio> {
             value: _kid,
             onChanged: () => setState(() => _kid = !_kid),
           ),
-        BadgeColorRow(
-          label: 'Badge colour — unique per family',
-          colors: [
-            if (!kMemberColors.contains(_color)) _color,
-            ...kMemberColors,
-          ],
+        _ColorPickerPanel(
           selected: _color,
-          taken: taken,
-          onPick: (c) => setState(() => _color = c),
-          onToast: s.flash,
-        ),
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: Text(
-            '× means another member already wears that colour. Saving '
-            'updates avatars, events and lists everywhere.',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: B.muted,
-            ),
-          ),
+          onChanged: (c) => setState(() => _color = c),
         ),
       ],
     );

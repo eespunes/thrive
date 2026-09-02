@@ -19,14 +19,14 @@ const List<Color> kCatPalette = [
   Color(0xffea580c),
   Color(0xff0d9488),
   Color(0xff475569),
-  Color(0xff0E9A8D),
+  B.primary,
   Color(0xff9333ea),
 ];
 
 const List<Color> kAccPalette = [
   Color(0xff1E7FB5),
   Color(0xff54A96A),
-  Color(0xff0E9A8D),
+  B.primary,
   Color(0xff7c3aed),
   Color(0xffe11d48),
   Color(0xffd97706),
@@ -561,7 +561,7 @@ List<Account> defaultAccounts() => [
     name: 'Shared account',
     short: 'Shared',
     initials: 'SH',
-    color: const Color(0xff0E9A8D),
+    color: B.primary,
   ),
 ];
 
@@ -619,8 +619,8 @@ List<Category> defaultCats() => [
     title: 'Personal & Family',
     icon: 'users',
     marker: 'date',
-    tone: const Color(0xffd97706),
-    bg: const Color(0xfffffbeb),
+    tone: B.amber,
+    bg: B.amberSoft,
   ),
   Category(
     key: 'food',
@@ -628,7 +628,7 @@ List<Category> defaultCats() => [
     icon: 'cart',
     marker: 'date',
     tone: const Color(0xffea580c),
-    bg: const Color(0xfffff7ed),
+    bg: B.orangeSoft,
   ),
   Category(
     key: 'health',

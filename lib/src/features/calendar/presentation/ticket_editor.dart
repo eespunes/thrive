@@ -756,8 +756,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                           gradient: const SweepGradient(
                             colors: [
                               Color(0xff7c3aed),
-                              Color(0xff0f9d6a),
-                              Color(0xffd97706),
+                              B.green,
+                              B.amber,
                               Color(0xffe11d48),
                               Color(0xff7c3aed),
                             ],
@@ -902,7 +902,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           colors: [
             Color.alphaBlend(Colors.white.withValues(alpha: .16), col),
             Color.alphaBlend(
-              const Color(0xff0f172a).withValues(alpha: .14),
+              B.ink.withValues(alpha: .14),
               col,
             ),
           ],

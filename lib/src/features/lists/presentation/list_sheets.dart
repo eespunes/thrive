@@ -141,7 +141,7 @@ class _NoteSheetState extends State<_NoteSheet> {
 
     Widget kindBtn(String k, String icon, String label) {
       final active = _kind == k;
-      final tint = k == 'shopping' ? const Color(0xffd97706) : B.primary;
+      final tint = k == 'shopping' ? B.amber : B.primary;
       return Expanded(
         child: GestureDetector(
           onTap: () => setState(() => _kind = k),

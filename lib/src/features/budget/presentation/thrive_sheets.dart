@@ -502,14 +502,19 @@ class _SheetShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxH = MediaQuery.of(context).size.height * 0.92;
+    final media = MediaQuery.of(context);
+    final maxH = media.size.height * 0.92;
+    // Lift the sheet's content above the Android system navigation bar (3-button
+    // or gesture): `padding.bottom` is the nav-bar inset with the keyboard
+    // discounted, so it collapses to 0 when the keyboard is up (which the host
+    // already handles via `viewInsets.bottom`) — no double gap.
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+      padding: EdgeInsets.fromLTRB(18, 8, 18, 24 + media.padding.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

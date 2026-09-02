@@ -8,14 +8,6 @@ part of 'package:family_money_management_app/main.dart';
 /// except impossible affordances like self-demote).
 extension _ThriveFamilyScreens on _ThriveHomeState {
   // ------------------------------------------------------- permissions #273
-  /// The signed-in user's own member row in the current family, if any.
-  FamilyMember? myMemberRow() {
-    for (final m in curFamily()?.members ?? const <FamilyMember>[]) {
-      if (m.id == myId) return m;
-    }
-    return null;
-  }
-
   bool canRenameFamily() => amOwner();
   bool canInviteMembers() => amOwner();
 
@@ -258,7 +250,7 @@ Widget _smallPillButton(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
         color: disabled
-            ? const Color(0xfff4f6f9)
+            ? B.page
             : (primary ? B.soft : Colors.white),
         border: Border.all(
           color: disabled ? B.line : (primary ? B.primary : B.line),
@@ -342,7 +334,7 @@ class _ExplicitSaveFieldState extends State<_ExplicitSaveField> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xfff4f6f9),
+              color: B.page,
               border: Border.all(color: B.line),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -420,8 +412,6 @@ class _ProfileScreen extends StatelessWidget {
         final u = s.user;
         if (u == null) return const SizedBox.shrink();
         final identity = s.profileAvatarIdentity(u);
-        final f = s.curFamily();
-        final myRow = s.myMemberRow();
         final hasPhoto = (identity.photo ?? '').isNotEmpty;
         return SettingsSubScreen(
           sync: s.syncStatus,
@@ -539,27 +529,9 @@ class _ProfileScreen extends StatelessWidget {
                   decoration: const BoxDecoration(
                     border: Border(top: BorderSide(color: B.faint)),
                   ),
-                  child: BadgeColorRow(
-                    label: 'Your colour',
+                  child: _ColorPickerPanel(
                     selected: identity.color ?? Colors.transparent,
-                    // The self-colour guard includes YOUR OWN picker (#274):
-                    // colours worn by anyone else in the family stay locked.
-                    taken: s.memberColorsTaken(myRow?.id ?? myIdSentinel),
-                    onPick: s.saveProfileColor,
-                    onToast: s.flash,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Greyed colours are taken by someone in '
-                    '${f?.name ?? 'your family'} — colours stay unique per '
-                    'family.',
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: B.muted,
-                    ),
+                    onChanged: s.saveProfileColor,
                   ),
                 ),
               ],
@@ -1216,7 +1188,7 @@ class _InviteSheetState extends State<_InviteSheet> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: const Color(0xfff4f6f9),
+              color: B.page,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -1574,7 +1546,7 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: _ok ? Colors.white : const Color(0xff94a0b0),
+                color: _ok ? Colors.white : B.muted,
               ),
             ),
           ),
@@ -1620,7 +1592,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xfffef2f2),
+            color: B.redSoft,
             border: Border.all(color: B.redLine),
             borderRadius: BorderRadius.circular(12),
           ),

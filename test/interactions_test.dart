@@ -84,11 +84,15 @@ void main() {
     await goToTab(tester, 'blocks');
     await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
     await tester.pumpAndSettle();
-    // Pick the amber palette dot.
-    await tester.tap(
-      find.byKey(ValueKey('badge-color-${const Color(0xffd97706).toARGB32()}')),
+    // Pick the amber colour via the hex field.
+    await tester.tap(find.text('RGB / Hex'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('hex-color-input')),
+      'd97706',
     );
-    await tester.pump(const Duration(milliseconds: 200));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(

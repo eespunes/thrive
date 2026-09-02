@@ -415,13 +415,13 @@ extension _ThriveStats on _ThriveHomeState {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff0FA08E), Color(0xff0B7F74), Color(0xff1684B4)],
+          colors: [Color(0xff0FA08E), B.deep, Color(0xff1684B4)],
           stops: [0, 0.55, 1],
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff0B7F74).withValues(alpha: .5),
+            color: B.deep.withValues(alpha: .5),
             blurRadius: 34,
             offset: const Offset(0, 18),
             spreadRadius: -22,

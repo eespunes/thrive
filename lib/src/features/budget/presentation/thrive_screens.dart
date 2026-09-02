@@ -300,7 +300,7 @@ extension _ThriveScreens on _ThriveHomeState {
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xff0E9A8D).withValues(alpha: .7),
+                  color: B.primary.withValues(alpha: .7),
                   blurRadius: 26,
                   spreadRadius: -12,
                   offset: const Offset(0, 12),
