@@ -82,6 +82,61 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
     'import_${cal.id}': {'calendar': cal.toJson(), 'order': i},
 };
 
+/// Section ids that hold actual family DATA (events, budgets, lists, cards,
+/// imported calendars, weekly plan) as opposed to the lightweight `settings`
+/// doc or the `__meta` marker. Used by the empty-workspace safety net.
+bool isWorkspaceContentSection(String id) => id != '__meta' && id != 'settings';
+
+/// True when [sections] carries at least one content section that actually
+/// holds data. NOTE the subtlety this guards: [workspaceSections] ALWAYS emits
+/// `cards`/`lists`/`weekly` keys (as empty containers) even for an empty
+/// workspace, so mere key-presence is not proof of data — an empty workspace
+/// would look "content-bearing" and defeat the wipe guard. We instead diff each
+/// content section against the same section built from [Workspace.empty]: a doc
+/// is real content only if it's absent from that template (e.g. `events_2026`,
+/// `budget_2026`, `import_*`) or its payload differs from the empty one.
+bool _workspaceHasRealContent(Map<String, Map<String, dynamic>> sections) {
+  final empty = workspaceSections(Workspace.empty());
+  return sections.entries.any(
+    (e) =>
+        isWorkspaceContentSection(e.key) &&
+        (!empty.containsKey(e.key) ||
+            sectionDigest(empty[e.key]!) != sectionDigest(e.value)),
+  );
+}
+
+/// The safety net that stops an empty/unloaded workspace from wiping a family.
+///
+/// Several persist callers substitute a `Workspace.empty()` when a family's
+/// subcollection hasn't finished loading on this device. That empty workspace
+/// carries no real data, so a persist would both DELETE the server's
+/// `events_*`/`budget_*`/`import_*` docs (stale-section sweep) AND OVERWRITE the
+/// always-present `cards`/`lists`/`weekly` docs with empty containers —
+/// destroying data that merely failed to load. (This is exactly how a legacy
+/// family's 91-event `events` doc was lost.)
+///
+/// Returns true when the persist must be ABORTED: [producedSections] holds no
+/// real content, yet the server does. [serverDigests] is the last-known
+/// per-section digest map (`id -> sectionDigest(payload)`); a server section is
+/// real content when it has no counterpart in an empty workspace (`events_*`,
+/// `budget_*`, `import_*`) or its digest differs from the empty template's — so
+/// this catches both the delete and the overwrite paths. When the local
+/// workspace carries any real data — including the last edit of a genuine
+/// clear-everything — it persists normally.
+bool emptyWorkspacePersistWouldWipe(
+  Map<String, Map<String, dynamic>> producedSections,
+  Map<String, String> serverDigests,
+) {
+  if (_workspaceHasRealContent(producedSections)) return false;
+  final emptyDigests = {
+    for (final e in workspaceSections(Workspace.empty()).entries)
+      e.key: sectionDigest(e.value),
+  };
+  return serverDigests.entries.any(
+    (e) => isWorkspaceContentSection(e.key) && e.value != emptyDigests[e.key],
+  );
+}
+
 /// Rebuilds a [Workspace] from its subcollection section docs. Returns null
 /// when [sections] is empty (family not yet migrated off the legacy single
 /// `workspace` map — the caller falls back to [workspaceFromDoc]).
