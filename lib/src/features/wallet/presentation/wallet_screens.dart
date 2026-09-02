@@ -165,7 +165,7 @@ class _CardVisual extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff0f172a).withValues(alpha: .65),
+            color: B.ink.withValues(alpha: .65),
             blurRadius: 34,
             spreadRadius: -22,
             offset: const Offset(0, 18),

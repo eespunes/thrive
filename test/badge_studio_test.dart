@@ -328,39 +328,6 @@ void main() {
     );
   });
 
-  group('BadgeColorRow', () {
-    testWidgets('picks free colours; taken dots only toast', (tester) async {
-      const teal = Color(0xff0E9A8D);
-      const blue = Color(0xff1684B4);
-      const purple = Color(0xff7c3aed);
-      Color? picked;
-      final toasts = <String>[];
-      await tester.pumpWidget(
-        harness(
-          BadgeColorRow(
-            colors: const [teal, blue, purple],
-            selected: teal,
-            taken: const [purple],
-            onPick: (c) => picked = c,
-            onToast: toasts.add,
-          ),
-        ),
-      );
-      expect(find.text('BADGE COLOUR'), findsOneWidget);
-      expect(find.text('✓'), findsOneWidget); // selected
-      expect(find.text('×'), findsOneWidget); // taken
-
-      await tester.tap(find.byKey(ValueKey('badge-color-${blue.toARGB32()}')));
-      expect(picked, blue);
-
-      await tester.tap(
-        find.byKey(ValueKey('badge-color-${purple.toARGB32()}')),
-      );
-      expect(picked, blue); // unchanged
-      expect(toasts, ['That colour is taken in this family']);
-    });
-  });
-
   group('SettingsSubScreen', () {
     testWidgets(
       'chrome renders and the add pattern creates then opens the editor',

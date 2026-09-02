@@ -241,11 +241,9 @@ class _CategoryStudioState extends State<_CategoryStudio> {
             ],
           ),
         ),
-        BadgeColorRow(
-          colors: s.badgePaletteWith(_color),
+        _ColorPickerPanel(
           selected: _color,
-          onPick: (c) => setState(() => _color = c),
-          onToast: s.flash,
+          onChanged: (c) => setState(() => _color = c),
         ),
       ],
     );

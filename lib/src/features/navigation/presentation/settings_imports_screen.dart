@@ -100,9 +100,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: neutral
-                ? B.text
-                : (active ? B.deep : const Color(0xff94a0b0)),
+            color: neutral ? B.text : (active ? B.deep : B.muted),
           ),
         ),
       ),
@@ -436,7 +434,7 @@ class _ImportStudioState extends State<_ImportStudio> {
                 ],
               ),
             ),
-            const Divider(color: Color(0xfff0f2f6), height: 16),
+            const Divider(color: B.faint, height: 16),
             studioToggleRow(
               key: const ValueKey('imp-autosync'),
               label: 'Keep it updated automatically',
@@ -466,7 +464,7 @@ class _ImportStudioState extends State<_ImportStudio> {
               onChanged: () => setState(() => _desc = !_desc),
               boxed: false,
             ),
-            const Divider(color: Color(0xfff0f2f6), height: 16),
+            const Divider(color: B.faint, height: 16),
             studioSectionLabel('Default reminder'),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -522,11 +520,9 @@ class _ImportStudioState extends State<_ImportStudio> {
                 ],
               ),
             ),
-            BadgeColorRow(
-              colors: s.badgePaletteWith(_color),
+            _ColorPickerPanel(
               selected: _color,
-              onPick: (c) => setState(() => _color = c),
-              onToast: s.flash,
+              onChanged: (c) => setState(() => _color = c),
             ),
           ],
         ),

@@ -233,11 +233,9 @@ class _AccountStudioState extends State<_AccountStudio> {
           hint: 'Short label — e.g. Eva',
           onChanged: (_) => setState(() {}),
         ),
-        BadgeColorRow(
-          colors: [if (!kAccPalette.contains(_color)) _color, ...kAccPalette],
+        _ColorPickerPanel(
           selected: _color,
-          onPick: (c) => setState(() => _color = c),
-          onToast: s.flash,
+          onChanged: (c) => setState(() => _color = c),
         ),
       ],
     );

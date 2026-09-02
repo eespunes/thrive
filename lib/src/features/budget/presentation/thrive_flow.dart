@@ -367,7 +367,7 @@ extension _ThriveFlow on _ThriveHomeState {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xff0f172a).withValues(alpha: .35),
+            color: B.ink.withValues(alpha: .35),
             blurRadius: 34,
             spreadRadius: -22,
             offset: const Offset(0, 18),
@@ -1502,7 +1502,7 @@ class _FlowChartPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = const Color(0xff0f172a),
+        ..color = B.ink,
     );
   }
 

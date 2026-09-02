@@ -131,7 +131,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xff94a0b0),
+              color: B.muted,
             ),
           ),
         ),
@@ -317,7 +317,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .3,
-                          color: Color(0xff94a0b0),
+                          color: B.muted,
                         ),
                       ),
                     ),
@@ -375,7 +375,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
         style: const TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          color: Color(0xff94a0b0),
+          color: B.muted,
         ),
       ),
     );

@@ -88,7 +88,7 @@ Widget _familyFormButton(
         style: TextStyle(
           fontSize: 13.5,
           fontWeight: FontWeight.w800,
-          color: enabled ? Colors.white : const Color(0xff94a0b0),
+          color: enabled ? Colors.white : B.muted,
         ),
       ),
     ),
@@ -536,7 +536,7 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
             margin: const EdgeInsets.only(top: 5, bottom: 5),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xfffef2f2),
+              color: B.redSoft,
               borderRadius: BorderRadius.circular(11),
             ),
             child: Text(

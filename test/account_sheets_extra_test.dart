@@ -274,51 +274,27 @@ void main() {
     Color myColor() =>
         thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'me').color;
     final before = myColor();
-    final taken = thriveDebug
-        .curFamily()!
-        .members
-        .where((m) => m.id != 'me')
-        .map((m) => m.color)
-        .toSet();
 
     await tester.tap(find.byKey(const ValueKey('memcolors-row-me')));
     await tester.pumpAndSettle();
     expect(find.text('Edit member'), findsOneWidget);
 
-    // Pick the first free colour dot, save, and the member row updates
+    // Pick a colour via the hex field, save, and the member row updates
     // everywhere.
-    final free = kMemberColors.firstWhere(
-      (c) => c != before && !taken.contains(c),
+    final free = kMemberColors.firstWhere((c) => c != before);
+    final freeHex = (free.toARGB32() & 0xFFFFFF)
+        .toRadixString(16)
+        .padLeft(6, '0');
+    await tester.tap(find.text('RGB / Hex'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('hex-color-input')),
+      freeHex,
     );
-    await tester.ensureVisible(
-      find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
-    );
-    await tester.tap(
-      find.byKey(ValueKey('badge-color-${free.toARGB32()}')),
-      warnIfMissed: false,
-    );
-    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(myColor(), free);
-
-    // A colour worn by someone else is dimmed and only toasts.
-    if (taken.isNotEmpty) {
-      await tester.tap(find.byKey(const ValueKey('memcolors-row-me')));
-      await tester.pumpAndSettle();
-      final takenColor = taken.first;
-      await tester.ensureVisible(
-        find.byKey(ValueKey('badge-color-${takenColor.toARGB32()}')),
-      );
-      await tester.tap(
-        find.byKey(ValueKey('badge-color-${takenColor.toARGB32()}')),
-        warnIfMissed: false,
-      );
-      await tester.pump();
-      expect(thriveDebug.toast, 'That colour is taken in this family');
-      await tester.tap(find.byKey(const ValueKey('studio-save')));
-      await tester.pumpAndSettle();
-      expect(myColor(), free);
-    }
   });
 }

@@ -3,12 +3,12 @@ part of 'package:family_money_management_app/main.dart';
 /// Fallback swatches offered when no dominant colour could be sampled from
 /// the card photo (issue #225 — "palette fallback otherwise").
 const List<Color> kCardPalette = [
-  Color(0xff0E9A8D),
+  B.primary,
   Color(0xff1684B4),
   Color(0xff7c3aed),
   Color(0xffe11d48),
-  Color(0xffd97706),
-  Color(0xff0f9d6a),
+  B.amber,
+  B.green,
   Color(0xff475569),
 ];
 

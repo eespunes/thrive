@@ -9,14 +9,6 @@ extension _ThriveLayersScreen on _ThriveHomeState {
     pushSettingsPage<void>((_) => _CalendarLayersScreen(state: this));
   }
 
-  /// Palette for layer/category/import/badge editors: the calendar identity
-  /// colours, with [current] prepended when it isn't part of the palette
-  /// (legacy data can carry any colour).
-  List<Color> badgePaletteWith(Color current) => [
-    if (!kCatColors.contains(current)) current,
-    ...kCatColors,
-  ];
-
   /// Visibility toggle with the audible min-1 guard (#327):
   /// `toggleLayerFilter` alone would just silently ignore the tap.
   void toggleLayerVisibilityGuarded(String id) {
@@ -206,11 +198,9 @@ class _LayerStudioState extends State<_LayerStudio> {
           },
           onToast: s.flash,
         ),
-        BadgeColorRow(
-          colors: s.badgePaletteWith(_color),
+        _ColorPickerPanel(
           selected: _color,
-          onPick: (c) => setState(() => _color = c),
-          onToast: s.flash,
+          onChanged: (c) => setState(() => _color = c),
         ),
       ],
     );

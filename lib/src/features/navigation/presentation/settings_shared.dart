@@ -77,7 +77,7 @@ Widget settingsSyncPill(SettingsSyncStatus status) {
       style: TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.w800,
-        color: queued ? B.amberText : const Color(0xff0b7a52),
+        color: queued ? B.amberText : B.greenText,
       ),
     ),
   );
@@ -512,7 +512,7 @@ Widget studioToggleRow({
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xfff8fafc),
-              border: Border.all(color: const Color(0xffeef1f5)),
+              border: Border.all(color: B.track),
               borderRadius: BorderRadius.circular(12),
             ),
             child: row,
@@ -539,7 +539,7 @@ Widget studioTextField({
   return Container(
     margin: margin,
     decoration: BoxDecoration(
-      color: const Color(0xfff4f6f9),
+      color: B.page,
       border: Border.all(color: B.line),
       borderRadius: BorderRadius.circular(12),
     ),

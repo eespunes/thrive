@@ -283,7 +283,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xfff4f6f9),
+                    color: B.page,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -1045,7 +1045,7 @@ class _KitchenStarRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: full ? const Color(0xfffff7ed) : B.faint,
+        color: full ? B.orangeSoft : B.faint,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: full ? const Color(0xfff5d78e) : B.line),
       ),

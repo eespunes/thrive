@@ -56,9 +56,11 @@ Workspace _ws([DateTime? now]) {
     ExpenseItem.fromJson({
       'id': 'later',
       'label': 'Insurance',
-      // Always strictly in the future so it never counts into dueToday —
-      // a fixed '28' made this test fail on the 28th–31st of each month.
-      'marker': '${DateTime.now().day + 1}',
+      // Always strictly in the future *relative to the test clock* so it never
+      // counts into dueToday. Must key off [now] (the fixed _testNow), not the
+      // real DateTime.now() — otherwise on days before _testNow's day it lands
+      // in the past and gets summed into dueToday.
+      'marker': '${(now ?? DateTime.now()).day + 1}',
       'amount': 50,
       'paid': false,
       'account': 'shared',
