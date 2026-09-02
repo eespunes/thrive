@@ -691,6 +691,27 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final sections = workspaceSections(ws);
     final digests = _wsSectionDigests.putIfAbsent(f.id, () => {});
     final cache = _wsSectionCache.putIfAbsent(f.id, () => {});
+
+    // Safety net against permanently wiping a family whose workspace never
+    // finished loading on this device. Several callers substitute a
+    // `Workspace.empty()` (and `_activeWs`'s `putIfAbsent` inserts an empty
+    // sentinel) whenever `workspaces[f.id]` is momentarily absent — e.g. a
+    // secondary family whose subcollection read timed out, or the active
+    // family touched before its stream delivered. An empty workspace produces
+    // NO content sections, so the stale-section sweep further down would then
+    // DELETE every real `events_*`/`budget_*`/`import_*`/`lists`/`cards` doc on
+    // the server as "vanished locally", destroying data that only failed to
+    // load. (This is exactly how a legacy family's 91-event `events` doc was
+    // lost.) The decision is a pure function (unit-tested in
+    // workspace_sections_test.dart) so this net can't silently rot.
+    if (emptyWorkspacePersistWouldWipe(sections, digests)) {
+      debugPrint(
+        '[cloud] SKIPPED persist for ${f.id}: an empty/unloaded workspace '
+        'would have deleted ${digests.keys.where(isWorkspaceContentSection).length} '
+        'server content section(s). Leaving server data intact.',
+      );
+      return;
+    }
     final batch = FirebaseFirestore.instance.batch();
     // Cache mutations staged here run only once the batch has committed.
     final staged = <void Function()>[];

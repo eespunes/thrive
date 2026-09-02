@@ -184,6 +184,76 @@ void main() {
     });
   });
 
+  group('emptyWorkspacePersistWouldWipe', () {
+    // Guards against the fam_xlpd3xj1 incident: an unloaded Workspace.empty()
+    // must never let a persist delete OR overwrite live server content docs.
+    Map<String, String> digestsOf(Workspace ws) => {
+      for (final e in workspaceSections(ws).entries)
+        e.key: sectionDigest(e.value),
+    };
+    final emptySections = workspaceSections(Workspace.empty());
+    final loadedSections = workspaceSections(_sampleWorkspace());
+    final loadedDigests = digestsOf(_sampleWorkspace());
+    final emptyDigests = digestsOf(Workspace.empty());
+
+    test('aborts when an empty workspace would wipe live server content', () {
+      // Server holds a real family (events, budget, cards, imports); this
+      // device only has an empty workspace to persist — must bail out.
+      expect(
+        emptyWorkspacePersistWouldWipe(emptySections, loadedDigests),
+        isTrue,
+      );
+    });
+
+    test('aborts even when the only server content is cards/lists (no '
+        'events_* to delete — pure overwrite path)', () {
+      // workspaceSections always emits cards/lists/weekly keys, so this can
+      // only be caught by comparing digests, not key presence. Regression for
+      // the first (broken) version of this guard.
+      final ws = Workspace.empty();
+      ws.cards.add(
+        DiscountCard.fromJson({
+          'id': 'c9',
+          'name': 'Loyalty',
+          'number': '123',
+          'codeType': 'barcode',
+          'color': 0xff000000,
+        }),
+      );
+      expect(
+        emptyWorkspacePersistWouldWipe(emptySections, digestsOf(ws)),
+        isTrue,
+      );
+    });
+
+    test('allows a real workspace to persist normally', () {
+      expect(
+        emptyWorkspacePersistWouldWipe(loadedSections, loadedDigests),
+        isFalse,
+      );
+    });
+
+    test('allows a genuine clear-everything (server also empty)', () {
+      // First-time / already-empty family: nothing on the server to wipe.
+      expect(
+        emptyWorkspacePersistWouldWipe(emptySections, emptyDigests),
+        isFalse,
+      );
+    });
+
+    test('settings/__meta alone never count as content worth protecting', () {
+      expect(isWorkspaceContentSection('settings'), isFalse);
+      expect(isWorkspaceContentSection('__meta'), isFalse);
+      expect(isWorkspaceContentSection('events_2026'), isTrue);
+      expect(isWorkspaceContentSection('import_ic1'), isTrue);
+    });
+
+    test('a fresh cold start (no known server digests) never trips', () {
+      // digests empty -> the sweep has nothing to delete anyway.
+      expect(emptyWorkspacePersistWouldWipe(emptySections, const {}), isFalse);
+    });
+  });
+
   group('sectionDigest', () {
     test('is stable for identical payloads and differs on any change', () {
       final ws = _sampleWorkspace();
