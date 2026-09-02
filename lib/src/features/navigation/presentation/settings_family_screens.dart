@@ -249,9 +249,7 @@ Widget _smallPillButton(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
-        color: disabled
-            ? B.page
-            : (primary ? B.soft : Colors.white),
+        color: disabled ? B.page : (primary ? B.soft : Colors.white),
         border: Border.all(
           color: disabled ? B.line : (primary ? B.primary : B.line),
         ),

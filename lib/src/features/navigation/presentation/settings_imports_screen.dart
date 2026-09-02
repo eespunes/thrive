@@ -100,9 +100,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: neutral
-                ? B.text
-                : (active ? B.deep : B.muted),
+            color: neutral ? B.text : (active ? B.deep : B.muted),
           ),
         ),
       ),

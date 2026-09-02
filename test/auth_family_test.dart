@@ -142,10 +142,9 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-avatar')));
       await tester.pumpAndSettle();
       final free = kMemberColors.last;
-      final freeHex = (free.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
-        6,
-        '0',
-      );
+      final freeHex = (free.toARGB32() & 0xFFFFFF)
+          .toRadixString(16)
+          .padLeft(6, '0');
       await tester.tap(find.text('RGB / Hex'));
       await tester.pumpAndSettle();
       await tester.enterText(

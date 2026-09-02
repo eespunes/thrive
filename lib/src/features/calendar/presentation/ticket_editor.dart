@@ -901,10 +901,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           end: Alignment.bottomRight,
           colors: [
             Color.alphaBlend(Colors.white.withValues(alpha: .16), col),
-            Color.alphaBlend(
-              B.ink.withValues(alpha: .14),
-              col,
-            ),
+            Color.alphaBlend(B.ink.withValues(alpha: .14), col),
           ],
         ),
         boxShadow: [

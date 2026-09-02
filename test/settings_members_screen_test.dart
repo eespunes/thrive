@@ -42,10 +42,9 @@ void main() {
       'erik@home.nl',
     );
     final freeColor = kMemberColors[4];
-    final freeHex = (freeColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
-      6,
-      '0',
-    );
+    final freeHex = (freeColor.toARGB32() & 0xFFFFFF)
+        .toRadixString(16)
+        .padLeft(6, '0');
     await tester.tap(find.text('RGB / Hex'));
     await tester.pumpAndSettle();
     await tester.enterText(

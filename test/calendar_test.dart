@@ -1342,10 +1342,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('imp-visible')));
     await tester.pumpAndSettle();
     final newColor = kCatColors[2];
-    final newHex = (newColor.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
-      6,
-      '0',
-    );
+    final newHex = (newColor.toARGB32() & 0xFFFFFF)
+        .toRadixString(16)
+        .padLeft(6, '0');
     await tester.tap(find.text('RGB / Hex'));
     await tester.pumpAndSettle();
     await tester.enterText(

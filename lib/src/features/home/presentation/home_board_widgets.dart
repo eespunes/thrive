@@ -382,10 +382,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     final today = DateTime.now().day;
     if (day <= today) return ('Today', B.red);
     if (day - today <= 3) return ('In ${day - today}d', B.amber);
-    return (
-      '$day ${kMonthsEn[monthIdx].substring(0, 3)}',
-      B.muted,
-    );
+    return ('$day ${kMonthsEn[monthIdx].substring(0, 3)}', B.muted);
   }
 
   /// Design: "NEXT BILLS" rows — due label · title + account · amount ·
@@ -1535,9 +1532,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                             fontWeight: dinner == null
                                 ? FontWeight.w700
                                 : FontWeight.w800,
-                            color: dinner == null
-                                ? B.muted
-                                : B.ink,
+                            color: dinner == null ? B.muted : B.ink,
                           ),
                         ),
                       ),

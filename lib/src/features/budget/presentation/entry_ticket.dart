@@ -965,9 +965,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .8,
-                    color: _paid
-                        ? const Color(0xff16a34a)
-                        : B.muted,
+                    color: _paid ? const Color(0xff16a34a) : B.muted,
                   ),
                 ),
               ),

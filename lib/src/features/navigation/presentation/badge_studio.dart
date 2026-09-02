@@ -139,9 +139,7 @@ class BadgeStudioScaffold extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
-                  color: saveEnabled
-                      ? contrastOn(accent)
-                      : B.muted,
+                  color: saveEnabled ? contrastOn(accent) : B.muted,
                 ),
               ),
             ),

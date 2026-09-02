@@ -282,10 +282,9 @@ void main() {
     // Pick a colour via the hex field, save, and the member row updates
     // everywhere.
     final free = kMemberColors.firstWhere((c) => c != before);
-    final freeHex = (free.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(
-      6,
-      '0',
-    );
+    final freeHex = (free.toARGB32() & 0xFFFFFF)
+        .toRadixString(16)
+        .padLeft(6, '0');
     await tester.tap(find.text('RGB / Hex'));
     await tester.pumpAndSettle();
     await tester.enterText(
