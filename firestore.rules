@@ -147,6 +147,17 @@ service cloud.firestore {
                get(/databases/$(database)/documents/families/$(familyId))
                  .data.memberUids;
       }
+
+      // Per-event documents (one doc per calendar event, id = event id).
+      // Events moved out of the whole-array `events_<year>` workspace doc so
+      // two members editing different events can't overwrite each other.
+      // Access is the same parent-doc membership as the workspace sections.
+      match /events/{eventId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in
+               get(/databases/$(database)/documents/families/$(familyId))
+                 .data.memberUids;
+      }
     }
 
     // Public handle resolver: maps a family `username` to its `familyId` so a

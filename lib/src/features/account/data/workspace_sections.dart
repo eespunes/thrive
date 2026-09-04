@@ -45,7 +45,16 @@ Map<String, List<CalendarEvent>> eventsByYear(List<CalendarEvent> events) {
 /// so offline persistence can stay enabled (the old single workspace doc
 /// also overflowed Android's ~2 MB CursorWindow) and every edit only
 /// uploads its own section.
-Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
+/// [includeEvents] controls whether per-year `events_<year>` docs are emitted.
+/// LOCAL persistence keeps events in these section docs (single device, no
+/// concurrent-write conflict). The CLOUD path passes `false` and instead stores
+/// each event as its own doc under `families/{fid}/events/{eventId}` (see
+/// `_persistFamilyEvents` / [diffEventDocs]) so two members editing different
+/// events can't overwrite each other's whole-array section doc.
+Map<String, Map<String, dynamic>> workspaceSections(
+  Workspace ws, {
+  bool includeEvents = true,
+}) => {
   'settings': {
     'accounts': ws.accounts.map((a) => a.toJson()).toList(),
     'cats': ws.cats.map((c) => c.toJson()).toList(),
@@ -56,10 +65,15 @@ Map<String, Map<String, dynamic>> workspaceSections(Workspace ws) => {
     if (ws.picMembers.isNotEmpty) 'picMembers': ws.picMembers,
     'kitchenLayerFilter': ws.kitchenLayerFilter,
   },
-  for (final entry in eventsByYear(ws.events).entries)
-    'events_${entry.key}': {
-      'events': entry.value.map((e) => e.toJson()).toList(),
-    },
+  // Per-year event docs — emitted for LOCAL persistence only. The cloud path
+  // passes includeEvents:false and stores events per-doc (see the doc comment
+  // above and _persistFamilyEvents). Legacy cloud events_*/events docs are read
+  // once by [workspaceFromSections] to seed the per-event migration.
+  if (includeEvents)
+    for (final entry in eventsByYear(ws.events).entries)
+      'events_${entry.key}': {
+        'events': entry.value.map((e) => e.toJson()).toList(),
+      },
   // Card photos are local-only (issue #234) — the synced payload never
   // carries them, so they stay on the devices of the family.
   'cards': {
@@ -190,6 +204,38 @@ Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
 /// section written twice digests identically.
 String sectionDigest(Map<String, dynamic> payload) =>
     sha256.convert(utf8.encode(json.encode(payload))).toString();
+
+/// Digest of a single calendar event's synced payload — the per-event analogue
+/// of [sectionDigest]. Used to skip unchanged event docs on persist and to
+/// detect which events another member changed.
+String eventDocDigest(CalendarEvent e) => sectionDigest(e.toJson());
+
+/// Diffs the in-memory [local] events against the per-event digests we last
+/// synced to the server ([serverDigests]: eventId -> [eventDocDigest]), the
+/// per-document analogue of the section write-loop + stale sweep in
+/// `_persistFamilySections`. Because each result touches only its own
+/// `families/{fid}/events/{eventId}` doc, two members editing different events
+/// never overwrite each other.
+///
+/// - `writes`: events whose digest differs from `serverDigests` (new or edited).
+/// - `deletes`: ids present in `serverDigests` but no longer in `local`.
+///
+/// Duplicate local ids are collapsed (last wins) so a doc is written once.
+({List<CalendarEvent> writes, List<String> deletes}) diffEventDocs(
+  List<CalendarEvent> local,
+  Map<String, String> serverDigests,
+) {
+  final localById = {for (final e in local) e.id: e};
+  final writes = <CalendarEvent>[];
+  localById.forEach((id, e) {
+    if (serverDigests[id] != eventDocDigest(e)) writes.add(e);
+  });
+  final deletes = [
+    for (final id in serverDigests.keys)
+      if (!localById.containsKey(id)) id,
+  ];
+  return (writes: writes, deletes: deletes);
+}
 
 /// Digest over the meta-doc fields the client owns (never the timestamps or
 /// join-credential extras like `joinHash`), so a locally built meta doc and

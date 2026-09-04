@@ -244,9 +244,14 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _familySub = null;
     _wsSub?.cancel();
     _wsSub = null;
+    _eventsSub?.cancel();
+    _eventsSub = null;
     _boundFamilyId = null;
     _wsSectionCache.clear();
     _wsSectionDigests.clear();
+    _eventDigests.clear();
+    _eventsLoaded.clear();
+    _eventsMigrated.clear();
     _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {
       unawaited(GoogleSignIn.instance.signOut());
