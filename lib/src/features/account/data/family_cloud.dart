@@ -192,6 +192,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   CollectionReference<Map<String, dynamic>> _workspaceCol(String fid) =>
       _familyDocRef(fid).collection('workspace');
 
+  /// Per-event subcollection: one doc per calendar event, id = `event.id`.
+  /// Replaces the array-in-a-doc `events_<year>` sections so concurrent edits
+  /// to different events touch different docs (no whole-array overwrite).
+  CollectionReference<Map<String, dynamic>> _eventsCol(String fid) =>
+      _familyDocRef(fid).collection('events');
+
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
     fam.id = fid;
@@ -317,7 +323,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     Source source = Source.serverAndCache,
   }) async {
     await Future.wait([
-      for (final fid in fids)
+      for (final fid in fids) ...[
         _workspaceCol(fid)
             .get(GetOptions(source: source))
             .timeout(kCloudOpTimeout)
@@ -327,7 +333,178 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             .catchError((Object e) {
               debugPrint('[cloud] workspace sections read failed for $fid: $e');
             }),
+        _eventsCol(fid)
+            .get(GetOptions(source: source))
+            .timeout(kCloudOpTimeout)
+            .then((snap) {
+              _adoptEventsBootSnapshot(fid, snap);
+            })
+            .catchError((Object e) {
+              debugPrint('[cloud] events read failed for $fid: $e');
+            }),
+      ],
     ]);
+  }
+
+  /// Parses an `events` subcollection snapshot into (event list, per-event
+  /// digest map). Shared by the boot fetch and the realtime listener.
+  (List<CalendarEvent>, Map<String, String>) _parseEventDocs(
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final events = <CalendarEvent>[];
+    final digests = <String, String>{};
+    for (final d in snap.docs) {
+      final payload = Map<String, dynamic>.from(d.data())
+        ..remove('updatedAtMillis')
+        ..remove('updatedAt');
+      final e = CalendarEvent.fromJson(payload);
+      events.add(e);
+      digests[e.id] = eventDocDigest(e);
+    }
+    return (events, digests);
+  }
+
+  /// Caches a boot-time `events` snapshot for [_applyFamilyDocs] to seed into
+  /// the workspace, records the server digests, and marks the family's events
+  /// as loaded (so the persist delete-sweep is allowed for it).
+  void _adoptEventsBootSnapshot(
+    String fid,
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final (events, digests) = _parseEventDocs(snap);
+    _loadedEvents[fid] = events;
+    _eventDigests[fid] = digests;
+    _eventsLoaded.add(fid);
+  }
+
+  /// Union of two event lists by id, [primary] winning on a clash.
+  List<CalendarEvent> _mergeEventsById(
+    Iterable<CalendarEvent> primary,
+    Iterable<CalendarEvent> secondary,
+  ) {
+    final byId = <String, CalendarEvent>{};
+    for (final e in secondary) {
+      byId[e.id] = e;
+    }
+    for (final e in primary) {
+      byId[e.id] = e;
+    }
+    return byId.values.toList();
+  }
+
+  /// Applies a realtime `events` subcollection snapshot to the active family:
+  /// adopts server events, keeps any locally-dirty (edited-but-not-yet-persisted)
+  /// event and any un-synced local add, and drops events another member deleted.
+  void _adoptEventsSnapshot(
+    String fid,
+    QuerySnapshot<Map<String, dynamic>> snap,
+  ) {
+    final (serverEvents, serverDigests) = _parseEventDocs(snap);
+    final known = _eventDigests[fid] ?? const <String, String>{};
+    var changed = serverDigests.length != known.length;
+    if (!changed) {
+      for (final e in serverDigests.entries) {
+        if (known[e.key] != e.value) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    _eventsLoaded.add(fid);
+    if (!changed) {
+      _eventDigests[fid] = serverDigests;
+      return;
+    }
+
+    final localWs = workspaces[fid];
+    final localById = {
+      for (final e in localWs?.events ?? const <CalendarEvent>[]) e.id: e,
+    };
+    final serverById = {for (final e in serverEvents) e.id: e};
+    final merged = <CalendarEvent>[];
+    for (final e in serverEvents) {
+      final local = localById[e.id];
+      if (local != null) {
+        final ld = eventDocDigest(local);
+        // Locally dirty within the debounce window: keep our copy, the pending
+        // persist will upload it (mirrors the section-level dirty merge).
+        if (ld != known[e.id] && ld != serverDigests[e.id]) {
+          merged.add(local);
+          continue;
+        }
+      }
+      merged.add(e);
+    }
+    // Local-only events: keep genuine un-synced local adds; an event we had
+    // synced before (present in `known`) that the server now lacks was deleted
+    // by another member — drop it.
+    for (final e in localById.values) {
+      if (!serverById.containsKey(e.id) && !known.containsKey(e.id)) {
+        merged.add(e);
+      }
+    }
+
+    _eventDigests[fid] = serverDigests;
+    if (localWs != null) {
+      _applyingCloudSnapshot = true;
+      localWs.events
+        ..clear()
+        ..addAll(merged);
+      workspaces[fid] = localWs;
+      if (fid == familyId) _adoptActiveWorkspace();
+      _applyingCloudSnapshot = false;
+    }
+    if (mounted) {
+      update(() {});
+      _rescheduleReminders();
+    }
+  }
+
+  /// One-time migration of a family's legacy in-`workspace` calendar events
+  /// (the single `events` doc or the per-year `events_*` docs) into the
+  /// per-event `events` subcollection: writes each event as its own doc, then
+  /// deletes the legacy section docs so [workspaceFromSections] stops re-reading
+  /// them. Idempotent and guarded to run once per family per session.
+  Future<void> _migrateLegacyEvents(
+    String fid,
+    List<CalendarEvent> legacy,
+  ) async {
+    if (_eventsMigrated.contains(fid)) return;
+    _eventsMigrated.add(fid);
+    try {
+      final digests = _eventDigests.putIfAbsent(fid, () => {});
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final batch = FirebaseFirestore.instance.batch();
+      final staged = <void Function()>[];
+      for (final e in legacy) {
+        final digest = eventDocDigest(e);
+        if (digests[e.id] == digest) continue; // already present, identical
+        batch.set(_eventsCol(fid).doc(e.id), {
+          ...e.toJson(),
+          'updatedAtMillis': now,
+        });
+        staged.add(() => digests[e.id] = digest);
+      }
+      final sectionDigests = _wsSectionDigests[fid] ?? const <String, String>{};
+      final legacyDocIds = [
+        for (final id in sectionDigests.keys)
+          if (id == 'events' || id.startsWith('events_')) id,
+      ];
+      for (final id in legacyDocIds) {
+        batch.delete(_workspaceCol(fid).doc(id));
+        staged.add(() {
+          _wsSectionDigests[fid]?.remove(id);
+          _wsSectionCache[fid]?.remove(id);
+        });
+      }
+      await batch.commit();
+      for (final apply in staged) {
+        apply();
+      }
+    } catch (e) {
+      debugPrint('[cloud] legacy event migration failed for $fid: $e');
+      _eventsMigrated.remove(fid); // allow a retry on the next boot
+    }
   }
 
   /// Caches a workspace-subcollection snapshot's payloads (and their digests,
@@ -361,18 +538,30 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final loadedFamilies = <Family>[];
     final loadedWorkspaces = <String, Workspace>{};
     for (final entry in docs) {
-      loadedFamilies.add(_familyFromDoc(entry.key, entry.value));
+      final fid = entry.key;
+      loadedFamilies.add(_familyFromDoc(fid, entry.value));
       // Prefer the split subcollection sections; families that haven't
       // migrated yet still carry the legacy single `workspace` map.
-      loadedWorkspaces[entry.key] =
-          workspaceFromSections(_wsSectionCache[entry.key] ?? const {}) ??
+      final ws =
+          workspaceFromSections(_wsSectionCache[fid] ?? const {}) ??
           workspaceFromDoc(entry.value);
+      // Events are owned by the per-event `events` subcollection. `ws.events`
+      // as built above holds only LEGACY events (from a pre-migration `events`
+      // / `events_*` section doc, or the legacy blob). Merge them with the
+      // subcollection events (subcollection wins on id — it's the migrated
+      // copy) and kick off the one-time migration of any legacy events.
+      final legacyEvents = List<CalendarEvent>.from(ws.events);
+      final subEvents = _loadedEvents[fid] ?? const <CalendarEvent>[];
+      ws.events
+        ..clear()
+        ..addAll(_mergeEventsById(subEvents, legacyEvents));
+      if (legacyEvents.isNotEmpty) {
+        unawaited(_migrateLegacyEvents(fid, legacyEvents));
+      }
+      loadedWorkspaces[fid] = ws;
       // Cloud sections never carry card photos (issue #234) — restore the
       // ones this device already had from local storage.
-      mergeCardPhotos(
-        loadedWorkspaces[entry.key]!.cards,
-        workspaces[entry.key]?.cards ?? const [],
-      );
+      mergeCardPhotos(ws.cards, workspaces[fid]?.cards ?? const []);
     }
 
     var active = (userData?['activeFamilyId'] ?? '').toString();
@@ -407,7 +596,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (entry.value['workspace'] is! Map) continue;
       final fam = loadedFamilies.firstWhere((f) => f.id == entry.key);
       unawaited(
-        _persistFamilySections(fam, loadedWorkspaces[entry.key]!).catchError(
+        _persistFamily(fam, loadedWorkspaces[entry.key]!).catchError(
           (Object e) => debugPrint(
             '[cloud] legacy blob migration failed for ${entry.key}: $e',
           ),
@@ -536,6 +725,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _boundFamilyId = fid;
     _familySub?.cancel();
     _wsSub?.cancel();
+    _eventsSub?.cancel();
     try {
       // Per-section workspace stream: with persistence re-enabled Firestore
       // only re-downloads the section docs that actually changed, so another
@@ -574,7 +764,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final localWs = workspaces[fid];
         final local = localWs == null
             ? const <String, Map<String, dynamic>>{}
-            : workspaceSections(localWs);
+            : workspaceSections(localWs, includeEvents: false);
         final merged = <String, Map<String, dynamic>>{...incoming};
         local.forEach((id, payload) {
           final localDigest = sectionDigest(payload);
@@ -593,6 +783,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         });
         final ws = workspaceFromSections(merged);
         if (ws == null) return;
+        // Events are owned by the per-event `events` subcollection (see
+        // `_eventsSub`), NOT by the section docs. A section snapshot must never
+        // touch events, so carry the current in-memory events over unchanged.
+        if (localWs != null) {
+          ws.events
+            ..clear()
+            ..addAll(localWs.events);
+        }
         // Card photos never travel through the cloud (issue #234), so carry
         // this device's local photos over into the rebuilt workspace.
         mergeCardPhotos(ws.cards, localWs?.cards ?? const []);
@@ -610,6 +808,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           _rescheduleReminders();
         }
       }, onError: (Object e) => _onFamilyStreamError(fid, 'workspace', e));
+      // Per-event stream: one small doc per calendar event, so another
+      // member's edit to a DIFFERENT event never overwrites ours.
+      _eventsSub = _eventsCol(fid).snapshots().listen((snap) {
+        if (snap.metadata.hasPendingWrites) return; // our own local echo
+        _adoptEventsSnapshot(fid, snap);
+      }, onError: (Object e) => _onFamilyStreamError(fid, 'events', e));
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
@@ -669,7 +873,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (f != null) {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
-      await _persistFamilySections(f, workspaces[f.id] ?? Workspace.empty());
+      await _persistFamily(f, workspaces[f.id] ?? Workspace.empty());
     }
     // Best-effort, bounded mirror write: a timeout just means no backend ack
     // yet — the set() is already queued by the SDK and will land when online.
@@ -688,7 +892,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// the data, silently suppressing every retry until restart.
   Future<void> _persistFamilySections(Family f, Workspace ws) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final sections = workspaceSections(ws);
+    // Events are persisted per-doc by _persistFamilyEvents, not as sections.
+    final sections = workspaceSections(ws, includeEvents: false);
     final digests = _wsSectionDigests.putIfAbsent(f.id, () => {});
     final cache = _wsSectionCache.putIfAbsent(f.id, () => {});
 
@@ -746,6 +951,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     });
     for (final stale in digests.keys.toList()) {
       if (stale == '__meta' || sections.containsKey(stale)) continue;
+      // Legacy event docs are NOT swept here: since cloud sections no longer
+      // include events, they'd always look stale, and deleting them before
+      // _migrateLegacyEvents copies them into the per-event subcollection would
+      // lose data. Their deletion is owned solely by _migrateLegacyEvents.
+      if (stale == 'events' || stale.startsWith('events_')) continue;
       batch.delete(_workspaceCol(f.id).doc(stale));
       staged.add(() {
         digests.remove(stale);
@@ -770,6 +980,70 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
       }
       // Caches untouched — the next persist retries these exact sections.
+      return;
+    }
+    if (mounted && netOffline.value) netOffline.value = false;
+    for (final apply in staged) {
+      apply();
+    }
+  }
+
+  /// Persists both the workspace section docs and the per-event `events`
+  /// subcollection for [f]. Every persist entry point goes through here so
+  /// events and sections always ride the same debounced write.
+  Future<void> _persistFamily(Family f, Workspace ws) async {
+    await _persistFamilySections(f, ws);
+    await _persistFamilyEvents(f, ws);
+  }
+
+  /// Writes [f]'s calendar events as individual docs under
+  /// `families/{fid}/events/{eventId}` — the per-document model that stops two
+  /// members editing DIFFERENT events from overwriting each other (unlike the
+  /// old whole-array `events_<year>` section doc). Only events whose digest
+  /// changed are written; events removed locally are deleted.
+  ///
+  /// Like [_persistFamilySections], digest-cache mutations are staged and only
+  /// applied after the commit succeeds, so a failed commit retries next time.
+  Future<void> _persistFamilyEvents(Family f, Workspace ws) async {
+    final digests = _eventDigests.putIfAbsent(f.id, () => {});
+    final diff = diffEventDocs(ws.events, digests);
+
+    // Unloaded-wipe guard: never delete server event docs for a family whose
+    // events haven't loaded on this device (an empty/unloaded workspace would
+    // otherwise wipe every event). Writes are always safe — they only add or
+    // update, never destroy — so a first-time upload still works.
+    final deletes = _eventsLoaded.contains(f.id)
+        ? diff.deletes
+        : const <String>[];
+    if (diff.writes.isEmpty && deletes.isEmpty) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final batch = FirebaseFirestore.instance.batch();
+    final staged = <void Function()>[];
+    for (final e in diff.writes) {
+      batch.set(_eventsCol(f.id).doc(e.id), {
+        ...e.toJson(),
+        'updatedAtMillis': now,
+      });
+      final digest = eventDocDigest(e);
+      staged.add(() => digests[e.id] = digest);
+    }
+    for (final id in deletes) {
+      batch.delete(_eventsCol(f.id).doc(id));
+      staged.add(() => digests.remove(id));
+    }
+    try {
+      await batch.commit();
+    } catch (e) {
+      debugPrint('[cloud] event persist commit failed for ${f.id}: $e');
+      if (mounted && !netOffline.value) {
+        netOffline.value = true;
+        showError('Could not sync your latest changes — will retry.');
+      }
+      if (mounted && syncStatus.value != null) {
+        syncStatus.value = SettingsSyncStatus.queued;
+      }
+      // Caches untouched — the next persist retries these exact events.
       return;
     }
     if (mounted && netOffline.value) netOffline.value = false;
@@ -873,7 +1147,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Future<void> _persistAllFamilies(String meUid) async {
     await Future.wait([
       for (final f in families)
-        _persistFamilySections(f, workspaces[f.id] ?? Workspace.empty()),
+        _persistFamily(f, workspaces[f.id] ?? Workspace.empty()),
     ]);
   }
 
@@ -939,7 +1213,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         await _familyHandleRef(slug)
             .set({'familyId': fid, 'ownerUid': meUid, 'joinSalt': joinSalt})
             .timeout(kCloudOpTimeout);
-        await _persistFamilySections(fam, ws);
+        await _persistFamily(fam, ws);
       } catch (e) {
         // Roll back both docs so we leave neither an unjoinable orphan family
         // (no resolvable handle) nor a dangling handle pointing at nothing
@@ -1139,8 +1413,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Future<void> _deleteFamilyDocs(String fid) async {
     try {
       final sections = await _workspaceCol(fid).get().timeout(kCloudOpTimeout);
+      final events = await _eventsCol(fid).get().timeout(kCloudOpTimeout);
       final batch = FirebaseFirestore.instance.batch();
       for (final d in sections.docs) {
+        batch.delete(d.reference);
+      }
+      for (final d in events.docs) {
         batch.delete(d.reference);
       }
       await batch.commit();
@@ -1150,6 +1428,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await _familyDocRef(fid).delete();
     _wsSectionCache.remove(fid);
     _wsSectionDigests.remove(fid);
+    _eventDigests.remove(fid);
+    _eventsLoaded.remove(fid);
+    _eventsMigrated.remove(fid);
+    _loadedEvents.remove(fid);
   }
 
   /// Returns null on success, or a user-facing error message. The caller has
@@ -1197,10 +1479,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
         await _deleteFamilyDocs(fam.id);
       } else {
-        await _persistFamilySections(
-          fam,
-          workspaces[fam.id] ?? Workspace.empty(),
-        );
+        await _persistFamily(fam, workspaces[fam.id] ?? Workspace.empty());
       }
       await _recordMembership(meUid);
       return null;
