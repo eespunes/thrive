@@ -37,14 +37,15 @@ Map<String, List<CalendarEvent>> eventsByYear(List<CalendarEvent> events) {
   return out;
 }
 
-/// Splits [ws] into per-section documents for the `workspace` subcollection:
-/// one settings doc, one doc per budget year, one per **events year**, one
-/// per imported calendar (the largest, most independently-changing pieces),
-/// plus lists and the weekly plan. Each stays far below Firestore's 1 MB doc
-/// limit — a single all-events doc used to overflow it at ~3,000 events —
-/// so offline persistence can stay enabled (the old single workspace doc
-/// also overflowed Android's ~2 MB CursorWindow) and every edit only
-/// uploads its own section.
+/// Splits [ws] into per-item documents for the `workspace` subcollection: a
+/// settings doc, one doc per discount card (`card_<id>`), per task/shopping list
+/// (`list_task_<id>`/`list_shop_<id>`), per budget month (`budget_<year>_<month>`),
+/// per imported calendar (`import_<id>`), plus the weekly plan. Fine-grained docs
+/// keep each write/download small AND let two members edit different items
+/// without overwriting each other's whole-array doc (the concurrent-edit
+/// data-loss bug). Each stays far below Firestore's 1 MB limit (the old single
+/// workspace doc also overflowed Android's ~2 MB CursorWindow).
+///
 /// [includeEvents] controls whether per-year `events_<year>` docs are emitted.
 /// LOCAL persistence keeps events in these section docs (single device, no
 /// concurrent-write conflict). The CLOUD path passes `false` and instead stores
@@ -74,24 +75,27 @@ Map<String, Map<String, dynamic>> workspaceSections(
       'events_${entry.key}': {
         'events': entry.value.map((e) => e.toJson()).toList(),
       },
-  // Card photos are local-only (issue #234) — the synced payload never
-  // carries them, so they stay on the devices of the family.
-  'cards': {
-    'cards': ws.cards.map((c) => c.toJson(includePhoto: false)).toList(),
-  },
-  'lists': {
-    'taskLists': ws.taskLists.map((l) => l.toJson()).toList(),
-    'shoppingLists': ws.shoppingLists.map((l) => l.toJson()).toList(),
-  },
+  // One doc per discount card (`card_<id>`) instead of a single `cards` doc
+  // holding the whole array, so two members editing DIFFERENT cards can't
+  // overwrite each other. Card photos are local-only (issue #234) — the synced
+  // payload never carries them, so they stay on the family's devices.
+  for (final c in ws.cards) 'card_${c.id}': c.toJson(includePhoto: false),
+  // One doc per task/shopping list. taskLists and shoppingLists are separate id
+  // spaces, so distinct prefixes keep their docs from colliding.
+  for (final l in ws.taskLists) 'list_task_${l.id}': l.toJson(),
+  for (final l in ws.shoppingLists) 'list_shop_${l.id}': l.toJson(),
   'weekly': {
     'weeklyPlan': {
       for (final e in ws.weeklyPlan.entries) e.key: e.value.toJson(),
     },
   },
+  // One doc per budget month (`budget_<year>_<month>`) instead of one
+  // `budget_<year>` doc holding every month, so editing different months no
+  // longer conflicts. Month names carry no underscore (kMonthKeys), so the id
+  // splits cleanly back into year + month on read.
   for (final entry in ws.data.entries)
-    'budget_${entry.key}': {
-      'months': {for (final m in entry.value.entries) m.key: m.value.toJson()},
-    },
+    for (final m in entry.value.entries)
+      'budget_${entry.key}_${m.key}': m.value.toJson(),
   for (final (i, cal) in ws.importedCalendars.indexed)
     'import_${cal.id}': {'calendar': cal.toJson(), 'order': i},
 };
@@ -102,13 +106,13 @@ Map<String, Map<String, dynamic>> workspaceSections(
 bool isWorkspaceContentSection(String id) => id != '__meta' && id != 'settings';
 
 /// True when [sections] carries at least one content section that actually
-/// holds data. NOTE the subtlety this guards: [workspaceSections] ALWAYS emits
-/// `cards`/`lists`/`weekly` keys (as empty containers) even for an empty
-/// workspace, so mere key-presence is not proof of data — an empty workspace
-/// would look "content-bearing" and defeat the wipe guard. We instead diff each
-/// content section against the same section built from [Workspace.empty]: a doc
-/// is real content only if it's absent from that template (e.g. `events_2026`,
-/// `budget_2026`, `import_*`) or its payload differs from the empty one.
+/// holds data. NOTE the subtlety this guards: [workspaceSections] always emits
+/// a `weekly` key (an empty container) even for an empty workspace, so mere
+/// key-presence is not proof of data — an empty workspace would look
+/// "content-bearing" and defeat the wipe guard. We instead diff each content
+/// section against the same section built from [Workspace.empty]: a doc is real
+/// content only if it's absent from that template (e.g. `card_*`, `list_*`,
+/// `events_2026`, `budget_2026_*`, `import_*`) or its payload differs.
 bool _workspaceHasRealContent(Map<String, Map<String, dynamic>> sections) {
   final empty = workspaceSections(Workspace.empty());
   return sections.entries.any(
@@ -123,9 +127,8 @@ bool _workspaceHasRealContent(Map<String, Map<String, dynamic>> sections) {
 ///
 /// Several persist callers substitute a `Workspace.empty()` when a family's
 /// subcollection hasn't finished loading on this device. That empty workspace
-/// carries no real data, so a persist would both DELETE the server's
-/// `events_*`/`budget_*`/`import_*` docs (stale-section sweep) AND OVERWRITE the
-/// always-present `cards`/`lists`/`weekly` docs with empty containers —
+/// carries no real data, so a persist would DELETE the server's
+/// `card_*`/`list_*`/`budget_*`/`import_*` docs (stale-section sweep) —
 /// destroying data that merely failed to load. (This is exactly how a legacy
 /// family's 91-event `events` doc was lost.)
 ///
@@ -175,22 +178,70 @@ Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
     if (id.startsWith('events_')) takeEvents(sections[id]?['events'] as List?);
   }
   j['events'] = eventsById.values.toList();
-  j['taskLists'] = sections['lists']?['taskLists'] ?? [];
-  j['shoppingLists'] = sections['lists']?['shoppingLists'] ?? [];
   j['weeklyPlan'] = sections['weekly']?['weeklyPlan'] ?? {};
-  j['cards'] = sections['cards']?['cards'] ?? [];
-  final data = <String, dynamic>{};
+
+  // Cards, lists and budget were split from single-array docs (`cards`,
+  // `lists`, `budget_<year>`) into per-item docs (`card_<id>`,
+  // `list_task_<id>`/`list_shop_<id>`, `budget_<year>_<month>`). Read BOTH
+  // shapes and let the newer per-item doc win on an id/key clash so a family
+  // mid-migration (both forms briefly present) neither drops nor duplicates.
+  final cardsById = <String, dynamic>{};
+  final taskListsById = <String, dynamic>{};
+  final shopListsById = <String, dynamic>{};
+  final data = <String, Map<String, dynamic>>{};
   final imports = <Map<String, dynamic>>[];
-  sections.forEach((id, map) {
-    if (id.startsWith('budget_')) {
-      data[id.substring('budget_'.length)] = map['months'] ?? {};
+  void takeById(Map<String, dynamic> byId, Object? item) {
+    if (item is Map) {
+      final id = item['id']?.toString() ?? '';
+      if (id.isNotEmpty) byId[id] = item;
+    }
+  }
+
+  // Legacy coarse docs first; the per-item loop below overrides on clash.
+  for (final c in sections['cards']?['cards'] as List? ?? const []) {
+    takeById(cardsById, c);
+  }
+  for (final l in sections['lists']?['taskLists'] as List? ?? const []) {
+    takeById(taskListsById, l);
+  }
+  for (final l in sections['lists']?['shoppingLists'] as List? ?? const []) {
+    takeById(shopListsById, l);
+  }
+  for (final id in sections.keys.toList()..sort()) {
+    final map = sections[id]!;
+    if (id.startsWith('card_')) {
+      takeById(cardsById, map);
+    } else if (id.startsWith('list_task_')) {
+      takeById(taskListsById, map);
+    } else if (id.startsWith('list_shop_')) {
+      takeById(shopListsById, map);
+    } else if (id.startsWith('budget_')) {
+      final rest = id.substring('budget_'.length);
+      final sep = rest.indexOf('_');
+      if (sep < 0) {
+        // Legacy `budget_<year>` doc holding a months map.
+        final months = map['months'];
+        if (months is Map) {
+          final year = data.putIfAbsent(rest, () => {});
+          months.forEach((mk, mv) => year.putIfAbsent(mk.toString(), () => mv));
+        }
+      } else {
+        // Per-month `budget_<year>_<month>` doc — wins over the legacy month.
+        data.putIfAbsent(
+          rest.substring(0, sep),
+          () => {},
+        )[rest.substring(sep + 1)] = map;
+      }
     } else if (id.startsWith('import_') && map['calendar'] is Map) {
       imports.add({
         ...Map<String, dynamic>.from(map['calendar'] as Map),
         '_order': (map['order'] as num?)?.toInt() ?? imports.length,
       });
     }
-  });
+  }
+  j['cards'] = cardsById.values.toList();
+  j['taskLists'] = taskListsById.values.toList();
+  j['shoppingLists'] = shopListsById.values.toList();
   imports.sort((a, b) => (a['_order'] as int).compareTo(b['_order'] as int));
   j['data'] = data;
   j['importedCalendars'] = imports;
@@ -314,6 +365,30 @@ Map<String, dynamic> _mergeListContainer(
 /// (caps, closed, open, snapshots) but union each `blocks` expense list by
 /// id; block keys only remote are added. Falls back to [local] wholesale on
 /// any unexpected shape.
+/// Merges one budget month (a `{blocks, caps, closed, …}` map) present both
+/// locally and remotely: month-level fields (caps, closed, snapshots) keep the
+/// local version, and each `blocks` expense list is unioned by item id; block
+/// categories only present remotely are added. Falls back to [local] wholesale
+/// on any unexpected shape.
+Map<String, dynamic> _mergeBudgetMonth(
+  Map<String, dynamic> local,
+  Map<String, dynamic> remote,
+) {
+  final localBlocks = local['blocks'];
+  final remoteBlocks = remote['blocks'];
+  if (localBlocks is! Map || remoteBlocks is! Map) return local;
+  final blocks = <String, dynamic>{
+    for (final e in localBlocks.entries) e.key.toString(): e.value,
+  };
+  remoteBlocks.forEach((bk, remoteList) {
+    final key = bk.toString();
+    blocks[key] = blocks.containsKey(key)
+        ? (_unionById(blocks[key], remoteList) ?? blocks[key])
+        : remoteList;
+  });
+  return {...local, 'blocks': blocks};
+}
+
 Map<String, dynamic> _mergeBudgetMonths(
   Map<String, dynamic> local,
   Map<String, dynamic> remote,
@@ -326,22 +401,10 @@ Map<String, dynamic> _mergeBudgetMonths(
       return;
     }
     if (localMonthRaw is! Map || remoteMonthRaw is! Map) return; // keep local
-    final localMonth = Map<String, dynamic>.from(localMonthRaw);
-    final localBlocks = localMonth['blocks'];
-    final remoteBlocks = remoteMonthRaw['blocks'];
-    if (localBlocks is! Map || remoteBlocks is! Map) return; // keep local
-    final blocks = <String, dynamic>{
-      for (final e in localBlocks.entries) e.key.toString(): e.value,
-    };
-    remoteBlocks.forEach((bk, remoteList) {
-      final key = bk.toString();
-      if (!blocks.containsKey(key)) {
-        blocks[key] = remoteList;
-      } else {
-        blocks[key] = _unionById(blocks[key], remoteList) ?? blocks[key];
-      }
-    });
-    out[mk] = {...localMonth, 'blocks': blocks};
+    out[mk] = _mergeBudgetMonth(
+      Map<String, dynamic>.from(localMonthRaw),
+      Map<String, dynamic>.from(remoteMonthRaw),
+    );
   });
   return out;
 }
@@ -373,6 +436,10 @@ Map<String, dynamic> mergeDirtySection(
     if (cards == null) return local;
     return {...local, 'cards': cards};
   }
+  // A per-card `card_<id>` doc holds a single card — no sub-items to union, so
+  // dirty-local-wins (the pending persist re-uploads our edit); two members
+  // editing the SAME card is last-write-wins, the accepted shallow trade-off.
+  if (id.startsWith('card_')) return local;
   if (id == 'lists') {
     final tasks = _unionById(
       local['taskLists'],
@@ -387,17 +454,29 @@ Map<String, dynamic> mergeDirtySection(
     if (tasks == null && shopping == null) return local;
     return {...local, 'taskLists': ?tasks, 'shoppingLists': ?shopping};
   }
+  // Per-list docs: union the inner items by id so concurrent additions to the
+  // SAME list survive; list-level fields (name, colour) keep the local version.
+  if (id.startsWith('list_task_')) {
+    return _mergeListContainer('tasks', local, remote);
+  }
+  if (id.startsWith('list_shop_')) {
+    return _mergeListContainer('items', local, remote);
+  }
   if (id.startsWith('budget_')) {
+    // Legacy `budget_<year>` doc carries a `months` map; a per-month
+    // `budget_<year>_<month>` doc carries `blocks` directly.
     final localMonths = local['months'];
     final remoteMonths = remote['months'];
-    if (localMonths is! Map || remoteMonths is! Map) return local;
-    return {
-      ...local,
-      'months': _mergeBudgetMonths(
-        Map<String, dynamic>.from(localMonths),
-        Map<String, dynamic>.from(remoteMonths),
-      ),
-    };
+    if (localMonths is Map && remoteMonths is Map) {
+      return {
+        ...local,
+        'months': _mergeBudgetMonths(
+          Map<String, dynamic>.from(localMonths),
+          Map<String, dynamic>.from(remoteMonths),
+        ),
+      };
+    }
+    return _mergeBudgetMonth(local, remote);
   }
   return local; // settings / weekly / imports: dirty-local-wins as before
 }

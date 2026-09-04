@@ -100,12 +100,12 @@ void main() {
       expect(rebuilt.toJson(), ws.toJson());
     });
 
-    test('card photos stay on-device: excluded from the cards section', () {
+    test('card photos stay on-device: excluded from the per-card doc', () {
       final ws = _sampleWorkspace();
       final sections = workspaceSections(ws);
-      final cardsSection = (sections['cards']!['cards'] as List).cast<Map>();
-      expect(cardsSection.single.containsKey('photo'), isFalse);
-      expect(cardsSection.single['number'], '5901234123457');
+      final cardDoc = sections['card_card1']!;
+      expect(cardDoc.containsKey('photo'), isFalse);
+      expect(cardDoc['number'], '5901234123457');
       final rebuilt = workspaceFromSections(sections)!;
       expect(rebuilt.cards.single.photo, isNull);
       expect(rebuilt.cards.single.timesUsed, 2);
@@ -121,16 +121,63 @@ void main() {
       expect(workspaceFromSections(const {}), isNull);
     });
 
-    test('splits per budget year and per imported calendar', () {
+    test('splits into per-item docs: card/list/budget-month/import', () {
       final sections = workspaceSections(_sampleWorkspace());
-      expect(
-        sections.keys,
-        containsAll(['settings', 'lists', 'weekly', 'budget_2026']),
-      );
-      // No monolithic all-events doc (it overflowed Firestore's 1 MB limit).
+      expect(sections.keys, containsAll(['settings', 'weekly']));
+      // Per-item docs (was one `cards`/`lists`/`budget_<year>` array doc each),
+      // so concurrent edits to different items can't overwrite each other.
+      expect(sections['card_card1'], isNotNull);
+      expect(sections['list_task_tl1'], isNotNull);
+      expect(sections['budget_2026_Januari'], isNotNull);
+      // The old coarse array docs are gone.
+      expect(sections.containsKey('cards'), isFalse);
+      expect(sections.containsKey('lists'), isFalse);
+      expect(sections.containsKey('budget_2026'), isFalse);
       expect(sections.containsKey('events'), isFalse);
       expect(sections['import_ic1'], isNotNull);
       expect(sections['import_ic2'], isNotNull);
+    });
+
+    test('round-trips per-item docs (cards, lists, budget months)', () {
+      final ws = _sampleWorkspace();
+      // Two of each kind so a per-item split is exercised.
+      ws.taskLists.add(TaskList.fromJson({'id': 'tl2', 'name': 'Groceries'}));
+      ws.data[2026]!['Februari'] = MonthData();
+      final rebuilt = workspaceFromSections(workspaceSections(ws))!;
+      expect(rebuilt.cards.map((c) => c.id).toSet(), {'card1'});
+      expect(rebuilt.taskLists.map((l) => l.id).toSet(), {'tl1', 'tl2'});
+      expect(rebuilt.data[2026]!.keys.toSet(), {'Januari', 'Februari'});
+    });
+
+    test('legacy coarse docs still load; per-item docs win on clash', () {
+      // A family mid-migration briefly has both shapes. Reassembly reads both
+      // and lets the newer per-item doc win.
+      final ws = _sampleWorkspace();
+      final sections = workspaceSections(ws);
+      sections['cards'] = {
+        'cards': [
+          {'id': 'card1', 'name': 'STALE', 'number': '000', 'codeType': 'x'},
+          {'id': 'legacy-card', 'name': 'Old', 'number': '1', 'codeType': 'x'},
+        ],
+      };
+      sections['budget_2026'] = {
+        'months': {
+          'Januari': {
+            'blocks': <String, dynamic>{},
+            'caps': <String, dynamic>{},
+          },
+          'Maart': {'blocks': <String, dynamic>{}, 'caps': <String, dynamic>{}},
+        },
+      };
+      final rebuilt = workspaceFromSections(sections)!;
+      // Per-card doc (Albert Heijn) wins over the stale legacy copy.
+      expect(
+        rebuilt.cards.firstWhere((c) => c.id == 'card1').name,
+        'Albert Heijn',
+      );
+      expect(rebuilt.cards.any((c) => c.id == 'legacy-card'), isTrue);
+      // Legacy-only month is kept; the per-month doc is still present too.
+      expect(rebuilt.data[2026]!.keys, containsAll(['Januari', 'Maart']));
     });
 
     test(
@@ -268,11 +315,11 @@ void main() {
   group('sectionDigest', () {
     test('is stable for identical payloads and differs on any change', () {
       final ws = _sampleWorkspace();
-      final a = sectionDigest(workspaceSections(ws)['budget_2026']!);
-      final b = sectionDigest(workspaceSections(ws)['budget_2026']!);
+      final a = sectionDigest(workspaceSections(ws)['budget_2026_Januari']!);
+      final b = sectionDigest(workspaceSections(ws)['budget_2026_Januari']!);
       expect(a, b);
       ws.data[2026]!['Januari']!.blocks['home']!.first.label = 'Mortgage';
-      final c = sectionDigest(workspaceSections(ws)['budget_2026']!);
+      final c = sectionDigest(workspaceSections(ws)['budget_2026_Januari']!);
       expect(c, isNot(a));
     });
   });
@@ -577,5 +624,72 @@ void main() {
       final ws = workspaceFromSections(merged)!;
       expect({for (final e in ws.events) e.id}, {'a', 'b'});
     });
+
+    test('per-card doc: dirty-local-wins (same-card is last-write-wins)', () {
+      final local = {'id': 'c1', 'name': 'Local edit', 'number': '1'};
+      final remote = {'id': 'c1', 'name': 'Remote edit', 'number': '2'};
+      expect(mergeDirtySection('card_c1', local, remote), local);
+    });
+
+    test(
+      'per-list doc: concurrent additions to the SAME list both survive',
+      () {
+        final local = {
+          'id': 'sl1',
+          'name': 'local-name',
+          'items': [
+            {'id': 's1', 'name': 'Milk'},
+          ],
+        };
+        final remote = {
+          'id': 'sl1',
+          'name': 'remote-name',
+          'items': [
+            {'id': 's1', 'name': 'Milk (remote)'},
+            {'id': 's2', 'name': 'Eggs'},
+          ],
+        };
+        final merged = mergeDirtySection('list_shop_sl1', local, remote);
+        expect(merged['name'], 'local-name'); // list-level field: local wins
+        final items = (merged['items'] as List).cast<Map>();
+        expect([for (final i in items) i['id']], ['s1', 's2']);
+        expect(items.first['name'], 'Milk'); // item on both: local wins
+      },
+    );
+
+    test(
+      'per-month budget doc: unions blocks by item id, keeps caps local',
+      () {
+        final local = {
+          'blocks': {
+            'home': [
+              {'id': 'x1', 'title': 'local'},
+            ],
+          },
+          'caps': {'home': 100},
+          'closed': true,
+        };
+        final remote = {
+          'blocks': {
+            'home': [
+              {'id': 'x1', 'title': 'remote'},
+              {'id': 'x2', 'title': 'remote-add'},
+            ],
+            'food': [
+              {'id': 'f1', 'title': 'r'},
+            ],
+          },
+          'caps': {'home': 999},
+          'closed': false,
+        };
+        final merged = mergeDirtySection('budget_2026_Juli', local, remote);
+        expect((merged['caps'] as Map)['home'], 100); // month field: local wins
+        expect(merged['closed'], isTrue);
+        final home = ((merged['blocks'] as Map)['home'] as List).cast<Map>();
+        expect([for (final i in home) i['id']], ['x1', 'x2']);
+        expect(home.first['title'], 'local');
+        expect((merged['blocks'] as Map).containsKey('food'), isTrue);
+      },
+    );
   });
 }
