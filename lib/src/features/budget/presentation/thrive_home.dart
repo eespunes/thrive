@@ -455,6 +455,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _wsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _eventsSub;
   bool _applyingCloudSnapshot = false;
 
   /// The family id the Firestore family/workspace streams are currently bound
@@ -467,6 +468,26 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// holds, so a persist only uploads sections that actually changed.
   final Map<String, Map<String, Map<String, dynamic>>> _wsSectionCache = {};
   final Map<String, Map<String, String>> _wsSectionDigests = {};
+
+  /// Per-family cache of the `events` subcollection's per-event digests
+  /// (eventId -> [eventDocDigest]) — what we believe the server holds, so a
+  /// persist only writes/deletes the individual event docs that changed. Each
+  /// event is its own doc, so two members editing different events no longer
+  /// clobber each other (the concurrent-edit data-loss bug).
+  final Map<String, Map<String, String>> _eventDigests = {};
+
+  /// Families whose `events` subcollection has been fetched/streamed at least
+  /// once this session. The per-event delete sweep only runs for these, so an
+  /// empty/unloaded workspace can never wipe a family's events.
+  final Set<String> _eventsLoaded = {};
+
+  /// Families whose legacy in-`workspace` event docs (`events`/`events_*`) have
+  /// been migrated into the per-event subcollection this session (once-only).
+  final Set<String> _eventsMigrated = {};
+
+  /// Transient per-family events read during a boot fetch of the `events`
+  /// subcollection, consumed by `_applyFamilyDocs` to seed each workspace.
+  final Map<String, List<CalendarEvent>> _loadedEvents = {};
 
   /// Families whose legacy single-doc `workspace` blob has been dropped from
   /// the meta doc this session (it's re-dropped once per session — a cheap
@@ -547,6 +568,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _cloudSub?.cancel();
     _familySub?.cancel();
     _wsSub?.cancel();
+    _eventsSub?.cancel();
     _flushPersist();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();

@@ -371,15 +371,17 @@ void main() {
         json.decode(prefs.getString(kStorageKeyV4)!),
         isNot(contains('workspaces')),
       );
-      final lists = Map<String, dynamic>.from(
-        json.decode(prefs.getString('${kWsSectionPrefix}fam.lists')!) as Map,
+      // Lists are now per-list docs (`list_task_<id>`), not one `lists` doc.
+      final taskList = Map<String, dynamic>.from(
+        json.decode(prefs.getString('${kWsSectionPrefix}fam.list_task_tl1')!)
+            as Map,
       );
       final restored = Workspace.fromJson({
         ...phoneWidgetLoadWorkspaceJson(prefs, v4)!,
       });
       expect(restored.taskLists.first.tasks.first.done, isTrue);
       expect(
-        ((lists['taskLists'] as List).first as Map)['tasks'],
+        taskList['tasks'],
         anyElement(predicate((t) => (t as Map)['done'] == true)),
       );
       // And the refreshed payload reflects the tick.

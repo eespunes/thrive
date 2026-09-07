@@ -267,6 +267,27 @@ describe('workspace subcollection', () => {
   });
 });
 
+describe('events subcollection', () => {
+  const evRef = (d) => doc(d, 'families', FAM, 'events', 'ev1');
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'families', FAM, 'events', 'ev1'),
+        { title: 'Dentist', date: '2026-03-02' });
+    });
+  });
+  it('member can read and write', async () => {
+    await assertSucceeds(getDoc(evRef(db(MEMBER))));
+    await assertSucceeds(setDoc(evRef(db(MEMBER)), { title: 'Doctor' }));
+  });
+  it('non-member cannot read or write', async () => {
+    await assertFails(getDoc(evRef(db(OTHER))));
+    await assertFails(setDoc(evRef(db(OTHER)), { hacked: true }));
+  });
+  it('unauthenticated cannot read', async () => {
+    await assertFails(getDoc(evRef(db(null))));
+  });
+});
+
 describe('family_handles', () => {
   it('owner can create a handle matching the family username', async () => {
     await assertSucceeds(setDoc(doc(db(OWNER), 'family_handles', 'thefam'), {
