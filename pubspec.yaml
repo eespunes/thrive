@@ -55,7 +55,7 @@ dependencies:
   zxing2: ^0.2.4
   barcode_widget: ^2.0.4
   screen_brightness: ^2.1.11
-  home_widget: ^0.9.3
+  home_widget: ^0.9.4
   barcode: ^2.2.9
 
 dev_dependencies:
