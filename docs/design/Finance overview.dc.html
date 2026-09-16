@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#0f172a;-webkit-font-smoothing:antialiased;background:#e2e7ee}
+a{color:#0E9A8D}a:hover{color:#0B7F74}
+input,button{font-family:inherit}
+.scr{scrollbar-width:none;-ms-overflow-style:none}
+.scr::-webkit-scrollbar{display:none;width:0;height:0}
+</style>
+</helmet>
+
+<section style="padding:46px 40px 34px;background:radial-gradient(130% 80% at 50% -10%,#f2f5f9,#e2e7ee)">
+  <div style="max-width:1960px;margin:0 auto;display:flex;flex-direction:column;gap:26px">
+    <div>
+      <span style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#0E9A8D;text-transform:uppercase">Finance · chosen direction</span>
+      <h1 style="margin:6px 0 8px;font-size:34px;font-weight:800;letter-spacing:-.8px">Overview · envelopes</h1>
+      <p style="margin:0;max-width:930px;font-size:14.5px;font-weight:600;line-height:1.6;color:#64748b;text-wrap:pretty">The new 4-tab finance structure: <b style="color:#0f172a">Overview</b> (this screen — general numbers and the categories), <b style="color:#0f172a">Calendar</b>, <b style="color:#0f172a">List</b> and <b style="color:#0f172a">Stats</b>, the last two unchanged from today and the List now a flat date-sorted feed of every item. Overview answers "how are we doing?" at a glance: one safe-to-spend number, then the categories as envelopes that fill as their limit is used. Tap an envelope for its items, tap a status pill to mark it paid.</p>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-start">
+
+      <!-- ============ 1b · envelopes ============ -->
+      <div id="1b" style="width:440px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#fff;background:#0f172a;border-radius:8px;padding:4px 9px">1b</span><span style="font-size:15px;font-weight:800">Envelopes · fill level = budget used</span></div>
+        <div style="position:relative;background:#0d1117;border-radius:38px;padding:10px;box-shadow:0 40px 70px -30px rgba(15,23,42,.5)">
+          <div class="scr" style="background:#eef1f6;border-radius:30px;overflow-y:auto;overflow-x:hidden;height:744px">
+            <div style="position:sticky;top:0;z-index:6;background:transparent">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 12px;color:#fff;background-color:#0FA08E;background-image:linear-gradient(135deg,#46B873 0%,#0FA08E 52%,#1684B4 100%);background-size:100% 210px;background-repeat:no-repeat">
+                <div><div style="font-size:18px;font-weight:800;letter-spacing:-.4px">{{ headTitle }}</div><div style="font-size:11.5px;font-weight:600;opacity:.85">{{ headSub }}</div></div>
+                <span style="display:flex;align-items:center;gap:7px;flex:none">
+                  <button onClick="{{ onMonth }}" style="appearance:none;border:none;cursor:pointer;background:rgba(255,255,255,.2);color:#fff;padding:7px 11px;border-radius:11px;font-size:12px;font-weight:800">{{ monthLabel }}</button>
+                  <sc-if value="{{ notClosed }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ onLock }}" title="Close this month" style="appearance:none;border:none;cursor:pointer;background:rgba(255,255,255,.2);color:#fff;width:32px;height:32px;border-radius:11px;display:grid;place-items:center;font-size:13px;font-weight:800">{{ lockIcon }}</button>
+                  </sc-if>
+                  <sc-if value="{{ isClosed }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ onReopen }}" title="Reopen this month" style="appearance:none;border:none;cursor:pointer;background:#fff;color:#0f172a;width:32px;height:32px;border-radius:11px;display:grid;place-items:center">{{ lockedIcon }}</button>
+                  </sc-if>
+                </span>
+            </div>
+            <div style="padding:0 16px 30px;color:#fff;background-color:#0FA08E;background-image:linear-gradient(135deg,#46B873 0%,#0FA08E 52%,#1684B4 100%);background-size:100% 210px;background-position:0 -60px;background-repeat:no-repeat">
+              <sc-if value="{{ showOvB }}" hint-placeholder-val="{{ true }}"><div>
+              <div style="padding-top:6px">
+                <div style="font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;opacity:.9">Safe to spend</div>
+                <div style="font-size:34px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums;line-height:1.1">{{ safeTxt }}</div>
+                <div style="font-size:11.5px;font-weight:600;opacity:.92">{{ safeSub }}</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:14px">
+                <sc-for list="{{ heroB }}" as="h" hint-placeholder-count="3">
+                  <button onClick="{{ h.onClick }}" style="appearance:none;border:none;cursor:pointer;text-align:left;color:#fff;flex:1;background:rgba(255,255,255,.16);border-radius:13px;padding:9px 10px">
+                    <span style="display:flex;align-items:center;gap:4px;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;opacity:.9">{{ h.label }}<span style="font-size:11px">{{ h.more }}</span></span>
+                    <span style="display:block;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums">{{ h.value }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              </div></sc-if>
+            </div>
+            <div style="padding:0 13px 12px;margin-top:-22px;background:linear-gradient(180deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 22px,#eef1f6 22px,#eef1f6 100%)">
+              <div style="background:#fff;border-radius:16px;padding:5px;display:flex;gap:4px;box-shadow:0 10px 24px -16px rgba(16,24,40,.4)">
+                <sc-for list="{{ tabsB }}" as="t" hint-placeholder-count="4">
+                  <button onClick="{{ t.onClick }}" style="appearance:none;border:none;cursor:pointer;flex:1;padding:9px 0;border-radius:12px;font-size:11.5px;font-weight:800;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            </div>
+            <div style="padding:0 13px 22px">
+              <sc-if value="{{ isClosed }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:10px;background:#0f172a;color:#fff;border-radius:16px;padding:12px 14px;margin-bottom:12px">
+                  <span style="width:30px;height:30px;border-radius:10px;background:rgba(255,255,255,.14);display:grid;place-items:center;flex:none">{{ lockedIcon }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:12.5px;font-weight:800">Month closed</span>
+                    <span style="display:block;font-size:11px;font-weight:600;opacity:.8">Locked — read only, nothing can be changed.</span>
+                  </span>
+                  <button onClick="{{ onReopen }}" style="appearance:none;border:none;cursor:pointer;background:#fff;color:#0f172a;font-size:11.5px;font-weight:800;padding:8px 12px;border-radius:10px;flex:none">Reopen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ showOvB }}" hint-placeholder-val="{{ true }}"><div>
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:0 3px 9px">
+                <span style="font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#64748b;text-transform:uppercase">8 envelopes</span>
+                <span style="font-size:10.5px;font-weight:700;color:#94a0b0">Tap an envelope for its items</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <sc-for list="{{ catsB }}" as="c" hint-placeholder-count="8">
+                  <button onClick="{{ c.onClick }}" style="appearance:none;cursor:pointer;text-align:left;position:relative;overflow:hidden;border:1px solid {{ c.line }};border-radius:18px;background:#fff;padding:12px 12px 13px;min-height:112px;display:flex;flex-direction:column;justify-content:space-between">
+                    <span style="position:absolute;left:0;right:0;bottom:0;transition:height .45s;height:{{ c.fillH }};background:{{ c.fillCol }}"></span>
+                    <span style="position:relative;display:flex;align-items:center;gap:7px">
+                      <span style="width:24px;height:24px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:800;flex:none;background:{{ c.bg }};color:{{ c.col }}">{{ c.icon }}</span>
+                      <span style="font-size:12px;font-weight:800;color:#0f172a;line-height:1.2">{{ c.title }}</span>
+                    </span>
+                    <span style="position:relative">
+                      <span style="display:block;font-size:19px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums;color:{{ c.amtFg }}">{{ c.amount }}</span>
+                      <span style="display:block;font-size:10.5px;font-weight:800;color:{{ c.deltaFg }}">{{ c.delta }}</span>
+                    </span>
+                  </button>
+                </sc-for>
+              </div>
+              </div></sc-if>
+              <sc-if value="{{ showAltB }}" hint-placeholder-val="{{ false }}">{{ screenB }}</sc-if>
+            </div>
+          </div>
+          <sc-if value="{{ showIncome }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:10px;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end">
+              <button onClick="{{ onCloseIncome }}" aria-label="Close" style="appearance:none;border:none;cursor:pointer;position:absolute;inset:0;background:rgba(15,23,42,.42)"></button>
+              <div style="position:relative;background:#fff;border-radius:26px 26px 30px 30px;padding:8px 0 14px;box-shadow:0 -20px 50px -20px rgba(15,23,42,.45);max-height:640px;display:flex;flex-direction:column;overflow:hidden">
+                <span style="width:42px;height:4px;border-radius:999px;background:#dfe4ec;margin:4px auto 10px"></span>
+                <div style="display:flex;align-items:center;gap:11px;padding:0 16px 13px">
+                  <span style="width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:#e4f4f1;color:#0E9A8D">{{ incIcon }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:16px;font-weight:800;letter-spacing:-.3px">{{ incTitle }}</span>
+                    <span style="display:block;font-size:11.5px;font-weight:700;color:#94a0b0">{{ incSub }}</span>
+                  </span>
+                  <button onClick="{{ onCloseIncome }}" style="appearance:none;border:1px solid #e7eaf0;background:#fff;cursor:pointer;width:32px;height:32px;border-radius:10px;font-size:15px;font-weight:800;color:#64748b;flex:none">×</button>
+                </div>
+                <div style="padding:0 16px 14px">
+                  <div style="font-size:26px;font-weight:800;letter-spacing:-.7px;font-variant-numeric:tabular-nums;color:#0b7a52;margin-bottom:8px">{{ incAmount }}</div>
+                  <div style="height:8px;border-radius:999px;background:#eef1f5;overflow:hidden"><div style="height:100%;border-radius:999px;transition:width .4s;width:{{ incBarW }};background:#0f9d6a"></div></div>
+                  <div style="font-size:10.5px;font-weight:800;color:#94a0b0;margin-top:6px">{{ incLine }}</div>
+                </div>
+                <div class="scr" style="overflow-y:auto;border-top:1px solid #f0f2f6;flex:1;min-height:0">
+                  <sc-for list="{{ incItems }}" as="it" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f0f2f6">
+                      <span style="flex:1;min-width:0">
+                        <span style="display:block;font-size:13px;font-weight:700;color:#334155">{{ it.label }}</span>
+                        <span style="display:block;font-size:10.5px;font-weight:700;color:#94a0b0">{{ it.day }}</span>
+                      </span>
+                      <span style="font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums">{{ it.amount }}</span>
+                      <button onClick="{{ it.onToggle }}" style="appearance:none;border:none;cursor:pointer;font-size:10.5px;font-weight:800;padding:6px 10px;border-radius:999px;flex:none;background:{{ it.pillBg }};color:{{ it.pillFg }};box-shadow:inset 0 0 0 1px {{ it.pillLine }}">{{ it.pill }}</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showAccts }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:10px;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end">
+              <button onClick="{{ onCloseAccts }}" aria-label="Close" style="appearance:none;border:none;cursor:pointer;position:absolute;inset:0;background:rgba(15,23,42,.42)"></button>
+              <div style="position:relative;background:#fff;border-radius:26px 26px 30px 30px;padding:8px 0 16px;box-shadow:0 -20px 50px -20px rgba(15,23,42,.45);max-height:640px;display:flex;flex-direction:column;overflow:hidden">
+                <span style="width:42px;height:4px;border-radius:999px;background:#dfe4ec;margin:4px auto 12px"></span>
+                <div style="display:flex;align-items:center;gap:10px;padding:0 16px 14px">
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:10.5px;font-weight:800;letter-spacing:.5px;color:#94a0b0;text-transform:uppercase">Still to pay from</span>
+                    <span style="display:block;font-size:22px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums">{{ acctTotal }}</span>
+                  </span>
+                  <button onClick="{{ onCloseAccts }}" style="appearance:none;border:1px solid #e7eaf0;background:#fff;cursor:pointer;width:32px;height:32px;border-radius:10px;font-size:15px;font-weight:800;color:#64748b;flex:none">×</button>
+                </div>
+                <div class="scr" style="overflow-y:auto;border-top:1px solid #f0f2f6;padding:4px 16px 0">
+                  <sc-for list="{{ acctRows }}" as="a" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid #f0f2f6">
+                      <span style="width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;background:{{ a.color }}">{{ a.initials }}</span>
+                      <span style="flex:1;min-width:0">
+                        <span style="display:block;font-size:13px;font-weight:800;color:#0f172a">{{ a.name }}</span>
+                        <span style="display:block;height:6px;border-radius:999px;background:#eef1f5;overflow:hidden;margin-top:6px"><span style="display:block;height:100%;border-radius:999px;width:{{ a.barW }};background:{{ a.color }}"></span></span>
+                      </span>
+                      <span style="font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;flex:none;color:{{ a.amtFg }}">{{ a.amount }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:10px;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;justify-content:center;padding:18px">
+              <button onClick="{{ onCancelClose }}" aria-label="Cancel" style="appearance:none;border:none;cursor:pointer;position:absolute;inset:0;background:rgba(15,23,42,.42)"></button>
+              <div style="position:relative;background:#fff;border-radius:22px;padding:18px;box-shadow:0 30px 60px -22px rgba(15,23,42,.5)">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                  <span style="width:34px;height:34px;border-radius:11px;background:#0f172a;color:#fff;display:grid;place-items:center;flex:none">{{ lockedIcon }}</span>
+                  <span style="font-size:15.5px;font-weight:800;letter-spacing:-.3px">{{ confirmTitle }}</span>
+                </div>
+                <p style="margin:0 0 16px;font-size:12.5px;font-weight:600;line-height:1.55;color:#64748b">Closing locks every item, limit and toggle for this month. You can reopen it later from the same button.</p>
+                <div style="display:flex;gap:9px">
+                  <button onClick="{{ onCancelClose }}" style="appearance:none;border:1px solid #e7eaf0;background:#fff;cursor:pointer;flex:1;padding:12px;border-radius:13px;font-size:12.5px;font-weight:800;color:#334155">Keep it open</button>
+                  <button onClick="{{ onConfirmClose }}" style="appearance:none;border:none;cursor:pointer;flex:1;padding:12px;border-radius:13px;font-size:12.5px;font-weight:800;color:#fff;background:#0f172a">Close month</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ openB }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:10px;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end">
+              <button onClick="{{ onCloseB }}" aria-label="Close" style="appearance:none;border:none;cursor:pointer;position:absolute;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(2px)"></button>
+              <div style="position:relative;background:#fff;border-radius:26px 26px 30px 30px;padding:8px 0 14px;box-shadow:0 -20px 50px -20px rgba(15,23,42,.45);max-height:640px;display:flex;flex-direction:column;overflow:hidden">
+                <span style="width:42px;height:4px;border-radius:999px;background:#dfe4ec;margin:4px auto 10px"></span>
+                <div style="display:flex;align-items:center;gap:11px;padding:0 16px 13px">
+                  <span style="width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;background:{{ openBBg }};color:{{ openBCol }}">{{ openBIcon }}</span>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block;font-size:16px;font-weight:800;letter-spacing:-.3px">{{ openBTitle }}</span>
+                    <span style="display:block;font-size:11.5px;font-weight:700;color:#94a0b0">{{ openBSub }}</span>
+                  </span>
+                  <button onClick="{{ onCloseB }}" style="appearance:none;border:1px solid #e7eaf0;background:#fff;cursor:pointer;width:32px;height:32px;border-radius:10px;font-size:15px;font-weight:800;color:#64748b;flex:none">×</button>
+                </div>
+                <div style="padding:0 16px 14px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-size:26px;font-weight:800;letter-spacing:-.7px;font-variant-numeric:tabular-nums;color:{{ openBAmtFg }}">{{ openBAmount }}</span>
+                    <span style="font-size:12px;font-weight:800;color:{{ openBDeltaFg }}">{{ openBDelta }}</span>
+                  </div>
+                  <div style="height:8px;border-radius:999px;background:#eef1f5;overflow:hidden"><div style="height:100%;border-radius:999px;transition:width .4s;width:{{ openBBarW }};background:{{ openBBarCol }}"></div></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:6px">
+                    <span style="font-size:10.5px;font-weight:800;color:#94a0b0">{{ openBPaidLine }}</span>
+                    <span style="font-size:10.5px;font-weight:800;color:#94a0b0">limit {{ openBLimit }}</span>
+                  </div>
+                </div>
+                <div class="scr" style="overflow-y:auto;border-top:1px solid #f0f2f6;flex:1;min-height:0">
+                  <sc-for list="{{ openBItems }}" as="it" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #f0f2f6">
+                      <span style="flex:1;min-width:0">
+                        <span style="display:block;font-size:13px;font-weight:700;color:#334155">{{ it.label }}</span>
+                        <span style="display:block;font-size:10.5px;font-weight:700;color:#94a0b0">{{ it.day }}</span>
+                      </span>
+                      <span style="font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums">{{ it.amount }}</span>
+                      <button onClick="{{ it.onToggle }}" style="appearance:none;border:none;cursor:pointer;font-size:10.5px;font-weight:800;padding:6px 10px;border-radius:999px;flex:none;background:{{ it.pillBg }};color:{{ it.pillFg }};box-shadow:inset 0 0 0 1px {{ it.pillLine }}">{{ it.pill }}</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="background:#fff;border:1px solid #e7eaf0;border-radius:14px;padding:13px 15px;font-size:12px;font-weight:600;line-height:1.6;color:#334155"><b style="color:#0f172a">The idea.</b> Categories as envelopes you can read peripherally: the tile fills up as its limit is used and turns amber, then red when it spills over. The general picture is a single "safe to spend" number in the hero, so the grid gets all the space.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1960,&quot;height&quot;:1100}}">
+const IC={
+  home:[['path','m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],['path','M9 22V12h6v10']],
+  repeat:[['path','m17 2 4 4-4 4'],['path','M3 11v-1a4 4 0 0 1 4-4h14'],['path','m7 22-4-4 4-4'],['path','M21 13v1a4 4 0 0 1-4 4H3']],
+  card:[['rect',2,5,20,14,2],['path','M2 10h20']],
+  trend:[['path','M16 7h6v6'],['path','m22 7-8.5 8.5-5-5L2 17']],
+  users:[['path','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'],['circle',9,7,4],['path','M22 21v-2a4 4 0 0 0-3-3.87'],['path','M16 3.13a4 4 0 0 1 0 7.75']],
+  cart:[['circle',8,21,1.6],['circle',19,21,1.6],['path','M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h9a2 2 0 0 0 2-1.6L21 7H5']],
+  heart:[['path','M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z']],
+  receipt:[['path','M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z'],['path','M8 7h8'],['path','M8 11h6']],
+  lock:[['rect',3,11,18,11,2],['path','M7 11V7a5 5 0 0 1 10 0v4']],
+  unlock:[['rect',3,11,18,11,2],['path','M7 11V7a5 5 0 0 1 9.9-1']]
+};
+function ic(name,size,sw,color){const spec=IC[name]||[];size=size||18;sw=sw||2;return React.createElement('svg',{key:'i'+name+size+(color||''),width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:color||'currentColor',strokeWidth:sw,strokeLinecap:'round',strokeLinejoin:'round',style:{flex:'none',display:'block'}},spec.map((s,i)=>{
+  if(s[0]==='circle')return React.createElement('circle',{key:i,cx:s[1],cy:s[2],r:s[3]});
+  if(s[0]==='rect')return React.createElement('rect',{key:i,x:s[1],y:s[2],width:s[3],height:s[4],rx:s[5]||0});
+  return React.createElement('path',{key:i,d:s[1]});
+}));}
+const CATS=[
+  {k:'home',title:'Home',icon:'home',col:'#2563eb',bg:'#eff6ff',cap:2000,items:[['Rent',1450,true,1],['Energy',210,true,3],['Water',45,true,5],['Home insurance',275,true,1]]},
+  {k:'food',title:'Food',icon:'cart',col:'#ea580c',bg:'#fff7ed',cap:700,items:[['Groceries week 1',180,true,6],['Groceries week 2',172,true,13],['Groceries week 3',160,false,20],['Groceries week 4',160,false,27],['Eating out',68,true,15]]},
+  {k:'savings',title:'Savings',icon:'trend',col:'#059669',bg:'#ecfdf5',cap:600,items:[['Buffer',300,true,26],['Holiday fund',300,false,26]]},
+  {k:'debt',title:'Debt',icon:'card',col:'#e11d48',bg:'#fff1f2',cap:310,items:[['Car loan',240,true,2],['Study loan',70,true,2]]},
+  {k:'personal',title:'Personal & Family',icon:'users',col:'#d97706',bg:'#fffbeb',cap:300,items:[['Pocket money',80,true,1],['Clothing',100,false,12],['Hairdresser',65,true,9]]},
+  {k:'additional',title:'Additional costs',icon:'receipt',col:'#475569',bg:'#f1f5f9',cap:150,items:[['Birthdays',60,true,8],['Vet',88,false,21],['Misc',40,false,24]]},
+  {k:'health',title:'Health',icon:'heart',col:'#0d9488',bg:'#f0fdfa',cap:150,items:[['Health insurance',135,true,4]]},
+  {k:'subscriptions',title:'Subscriptions',icon:'repeat',col:'#7c3aed',bg:'#f5f3ff',cap:120,items:[['Netflix',16,true,5],['Spotify Family',18,true,7],['iCloud',12,true,9],['Internet TV',50,false,11]]}
+];
+const INCOME=[['Salary Eva',2850,true,25],['Salary Erik',2380,true,24],['Child benefit',268,true,1],['Freelance',420,false,18]];
+const E=React.createElement;
+const S={line:'#e7eaf0',ink:'#0f172a',sub:'#64748b',lab:'#94a0b0',track:'#eef1f5',soft:'#f6f8fb',faint:'#f0f2f6'};
+const WD=['M','T','W','T','F','S','S'];
+const ACCOUNTS=[{k:'eva',name:"Eva's account",initials:'EV',color:'#1684B4'},{k:'erik',name:"Erik's account",initials:'ER',color:'#46B873'},{k:'shared',name:'Shared account',initials:'SH',color:'#0E9A8D'}];
+const ACC_OF={home:'shared',food:'shared',savings:'shared',health:'shared',debt:'eva',additional:'eva',personal:'erik',subscriptions:'erik'};
+const START_BAL=3400;
+const G={green:'#0f9d6a',greenSoft:'#e7f7ef',greenLine:'#bbf0d3',greenText:'#0b7a52',amber:'#f59e0b',amberSoft:'#fff8e8',amberLine:'#fde3a7',amberText:'#a16207',red:'#e11d48',redSoft:'#fff1f2',redLine:'#fecdd3',line:'#e7eaf0',muted:'#94a0b0'};
+const eur=(n)=>'\u20ac' + Math.round(n).toLocaleString('nl-NL');
+
+class Component extends DCLogic {
+  state={paid:{},openB:null,mi:6,tabs:{b:'overview'},day:{b:6},sm:{b:'month'},closed:{},confirm:false,accts:false,income:false};
+  MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  isPaid(k,i,def){const v=this.state.paid[k+':'+i];return v===undefined?def:v;}
+  locked(){return !!this.state.closed[this.state.mi];}
+  toggle(k,i,def){if(this.locked())return;const key=k+':'+i;const cur=this.isPaid(k,i,def);this.setState(s=>({paid:Object.assign({},s.paid,{[key]:!cur})}));}
+  closeMonth(){this.setState(s=>({closed:Object.assign({},s.closed,{[s.mi]:true}),confirm:false,openB:null}));}
+  reopenMonth(){this.setState(s=>({closed:Object.assign({},s.closed,{[s.mi]:false})}));}
+
+  model(){
+    const cats=CATS.map(c=>{
+      const items=c.items.map((it,i)=>({label:it[0],amount:it[1],paid:this.isPaid(c.k,i,it[2]),idx:i,day:it[3]}));
+      const total=items.reduce((a,b)=>a+b.amount,0);
+      const paid=items.reduce((a,b)=>a+(b.paid?b.amount:0),0);
+      const open=total-paid;const left=c.cap-total;const over=left<0;
+      const pct=Math.min(100,Math.round(total/c.cap*100));
+      const state=(open===0&&!over)?'done':(over?'over':(total/c.cap>=.85?'watch':'ok'));
+      return Object.assign({},c,{items,total,paid,open,left,over,pct,state});
+    });
+    const budget=cats.reduce((a,b)=>a+b.total,0);
+    const paidSum=cats.reduce((a,b)=>a+b.paid,0);
+    const still=budget-paidSum;
+    const incReal=INCOME.reduce((a,b,i)=>a+(this.isPaid('income',i,b[2])?b[1]:0),0);
+    const incExp=INCOME.reduce((a,b)=>a+b[1],0);
+    return {cats,budget,paid:paidSum,still,incReal,incExp,balance:incReal-budget,expBalance:incExp-budget};
+  }
+  ico(c,size){return ic(c.icon,size,2,c.col);}
+  stateCol(c){return c.state==='over'?G.red:(c.state==='watch'?G.amber:c.col);}
+  deltaOf(c){
+    if(c.over)return {txt:'over by '+eur(-c.left),fg:G.red};
+    if(c.open===0)return {txt:'all paid',fg:G.greenText};
+    if(c.state==='watch')return {txt:eur(c.left)+' left',fg:G.amberText};
+    return {txt:eur(c.left)+' left',fg:G.muted};
+  }
+  itemRows(c){return c.items.map(it=>({label:it.label,amount:eur(it.amount),day:it.day+' July',pill:it.paid?'Paid':'Open',
+    pillBg:it.paid?G.greenSoft:'#fff',pillFg:it.paid?G.greenText:G.muted,pillLine:it.paid?G.greenLine:'#e5e7eb',
+    onToggle:()=>this.toggle(c.k,it.idx,CATS.find(x=>x.k===c.k).items[it.idx][2])}));}
+  setKey(coll,k,v){this.setState(s=>({[coll]:Object.assign({},s[coll],{[k]:v})}));}
+  tabs(variant,ok){
+    const items=[['overview','Overview'],['calendar','Calendar'],['list','List'],['stats','Stats']];
+    return items.map(t=>{const on=this.state.tabs[ok]===t[0];const go=()=>this.setKey('tabs',ok,t[0]);
+      if(variant==='dark')return {label:t[1],bg:on?'#fff':'transparent',fg:on?'#0f172a':'#cbd5e1',sh:'none',onClick:go};
+      if(variant==='solid')return {label:t[1],bg:on?'#0E9A8D':'transparent',fg:on?'#fff':'#64748b',sh:'none',onClick:go};
+      return {label:t[1],bg:on?'#fff':'transparent',fg:on?'#0E9A8D':'#8995a6',sh:on?'0 1px 3px rgba(16,24,40,.14)':'none',onClick:go};});
+  }
+
+  /* ============ shared secondary screens (Calendar · List · Stats) ============ */
+  flow(m){
+    const dim=31,off=2; // July 2026 starts on a Wednesday
+    const days=[];for(let i=1;i<=dim;i++)days.push({day:i,in:[],out:[],inSum:0,outSum:0,bal:0});
+    INCOME.forEach((it,i)=>{const d=days[it[3]-1];const paid=this.isPaid('income',i,it[2]);
+      d.in.push({label:it[0],amount:it[1],paid,col:G.green,icon:'trend',group:'Income',onToggle:()=>this.toggle('income',i,it[2])});d.inSum+=it[1];});
+    m.cats.forEach(c=>c.items.forEach(it=>{const d=days[it.day-1];
+      d.out.push({label:it.label,amount:it.amount,paid:it.paid,col:c.col,icon:c.icon,group:c.title,
+        onToggle:()=>this.toggle(c.k,it.idx,CATS.find(x=>x.k===c.k).items[it.idx][2])});d.outSum+=it.amount;}));
+    let bal=START_BAL,low={bal:Infinity,day:1};
+    days.forEach(d=>{bal+=d.inSum-d.outSum;d.bal=bal;if(bal<low.bal)low={bal:bal,day:d.day};});
+    const nzOut=days.map(d=>d.outSum).filter(v=>v>0).sort((a,b)=>a-b);
+    const nzIn=days.map(d=>d.inSum).filter(v=>v>0).sort((a,b)=>a-b);
+    const p80=(arr)=>arr.length?arr[Math.min(arr.length-1,Math.floor(arr.length*0.8))]:1;
+    return {days,off,dim,end:bal,low,maxOut:Math.max(1,...days.map(d=>d.outSum)),maxIn:Math.max(1,...days.map(d=>d.inSum)),refOut:Math.max(1,p80(nzOut)),refIn:Math.max(1,p80(nzIn))};
+  }
+  yearRows(){return this.MONTHS.map((n,i)=>({name:n.slice(0,3),inc:5918+((i*137)%400)-200,exp:4294+((i*211)%700)-350}));}
+  lbl(t,extra){return E('div',{style:Object.assign({fontSize:'10.5px',fontWeight:800,letterSpacing:'.5px',color:S.lab,textTransform:'uppercase',marginBottom:'8px'},extra||{})},t);}
+  card(kids,extra){return E('div',{style:Object.assign({background:'#fff',border:'1px solid '+S.line,borderRadius:'18px',padding:'15px',marginBottom:'12px'},extra||{})},kids);}
+  pill(it){const lk=this.locked();return E('button',{onClick:lk?null:it.onToggle,style:{appearance:'none',border:'none',cursor:lk?'default':'pointer',fontSize:'10.5px',fontWeight:800,padding:'5px 9px',borderRadius:'999px',flex:'none',
+    background:it.paid?G.greenSoft:'#fff',color:it.paid?G.greenText:S.lab,boxShadow:'inset 0 0 0 1px '+(it.paid?G.greenLine:'#e5e7eb')}},it.paid?'Paid':'Open');}
+  moneyRow(it,i,showGroup){return E('div',{key:i,style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderTop:i?'1px solid '+S.faint:'none'}},
+    E('span',{style:{width:'28px',height:'28px',borderRadius:'9px',flex:'none',display:'grid',placeItems:'center',background:it.col+'1a',color:it.col}},ic(it.icon,15,2,it.col)),
+    E('span',{style:{flex:1,minWidth:0}},
+      E('span',{style:{display:'block',fontSize:12.5,fontWeight:700,color:'#334155'}},it.label),
+      showGroup?E('span',{style:{display:'block',fontSize:'10.5px',fontWeight:700,color:S.lab}},it.group):null),
+    E('span',{style:{fontSize:'13px',fontWeight:800,fontVariantNumeric:'tabular-nums',color:it.col===G.green?G.greenText:S.ink}},(it.col===G.green?'+':'\u2212')+eur(it.amount)),
+    this.pill(it));}
+
+  acctRows(m){
+    const sums={};ACCOUNTS.forEach(a=>sums[a.k]=0);
+    m.cats.forEach(c=>{const ak=ACC_OF[c.k]||'shared';c.items.forEach(it=>{if(!it.paid)sums[ak]+=it.amount;});});
+    const max=Math.max(1,...ACCOUNTS.map(a=>sums[a.k]));
+    return ACCOUNTS.map(a=>({key:a.k,name:a.name,initials:a.initials,color:a.color,
+      amount:eur(sums[a.k]),amtFg:sums[a.k]>0?'#0f172a':'#94a0b0',
+      barW:Math.round(sums[a.k]/max*100)+'%'}));}
+  altScreen(ok,m){const t=this.state.tabs[ok];
+    if(t==='calendar')return this.calScreen(ok,m);
+    if(t==='list')return this.listScreen(ok,m);
+    return this.statsScreen(ok,m);}
+
+  /* ---------- Calendar ---------- */
+  calScreen(ok,m){
+    const f=this.flow(m);const sel=this.state.day[ok];const selD=f.days[sel-1];
+    const head=E('div',{key:'h',style:{background:'#0f172a',color:'#fff',borderRadius:'18px',padding:'14px 15px',marginBottom:'12px'}},
+      E('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end'}},
+        E('div',null,E('div',{style:{fontSize:'10px',fontWeight:800,letterSpacing:'.5px',color:'#94a3b8',textTransform:'uppercase'}},'End of month'),
+          E('div',{style:{fontSize:'25px',fontWeight:800,letterSpacing:'-.7px',fontVariantNumeric:'tabular-nums'}},eur(f.end))),
+        E('div',{style:{textAlign:'right'}},E('div',{style:{fontSize:'10px',fontWeight:800,color:'#94a3b8',textTransform:'uppercase'}},'Lowest'),
+          E('div',{style:{fontSize:'14px',fontWeight:800,color:f.low.bal<0?'#fda4af':'#34d399'}},eur(f.low.bal)+' \u00b7 '+f.low.day+' Jul'))),
+      E('div',{style:{display:'flex',alignItems:'flex-end',gap:'2px',height:'46px',marginTop:'12px'}},
+        f.days.map(d=>{const mx=Math.max(1,...f.days.map(x=>Math.abs(x.bal)));
+          return E('span',{key:d.day,onClick:()=>this.setKey('day',ok,d.day),style:{flex:1,cursor:'pointer',borderRadius:'2px',height:Math.max(3,Math.abs(d.bal)/mx*44)+'px',
+            background:d.day===sel?'#fff':(d.bal<0?'#fb7185':'rgba(52,211,153,.75)')}});})),
+      E('div',{style:{fontSize:'10.5px',fontWeight:700,color:'#94a3b8',marginTop:'7px'}},'Start '+eur(START_BAL)+' \u00b7 tap a day to inspect it'));
+    const wdRow=E('div',{key:'wd',style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'4px'}},
+      WD.map((d,i)=>E('span',{key:i,style:{textAlign:'center',fontSize:'9.5px',fontWeight:800,color:S.lab}},d)));
+    const cells=[];for(let i=0;i<f.off;i++)cells.push(E('span',{key:'b'+i}));
+    f.days.forEach(d=>{const on=d.day===sel;const intensity=Math.min(1,d.outSum/f.maxOut);
+      const dotCols=d.out.slice(0,3).map(o=>o.col);
+      let inner=null;
+      if(ok==='b')inner=null;
+      else if(ok==='c'){const sc=(v,ref)=>v?Math.max(4,Math.round(3+Math.min(1,Math.sqrt(v/ref))*14)):0;
+        const oh=sc(d.outSum,f.refOut),ih=sc(d.inSum,f.refIn);
+        inner=E('span',{style:{display:'flex',gap:'2px',alignItems:'flex-end',height:'17px',justifyContent:'center'}},
+          oh?E('span',{style:{width:'6px',borderRadius:'2px',background:'#e2526a',height:oh+'px'}}):null,
+          ih?E('span',{style:{width:'6px',borderRadius:'2px',background:G.green,height:ih+'px'}}):null);}
+      else inner=E('span',{style:{display:'flex',gap:'3px',justifyContent:'center',height:'12px',alignItems:'center'}},
+        d.inSum?E('span',{style:{width:'5px',height:'5px',borderRadius:'50%',background:G.green}}):null,
+        dotCols.map((c,i)=>E('span',{key:i,style:{width:'5px',height:'5px',borderRadius:'50%',background:c}})));
+      const bBg=d.outSum?'rgba(14,154,141,'+(0.08+intensity*0.3).toFixed(2)+')':(d.inSum?'rgba(15,157,106,.12)':'#fff');
+      cells.push(E('button',{key:d.day,onClick:()=>this.setKey('day',ok,d.day),style:{appearance:'none',cursor:'pointer',borderRadius:'11px',padding:'5px 0 4px',
+        border:'1px solid '+(on?'#0E9A8D':'transparent'),
+        background:ok==='b'?bBg:(on?'#e4f4f1':'#fff'),
+        boxShadow:on?'none':'0 1px 2px rgba(16,24,40,.05)'}},
+        E('span',{style:{display:'block',fontSize:'12px',fontWeight:800,color:on?'#0B7F74':S.ink}},d.day),
+        ok==='b'?E('span',{style:{display:'block',fontSize:'8.5px',fontWeight:800,lineHeight:1.35,color:d.inSum?G.greenText:'transparent'}},d.inSum?('+'+eur(d.inSum)):'\u00b7'):null,
+        ok==='b'?E('span',{style:{display:'block',fontSize:'8.5px',fontWeight:800,lineHeight:1.35,color:d.outSum?'#0B7F74':S.lab}},d.outSum?('\u2212'+eur(d.outSum)):(d.inSum?'':'\u00b7')):inner));});
+    const grid=E('div',{key:'g',style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'14px'}},cells);
+    const rows=[].concat(selD.in,selD.out);
+    const dayCard=this.card([
+      E('div',{key:'t',style:{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'0 0 8px'}},
+        E('span',{style:{fontSize:'13.5px',fontWeight:800}},sel+' July 2026'),
+        E('span',{style:{fontSize:'11.5px',fontWeight:800,color:S.sub}},'balance '+eur(selD.bal))),
+      rows.length?E('div',{key:'r',style:{border:'1px solid '+S.line,borderRadius:'13px',overflow:'hidden'}},rows.map((it,i)=>this.moneyRow(it,i,true)))
+        :E('div',{key:'e',style:{fontSize:'12px',fontWeight:700,color:S.lab,textAlign:'center',padding:'16px 0'}},'Nothing planned on this day.')],{padding:'14px'});
+    const timeline=E('div',{key:'tl'},f.days.filter(d=>d.in.length||d.out.length).map(d=>E('div',{key:d.day,style:{display:'flex',gap:'10px',marginBottom:'10px'}},
+      E('div',{style:{width:'38px',flex:'none',textAlign:'center',paddingTop:'9px'}},
+        E('div',{style:{fontSize:'15px',fontWeight:800,color:S.ink}},d.day),
+        E('div',{style:{fontSize:'9.5px',fontWeight:800,color:S.lab}},'JUL')),
+      E('div',{style:{flex:1,minWidth:0,background:'#fff',border:'1px solid '+S.line,borderRadius:'14px',overflow:'hidden'}},
+        [].concat(d.in,d.out).map((it,i)=>this.moneyRow(it,i,true)),
+        E('div',{style:{borderTop:'1px solid '+S.faint,padding:'7px 12px',fontSize:'10.5px',fontWeight:800,color:S.lab,textAlign:'right'}},'running balance '+eur(d.bal))))));
+    return E('div',null,head,ok==='d'?timeline:[wdRow,grid,dayCard]);
+  }
+
+  /* ---------- List · every item, sorted by date ---------- */
+  listScreen(ok,m){
+    const rows=[];
+    INCOME.forEach((it,i)=>rows.push({day:it[3],label:it[0],amount:it[1],paid:this.isPaid('income',i,it[2]),
+      col:G.green,icon:'trend',group:'Income',kind:'in',onToggle:()=>this.toggle('income',i,it[2])}));
+    m.cats.forEach(c=>c.items.forEach(it=>rows.push({day:it.day,label:it.label,amount:it.amount,paid:it.paid,
+      col:c.col,icon:c.icon,group:c.title,kind:'out',onToggle:()=>this.toggle(c.k,it.idx,CATS.find(x=>x.k===c.k).items[it.idx][2])})));
+    rows.sort((a,b)=>(a.day-b.day)||(b.amount-a.amount));
+    const openSum=rows.filter(r=>!r.paid&&r.kind==='out').reduce((a,b)=>a+b.amount,0);
+    const summary=E('div',{key:'sum',style:{display:'flex',gap:'8px',marginBottom:'12px'}},
+      this.tile('Items',String(rows.length),S.ink),this.tile('Paid',eur(m.paid),G.greenText),this.tile('Open',eur(openSum),G.amberText));
+    const dayName=(d)=>['Wed','Thu','Fri','Sat','Sun','Mon','Tue'][(d-1)%7];
+    const out=[];let cur=null,bucket=null;
+    rows.forEach((r,i)=>{
+      if(r.day!==cur){cur=r.day;bucket=[];
+        out.push(E('div',{key:'h'+r.day,style:{display:'flex',alignItems:'center',gap:'8px',padding:'12px 4px 7px'}},
+          E('span',{style:{fontSize:'12px',fontWeight:800,color:S.ink}},r.day+' July'),
+          E('span',{style:{fontSize:'10.5px',fontWeight:700,color:S.lab}},dayName(r.day)),
+          E('span',{style:{flex:1,height:'1px',background:S.line}})));
+        out.push(E('div',{key:'d'+r.day,style:{background:'#fff',border:'1px solid '+S.line,borderRadius:'15px',overflow:'hidden'}},bucket));}
+      bucket.push(E('div',{key:i,style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderTop:bucket.length?'1px solid '+S.faint:'none'}},
+        E('span',{style:{width:'28px',height:'28px',borderRadius:'9px',flex:'none',display:'grid',placeItems:'center',background:r.col+'1a'}},ic(r.icon,15,2,r.col)),
+        E('span',{style:{flex:1,minWidth:0}},
+          E('span',{style:{display:'block',fontSize:'12.5px',fontWeight:700,color:'#334155'}},r.label),
+          E('span',{style:{display:'block',fontSize:'10.5px',fontWeight:700,color:S.lab}},r.group)),
+        E('span',{style:{fontSize:'13px',fontWeight:800,fontVariantNumeric:'tabular-nums',color:r.kind==='in'?G.greenText:S.ink}},(r.kind==='in'?'+':'\u2212')+eur(r.amount)),
+        this.pill(r)));});
+    return E('div',null,this.lbl('Every item this month \u00b7 by date'),summary,out);
+  }
+
+  /* ---------- Stats ---------- */
+  hash(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%9973;return h;}
+  factor(key,i,n){const h=this.hash(key+':'+i);return 0.72+((h%57)/100);}
+  statsModel(mode,m){
+    const yr=this.yearRows();
+    const span=mode==='month'?6:(mode==='year'?12:24);
+    const series=[];
+    for(let k=span-1;k>=0;k--){
+      const idx=(this.state.mi-k+120)%12;const back=Math.floor((k-this.state.mi+11)/12);
+      const r=yr[idx];const drift=1-back*0.06;
+      series.push({name:this.MONTHS[idx].slice(0,3),inc:Math.round(r.inc*drift),exp:Math.round(r.exp*drift)});
+    }
+    const last=series[series.length-1],prev=series[series.length-2]||last;
+    let income,spending;
+    if(mode==='month'){income=m.incExp;spending=m.budget;}
+    else{income=series.reduce((a,b)=>a+b.inc,0);spending=series.reduce((a,b)=>a+b.exp,0);}
+    const net=income-spending;
+    const prevNet=mode==='month'?(prev.inc-prev.exp):Math.round(net/span*(span-1));
+    const mult=mode==='month'?1:(mode==='year'?11.6:22.4);
+    const cats=m.cats.map(c=>{
+      const hist=[];for(let k=5;k>=0;k--)hist.push(Math.round(c.total*this.factor(c.k,k,6)));
+      hist[5]=c.total;
+      return {key:c.k,title:c.title,col:c.col,total:Math.round(c.total*mult),hist:hist,
+        delta:Math.round((hist[5]-hist[4])/Math.max(1,hist[4])*100)};
+    }).sort((a,b)=>b.total-a.total);
+    const catSum=cats.reduce((a,b)=>a+b.total,0)||1;
+    const fixedKeys=['home','debt','subscriptions','health'];
+    const fixed=cats.filter(c=>fixedKeys.indexOf(c.key)>=0).reduce((a,b)=>a+b.total,0);
+    return {series,income,spending,net,prevNet,fixed,cats,catSum,
+      incDelta:Math.round((last.inc-prev.inc)/Math.max(1,prev.inc)*100),
+      expDelta:Math.round((last.exp-prev.exp)/Math.max(1,prev.exp)*100),
+      rate:Math.round(net/Math.max(1,income)*100),
+      rateDelta:Math.round((net/Math.max(1,income)-prevNet/Math.max(1,prev.inc))*100),
+      spanLabel:mode==='month'?'Last 6 months':(mode==='year'?'Last 12 months':'Last 24 months'),
+      scopeLabel:mode==='month'?'this month':(mode==='year'?'this year':'all time'),
+      prevLabel:mode==='month'?('vs '+this.MONTHS[(this.state.mi+11)%12].slice(0,3)+' '+eur(prevNet)):('vs previous period '+eur(prevNet))};
+  }
+  deltaChip(v,goodDown){const up=v>0;const good=goodDown?!up:up;
+    return E('span',{style:{display:'inline-flex',alignItems:'center',gap:'3px',fontSize:'10.5px',fontWeight:800,padding:'3px 7px',borderRadius:'999px',
+      background:good?G.greenSoft:G.redSoft,color:good?G.greenText:G.red}},(up?'\u2191 +':'\u2193 ')+v+'%');}
+  statCard(icon,col,label,value,sub,chip){return E('div',{style:{flex:1,minWidth:0,background:'#fff',border:'1px solid '+S.line,borderRadius:'18px',padding:'13px 14px'}},
+    E('div',{style:{display:'flex',alignItems:'center',gap:'7px',marginBottom:'9px'}},
+      E('span',{style:{width:'26px',height:'26px',borderRadius:'9px',display:'grid',placeItems:'center',flex:'none',background:col+'1a'}},ic(icon,14,2.2,col)),
+      E('span',{style:{fontSize:'10px',fontWeight:800,letterSpacing:'.5px',color:S.lab,textTransform:'uppercase'}},label)),
+    E('div',{style:{fontSize:'21px',fontWeight:800,letterSpacing:'-.5px',fontVariantNumeric:'tabular-nums',marginBottom:'7px'}},value),
+    E('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px'}},
+      E('span',{style:{fontSize:'11px',fontWeight:700,color:S.lab}},sub),chip));}
+  inVsOut(sm){
+    const W=320,H=132,pad=10,base=H-22;
+    const max=Math.max(1,...sm.series.map(s=>Math.max(s.inc,s.exp)));
+    const n=sm.series.length;const X=(i)=>pad+(i*(W-pad*2)/Math.max(1,n-1));const Y=(v)=>base-(v/max)*(base-14);
+    const path=(key)=>sm.series.map((s,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(s[key]).toFixed(1)).join(' ');
+    const inP=path('inc'),outP=path('exp');
+    const labels=sm.series.map((s,i)=>({name:s.name,show:n<=6||i%Math.ceil(n/6)===0,i:i}));
+    return E('div',{style:{background:'#fff',border:'1px solid '+S.line,borderRadius:'18px',padding:'15px',marginBottom:'12px'}},
+      E('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'10px'}},
+        E('div',null,E('div',{style:{fontSize:'14px',fontWeight:800}},'In vs out'),
+          E('div',{style:{fontSize:'11px',fontWeight:700,color:S.lab}},sm.spanLabel)),
+        E('div',{style:{display:'flex',gap:'10px'}},
+          E('span',{style:{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'11px',fontWeight:800,color:S.sub}},E('span',{style:{width:'12px',height:'3px',borderRadius:'2px',background:'#0f9d6a'}}),'In'),
+          E('span',{style:{display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'11px',fontWeight:800,color:S.sub}},E('span',{style:{width:'12px',height:'3px',borderRadius:'2px',background:'#e2526a'}}),'Out'))),
+      E('svg',{viewBox:'0 0 '+W+' '+H,style:{width:'100%',height:'auto',display:'block'}},
+        E('defs',null,E('linearGradient',{id:'ivo',x1:0,y1:0,x2:0,y2:1},
+          E('stop',{offset:'0',stopColor:'#0f9d6a',stopOpacity:.2}),E('stop',{offset:'1',stopColor:'#0f9d6a',stopOpacity:.02}))),
+        E('path',{d:inP+' L'+X(n-1)+' '+base+' L'+X(0)+' '+base+' Z',fill:'url(#ivo)'}),
+        E('path',{d:outP,fill:'none',stroke:'#e2526a',strokeWidth:2,strokeLinejoin:'round',strokeLinecap:'round'}),
+        E('path',{d:inP,fill:'none',stroke:'#0f9d6a',strokeWidth:2,strokeLinejoin:'round',strokeLinecap:'round'}),
+        sm.series.map((s,i)=>E('g',{key:i},
+          E('circle',{cx:X(i),cy:Y(s.inc),r:i===n-1?3.4:2.2,fill:'#0f9d6a'}),
+          E('circle',{cx:X(i),cy:Y(s.exp),r:i===n-1?3.4:2.2,fill:'#e2526a'}))),
+        labels.map((l,i)=>l.show?E('text',{key:i,x:X(l.i),y:H-4,textAnchor:'middle',style:{fontSize:'8px',fontWeight:800,fill:l.i===n-1?S.ink:S.lab}},l.name):null)));
+  }
+  statsScreen(ok,m){
+    const mode=this.state.sm[ok];
+    const seg=(label,val)=>E('button',{key:val,onClick:()=>this.setKey('sm',ok,val),style:{appearance:'none',border:'none',cursor:'pointer',flex:1,padding:'10px 0',borderRadius:'12px',fontSize:'12.5px',fontWeight:800,
+      background:mode===val?'#fff':'transparent',color:mode===val?'#0E9A8D':'#8995a6',boxShadow:mode===val?'0 1px 3px rgba(16,24,40,.16)':'none'}},label);
+    const toggle=E('div',{key:'tg',style:{display:'flex',gap:'4px',background:'#e4e8ee',borderRadius:'15px',padding:'4px',marginBottom:'12px'}},seg('Month','month'),seg('Year','year'),seg('All time','alltime'));
+    const sm=this.statsModel(mode,m);
+    const netPct=Math.round((sm.net-sm.prevNet)/Math.max(1,Math.abs(sm.prevNet))*100);
+    const nmax=Math.max(1,...sm.series.map(s=>Math.abs(s.inc-s.exp)));
+    const hero=E('div',{key:'hero',style:{background:'linear-gradient(135deg,#0f9a86 0%,#0d8f93 55%,#1684B4 100%)',borderRadius:'22px',padding:'16px 17px 14px',color:'#fff',marginBottom:'12px',boxShadow:'0 18px 34px -22px rgba(14,154,141,.85)'}},
+      E('div',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between'}},
+        E('span',{style:{fontSize:'10.5px',fontWeight:800,letterSpacing:'.6px',textTransform:'uppercase',opacity:.9}},'Net result'),
+        E('span',{style:{fontSize:'10.5px',fontWeight:800,padding:'4px 8px',borderRadius:'999px',background:'rgba(255,255,255,.18)'}},(netPct>=0?'\u2191 +':'\u2193 ')+netPct+'%')),
+      E('div',{style:{fontSize:'32px',fontWeight:800,letterSpacing:'-1px',fontVariantNumeric:'tabular-nums',lineHeight:1.15,margin:'2px 0 2px'}},(sm.net<0?'\u2212':'')+eur(Math.abs(sm.net))),
+      E('div',{style:{fontSize:'11.5px',fontWeight:600,opacity:.9}},sm.prevLabel),
+      E('div',{style:{display:'flex',alignItems:'flex-end',gap:'5px',height:'56px',marginTop:'12px'}},
+        sm.series.slice(-6).map((s,i)=>{const v=s.inc-s.exp;const h=Math.max(3,Math.abs(v)/nmax*46);
+          return E('span',{key:i,style:{flex:1,height:h+'px',borderRadius:'6px',background:v<0?'#fda4af':'rgba(255,255,255,.28)'}});})),
+      E('div',{style:{fontSize:'9.5px',fontWeight:800,letterSpacing:'.6px',textTransform:'uppercase',opacity:.75,marginTop:'8px'}},sm.spanLabel));
+    const cards=E('div',{key:'kpi',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'12px'}},
+      this.statCard('trend','#0f9d6a','Income',eur(sm.income),sm.scopeLabel,this.deltaChip(sm.incDelta,false)),
+      this.statCard('cart','#e2526a','Spending',eur(sm.spending),sm.scopeLabel,this.deltaChip(sm.expDelta,true)),
+      this.statCard('gauge','#0E9A8D','Savings rate',sm.rate+'%','of income kept',this.deltaChip(sm.rateDelta,false)),
+      this.statCard('lock','#1684B4','Fixed costs',eur(sm.fixed),Math.round(sm.fixed/Math.max(1,sm.spending)*100)+'% locked in',null));
+    const where=E('div',{key:'where'},
+      E('div',{style:{display:'flex',alignItems:'baseline',justifyContent:'space-between',padding:'4px 3px 9px'}},
+        E('span',{style:{fontSize:'10.5px',fontWeight:800,letterSpacing:'.5px',color:S.sub,textTransform:'uppercase'}},'Where it went'),
+        E('span',{style:{fontSize:'12px',fontWeight:800,color:S.sub,fontVariantNumeric:'tabular-nums'}},eur(sm.catSum))),
+      E('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+        sm.cats.map(c=>{const hmax=Math.max(1,...c.hist);
+          return E('div',{key:c.key,style:{background:'#fff',border:'1px solid '+S.line,borderRadius:'18px',padding:'13px 13px 12px'}},
+            E('div',{style:{display:'flex',alignItems:'center',gap:'7px',marginBottom:'7px'}},
+              E('span',{style:{width:'9px',height:'9px',borderRadius:'50%',background:c.col,flex:'none'}}),
+              E('span',{style:{fontSize:'12.5px',fontWeight:800,color:S.ink,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},c.title)),
+            E('div',{style:{fontSize:'19px',fontWeight:800,letterSpacing:'-.5px',fontVariantNumeric:'tabular-nums',marginBottom:'6px'}},eur(c.total)),
+            E('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'6px',marginBottom:'9px'}},
+              E('span',{style:{fontSize:'10.5px',fontWeight:700,color:S.lab}},Math.round(c.total/sm.catSum*100)+'% of spending'),
+              E('span',{style:{fontSize:'10.5px',fontWeight:800,color:c.delta>0?G.red:(c.delta<0?G.greenText:S.lab)}},(c.delta>0?'+':'')+c.delta+'%')),
+            E('div',{style:{display:'flex',alignItems:'flex-end',gap:'3px',height:'22px'}},
+              c.hist.map((v,i)=>E('span',{key:i,style:{flex:1,borderRadius:'4px',height:Math.max(4,v/hmax*22)+'px',background:i===5?c.col:c.col+'33'}}))));})));
+    return E('div',null,toggle,hero,cards,this.inVsOut(sm),where);
+  }
+  tile(label,val,col){return E('div',{key:label,style:{flex:1,background:'#fff',border:'1px solid '+S.line,borderRadius:'15px',padding:'11px 12px'}},
+    E('div',{style:{fontSize:'9.5px',fontWeight:800,letterSpacing:'.4px',color:S.lab,textTransform:'uppercase',marginBottom:'3px'}},label),
+    E('div',{style:{fontSize:'16px',fontWeight:800,color:col,fontVariantNumeric:'tabular-nums'}},val));}
+
+  renderVals(){
+    const m=this.model();const C=2*Math.PI*56;
+    const monthLabel=this.MONTHS[this.state.mi]+' 2026';
+    const nextMonth=()=>this.setState(s=>({mi:(s.mi+1)%12}));
+    const spentPct=Math.round(m.budget/Math.max(1,m.incExp)*100);
+    const paidFrac=Math.min(1,m.paid/Math.max(1,m.incExp));
+    const openFrac=Math.min(1-paidFrac,m.still/Math.max(1,m.incExp));
+    const good=m.balance>=0&&m.still===0;const mid=m.balance>=0;
+    const overCount=m.cats.filter(c=>c.state==='over').length;
+
+    const sortedAmount=m.cats.slice().sort((a,b)=>b.total-a.total);
+    const catsB=sortedAmount.map(c=>{const d=this.deltaOf(c);
+      const fill=c.over?'rgba(225,29,72,.13)':(c.state==='watch'?'rgba(245,158,11,.16)':'rgba(14,154,141,.12)');
+      return {key:c.k,title:c.title,icon:this.ico(c,15),col:c.col,bg:c.bg,
+        line:c.over?G.redLine:G.line,fillH:Math.max(6,c.pct)+'%',fillCol:fill,
+        amount:eur(c.total),amtFg:c.over?G.red:'#0f172a',delta:d.txt,deltaFg:d.fg,
+        onClick:()=>this.setState(s=>({openB:s.openB===c.k?null:c.k}))};});
+    const ob=m.cats.find(c=>c.k===this.state.openB)||null;
+
+    return {
+      monthLabel,onMonth:nextMonth,
+      tabsB:this.tabs('solid','b'),
+      showOvB:this.state.tabs.b==='overview',showAltB:this.state.tabs.b!=='overview',screenB:this.altScreen('b',m),
+      spentPctTxt:spentPct+'%',
+      safeTxt:eur(m.incReal-m.paid-m.still),safeSub:'after every planned bill this month',
+      heroB:[{label:'Income received',value:eur(m.incReal),onClick:()=>this.setState({income:true}),more:'\u203a'},
+             {label:'Planned spend',value:eur(m.budget),onClick:null,more:''},
+             {label:'Still open',value:eur(m.still),onClick:()=>this.setState({accts:true}),more:'\u203a'}],
+      showIncome:!!this.state.income,onCloseIncome:()=>this.setState({income:false}),
+      incTitle:'Income',incSub:INCOME.length+' sources \u00b7 '+eur(m.incExp-m.incReal)+' still expected',
+      incAmount:eur(m.incReal),incLine:eur(m.incReal)+' received of '+eur(m.incExp),
+      incBarW:Math.round(m.incReal/Math.max(1,m.incExp)*100)+'%',
+      incItems:INCOME.map((it,i)=>{const got=this.isPaid('income',i,it[2]);
+        return {label:it[0],day:it[3]+' July',amount:eur(it[1]),pill:got?'In':'Pending',
+          pillBg:got?G.greenSoft:'#fff',pillFg:got?G.greenText:'#94a0b0',pillLine:got?G.greenLine:'#e5e7eb',
+          onToggle:()=>this.toggle('income',i,it[2])};}),
+      showAccts:!!this.state.accts,onCloseAccts:()=>this.setState({accts:false}),
+      acctTotal:eur(m.still),acctRows:this.acctRows(m),
+      headTitle:({overview:'Overview',calendar:'Money calendar',list:'All items',stats:'Statistics'})[this.state.tabs.b],
+      headSub:({overview:'Janssen family',calendar:monthLabel+' \u00b7 day by day',list:monthLabel+' \u00b7 by date',stats:({month:'Month view',year:'Full year 2026',alltime:'All time'})[this.state.sm.b]})[this.state.tabs.b],
+      isClosed:this.locked(),notClosed:!this.locked(),
+      lockIcon:ic('unlock',16,2.2,'#fff'),lockedIcon:ic('lock',16,2.2,'currentColor'),incIcon:ic('trend',19,2,'#0E9A8D'),
+      onLock:()=>this.setState({confirm:true}),onReopen:()=>this.reopenMonth(),
+      showConfirm:!!this.state.confirm,onCancelClose:()=>this.setState({confirm:false}),onConfirmClose:()=>this.closeMonth(),
+      confirmTitle:'Close '+monthLabel+'?',
+      catsB,openB:!!ob,openBTitle:ob?ob.title:'',openBSub:ob?(ob.items.length+' items · '+(ob.open>0?(eur(ob.open)+' still open'):'all paid')):'',
+      openBIcon:ob?this.ico(ob,19):null,openBBg:ob?ob.bg:'#eef1f6',openBCol:ob?ob.col:'#64748b',
+      openBAmount:ob?eur(ob.total):'',openBAmtFg:(ob&&ob.over)?G.red:'#0f172a',
+      openBDelta:ob?this.deltaOf(ob).txt:'',openBDeltaFg:ob?this.deltaOf(ob).fg:G.line,
+      openBBarW:ob?(ob.pct+'%'):'0%',openBBarCol:ob?this.stateCol(ob):'#0E9A8D',
+      openBLimit:ob?eur(ob.cap):'',openBPaidLine:ob?(eur(ob.paid)+' paid of '+eur(ob.total)):'',
+      openBItems:ob?this.itemRows(ob):[],onCloseB:()=>this.setState({openB:null}),
+      safeOpenTxt:eur(m.still)
+    };
+  }
+}
+
+</script>
+</body>
+</html>
