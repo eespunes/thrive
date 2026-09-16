@@ -183,6 +183,57 @@ void main() {
       expect((surface.decoration! as BoxDecoration).gradient, isNotNull);
     });
 
+    testWidgets('an imported feed is striped in its assigned category colour', (
+      tester,
+    ) async {
+      final today = todayIso();
+      const catColor = Color(0xff8b5cf6);
+      await pumpApp(
+        tester,
+        prefs: _prefs(
+          categories: [
+            EventCategory(
+              id: 'civic',
+              name: 'Civic',
+              color: catColor,
+              icon: 'home',
+            ),
+          ],
+          imported: [
+            ImportedCalendar(
+              id: 'feed',
+              name: 'Gemeente',
+              provider: 'ics',
+              color: const Color(0xff475569),
+              category: 'civic',
+              events: [
+                ImportedCalendarEvent(
+                  id: 'w1',
+                  title: 'Waste pickup',
+                  date: today,
+                  start: '07:30',
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _goToCalendar(tester);
+      await _setView(tester, 'agenda');
+
+      final surface = tester.widget<Container>(
+        find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
+      );
+      final gradient =
+          (surface.decoration! as BoxDecoration).gradient! as LinearGradient;
+      // Still striped — read-only is the pattern, not a grey — but the stripes
+      // are the category's colour, not the old slate.
+      expect(gradient.colors.first, catColor);
+      expect(gradient.colors.toSet().length, 2);
+      expect(gradient.colors, isNot(contains(const Color(0xff5d6b7e))));
+    });
+
     testWidgets('a to-do is a white dotted card with a real checkbox, and a '
         'multi-day run says which day it is', (tester) async {
       final today = todayIso();

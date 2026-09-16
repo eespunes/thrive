@@ -20,19 +20,26 @@ const Color kBirthdayAmber = Color(0xffd97706);
 const Color kBirthdayInk = Color(0xff92610c);
 const Color kBirthdaySubInk = Color(0xffb18a45);
 
-/// Imported-feed stripes — "not ours": read-only, tap opens details.
-const LinearGradient kImportedStripes = LinearGradient(
+/// Imported-feed stripes — "not ours": read-only, tap opens details. The
+/// stripes take the event's OWN colour, which for an imported feed is its
+/// assigned category's (see `importedSyntheticEvent`), so a feed reads as its
+/// category everywhere; it's the stripe pattern, not a grey, that says
+/// read-only. Feeds with no category keep falling back to the feed's colour.
+LinearGradient importedStripes(Color base) => LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   tileMode: TileMode.repeated,
-  colors: [
-    Color(0xff5d6b7e),
-    Color(0xff5d6b7e),
-    Color(0xff6b7a8e),
-    Color(0xff6b7a8e),
-  ],
-  stops: [0.0, 0.5, 0.5, 1.0],
+  colors: [base, base, _stripeLift(base), _stripeLift(base)],
+  stops: const [0.0, 0.5, 0.5, 1.0],
 );
+
+/// The second stripe tone: a step towards white on dark colours, towards
+/// black on light ones, so the stripes stay visible whatever the category is.
+Color _stripeLift(Color base) => Color.lerp(
+  base,
+  contrastOn(base) == Colors.white ? Colors.white : Colors.black,
+  .13,
+)!;
 
 /// The resolved display anatomy of one occurrence on one day — the single
 /// source every calendar surface paints from (epic #343).
@@ -733,7 +740,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final a = _evAnatomy(o, iso);
     final isTodo = a.kind == CalEventKind.todo;
     final isImported = a.kind == CalEventKind.imported;
-    final ink = isTodo ? a.color : Colors.white;
+    // Imported bars are no longer a fixed dark grey, so the ink has to follow
+    // whatever the category colour is rather than assuming white reads on it.
+    final ink = isTodo ? a.color : contrastOn(a.color);
     return Container(
       key: ValueKey('cal-bar-${o.ev.id}-$iso'),
       margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
@@ -744,7 +753,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             : isImported
             ? null
             : a.color,
-        gradient: isImported ? kImportedStripes : null,
+        gradient: isImported ? importedStripes(a.color) : null,
         borderRadius: BorderRadius.circular(4),
       ),
       foregroundDecoration: isTodo
@@ -1363,20 +1372,21 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ),
         );
       case CalEventKind.imported:
+        final importedInk = contrastOn(a.color);
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .22),
+            color: importedInk.withValues(alpha: .22),
             borderRadius: BorderRadius.circular(9),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               '\u21E9',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: importedInk,
               ),
             ),
           ),
@@ -1429,7 +1439,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         );
       case CalEventKind.imported:
         return BoxDecoration(
-          gradient: kImportedStripes,
+          gradient: importedStripes(a.color),
           borderRadius: BorderRadius.circular(radius),
         );
       case CalEventKind.appointment:
@@ -1455,7 +1465,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       case CalEventKind.birthday:
         return (kBirthdayInk, kBirthdaySubInk);
       case CalEventKind.imported:
-        return (Colors.white, Colors.white.withValues(alpha: .8));
+        final ink = contrastOn(a.color);
+        return (ink, ink.withValues(alpha: .8));
       case CalEventKind.appointment:
         final fg = contrastOn(a.color);
         return (fg, fg.withValues(alpha: .8));
@@ -1566,7 +1577,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final chipInk = switch (a.kind) {
       CalEventKind.todo => a.color,
       CalEventKind.birthday => kBirthdayInk,
-      CalEventKind.imported => Colors.white,
+      CalEventKind.imported => contrastOn(a.color),
       CalEventKind.appointment => contrastOn(a.color),
     };
     final chipBg = switch (a.kind) {
