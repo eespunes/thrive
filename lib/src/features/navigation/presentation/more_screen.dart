@@ -18,6 +18,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Sections that aren't on this person's bar live here, one
+                // tap away (#365) — nothing becomes unreachable by unpicking
+                // it. The card disappears when the bar holds everything.
+                if (navMoreSections.isNotEmpty) ...[
+                  _hubSectionsCard(),
+                  const SizedBox(height: 10),
+                ],
                 _hubPlanningCard(),
                 const SizedBox(height: 10),
                 _hubMoneyCard(),
@@ -47,6 +54,35 @@ extension _ThriveMoreScreen on _ThriveHomeState {
   }
 
   // --------------------------------------------------------------- cards
+
+  /// The unpicked sections, plus the way back into the tab editor.
+  Widget _hubSectionsCard() {
+    final hidden = navMoreSections;
+    return _hubCard(
+      id: 'sections',
+      icon: 'grid',
+      title: 'Sections',
+      summary: hidden.length == 1
+          ? '1 section not on your bar'
+          : '${hidden.length} sections not on your bar',
+      hint: 'Long-press the bar to change which three it holds.',
+      rows: [
+        for (final key in hidden)
+          _hubRow(
+            key: 'more-section-$key',
+            label: navSectionMeta(key).$1,
+            onTap: () => goTab(key),
+          ),
+        _hubRow(
+          key: 'more-tabbar',
+          label: 'Tab bar',
+          sub: 'Pick the $kNavPickCount sections your bar holds',
+          val: 'Edit',
+          onTap: openNavTabEditor,
+        ),
+      ],
+    );
+  }
 
   Widget _hubPlanningCard() {
     final layers = _kitchenWallLayers(this);

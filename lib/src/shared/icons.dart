@@ -352,6 +352,16 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M12 17v4'],
     ['path', 'M8 21h8'],
   ],
+  // The six-dot drag grip (design `Nav options` 2c). Three sliders read as
+  // "settings", not "drag me", which is the whole job of a handle.
+  'grip': [
+    ['path', 'M8 5h.01'],
+    ['path', 'M8 12h.01'],
+    ['path', 'M8 19h.01'],
+    ['path', 'M16 5h.01'],
+    ['path', 'M16 12h.01'],
+    ['path', 'M16 19h.01'],
+  ],
   'columns': [
     ['rect', 3, 3, 7, 18, 1.4],
     ['rect', 14, 3, 7, 18, 1.4],

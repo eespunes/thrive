@@ -1,8 +1,9 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Top-level nav tab keys, as validated on restore. Mirrors the design's
-/// `renderNav()` items plus the "More" sub-screen (`weekly`) that keeps the
-/// More tab highlighted (`isActive` in `renderNav()`).
+/// Top-level nav tab keys, as validated on restore. Every section exists
+/// whether or not it is on this person's bar (#365) — unpicking one moves it
+/// into More, it never stops being a destination, so a persisted tab stays
+/// valid after a bar change instead of falling back to a blank screen.
 const Set<String> kValidTabs = {
   'home',
   'calendar',
@@ -25,77 +26,125 @@ extension _ThriveAppShell on _ThriveHomeState {
     _persist();
   }
 
-  bool _navActive(String key) =>
-      key == tab || (key == 'more' && const {'more', 'weekly'}.contains(tab));
+  bool _navActive(String key) {
+    if (key == tab) return true;
+    // More is lit for itself AND for any section that isn't on the bar: an
+    // unpicked section is reached through More, so More is where you are.
+    if (key != 'more') return false;
+    if (tab == 'more') return true;
+    return kNavSections.any((s) => s.$1 == tab) && !navPickedTabs.contains(tab);
+  }
 
   double _bottomSystemInset(BuildContext context) {
     final media = MediaQuery.of(context);
     return math.max(media.padding.bottom, media.viewPadding.bottom);
   }
 
+  /// The bottom bar (design `Nav options` 2a): Home, the three sections this
+  /// person picked, then More. The 1a ergonomics — a 52x34 pill behind the
+  /// active icon, always-on labels, a badge slot per tab — apply to whatever
+  /// the picks happen to be. Long-pressing anywhere on the bar opens the
+  /// editor, which is the only way the bar advertises that it's editable.
   Widget _buildNav() {
     final bottomInset = _bottomSystemInset(context);
-    const items = [
+    final items = <(String, String, String)>[
       ('home', 'Home', 'home'),
-      ('calendar', 'Calendar', 'cal'),
-      ('lists', 'Lists', 'list'),
-      ('finance', 'Finance', 'wallet'),
+      for (final key in navPickedTabs)
+        (key, navSectionMeta(key).$1, navSectionMeta(key).$2),
       ('more', 'More', 'menu'),
     ];
-    return Container(
+    return GestureDetector(
       key: const ValueKey('app-bottom-nav'),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: B.line)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x40101828),
-            blurRadius: 22,
-            spreadRadius: -18,
-            offset: Offset(0, -8),
-          ),
-        ],
+      onLongPress: openNavTabEditor,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: B.line)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x40101828),
+              blurRadius: 22,
+              spreadRadius: -18,
+              offset: Offset(0, -8),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.fromLTRB(6, 8, 6, 10 + bottomInset),
+        child: Row(
+          children: [
+            for (final (key, label, icon) in items)
+              Expanded(child: _navItem(key, label, icon)),
+          ],
+        ),
       ),
-      padding: EdgeInsets.fromLTRB(4, 0, 4, bottomInset),
-      child: Row(
+    );
+  }
+
+  Widget _navItem(String key, String label, String icon) {
+    final active = _navActive(key);
+    final badge = navTabBadge(key);
+    final ink = active ? B.primary : const Color(0xff9aa6b4);
+    return GestureDetector(
+      key: ValueKey('nav-$key'),
+      onTap: () => goTab(key),
+      onLongPress: openNavTabEditor,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (key, label, icon) in items)
-            Expanded(
-              child: GestureDetector(
-                key: ValueKey('nav-$key'),
-                onTap: () => goTab(key),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 9, 0, 5),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ic(
-                        icon,
-                        size: 22,
-                        sw: _navActive(key) ? 2.3 : 1.9,
-                        color: _navActive(key)
-                            ? B.primary
-                            : const Color(0xff9aa6b4),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 52,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  // The pill is the active marker; an inactive tab has no
+                  // background at all, so only one thing on the bar is lit.
+                  color: active ? B.soft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: ic(icon, size: 19, sw: active ? 2.3 : 2.1, color: ink),
+              ),
+              if (badge != null)
+                Positioned(
+                  top: -3,
+                  right: -1,
+                  child: Container(
+                    key: ValueKey('nav-badge-$key'),
+                    constraints: const BoxConstraints(minWidth: 16),
+                    height: 16,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xffe2554f),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Text(
+                      badge > 99 ? '99+' : '$badge',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: _navActive(key)
-                              ? FontWeight.w800
-                              : FontWeight.w600,
-                          color: _navActive(key)
-                              ? B.primary
-                              : const Color(0xff9aa6b4),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+              color: ink,
             ),
+          ),
         ],
       ),
     );

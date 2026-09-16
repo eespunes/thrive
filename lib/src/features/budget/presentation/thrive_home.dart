@@ -230,6 +230,10 @@ class ThriveDebugController {
   bool get notificationsEnabled => _s.notificationsEnabled;
   bool get deviceCalendarSyncEnabled => _s.deviceCalendarSyncEnabled;
   void toggleWidgetHideAmounts() => _s.toggleWidgetHideAmounts();
+  List<String> get navPickedTabs => _s.navPickedTabs;
+  List<String> get navMoreSections => _s.navMoreSections;
+  void setNavTabs(List<String> picked) => _s.setNavTabs(picked);
+  void openNavTabEditor() => _s.openNavTabEditor();
   List<BoardEntry>? get homeBoard => _s.homeBoard;
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
   List<BoardEntry> effectiveHomeBoard() => _s.effectiveHomeBoard();
@@ -397,6 +401,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<String> calFilter = []; // member id multi-filter
   List<String> calCatFilter = []; // category id multi-filter
   List<String> layerFilter = ['appt', 'task', 'content']; // enabled layers
+  /// The sections this person picked for their bottom bar (#365). Per-user,
+  /// never per-family — two members of one family have independent bars.
+  /// null means "never customised", which reads as [kDefaultNavTabs].
+  List<String>? navTabs;
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
@@ -928,6 +936,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // accessors read through to it); nothing to re-point.
     _adoptActiveWorkspace();
     layerFilter = _savedLayerFilter(saved['layerFilter']);
+    navTabs = _savedNavTabs(saved['navTabs']);
     calFilter = _savedIdList(saved['calFilter']);
     calCatFilter = _savedIdList(saved['calCatFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
@@ -1022,6 +1031,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // the filter sheet, so keeping them would silently hide the calendar.
     final known = restored.where(layerIds.contains).toList();
     return known.isEmpty ? layerIds : known;
+  }
+
+  /// A persisted picked-tab list, or null when the person never customised
+  /// their bar. Sanitising happens on read ([navPickedTabs]), so a value
+  /// naming a section that no longer exists degrades to the defaults rather
+  /// than to a short bar.
+  List<String>? _savedNavTabs(Object? raw) {
+    if (raw is! List) return null;
+    final restored = <String>[
+      for (final id in raw)
+        if (id.toString().trim().isNotEmpty) id.toString(),
+    ];
+    return restored.isEmpty ? null : restored;
   }
 
   /// A persisted id list as-is — an empty/missing value stays empty, which
@@ -1258,6 +1280,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'screen': screen,
       'tab': tab,
       'layerFilter': layerFilter,
+      if (navTabs != null) 'navTabs': navTabs,
       // Per-user, never family-wide (#349) — which members/categories this
       // person has switched off on their own calendar.
       if (calFilter.isNotEmpty) 'calFilter': calFilter,

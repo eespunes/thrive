@@ -582,6 +582,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         screen = rawScreen;
       }
       layerFilter = _savedLayerFilter(userData['layerFilter']);
+      navTabs = _savedNavTabs(userData['navTabs']) ?? navTabs;
       calFilter = _savedIdList(userData['calFilter']);
       calCatFilter = _savedIdList(userData['calCatFilter']);
       homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
@@ -1063,6 +1064,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'monthIdx': monthIdx,
       'screen': screen,
       'layerFilter': layerFilter,
+      if (navTabs != null) 'navTabs': navTabs,
       'calFilter': calFilter,
       'calCatFilter': calCatFilter,
       if (homeBoard != null)
