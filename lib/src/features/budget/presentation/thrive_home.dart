@@ -1009,11 +1009,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   List<String> _savedLayerFilter(Object? raw) {
+    final layerIds = <String>[
+      for (final l
+          in calendarLayers.isEmpty ? kDefaultCalendarLayers() : calendarLayers)
+        l.id,
+    ];
     final restored = <String>[
       for (final id in (raw as List? ?? const []))
         if (id.toString().trim().isNotEmpty) id.toString(),
     ];
-    return restored.isEmpty ? <String>['appt', 'task', 'content'] : restored;
+    // Ids the active workspace no longer defines can't be toggled back on from
+    // the filter sheet, so keeping them would silently hide the calendar.
+    final known = restored.where(layerIds.contains).toList();
+    return known.isEmpty ? layerIds : known;
   }
 
   /// A persisted id list as-is — an empty/missing value stays empty, which

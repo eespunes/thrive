@@ -714,6 +714,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
     update(() {
       familyId = id;
       _adoptActiveWorkspace();
+      // Layers are per-family but `layerFilter` is one per-user list, so a
+      // filter carried over from the previous family can name ids this one
+      // never defines — which would render an empty calendar.
+      layerFilter = _savedLayerFilter(layerFilter);
       screen = 'overview';
       swipedId = null;
       collapsed = {};
@@ -1028,6 +1032,10 @@ extension _ThriveAccountActions on _ThriveHomeState {
       families = [...families, fam];
       familyId = id;
       _adoptActiveWorkspace();
+      // Layers are per-family but `layerFilter` is one per-user list, so a
+      // filter carried over from the previous family can name ids this one
+      // never defines — which would render an empty calendar.
+      layerFilter = _savedLayerFilter(layerFilter);
       screen = 'overview';
       swipedId = null;
       collapsed = {};
