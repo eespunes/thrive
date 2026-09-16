@@ -130,7 +130,9 @@ void main() {
       );
       await tester.pump();
       // Recurring is on by default; pick the quarterly preset in the tray.
-      await tester.tap(find.byKey(const ValueKey('entry-badge-repeat')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('entry-section-repeat')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('entry-every-3')));
       await tester.pump();
@@ -262,7 +264,9 @@ void main() {
       // Edit the March occurrence and switch it to a one-off.
       await tester.tap(find.text('Gym - Membership').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('entry-badge-repeat')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('entry-section-repeat')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('entry-repeat-off')));
       await tester.pumpAndSettle();

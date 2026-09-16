@@ -1,12 +1,13 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// The money entry ticket editor (epic: replace `_ExpenseSheet`), mirroring
-/// `Finance entry options.dc.html` option 1b: the editor's top half IS the
-/// entry — a WYSIWYG ticket card whose block chip, badges, amount, account
-/// and card are all tappable — and one tray below edits whichever element
-/// was tapped. Same visual grammar as the calendar ticket editor (#286).
-
-const List<String> _kEntryTrays = ['block', 'day', 'repeat', 'account', 'card'];
+/// The money entry editor (design "Event & finance editors" 1b): the same
+/// card language as the event editor, in money vocabulary. A scroll of
+/// labelled white cards — one decision each — with the amount as the hero
+/// card, stating its effect on the block's cap in words.
+///
+/// There is no preview strip here: a money entry has no visual form to check,
+/// so the cap line is the consequence you read instead. Each card states its
+/// own answer next to its label, so the scroll reads as a summary.
 
 /// Parses a EUR amount with comma decimals (#287): `"45,"`, `"45,5"`,
 /// `"1.250,00"`. Returns `null` for an empty string and [double.nan] for
@@ -305,8 +306,6 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
   String? _createdAt;
   bool _accountReassigned = false;
 
-  String _tray = 'day';
-
   bool get _editing => widget.id != null;
 
   _ThriveHomeState get s => widget.state;
@@ -380,12 +379,6 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
   bool get _closed => s.isClosed();
 
   int get _anchorOrd => s.year * 12 + s.monthIdx;
-
-  void _openTray(String tray) {
-    if (!_kEntryTrays.contains(tray) || _tray == tray) return;
-    setState(() => _tray = tray);
-    logAnalyticsEvent('entry_tray_opened', {'tray': tray});
-  }
 
   /// Save blocked with a reason, never a dead button (#301).
   String? get _reason {
@@ -553,461 +546,187 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
 
   // -------------------------------------------------------------- ticket
 
-  /// A small ticket badge, same grammar as the calendar ticket's `_badge`.
-  Widget _badge(
-    Key key,
-    String label,
-    VoidCallback onTap, {
-    Color? fg,
-    Color? bg,
-    Color? borderCol,
-  }) {
-    return GestureDetector(
-      key: key,
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg ?? const Color(0xfff8fafc),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: borderCol ?? B.line),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: fg ?? B.text,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _ticket() {
-    final w = entryWords(_kind);
-    final b = _block;
+  /// The amount card — the design's hero (1b): the figure itself, its error
+  /// line, and what it does to the block's cap stated in words. A money entry
+  /// has no visual form to preview, so this card is what the event editor's
+  /// preview strip is there: the consequence of what you just typed.
+  Widget _amountCard() {
     final cap = _capInfo;
-    final acc = s.accByKey(_account);
-    final cardGone = _cardId != null && s.cards.every((c) => c.id != _cardId);
-    final card = s.cards.where((c) => c.id == _cardId).firstOrNull;
-    final r = _day == null
-        ? null
-        : resolveMoneyDay(_day!, _shift, s.year, s.monthIdx);
-    final dayBadge = _day == null
-        ? 'Unscheduled'
-        : r!.movedFrom != null
-        ? '${ordinal(_day!)} → ${ordinal(r.day)}'
-        : ordinal(_day!);
-    final repeatBadge = !_recurring
-        ? 'One-off'
-        : _recurEvery == 1
-        ? '↻ Monthly'
-        : _recurEvery == 12
-        ? '↻ Yearly'
-        : '↻ Every $_recurEvery mo';
     final amountLen = _amount.text.length;
-
-    return Stack(
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(16, 13, 16, 0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: B.line),
-            boxShadow: cardShadow(),
-          ),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border(top: BorderSide(color: b.tone, width: 6)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    final err = entryAmountError(_amount.text);
+    return _section(
+      'amount',
+      'Amount',
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Row(
-                children: [
-                  // Block chip — reopens the picker anytime = move (#294).
-                  GestureDetector(
-                    key: const ValueKey('entry-tab-block'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openTray('block'),
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: b.tone.withValues(alpha: .1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: b.tone,
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              b.title,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: b.tone,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  _badge(
-                    const ValueKey('entry-badge-repeat'),
-                    repeatBadge,
-                    () => _openTray('repeat'),
-                  ),
-                  const SizedBox(width: 6),
-                  _badge(
-                    const ValueKey('entry-badge-day'),
-                    dayBadge,
-                    () => _openTray('day'),
-                  ),
-                ],
-              ),
-              // Hero amount (#287) — shrinks for very large amounts.
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 2),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    const Text(
-                      '€',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        color: B.muted,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      child: IntrinsicWidth(
-                        child: TextField(
-                          key: const ValueKey('entry-amount'),
-                          controller: _amount,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          textAlign: TextAlign.center,
-                          onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(
-                            isCollapsed: true,
-                            border: InputBorder.none,
-                            hintText: '0,00',
-                          ),
-                          style: TextStyle(
-                            fontSize: amountLen > 9 ? 28 : 38,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -1,
-                            color: B.ink,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (entryAmountError(_amount.text) != null &&
-                  _amount.text.trim().isNotEmpty)
-                Text(
-                  entryAmountError(_amount.text)!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
-                  ),
-                ),
-              TextField(
-                key: const ValueKey('entry-payee'),
-                controller: _payee,
-                textAlign: TextAlign.center,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  isCollapsed: true,
-                  border: InputBorder.none,
-                  hintText: w.payeePh,
-                ),
-                style: const TextStyle(
-                  fontSize: 17,
+              const Text(
+                '€',
+                style: TextStyle(
+                  fontSize: 19,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: -.3,
-                  color: B.ink,
+                  color: B.muted,
                 ),
               ),
-              const SizedBox(height: 2),
-              TextField(
-                key: const ValueKey('entry-label'),
-                controller: _label,
-                textAlign: TextAlign.center,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  isCollapsed: true,
-                  border: InputBorder.none,
-                  hintText: 'Note or subcategory',
-                ),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: B.soft2,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  GestureDetector(
-                    key: const ValueKey('entry-tab-account'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openTray('account'),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: acc.color,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          alignment: Alignment.center,
-                          child: glyphTile(
-                            size: 22,
-                            radius: 99,
-                            picture: acc.picture,
-                            emoji: acc.emoji,
-                            emojiSize: 12,
-                            fallback: Text(
-                              acc.initials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${w.accHead} ${acc.short}',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xff475569),
-                          ),
-                        ),
-                      ],
+              const SizedBox(width: 5),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: IntrinsicWidth(
+                  child: TextField(
+                    key: const ValueKey('entry-amount'),
+                    controller: _amount,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    textAlign: TextAlign.center,
+                    onChanged: (_) => setState(() {}),
+                    decoration: const InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: '0,00',
+                    ),
+                    style: TextStyle(
+                      fontSize: amountLen > 9 ? 28 : 38,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                      color: B.ink,
                     ),
                   ),
-                  const Spacer(),
-                  // Card badge hidden for income (#286).
-                  if (_kind != 'income')
-                    _badge(
-                      const ValueKey('entry-badge-card'),
-                      cardGone
-                          ? '⚠ Card deleted'
-                          : card != null
-                          ? '💳 ${card.name}'
-                          : '+ Card',
-                      () => _openTray('card'),
-                      fg: cardGone ? const Color(0xff9a5b13) : null,
-                      bg: cardGone ? B.orangeSoft : null,
-                      borderCol: cardGone ? const Color(0xfffed7aa) : null,
-                    ),
-                ],
-              ),
-              // Perforation with the live cap meter (#287).
-              Container(
-                margin: const EdgeInsets.only(top: 11),
-                padding: const EdgeInsets.fromLTRB(0, 9, 0, 9),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: Color(0xffe2e7ee),
-                      width: 2,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    if (_capInfo.show) ...[
-                      Container(
-                        width: 120,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: B.track,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: (cap.pct / 100).clamp(0.0, 1.0),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: cap.col,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        cap.short,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: cap.col,
-                        ),
-                      ),
-                    ] else if (cap.alt != null)
-                      Expanded(
-                        child: Text(
-                          cap.alt!,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                            color: B.muted,
-                          ),
-                        ),
-                      ),
-                    const Spacer(),
-                    const Text(
-                      'THRIVE',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: Color(0xffcbd5e1),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
           ),
-        ),
-        // Paid stamp (#296): dashed "Mark paid" → solid rotated "PAID ✓".
-        Positioned(
-          top: 44,
-          right: 14,
-          child: Transform.rotate(
-            angle: 6 * math.pi / 180,
-            child: GestureDetector(
-              key: const ValueKey('entry-stamp'),
-              onTap: () {
-                if (s.isClosed()) {
-                  s.flash(
-                    '${kMonthsEn[s.monthIdx]} is closed — the flag can’t change',
-                  );
-                  return;
-                }
-                setState(() => _paid = !_paid);
-              },
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 34),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
+          if (err != null && _amount.text.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                err,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: B.red,
                 ),
-                decoration: BoxDecoration(
-                  color: _paid ? const Color(0xfff0fdf4) : Colors.white,
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(
-                    color: _paid
-                        ? const Color(0xff16a34a)
-                        : const Color(0xffcbd5e1),
-                    width: 2,
-                    style: _paid ? BorderStyle.solid : BorderStyle.none,
-                  ),
-                ),
-                foregroundDecoration: _paid
-                    ? null
-                    : BoxDecoration(
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(
-                          color: const Color(0xffcbd5e1),
-                          width: 2,
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              children: [
+                if (cap.show) ...[
+                  Container(
+                    width: 120,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: B.track,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: (cap.pct / 100).clamp(0.0, 1.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cap.col,
+                          borderRadius: BorderRadius.circular(99),
                         ),
                       ),
-                child: Text(
-                  _paid
-                      ? '${entryWords(_kind).paid.toUpperCase()} ✓'
-                      : 'Mark ${entryWords(_kind).paid.toLowerCase()}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .8,
-                    color: _paid ? const Color(0xff16a34a) : B.muted,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      cap.short,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: cap.col,
+                      ),
+                    ),
+                  ),
+                ] else if (cap.alt != null)
+                  Expanded(
+                    child: Text(
+                      cap.alt!,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.muted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Who it is and what it was for. The design's note stands: one of the two
+  /// is enough, which is exactly what [_reason] enforces.
+  Widget _aboutCard() {
+    final w = entryWords(_kind);
+    return _section(
+      'about',
+      w.noun,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          studioTextField(
+            key: const ValueKey('entry-payee'),
+            controller: _payee,
+            hint: w.payeePh,
+            onChanged: (_) => setState(() {}),
+            capitalization: TextCapitalization.sentences,
+            margin: const EdgeInsets.only(bottom: 8),
+          ),
+          studioTextField(
+            key: const ValueKey('entry-label'),
+            controller: _label,
+            hint: 'Note or subcategory',
+            onChanged: (_) => setState(() {}),
+            capitalization: TextCapitalization.sentences,
+            margin: EdgeInsets.zero,
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 7),
+            child: Text(
+              'One of the two is enough.',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: B.muted,
               ),
             ),
           ),
-        ),
-        // The sealed stamp (#298).
-        if (_closed)
-          Positioned(
-            top: 14,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Transform.rotate(
-                angle: -5 * math.pi / 180,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xfffffdf5),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xffb8a262),
-                      width: 2,
-                    ),
-                  ),
-                  child: Text(
-                    '${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                      color: Color(0xff8a7538),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  /// The paid flag, which the ticket wore as a rotated stamp. It sits with
+  /// the account that pays, as the design files it.
+  Widget _paidRow() {
+    final w = entryWords(_kind);
+    return studioToggleRow(
+      key: const ValueKey('entry-stamp'),
+      label: 'Mark ${w.paid.toLowerCase()}',
+      sub: _paid ? '${w.paid} — it counts as settled' : 'Not yet settled',
+      value: _paid,
+      onChanged: () {
+        if (_closed) {
+          s.flash(
+            '${kMonthsEn[s.monthIdx]} is closed — the flag can\u2019t change',
+          );
+          return;
+        }
+        setState(() => _paid = !_paid);
+      },
     );
   }
 
@@ -1622,7 +1341,6 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               if (s._entryKindOf(s.catByKey(b.key)) == 'income') {
                 _cardId = null;
               }
-              _tray = 'day';
             }),
           ),
         Text(
@@ -1638,63 +1356,97 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     );
   }
 
-  Widget _tray_() {
-    final w = entryWords(_kind);
-    final child = switch (_tray) {
-      'repeat' => _trayRepeat(),
-      'account' => _trayAccount(),
-      'card' => _trayCard(),
-      'block' => _trayBlock(),
-      _ => _trayDay(),
-    };
-    final titles = {
-      'day': '${w.dayHead} — which day of the month?',
-      'repeat': 'Does it repeat?',
-      'account': w.accHead,
-      'card': 'Discount card',
-      'block': 'Block',
-    };
-    final reason = _reason;
+  /// One labelled white card in the editor's scroll — the same shape the
+  /// event editor, the category editor and the import studio use.
+  Widget _section(String id, String title, Widget child, {String? value}) {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 16),
+      key: ValueKey('entry-section-$id'),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            titles[_tray]!.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .4,
-              color: B.muted,
-            ),
-          ),
-          const SizedBox(height: 10),
-          child,
-          if (reason != null && !_closed)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                reason,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: B.amberText,
+          Row(
+            children: [
+              Expanded(
+                child: studioSectionLabel(
+                  title,
+                  padding: const EdgeInsets.only(bottom: 8),
                 ),
               ),
-            ),
+              // The design's per-card value (1b): the card states its own
+              // answer next to its label, so the scroll reads as a summary
+              // even before you open anything.
+              if (value != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8, left: 8),
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.deep,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          child,
         ],
       ),
     );
   }
+
+  /// The day card's own answer: the chosen day, and where a weekend shift
+  /// actually lands it.
+  String get _dayValue {
+    if (_day == null) return 'Unscheduled';
+    final r = resolveMoneyDay(_day!, _shift, s.year, s.monthIdx);
+    return r.movedFrom != null
+        ? '${ordinal(_day!)} → ${ordinal(r.day)}'
+        : ordinal(_day!);
+  }
+
+  String get _repeatValue => !_recurring
+      ? 'One-off'
+      : _recurEvery == 1
+      ? '↻ Monthly'
+      : _recurEvery == 12
+      ? '↻ Yearly'
+      : '↻ Every $_recurEvery mo';
+
+  String get _cardValue {
+    final gone = _cardId != null && s.cards.every((c) => c.id != _cardId);
+    if (gone) return '⚠ Card deleted';
+    final card = s.cards.where((c) => c.id == _cardId).firstOrNull;
+    return card != null ? '💳 ${card.name}' : '+ Card';
+  }
+
+  /// The blocked-save reason, shown where the design puts it: just above the
+  /// footer, in amber, never as a dead button.
+  Widget _reasonNote(String reason) => Container(
+    margin: const EdgeInsets.only(top: 4, bottom: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xfffffbeb),
+      border: Border.all(color: const Color(0xfffde68a)),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      reason,
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        color: B.amberText,
+      ),
+    ),
+  );
 
   /// Read-only attribution line (#300): "Added by Erik · 12 Aug" or "—".
   Widget _addedBy() {
@@ -1775,8 +1527,32 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               ),
             ),
           ),
-        _ticket(),
-        _tray_(),
+        _amountCard(),
+        _aboutCard(),
+        _section('block', 'Budget block', _trayBlock()),
+        _section(
+          'day',
+          '${entryWords(_kind).dayHead} — which day of the month?',
+          _trayDay(),
+          value: _dayValue,
+        ),
+        _section(
+          'repeat',
+          'Does it repeat?',
+          _trayRepeat(),
+          value: _repeatValue,
+        ),
+        _section(
+          'account',
+          entryWords(_kind).accHead,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_trayAccount(), const SizedBox(height: 6), _paidRow()],
+          ),
+        ),
+        if (_kind != 'income')
+          _section('card', 'Discount card', _trayCard(), value: _cardValue),
+        if (_reason != null && !_closed) _reasonNote(_reason!),
         if (_editing || _createdBy != null) _addedBy(),
         if (_editing && !_closed)
           GestureDetector(
@@ -1805,7 +1581,8 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '🔒 ${kMonthsEn[s.monthIdx]} is closed — this ticket is a snapshot. Reopen the month from Money to edit.',
+              '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED — this entry is a '
+              'snapshot. Reopen the month from Money to edit.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11.5,
@@ -1823,7 +1600,9 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
         _sheetHeadWithTick(
           context,
           title,
-          sub: _editing ? null : 'Tap the ticket to shape it',
+          sub: _editing
+              ? 'One card per decision'
+              : 'One card per decision — nothing hidden',
           onConfirm: _submit,
           confirmEnabled: ready,
         ),
