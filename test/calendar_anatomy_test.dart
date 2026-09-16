@@ -510,6 +510,73 @@ void main() {
       }
     });
 
+    testWidgets('the day sheet and agenda head the day in the design\'s '
+        'wording, not the app\'s numeric date', (tester) async {
+      debugNowOverride = () => DateTime(2026, 6, 17);
+      addTearDown(() => debugNowOverride = null);
+      const weekdaysShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekdaysFull = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+      final today = todayIso();
+      final d = DateTime.parse('${today}T00:00:00Z');
+
+      await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);
+      await _goToCalendar(tester);
+
+      await tester.tap(find.byKey(ValueKey('cal-day-bg-$today')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '${weekdaysShort[d.weekday - 1]} ${d.day} '
+          '${kMonthsEn[d.month - 1].substring(0, 3)}',
+        ),
+        findsOneWidget,
+      );
+      await tester.tapAt(const Offset(200, 60));
+      await tester.pumpAndSettle();
+
+      await _setView(tester, 'agenda');
+      expect(
+        find.text(
+          'Today \u00b7 ${weekdaysFull[d.weekday - 1]} ${d.day} '
+          '${kMonthsEn[d.month - 1]}',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('agenda sections follow the design order, with Birthdays '
+        'between the appointment layers and To-Dos', (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: _prefs(
+          events: [
+            _ev('a1', 'Dentist', today, allDay: false, start: '09:00'),
+            _ev('b1', 'Grandma turns 78', today, birthday: true),
+            _ev('t1', 'Bins', today, layerId: 'task', todo: true),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _goToCalendar(tester);
+      await _setView(tester, 'agenda');
+
+      double headingY(String keyId) => tester
+          .getTopLeft(find.byKey(ValueKey('agenda-layer-header-$keyId-$today')))
+          .dy;
+
+      expect(headingY('appt'), lessThan(headingY('birthday')));
+      expect(headingY('birthday'), lessThan(headingY('task')));
+    });
+
     testWidgets(
       'an empty day gets the calm copy, in the sheet and the agenda',
       (tester) async {

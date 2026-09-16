@@ -182,7 +182,14 @@ String monthTitleForTest(String iso) {
   return '${months[d.month - 1]} ${d.year}';
 }
 
-String prettyDateForTest(String iso) => shortDateForTest(iso);
+/// The day sheet's title reads "Wed 26 Aug" now, per the approved design's
+/// `gSelTitle` — not the app's old numeric date.
+String prettyDateForTest(String iso) {
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final d = DateTime.parse('${iso}T00:00:00Z');
+  return '${weekdays[d.weekday - 1]} ${d.day} '
+      '${kMonthsEn[d.month - 1].substring(0, 3)}';
+}
 
 String shortDateForTest(String iso) {
   final d = DateTime.parse('${iso}T00:00:00Z');

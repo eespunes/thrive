@@ -775,8 +775,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       Expanded(
                         child: Text(
                           agendaDay == today
-                              ? 'Today · ${_prettyDateIso(agendaDay)}'
-                              : _prettyDateIso(agendaDay),
+                              ? 'Today · ${_agendaHeadingIso(agendaDay)}'
+                              : _agendaHeadingIso(agendaDay),
                           key: const ValueKey('cal-agenda-day-heading'),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -991,8 +991,21 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       ),
       child: Center(child: child),
     );
+    final birthdays = (
+      id: 'kind:birthday',
+      keyId: 'birthday',
+      label: 'Birthdays',
+      color: kBirthdayAmber,
+      swatch: swatchFor(
+        kBirthdayAmber,
+        const Text('\u{1F382}', style: TextStyle(fontSize: 11)),
+      ),
+    );
     for (final layer in layers) {
       if (!layerFilter.contains(layer.id)) continue;
+      // Design order is "… Family, Birthdays, To-Dos, Imported": birthdays
+      // land just before the to-do layer, or at the end if there isn't one.
+      if (layer.id == kLayerTask) out.add(birthdays);
       out.add((
         id: 'layer:${layer.id}',
         keyId: layer.id,
@@ -1024,16 +1037,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         ));
       }
     }
-    out.add((
-      id: 'kind:birthday',
-      keyId: 'birthday',
-      label: 'Birthdays',
-      color: kBirthdayAmber,
-      swatch: swatchFor(
-        kBirthdayAmber,
-        const Text('\u{1F382}', style: TextStyle(fontSize: 11)),
-      ),
-    ));
+    if (!out.contains(birthdays)) out.add(birthdays);
     out.add((
       id: 'kind:imported',
       keyId: 'imported',
@@ -1041,7 +1045,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       color: B.soft2,
       swatch: swatchFor(
         B.soft2,
-        ic('download', size: 11, sw: 2.4, color: B.soft2),
+        const Text(
+          '\u21E9',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: B.soft2,
+          ),
+        ),
       ),
     ));
     return out;
@@ -1235,8 +1246,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             color: Colors.white.withValues(alpha: .22),
             borderRadius: BorderRadius.circular(9),
           ),
-          child: Center(
-            child: ic('download', size: 13, sw: 2.4, color: Colors.white),
+          child: const Center(
+            child: Text(
+              '\u21E9',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
           ),
         );
       case CalEventKind.appointment:

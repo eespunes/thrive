@@ -1117,7 +1117,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _prettyDateIso(iso),
+                    _daySheetTitleIso(iso),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,

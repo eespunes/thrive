@@ -217,6 +217,21 @@ String _shortDateIso(String iso) {
   return _displayDateIso(iso);
 }
 
+/// "Wed 26 Aug" — the day sheet's title (design §2a `gSelTitle`).
+String _daySheetTitleIso(String iso) {
+  final d = _parseIso(iso);
+  return '${kKitchenWeekdaysShort[d.weekday - 1]} ${d.day} '
+      '${kMonthsEn[d.month - 1].substring(0, 3)}';
+}
+
+/// "Wednesday 26 August" — the agenda's day heading (design §2a
+/// `gAgTitle`, which prefixes "Today · " when it is today).
+String _agendaHeadingIso(String iso) {
+  final d = _parseIso(iso);
+  return '${_kWeekdaysFull[d.weekday - 1]} ${d.day} '
+      '${kMonthsEn[d.month - 1]}';
+}
+
 /// "Week 22" — used for the Agenda view's header subtitle instead of the
 /// selected day's weekday/date, per ISO-8601 week numbering (weeks start on
 /// Monday; week 1 is the week containing the year's first Thursday).
