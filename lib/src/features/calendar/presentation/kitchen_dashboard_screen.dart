@@ -314,6 +314,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   void initState() {
     super.initState();
     unawaited(_lockLandscapeOrientation());
+    unawaited(_enterFullscreen());
     // A mounted wall reflects other devices' changes live: the shared state
     // bumps `_rev` on every local mutation AND on every cloud snapshot, and
     // this route re-derives everything from it (#337).
@@ -325,6 +326,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
     state._rev.removeListener(_refresh);
     _toastTimer?.cancel();
     unawaited(_lockPortraitOrientation());
+    unawaited(_exitFullscreen());
     super.dispose();
   }
 
@@ -354,158 +356,159 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
 
     return Scaffold(
       key: const ValueKey('kitchen-dashboard'),
-      backgroundColor: const Color(0xff0d1117),
+      // The wall is edge-to-edge: no letterboxing frame around the panel, so
+      // the Scaffold itself carries the panel colour and nothing darker can
+      // show through at the screen edges.
+      backgroundColor: const Color(0xffe8ecf1),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xffe8ecf1),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _KitchenLeftPanel(
-                        key: const ValueKey('kitchen-left-panel'),
-                        state: state,
-                      ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: members.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No family members yet',
-                                  style: TextStyle(
-                                    color: B.muted,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              )
-                            : Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final m in members)
-                                    Expanded(
-                                      child: Padding(
-                                        padding: EdgeInsets.only(
-                                          right: m == members.last ? 0 : 12,
-                                        ),
-                                        child: _KitchenMemberColumn(
-                                          key: ValueKey(
-                                            'kitchen-column-${m.id}',
-                                          ),
-                                          state: state,
-                                          member: m,
-                                          today: today,
-                                          onOccurrenceChanged: _refresh,
-                                          onToast: _showToast,
-                                        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Container(
+                decoration: const BoxDecoration(color: Color(0xffe8ecf1)),
+                clipBehavior: Clip.antiAlias,
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _KitchenLeftPanel(
+                      key: const ValueKey('kitchen-left-panel'),
+                      state: state,
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: members.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No family members yet',
+                                style: TextStyle(color: B.muted, fontSize: 16),
+                              ),
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final m in members)
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(
+                                        right: m == members.last ? 0 : 12,
+                                      ),
+                                      child: _KitchenMemberColumn(
+                                        key: ValueKey('kitchen-column-${m.id}'),
+                                        state: state,
+                                        member: m,
+                                        today: today,
+                                        onOccurrenceChanged: _refresh,
+                                        onToast: _showToast,
                                       ),
                                     ),
-                                ],
-                              ),
+                                  ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 14,
+              right: 14,
+              child: GestureDetector(
+                key: const ValueKey('kitchen-dashboard-close'),
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: B.ink.withValues(alpha: .8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 18,
+              bottom: 18,
+              child: GestureDetector(
+                key: const ValueKey('kitchen-quick-add-fab'),
+                onTap: () async {
+                  await state._showSheet(
+                    (ctx) => _KitchenQuickAddSheet(
+                      state: state,
+                      members: members,
+                      onToast: _showToast,
+                    ),
+                  );
+                  _refresh();
+                },
+                child: Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xff12b3a4), B.primary, B.deep],
+                      stops: [0.0, .55, 1.0],
+                    ),
+                    borderRadius: BorderRadius.circular(19),
+                    boxShadow: [
+                      BoxShadow(
+                        color: B.primary.withValues(alpha: .45),
+                        blurRadius: 28,
+                        spreadRadius: -10,
+                        offset: const Offset(0, 14),
                       ),
                     ],
                   ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 28),
                 ),
               ),
+            ),
+            if (_toast.isNotEmpty)
               Positioned(
-                top: 14,
-                right: 14,
-                child: GestureDetector(
-                  key: const ValueKey('kitchen-dashboard-close'),
-                  onTap: () => Navigator.of(context).pop(),
+                left: 0,
+                right: 0,
+                bottom: 20,
+                child: Center(
                   child: Container(
-                    width: 34,
-                    height: 34,
+                    key: const ValueKey('kitchen-toast'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: B.ink.withValues(alpha: .8),
+                      color: B.ink,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.close, color: Colors.white, size: 18),
+                    child: Text(
+                      _toast,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
               ),
-              Positioned(
-                right: 18,
-                bottom: 18,
-                child: GestureDetector(
-                  key: const ValueKey('kitchen-quick-add-fab'),
-                  onTap: () async {
-                    await state._showSheet(
-                      (ctx) => _KitchenQuickAddSheet(
-                        state: state,
-                        members: members,
-                        onToast: _showToast,
-                      ),
-                    );
-                    _refresh();
-                  },
-                  child: Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xff12b3a4), B.primary, B.deep],
-                        stops: [0.0, .55, 1.0],
-                      ),
-                      borderRadius: BorderRadius.circular(19),
-                      boxShadow: [
-                        BoxShadow(
-                          color: B.primary.withValues(alpha: .45),
-                          blurRadius: 28,
-                          spreadRadius: -10,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 28),
-                  ),
-                ),
-              ),
-              if (_toast.isNotEmpty)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 20,
-                  child: Center(
-                    child: Container(
-                      key: const ValueKey('kitchen-toast'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: B.ink,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        _toast,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
+
+  /// Immersive fullscreen: the wall hides the status/navigation bars while
+  /// mounted so the panel really is edge-to-edge, and the app's normal
+  /// chrome comes back when the route pops.
+  Future<void> _enterFullscreen() =>
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  Future<void> _exitFullscreen() =>
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 }
 
 /// Left panel of the wall tablet: week number, today's date, then today and
