@@ -492,7 +492,7 @@ void main() {
         );
         await _goToCalendar(tester);
         // Small enough that only two of the three bars fit.
-        await setScreenHeight(tester, 620);
+        await setScreenHeight(tester, 630);
 
         // 09:00 and 10:00 are over at 12:30, so the slots go to the still
         // upcoming 18:00 and then the most recent past one.

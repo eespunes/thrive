@@ -55,11 +55,20 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();
 
+    // The bar is wrapped in a long-press detector (the tab editor), so the
+    // padded Container is inside the keyed widget now.
     final nav = tester.widget<Container>(
-      find.byKey(const ValueKey('app-bottom-nav')),
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('app-bottom-nav')),
+            matching: find.byType(Container),
+          )
+          .first,
     );
     final navPadding = nav.padding as EdgeInsets;
-    expect(navPadding.bottom, 48);
+    // The 1a bar's own 10px bottom padding sits ON TOP of the system inset,
+    // so the gesture area clears the home indicator rather than sharing it.
+    expect(navPadding.bottom, 58);
 
     final fabPositioned = tester.widget<Positioned>(
       find.ancestor(
