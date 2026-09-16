@@ -316,6 +316,59 @@ void main() {
     });
 
     testWidgets(
+      'a categorised bar leads with the category glyph, not a repeat mark',
+      (tester) async {
+        debugNowOverride = () => DateTime(2026, 6, 15);
+        addTearDown(() => debugNowOverride = null);
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: _prefs(
+            categories: [
+              EventCategory(
+                id: 'sport',
+                name: 'Sport',
+                color: kCatColors.first,
+                icon: 'whistle',
+                emoji: '\u26bd',
+              ),
+            ],
+            events: [
+              _ev(
+                't1',
+                'Training',
+                today,
+                allDay: false,
+                start: '09:00',
+                category: 'sport',
+                recur: 'weekly',
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await _goToCalendar(tester);
+
+        final bar = find.byKey(ValueKey('cal-bar-t1-$today'));
+        expect(bar, findsOneWidget);
+        // The category's glyph sits inside the bar, ahead of the title, and
+        // the recurrence mark no longer eats the width.
+        expect(
+          find.descendant(of: bar, matching: find.text('\u26bd')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: bar, matching: find.text('Training')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: bar, matching: find.textContaining('\u21bb')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
       "today's cell drops the hours that have already gone, not the ones "
       'still to come',
       (tester) async {

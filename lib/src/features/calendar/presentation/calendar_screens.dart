@@ -43,6 +43,7 @@ class _EvAnatomy {
     required this.category,
     required this.layer,
     required this.title,
+    required this.barTitle,
     required this.sub,
     required this.when,
     required this.chip,
@@ -60,6 +61,12 @@ class _EvAnatomy {
   /// Title with its ↻ / ⇩ affixes already applied, in that order.
   final String title;
 
+  /// The title WITHOUT the ↻ recurrence mark (⇩ stays — read-only is worth
+  /// the character). Month bars use this: they lead with the event's category
+  /// glyph instead, which says more in the same space than a repeat mark
+  /// repeated on every occurrence.
+  final String barTitle;
+
   /// `when · Category (· read-only)`.
   final String sub;
   final String when;
@@ -71,12 +78,13 @@ class _EvAnatomy {
   final bool recurring;
   final bool multiDay;
 
-  /// The month-cell bar label: prefixes, then the title.
+  /// The month-cell bar label: prefixes, then the title. The category glyph
+  /// is a widget, not text, so [_ThriveCalendarScreens._calMonthBar] draws it
+  /// ahead of this.
   String get barLabel {
     final buf = StringBuffer();
     if (kind == CalEventKind.todo) buf.write('▢ ');
-    if (recurring) buf.write('↻ ');
-    buf.write(title);
+    buf.write(barTitle);
     return buf.toString();
   }
 }
@@ -742,18 +750,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       foregroundDecoration: isTodo
           ? _DottedBoxDecoration(color: a.color, radius: 4, width: 1.5)
           : null,
-      child: Text(
+      // A categorised event leads with its category's glyph — the one mark on
+      // the bar that says what the event IS. It replaces the ↻ that used to
+      // prefix every single recurring occurrence.
+      child: _monthLabel(
         a.barLabel,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.left,
-        style: TextStyle(
-          fontSize: 8,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          color: ink,
-          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
-        ),
+        category: a.category,
+        ink: ink,
+        strike: a.done,
       ),
     );
   }
@@ -803,16 +807,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         ),
         // The title paints once, on the run's first visible day; the rest
         // of the ribbon stays blank so it reads as one continuous strip.
-        child: Text(
-          runStart ? a.title : ' ',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 8,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            color: fg,
-          ),
+        child: _monthLabel(
+          runStart ? a.barTitle : ' ',
+          category: runStart ? a.category : null,
+          ink: fg,
         ),
       );
     }
@@ -824,18 +822,50 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         color: a.color.withValues(alpha: .15),
         border: Border(top: BorderSide(color: a.color, width: 2)),
       ),
-      child: Text(
-        a.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 8,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          color: a.color,
-          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
-        ),
+      child: _monthLabel(
+        a.barTitle,
+        category: a.category,
+        ink: a.color,
+        strike: a.done,
       ),
+    );
+  }
+
+  /// The label every month bar/banner paints: the event's category glyph (when
+  /// it has one) hard against the name, then the name itself. The glyph is
+  /// exactly one text line tall, so adding it never changes a row's height —
+  /// see the `_kMonth*H` constants the cell fills against.
+  Widget _monthLabel(
+    String text, {
+    required EventCategory? category,
+    required Color ink,
+    bool strike = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (category != null) ...[
+          categoryGlyph(category, size: 9.2, iconColor: ink),
+          const SizedBox(width: 2),
+        ],
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 8,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              color: ink,
+              decoration: strike
+                  ? TextDecoration.lineThrough
+                  : TextDecoration.none,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1271,6 +1301,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final buf = StringBuffer(ev.title);
     if (recurring) buf.write(' ↻');
     if (kind == CalEventKind.imported) buf.write(' ⇩');
+    final bare = StringBuffer(ev.title);
+    if (kind == CalEventKind.imported) bare.write(' ⇩');
 
     return _EvAnatomy(
       kind: kind,
@@ -1278,6 +1310,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       category: cat,
       layer: layer,
       title: buf.toString(),
+      barTitle: bare.toString(),
       sub:
           '$when · $label'
           '${kind == CalEventKind.imported ? ' · read-only' : ''}',
