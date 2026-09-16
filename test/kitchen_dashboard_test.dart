@@ -66,9 +66,7 @@ Future<void> _goToCalendar(WidgetTester tester) async {
 
 Future<void> _openKitchenDashboard(WidgetTester tester) async {
   await _goToCalendar(tester);
-  await tester.tap(find.byKey(const ValueKey('cal-header-view')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('cal-view-kitchen-dashboard')));
+  await tester.tap(find.byKey(const ValueKey('cal-view-kitchen')));
   await tester.pumpAndSettle();
 }
 
@@ -181,7 +179,7 @@ void main() {
           ? findsNWidgets(2)
           : findsOneWidget,
     );
-    expect(find.text('No events yet'), findsWidgets);
+    expect(find.text('Nothing planned'), findsWidgets);
     expect(find.byKey(const ValueKey('kitchen-column-me')), findsOneWidget);
     expect(find.byKey(const ValueKey('kitchen-column-erik')), findsOneWidget);
     expect(find.text('Eva Janssen'), findsOneWidget);
@@ -249,13 +247,17 @@ void main() {
       );
       await _openKitchenDashboard(tester);
 
-      expect(find.text('Film reel'), findsOneWidget);
+      Finder inColumn() => find.descendant(
+        of: find.byKey(const ValueKey('kitchen-column-erik')),
+        matching: find.text('Film reel'),
+      );
+      expect(inColumn(), findsOneWidget);
       await tester.tap(find.byKey(ValueKey('event-check-c1-$today')));
       await tester.pumpAndSettle();
 
       // Same per-occurrence-done semantics as a task tile: the completed
       // occurrence stays visible in kitchen view.
-      expect(find.text('Film reel'), findsOneWidget);
+      expect(inColumn(), findsOneWidget);
     },
   );
 
@@ -365,20 +367,27 @@ void main() {
       ),
       findsOneWidget,
     );
-    // ...but not inside Erik's member column, which is now task/content
-    // only.
+    // ...and, since Erik attends it, as a pill at the top of his column
+    // too, above the CHORES divider (#332).
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('kitchen-column-erik')),
+        matching: find.text('Football practice'),
+      ),
+      findsOneWidget,
+    );
+    // Eva doesn't attend it, so it stays out of her column.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-column-me')),
         matching: find.text('Football practice'),
       ),
       findsNothing,
     );
   });
 
-  testWidgets('kitchen wall appointments ignore phone calendar filters', (
-    tester,
-  ) async {
+  testWidgets('kitchen wall keeps its own layer set but honours the '
+      "user's member filters", (tester) async {
     final today = todayIso();
     await pumpApp(
       tester,
@@ -398,8 +407,9 @@ void main() {
       landOnDefaultTab: true,
     );
     final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+    // The phone's layer filter doesn't reach the wall — it has its own
+    // `kitchenLayerFilter` — so the appointment stays.
     (state as dynamic).layerFilter = ['task'];
-    (state as dynamic).calFilter = ['me'];
 
     await _openKitchenDashboard(tester);
 
@@ -409,6 +419,21 @@ void main() {
         matching: find.text('Dentist'),
       ),
       findsOneWidget,
+    );
+
+    // Member filters DO apply everywhere, wall included (#342/#349):
+    // switching Erik off hides his appointment.
+    await tester.tap(find.byKey(const ValueKey('kitchen-dashboard-close')));
+    await tester.pumpAndSettle();
+    (state as dynamic).calFilter = ['me'];
+    await _openKitchenDashboard(tester);
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-left-panel')),
+        matching: find.text('Dentist'),
+      ),
+      findsNothing,
     );
   });
 
@@ -466,10 +491,14 @@ void main() {
 
     await _openKitchenDashboard(tester);
 
-    expect(find.text('Past appointment'), findsNothing);
-    expect(find.text('Today appointment'), findsOneWidget);
-    expect(find.text('Day six appointment'), findsOneWidget);
-    expect(find.text('Day seven appointment'), findsNothing);
+    Finder inPanel(String title) => find.descendant(
+      of: find.byKey(const ValueKey('kitchen-left-panel')),
+      matching: find.text(title),
+    );
+    expect(inPanel('Past appointment'), findsNothing);
+    expect(inPanel('Today appointment'), findsOneWidget);
+    expect(inPanel('Day six appointment'), findsOneWidget);
+    expect(inPanel('Day seven appointment'), findsNothing);
     expect(find.textContaining(RegExp(r'^Week \d+ ·')), findsNothing);
     expect(find.text(_kitchenMainDateLabelForTest(today)), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
@@ -484,8 +513,8 @@ void main() {
           : findsOneWidget,
     );
     expect(
-      tester.getTopLeft(find.text('Today appointment')).dy,
-      lessThan(tester.getTopLeft(find.text('Day six appointment')).dy),
+      tester.getTopLeft(inPanel('Today appointment')).dy,
+      lessThan(tester.getTopLeft(inPanel('Day six appointment')).dy),
     );
   });
 
@@ -575,83 +604,126 @@ void main() {
 
       await _openKitchenDashboard(tester);
 
-      expect(find.text('Football'), findsOneWidget);
       expect(
-        find.byKey(const ValueKey('kitchen-schedule-category-with-cat')),
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-left-panel')),
+          matching: find.text('Football'),
+        ),
+        findsOneWidget,
+      );
+      // Who it's for wins over what it is: a row shows up to three
+      // attendee avatars, and falls back to the category glyph only when
+      // nobody is assigned (§4a).
+      expect(
+        find.byKey(const ValueKey('kitchen-schedule-attendees-with-cat')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('kitchen-schedule-attendees-with-cat')),
+        find.byKey(const ValueKey('kitchen-schedule-category-with-cat')),
         findsNothing,
       );
-      expect(find.text('Family dinner'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-left-panel')),
+          matching: find.text('Family dinner'),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('kitchen-schedule-attendees-no-cat')),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('kitchen-schedule-category-no-cat')),
-        findsNothing,
+        find.descendant(
+          of: find.byKey(const ValueKey('kitchen-left-panel')),
+          matching: find.text('Dentist'),
+        ),
+        findsOneWidget,
       );
-      expect(find.text('Dentist'), findsOneWidget);
       for (final entry in {
         'with-cat': activity.color,
         'no-cat': kMemberColors[0],
         'event-color': kCatColors[2],
       }.entries) {
+        // The card is tinted in the resolved colour and ruled with it on
+        // the left (§4a), rather than filled solid.
         final row = tester.widget<Container>(
           find.byKey(ValueKey('kitchen-schedule-row-${entry.key}-$today')),
         );
         final decoration = row.decoration as BoxDecoration;
-        expect(decoration.color, entry.value);
+        expect(decoration.color, entry.value.withValues(alpha: .1));
+        expect((decoration.border! as Border).left.color, entry.value);
       }
     },
   );
 
-  testWidgets(
-    'tapping a star sets the filled count up to that star, and tapping the '
-    'top filled star again clears one back down',
-    (tester) async {
-      await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
-      await _openKitchenDashboard(tester);
-
-      await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('kitchen-stars-erik')),
-          matching: find.byIcon(Icons.star),
-        ),
-        findsNWidgets(3),
-      );
-
-      // Tapping the already-filled top star (3) again clears one back down.
-      await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('kitchen-stars-erik')),
-          matching: find.byIcon(Icons.star),
-        ),
-        findsNWidgets(2),
-      );
-    },
-  );
-
-  testWidgets('reaching 5/5 stars shows the claim-reward affordance, and '
-      'claiming resets stars to 0', (tester) async {
-    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+  testWidgets('stars are earned by completing a chore, given back when it is '
+      'un-completed, and the row itself is display-only (#333)', (
+    tester,
+  ) async {
+    final today = todayIso();
+    await pumpApp(
+      tester,
+      prefs: _kitchenPrefs(
+        events: [
+          CalendarEvent(
+            id: 't1',
+            title: 'Take out bins',
+            allDay: true,
+            date: today,
+            color: kCatColors.first,
+            attendees: const ['erik'],
+            layerId: 'task',
+            todo: true,
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
     await _openKitchenDashboard(tester);
 
-    await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-5')));
+    int filledStars() => find
+        .descendant(
+          of: find.byKey(const ValueKey('kitchen-stars-erik')),
+          matching: find.byIcon(Icons.star),
+        )
+        .evaluate()
+        .length;
+
+    expect(filledStars(), 0);
+
+    // Tapping a star does nothing — the row is not a rating control.
+    await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
     await tester.pumpAndSettle();
+    expect(filledStars(), 0);
+
+    // Completing the chore earns one.
+    await tester.tap(find.byKey(ValueKey('event-check-t1-$today')));
+    await tester.pumpAndSettle();
+    expect(filledStars(), 1);
+
+    // Un-completing it gives the star back.
+    await tester.tap(find.byKey(ValueKey('event-check-t1-$today')));
+    await tester.pumpAndSettle();
+    expect(filledStars(), 0);
+  });
+
+  testWidgets('reaching 5/5 stars swaps the row for the gold claim button, '
+      'and claiming resets stars to 0', (tester) async {
+    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+    final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+    (state as dynamic).starsMap['erik'] = 5;
+
+    await _openKitchenDashboard(tester);
+
     expect(find.byKey(const ValueKey('kitchen-claim-erik')), findsOneWidget);
-    expect(find.text('Claim reward!'), findsOneWidget);
+    expect(find.text('🏆 Claim reward!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('kitchen-stars-erik')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('kitchen-claim-erik')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('kitchen-claim-erik')), findsNothing);
-    expect(find.byKey(const ValueKey('kitchen-star-erik-5')), findsOneWidget);
+    expect(find.byKey(const ValueKey('kitchen-stars-erik')), findsOneWidget);
   });
 
   testWidgets(
@@ -722,14 +794,15 @@ void main() {
 
       // Erik is in picture mode: a photo-grid renders instead of the
       // text/checkbox list, and the title text is not shown as a label.
-      expect(find.byKey(const ValueKey('kitchen-grid-erik')), findsOneWidget);
-      expect(find.byKey(const ValueKey('kitchen-list-erik')), findsNothing);
+      // Erik is in picture mode: his chore renders as a photo-first tile
+      // with its title small beneath it (#335).
+      expect(find.byKey(const ValueKey('kitchen-pic-tile-t1')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('kitchen-column-erik')),
           matching: find.text('Take out bins'),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       // Eva stays in the default text mode.
       expect(find.byKey(const ValueKey('kitchen-list-me')), findsOneWidget);
@@ -783,10 +856,8 @@ void main() {
 
       await _openKitchenDashboard(tester);
 
-      expect(find.byKey(const ValueKey('kitchen-grid-erik')), findsOneWidget);
-      expect(find.byKey(const ValueKey('kitchen-list-erik')), findsNothing);
+      expect(find.byKey(const ValueKey('kitchen-pic-tile-t1')), findsOneWidget);
       expect(find.byKey(const ValueKey('kitchen-list-me')), findsOneWidget);
-      expect(find.byKey(const ValueKey('kitchen-grid-me')), findsNothing);
     },
   );
 
@@ -861,10 +932,16 @@ void main() {
     await _openKitchenDashboard(tester);
 
     expect(find.text('Take out bins'), findsNothing);
-    expect(find.text('Family photo'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-column-erik')),
+        matching: find.text('Family photo'),
+      ),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('quick-add uses the glyph picker for picture-mode assignees', (
+  testWidgets('quick-add is photo-first for picture-mode assignees', (
     tester,
   ) async {
     await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
@@ -881,16 +958,31 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('kitchen-quick-add-fab')));
     await tester.pumpAndSettle();
 
+    // The title field is always shown; the photo step only appears for a
+    // picture-mode assignee, and offers a real photo — never an emoji.
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.byKey(const ValueKey('kitchen-add-image')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('kitchen-add-photo-choose')),
+      findsNothing,
+    );
 
     await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
     await tester.pumpAndSettle();
 
-    expect(find.byType(TextField), findsNothing);
-    expect(find.byKey(const ValueKey('kitchen-add-image')), findsOneWidget);
-    expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsOneWidget);
-    expect(find.byKey(const ValueKey('glyph-upload')), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('kitchen-add-photo-choose')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('kitchen-add-photo-camera')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('kitchen-add-photo-library')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsNothing);
   });
 
   testWidgets('tapping a kitchen picture tile opens the glyph picker', (
@@ -1002,7 +1094,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Feed the cat');
       await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.text('Add for today'));
       await tester.pumpAndSettle();
 
       expect(
@@ -1046,7 +1138,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Clear plates');
       await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.text('Add for today'));
       await tester.pumpAndSettle();
 
       expect(
@@ -1079,7 +1171,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Wipe table');
     await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.text('Add for today'));
     await tester.pumpAndSettle();
 
     final ev = (state as dynamic).events.firstWhere(
@@ -1121,7 +1213,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Feed the cat');
       await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.text('Add for today'));
       await tester.pumpAndSettle();
 
       final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
@@ -1157,23 +1249,23 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('nav-calendar')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('cal-header-view')));
-      await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey('cal-view-kitchen-dashboard')),
-        findsOneWidget,
-      );
-      expect(find.text('Disabled - tap to re-enable'), findsOneWidget);
+      // The chef button greys out while the wall is off (#344); tapping it
+      // re-enables it instead of opening the wall.
+      final chef = find.byKey(const ValueKey('cal-view-kitchen'));
+      expect(chef, findsOneWidget);
+      double chefOpacity() => tester
+          .widgetList<Opacity>(
+            find.descendant(of: chef, matching: find.byType(Opacity)),
+          )
+          .first
+          .opacity;
+      expect(chefOpacity(), lessThan(1));
 
-      await tester.tap(
-        find.byKey(const ValueKey('cal-view-kitchen-dashboard')),
-      );
+      await tester.tap(chef);
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('cal-header-view')));
-      await tester.pumpAndSettle();
-      expect(find.text('Wall-tablet family view'), findsOneWidget);
+      expect(chefOpacity(), 1);
+      expect(find.byKey(const ValueKey('kitchen-dashboard')), findsNothing);
     },
   );
 
@@ -1196,4 +1288,155 @@ void main() {
       );
     },
   );
+  testWidgets(
+    'a member column shows their calendar events above a CHORES divider, '
+    'and the divider only appears when both groups exist (#332)',
+    (tester) async {
+      final today = todayIso();
+      await pumpApp(
+        tester,
+        prefs: _kitchenPrefs(
+          events: [
+            CalendarEvent(
+              id: 'a1',
+              title: 'Swim class',
+              date: today,
+              start: '16:00',
+              end: '17:00',
+              color: kCatColors.first,
+              attendees: const ['erik'],
+            ),
+            CalendarEvent(
+              id: 't1',
+              title: 'Take out bins',
+              allDay: true,
+              date: today,
+              color: kCatColors.first,
+              attendees: const ['erik'],
+              layerId: 'task',
+              todo: true,
+            ),
+            // Eva has an event but no chores, so she gets no divider.
+            CalendarEvent(
+              id: 'a2',
+              title: 'Book club',
+              date: today,
+              start: '19:30',
+              end: '21:00',
+              color: kCatColors.first,
+              attendees: const ['me'],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _openKitchenDashboard(tester);
+
+      expect(
+        find.byKey(ValueKey('kitchen-event-erik-a1-$today')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('kitchen-chores-divider-erik')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('kitchen-chores-divider-me')),
+        findsNothing,
+      );
+
+      // The events group sits above the chores.
+      expect(
+        tester
+            .getTopLeft(find.byKey(ValueKey('kitchen-event-erik-a1-$today')))
+            .dy,
+        lessThan(
+          tester.getTopLeft(find.byKey(ValueKey('event-check-t1-$today'))).dy,
+        ),
+      );
+    },
+  );
+
+  testWidgets('a member column is ruled 4px in their own colour (#336)', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: _kitchenPrefs(), landOnDefaultTab: true);
+    await _openKitchenDashboard(tester);
+
+    final column = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('kitchen-column-erik')),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final border = (column.decoration! as BoxDecoration).border! as Border;
+    expect(border.top.width, 4);
+    expect(border.top.color, kMemberColors[1]);
+  });
+
+  testWidgets('a mounted wall picks up another device\'s change live, without '
+      'reopening the screen (#337)', (tester) async {
+    final today = todayIso();
+    await pumpApp(
+      tester,
+      prefs: _kitchenPrefs(
+        events: [
+          CalendarEvent(
+            id: 't1',
+            title: 'Take out bins',
+            allDay: true,
+            date: today,
+            color: kCatColors.first,
+            attendees: const ['erik'],
+            layerId: 'task',
+            todo: true,
+          ),
+        ],
+      ),
+      landOnDefaultTab: true,
+    );
+    await _openKitchenDashboard(tester);
+    expect(find.text('Feed the cat'), findsNothing);
+
+    // Stand in for a cloud snapshot from another device: the shared state
+    // changes underneath the pushed route, which bumps its revision.
+    final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
+    (state as dynamic).mutate(() {
+      (state as dynamic).events.add(
+        CalendarEvent(
+          id: 'k2',
+          title: 'Feed the cat',
+          allDay: true,
+          date: today,
+          color: kMemberColors[1],
+          attendees: const ['erik'],
+          layerId: '',
+          todo: true,
+          kitchenOrigin: true,
+        ),
+      );
+      (state as dynamic).starsMap['erik'] = 3;
+    });
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('kitchen-column-erik')),
+        matching: find.text('Feed the cat'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('kitchen-stars-erik')),
+            matching: find.byIcon(Icons.star),
+          )
+          .evaluate()
+          .length,
+      3,
+    );
+  });
 }

@@ -1,10 +1,12 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Kitchen-tablet dashboard (Calendar Layers design): a landscape,
-/// large-touch-target full-screen view with one column per family member
-/// showing today's chores/content alongside a left-rail appointment schedule.
-/// Stars, picture-mode overrides, and kitchen-origin items persist on the
-/// shared [_ThriveHomeState].
+/// Kitchen-tablet wall (design `Calendar options.dc.html` §4a): a landscape,
+/// large-touch-target full-screen view with a fixed weekly-schedule panel on
+/// the left and one column per family member — each column listing the
+/// member's calendar events above their tickable chores. Stars are EARNED by
+/// ticking chores; five of them turn the header into a gold claim button.
+/// Stars, picture-mode overrides and kitchen-origin items all live on the
+/// shared [_ThriveHomeState], so every change syncs family-wide.
 extension _ThriveKitchenDashboard on _ThriveHomeState {
   void openKitchenDashboard() {
     Navigator.push(
@@ -19,10 +21,19 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     return recurringEventDates(ev, iso, iso).isNotEmpty;
   }
 
+  /// The wall's visibility gate: the SAME [passes] semantics as the phone
+  /// calendar (layer on, category on, any attendee on), but switched by the
+  /// wall's own layer set (#342). Kitchen-origin items are independent of
+  /// the phone calendar and carry no layer, so they always pass.
+  bool _kitchenPasses(CalendarEvent ev) {
+    if (ev.kitchenOrigin) return true;
+    return passes(ev, layers: kitchenLayerFilter);
+  }
+
   // ------------------------------------------------------------ settings
 
   /// Toggles the wall-tablet Kitchen dashboard globally. When disabled, the
-  /// calendar view switcher shows a re-enable prompt instead of opening it.
+  /// calendar view switcher greys the chef button; tapping it re-enables it.
   void toggleKitchenEnabled() {
     mutate(() => kitchenEnabled = !kitchenEnabled);
   }
@@ -40,7 +51,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
 
   void toggleKitchenWallLayer(String layerId) {
     mutate(() {
-      if (kitchenLayerFilter.contains(layerId)) {
+      if (kitchenLayerVisible(layerId)) {
         final visibleCount = _kitchenWallLayers(
           this,
         ).where((l) => kitchenLayerFilter.contains(l.id)).length;
@@ -57,14 +68,12 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
   /// Current star count (0-5) for [memberId]. Missing memberId means 0.
   int starsFor(String memberId) => starsMap[memberId] ?? 0;
 
-  /// Rating-style tap: setting the filled count up to [count] (1-5), except
-  /// tapping the already-filled top star again clears one back down (e.g.
-  /// 5 -> 4). Clamped to 0-5.
-  void setMemberStars(String memberId, int count) {
+  /// Stars are EARNED, not set (#333): the row itself is display-only, and
+  /// this moves it by one in either direction, clamped to 0-5.
+  void awardMemberStar(String memberId, {required bool earned}) {
     mutate(() {
       final current = starsMap[memberId] ?? 0;
-      final next = current == count ? count - 1 : count;
-      starsMap[memberId] = next.clamp(0, 5);
+      starsMap[memberId] = (current + (earned ? 1 : -1)).clamp(0, 5);
     });
   }
 
@@ -72,6 +81,16 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
   /// meaningful (and only ever called from the UI) at 5/5.
   void claimMemberReward(String memberId) {
     mutate(() => starsMap[memberId] = 0, () => flash('Reward claimed'));
+  }
+
+  /// Ticks a wall chore: flips the occurrence and moves the owning member's
+  /// star bar with it (completing earns a star, un-completing gives it
+  /// back). This is the only place stars change by themselves.
+  void kitchenToggleChore(CalendarOccurrence o, String memberId) {
+    if (!o.isTask) return;
+    final wasDone = o.done;
+    toggleEventDone(o.ev.id, o.date);
+    awardMemberStar(memberId, earned: !wasDone);
   }
 
   // ------------------------------------------------------------ quick add
@@ -102,7 +121,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
           emoji: emoji,
         ),
       );
-    }, () => flash('Added'));
+    }, () => flash('On the wall — due today'));
   }
 
   /// Attaches/clears a picture-mode emoji or photo on a kitchen-origin item.
@@ -134,16 +153,16 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     return (completed: occ.where((o) => o.done).length, total: occ.length);
   }
 
+  /// [memberId]'s tickable chores for [iso] — kitchen-origin items plus any
+  /// non-appointment calendar item assigned to them.
   List<CalendarOccurrence> kitchenMemberOccurrences(
     String memberId,
     String iso,
   ) {
     final out = <CalendarOccurrence>[];
     for (final ev in events) {
-      if (!ev.kitchenOrigin) {
-        if (ev.layerId == kLayerAppt) continue;
-        if (!kitchenLayerVisible(ev.layerId)) continue;
-      }
+      if (!ev.kitchenOrigin && ev.layerId == kLayerAppt) continue;
+      if (!_kitchenPasses(ev)) continue;
       if (!ev.attendees.contains(memberId)) continue;
       if (!_kitchenEventDueOn(ev, iso)) continue;
       if (ev.recur == 'none') {
@@ -171,14 +190,31 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     return out;
   }
 
-  List<CalendarOccurrence> kitchenAppointmentOccurrences(String iso) {
+  /// [memberId]'s CALENDAR events for [iso] — the group that sits above the
+  /// chores in their column (#332), rendered with the app's standard event
+  /// anatomy. Anything already listed as a chore is skipped so nothing
+  /// appears twice in one column.
+  List<CalendarOccurrence> kitchenMemberEventOccurrences(
+    String memberId,
+    String iso,
+  ) {
+    final chores = {
+      for (final o in kitchenMemberOccurrences(memberId, iso)) o.ev.id,
+    };
+    final out = <CalendarOccurrence>[
+      for (final o in _kitchenDayOccurrences(iso))
+        if (!chores.contains(o.ev.id) && o.ev.attendees.contains(memberId)) o,
+    ];
+    out.sort(_compareAgendaOccurrences);
+    return out;
+  }
+
+  /// Every real/imported occurrence on [iso] that passes the wall's gate.
+  List<CalendarOccurrence> _kitchenDayOccurrences(String iso) {
     final out = <CalendarOccurrence>[];
     for (final ev in events) {
       if (ev.kitchenOrigin) continue;
-      final scheduleLike =
-          ev.layerId == kLayerAppt || (!ev.allDay && ev.start.isNotEmpty);
-      if (!scheduleLike) continue;
-      if (!kitchenLayerVisible(ev.layerId)) continue;
+      if (!_kitchenPasses(ev)) continue;
       if (ev.recur == 'none') {
         final spanEnd =
             ev.endDate.isNotEmpty && ev.endDate.compareTo(ev.date) > 0
@@ -187,16 +223,25 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
         if (spanEnd.compareTo(iso) >= 0 &&
             ev.date.compareTo(iso) <= 0 &&
             !ev.exceptions.contains(ev.date)) {
-          out.add(CalendarOccurrence(ev: ev, date: ev.date, spanEnd: spanEnd));
+          out.add(
+            CalendarOccurrence(
+              ev: ev,
+              date: ev.date,
+              spanEnd: spanEnd,
+              done: ev.todo && ev.done,
+            ),
+          );
         }
         continue;
       }
       for (final d in recurringEventDates(ev, iso, iso)) {
-        out.add(CalendarOccurrence(ev: ev, date: d));
+        out.add(
+          CalendarOccurrence(ev: ev, date: d, done: ev.todo && ev.isDoneOn(d)),
+        );
       }
     }
     for (final cal in importedCalendars) {
-      if (!cal.visible) continue;
+      if (!passesImported(cal, layers: kitchenLayerFilter)) continue;
       for (final e in cal.events) {
         if (e.date == iso) {
           out.add(
@@ -209,11 +254,17 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
         }
       }
     }
-    out.sort(
-      (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-        b.ev.allDay ? '' : b.ev.start,
-      ),
-    );
+    return out;
+  }
+
+  /// The left panel's schedule for [iso]: appointment-like occurrences only
+  /// (to-dos live in the member columns), under the wall's layer filters.
+  List<CalendarOccurrence> kitchenAppointmentOccurrences(String iso) {
+    final out = <CalendarOccurrence>[
+      for (final o in _kitchenDayOccurrences(iso))
+        if (!o.isTask) o,
+    ];
+    out.sort(_compareAgendaOccurrences);
     return out;
   }
 }
@@ -231,9 +282,18 @@ CalendarLayerDef? _kitchenLayerDefFor(_ThriveHomeState state, String id) {
   return null;
 }
 
-/// Full-screen kitchen-tablet dashboard: one column per family member, each
-/// showing today's chores/content as kitchen-specific text or picture tiles
-/// under an avatar/name header with stars and completion progress.
+/// Gold reserved for the 5/5 claim-reward state (design §4a).
+const LinearGradient kKitchenGoldGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xfff6c344), Color(0xffe8a317)],
+);
+const Color kKitchenGoldInk = Color(0xff7a5200);
+const Color kKitchenTileBg = Color(0xfffafbfc);
+const Color kKitchenTileLine = Color(0xffeef1f5);
+
+/// Full-screen kitchen wall: a fixed weekly-schedule panel on the left and
+/// one column per family member on the right.
 class _KitchenDashboardScreen extends StatefulWidget {
   const _KitchenDashboardScreen({required this.state});
 
@@ -247,14 +307,23 @@ class _KitchenDashboardScreen extends StatefulWidget {
 class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   _ThriveHomeState get state => widget.state;
 
+  String _toast = '';
+  Timer? _toastTimer;
+
   @override
   void initState() {
     super.initState();
     unawaited(_lockLandscapeOrientation());
+    // A mounted wall reflects other devices' changes live: the shared state
+    // bumps `_rev` on every local mutation AND on every cloud snapshot, and
+    // this route re-derives everything from it (#337).
+    state._rev.addListener(_refresh);
   }
 
   @override
   void dispose() {
+    state._rev.removeListener(_refresh);
+    _toastTimer?.cancel();
     unawaited(_lockPortraitOrientation());
     super.dispose();
   }
@@ -263,9 +332,20 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   /// [_ThriveHomeState] in the widget tree, so its `setState`-driven
   /// rebuilds (via `mutate()`/`update()`) don't reach this route on their
   /// own. Re-deriving every occurrence/progress value from the same shared,
-  /// mutated-in-place `events` on a local `setState()` after
-  /// each checkbox tap keeps this screen live without any state of its own.
-  void _refresh() => setState(() {});
+  /// mutated-in-place `events` on a local `setState()` keeps this screen
+  /// live — whether the change came from this tablet or from another
+  /// device's cloud snapshot.
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  void _showToast(String message) {
+    _toastTimer?.cancel();
+    setState(() => _toast = message);
+    _toastTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _toast = '');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +354,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
 
     return Scaffold(
       key: const ValueKey('kitchen-dashboard'),
-      backgroundColor: const Color(0xff111318),
+      backgroundColor: const Color(0xff0d1117),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -283,20 +363,19 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: B.page,
-                    borderRadius: BorderRadius.circular(16),
+                    color: const Color(0xffe8ecf1),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _KitchenLeftPanel(
                         key: const ValueKey('kitchen-left-panel'),
                         state: state,
                       ),
-                      Container(width: 1, color: B.line),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: 13),
                       Expanded(
                         child: members.isEmpty
                             ? const Center(
@@ -309,16 +388,24 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                                 ),
                               )
                             : Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   for (final m in members)
                                     Expanded(
-                                      child: _KitchenMemberColumn(
-                                        key: ValueKey('kitchen-column-${m.id}'),
-                                        state: state,
-                                        member: m,
-                                        today: today,
-                                        onOccurrenceChanged: _refresh,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          right: m == members.last ? 0 : 12,
+                                        ),
+                                        child: _KitchenMemberColumn(
+                                          key: ValueKey(
+                                            'kitchen-column-${m.id}',
+                                          ),
+                                          state: state,
+                                          member: m,
+                                          today: today,
+                                          onOccurrenceChanged: _refresh,
+                                          onToast: _showToast,
+                                        ),
                                       ),
                                     ),
                                 ],
@@ -329,48 +416,56 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                 ),
               ),
               Positioned(
-                top: 10,
-                right: 10,
+                top: 14,
+                right: 14,
                 child: GestureDetector(
                   key: const ValueKey('kitchen-dashboard-close'),
                   onTap: () => Navigator.of(context).pop(),
                   child: Container(
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .9),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: B.line),
+                      color: B.ink.withValues(alpha: .8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(
-                      child: Icon(Icons.close, color: B.soft2, size: 18),
+                      child: Icon(Icons.close, color: Colors.white, size: 18),
                     ),
                   ),
                 ),
               ),
               Positioned(
-                right: 12,
-                bottom: 12,
+                right: 18,
+                bottom: 18,
                 child: GestureDetector(
                   key: const ValueKey('kitchen-quick-add-fab'),
                   onTap: () async {
                     await state._showSheet(
-                      (ctx) =>
-                          _KitchenQuickAddSheet(state: state, members: members),
+                      (ctx) => _KitchenQuickAddSheet(
+                        state: state,
+                        members: members,
+                        onToast: _showToast,
+                      ),
                     );
                     _refresh();
                   },
                   child: Container(
-                    width: 52,
-                    height: 52,
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
-                      color: B.primary,
-                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xff12b3a4), B.primary, B.deep],
+                        stops: [0.0, .55, 1.0],
+                      ),
+                      borderRadius: BorderRadius.circular(19),
                       boxShadow: [
                         BoxShadow(
                           color: B.primary.withValues(alpha: .45),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
+                          blurRadius: 28,
+                          spreadRadius: -10,
+                          offset: const Offset(0, 14),
                         ),
                       ],
                     ),
@@ -378,6 +473,33 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                   ),
                 ),
               ),
+              if (_toast.isNotEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 20,
+                  child: Center(
+                    child: Container(
+                      key: const ValueKey('kitchen-toast'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: B.ink,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _toast,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -386,9 +508,9 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   }
 }
 
-/// Left panel of the wall-tablet dashboard: today's date plus a scrollable
-/// schedule for today and the next six days. Past days are intentionally not
-/// shown; to-dos/content live exclusively in the member columns on the right.
+/// Left panel of the wall tablet: week number, today's date, then today and
+/// the next six days (past days are never shown), with a thin week-break
+/// divider when the ISO week rolls over.
 const List<String> kKitchenWeekdaysShort = [
   'Mon',
   'Tue',
@@ -422,37 +544,43 @@ class _KitchenLeftPanel extends StatelessWidget {
     final days = [for (var i = 0; i < 7; i++) _addDaysIso(today, i)];
     final d = _parseIso(today);
 
-    return SizedBox(
-      width: 190,
+    return Container(
+      width: 252,
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _weekNumberLabelIso(today).toUpperCase(),
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: .3,
-              color: B.muted,
+              letterSpacing: .8,
+              color: B.primary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             kitchenMainDateLabel(d),
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 21,
               fontWeight: FontWeight.w800,
+              letterSpacing: -.5,
               color: B.ink,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           const Text(
             'WEEKLY SCHEDULE',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              letterSpacing: .3,
-              color: B.soft2,
+              letterSpacing: .8,
+              color: B.muted,
             ),
           ),
           const SizedBox(height: 8),
@@ -485,49 +613,74 @@ class _KitchenLeftPanel extends StatelessWidget {
     final dayLabel = kitchenScheduleDateLabel(d, isToday: isToday);
     return Padding(
       key: ValueKey('kitchen-day-group-$iso'),
-      padding: EdgeInsets.only(top: showWeekBreak ? 4 : 0, bottom: 14),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (showWeekBreak) ...[
-            Text(
-              _weekNumberLabelIso(iso).toUpperCase(),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .3,
-                color: B.ink,
+          if (showWeekBreak)
+            Padding(
+              key: ValueKey('kitchen-week-break-$iso'),
+              padding: const EdgeInsets.fromLTRB(0, 8, 0, 2),
+              child: Row(
+                children: [
+                  const Expanded(child: Divider(height: 1, color: B.line)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      _weekNumberLabelIso(iso).toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .8,
+                        color: Color(0xffb3bcc9),
+                      ),
+                    ),
+                  ),
+                  const Expanded(child: Divider(height: 1, color: B.line)),
+                ],
               ),
             ),
-            const SizedBox(height: 7),
-          ],
-          Text(
-            dayLabel,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .3,
-              color: isToday ? B.primary : B.muted,
+          Container(
+            margin: const EdgeInsets.fromLTRB(0, 4, 0, 1),
+            padding: EdgeInsets.symmetric(
+              horizontal: isToday ? 7 : 2,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: isToday ? const Color(0xffe7f5f3) : Colors.transparent,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              dayLabel,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                color: isToday ? B.deep : B.muted,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           if (appts.isEmpty)
             const Padding(
-              padding: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(left: 2, bottom: 6),
               child: Text(
-                'No events yet',
+                'Nothing planned',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: Color(0xffb3bcc9),
                 ),
               ),
             )
           else
             for (final o in appts)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _KitchenScheduleRow(state: state, occurrence: o),
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _KitchenScheduleRow(
+                  state: state,
+                  occurrence: o,
+                  iso: iso,
+                ),
               ),
         ],
       ),
@@ -535,84 +688,78 @@ class _KitchenLeftPanel extends StatelessWidget {
   }
 }
 
+/// One appointment card in the left schedule: category-tinted background, a
+/// 3px left rule in the category colour, a white time chip, a single-line
+/// title and either the category glyph or up to three attendee avatars.
 class _KitchenScheduleRow extends StatelessWidget {
-  const _KitchenScheduleRow({required this.state, required this.occurrence});
+  const _KitchenScheduleRow({
+    required this.state,
+    required this.occurrence,
+    required this.iso,
+  });
 
   final _ThriveHomeState state;
   final CalendarOccurrence occurrence;
+  final String iso;
 
   @override
   Widget build(BuildContext context) {
     final ev = occurrence.ev;
     final category = state.catById(ev.category);
     final color = state.evColor(ev);
-    final time = ev.allDay
-        ? 'All day'
-        : '${ev.start}${ev.end.isNotEmpty ? ' - ${ev.end}' : ''}';
+    final time = ev.allDay || ev.start.isEmpty ? 'All day' : ev.start;
     return Container(
       key: ValueKey('kitchen-schedule-row-${ev.id}-${occurrence.date}'),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(14),
+        color: color.withValues(alpha: .1),
+        border: Border(left: BorderSide(color: color, width: 3)),
+        borderRadius: BorderRadius.circular(9),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 11, 12, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(7, 6, 7, 6),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  time,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white.withValues(alpha: .9),
-                  ),
-                ),
-              ),
-              if (category != null)
-                Container(
-                  key: ValueKey('kitchen-schedule-category-${ev.id}'),
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .18),
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .24),
-                    ),
-                  ),
-                  child: Center(
-                    child: categoryGlyph(
-                      category,
-                      size: 18,
-                      iconColor: contrastOn(color),
-                    ),
-                  ),
-                )
-              else
-                _KitchenScheduleAttendees(
-                  key: ValueKey('kitchen-schedule-attendees-${ev.id}'),
-                  state: state,
-                  memberIds: ev.attendees,
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            ev.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.25,
-              fontWeight: FontWeight.w800,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            constraints: const BoxConstraints(minWidth: 38),
+            decoration: BoxDecoration(
               color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              time,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
           ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              ev.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+              ),
+            ),
+          ),
+          if (ev.attendees.isNotEmpty)
+            _KitchenScheduleAttendees(
+              key: ValueKey('kitchen-schedule-attendees-${ev.id}'),
+              state: state,
+              memberIds: ev.attendees,
+            )
+          else if (category != null)
+            Padding(
+              key: ValueKey('kitchen-schedule-category-${ev.id}'),
+              padding: const EdgeInsets.only(left: 4),
+              child: categoryGlyph(category, size: 14, iconColor: color),
+            ),
         ],
       ),
     );
@@ -635,28 +782,28 @@ class _KitchenScheduleAttendees extends StatelessWidget {
       for (final id in memberIds.take(3)) ?state._memberById(id),
     ];
     if (members.isEmpty) return const SizedBox.shrink();
-    const size = 24.0;
+    const size = 18.0;
     return SizedBox(
-      width: size + (members.length - 1) * size * .58,
+      width: size + (members.length - 1) * (size - 5),
       height: size,
       child: Stack(
         children: [
           for (var i = 0; i < members.length; i++)
             Positioned(
-              left: i * size * .58,
+              left: i * (size - 5),
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
                 child: state.avatarNode(
                   photo: members[i].photo,
                   emoji: members[i].emoji,
                   initials: members[i].initials,
                   color: members[i].color,
-                  size: size - 4,
-                  radius: (size - 4) / 2,
-                  fs: 9,
+                  size: size - 3,
+                  radius: (size - 3) / 2,
+                  fs: 7,
                 ),
               ),
             ),
@@ -666,6 +813,9 @@ class _KitchenScheduleAttendees extends StatelessWidget {
   }
 }
 
+/// One member's column: a 4px top rule in their colour, avatar/name/count
+/// header, an animated progress bar, the star bar (or the gold claim
+/// button), then their calendar events above their chores.
 class _KitchenMemberColumn extends StatelessWidget {
   const _KitchenMemberColumn({
     super.key,
@@ -673,6 +823,7 @@ class _KitchenMemberColumn extends StatelessWidget {
     required this.member,
     required this.today,
     required this.onOccurrenceChanged,
+    required this.onToast,
   });
 
   final _ThriveHomeState state;
@@ -684,19 +835,23 @@ class _KitchenMemberColumn extends StatelessWidget {
   /// the dashboard route to re-derive occurrences/progress from the shared,
   /// already-mutated `events` (see [_KitchenDashboardScreenState._refresh]).
   final VoidCallback onOccurrenceChanged;
+  final void Function(String) onToast;
 
   @override
   Widget build(BuildContext context) {
     final occ = state.kitchenMemberOccurrences(member.id, today);
+    final events = state.kitchenMemberEventOccurrences(member.id, today);
     final progress = state.kitchenMemberProgress(member.id, today);
+    final stars = state.starsFor(member.id);
+    final canClaim = stars >= 5;
+    final pictureMode = state.pictureModeFor(member.id);
 
     return Container(
-      margin: const EdgeInsets.only(right: 9),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(11, 12, 11, 11),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(18),
+        border: Border(top: BorderSide(color: member.color, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -708,38 +863,39 @@ class _KitchenMemberColumn extends StatelessWidget {
                 emoji: member.emoji,
                 initials: member.initials,
                 color: member.color,
-                size: 32,
-                radius: 16,
-                fs: 13,
+                size: 30,
+                radius: 15,
+                fs: 11,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   member.name,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: B.ink,
                   ),
                 ),
               ),
-              Text(
-                '${progress.completed}/${progress.total}',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: member.color,
+              // A narrow column must never render-overflow on a wall
+              // tablet: the count scales itself down instead.
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${progress.completed}/${progress.total}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: member.color,
+                    ),
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 7),
-          _KitchenStarRow(
-            key: ValueKey('kitchen-stars-${member.id}'),
-            state: state,
-            memberId: member.id,
-            onChanged: onOccurrenceChanged,
           ),
           const SizedBox(height: 7),
           _KitchenProgressBadge(
@@ -748,48 +904,130 @@ class _KitchenMemberColumn extends StatelessWidget {
             total: progress.total,
             color: member.color,
           ),
+          const SizedBox(height: 7),
+          if (canClaim)
+            GestureDetector(
+              key: ValueKey('kitchen-claim-${member.id}'),
+              onTap: () {
+                state.claimMemberReward(member.id);
+                onToast('Reward claimed — well earned, ${member.name}! 🎉');
+                onOccurrenceChanged();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: kKitchenGoldGradient,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xffe8a317).withValues(alpha: .5),
+                      blurRadius: 18,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '🏆 Claim reward!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: kKitchenGoldInk,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            _KitchenStarRow(
+              key: ValueKey('kitchen-stars-${member.id}'),
+              memberId: member.id,
+              stars: stars,
+            ),
           const SizedBox(height: 8),
           Expanded(
-            child: occ.isEmpty
-                ? Center(
+            child: (occ.isEmpty && events.isEmpty)
+                ? const Center(
                     child: Text(
-                      'Nothing today.',
+                      'Free day 🎈',
                       style: TextStyle(color: B.muted, fontSize: 13),
                     ),
                   )
-                : state.pictureModeFor(member.id)
-                ? GridView.builder(
-                    key: ValueKey('kitchen-grid-${member.id}'),
-                    padding: EdgeInsets.zero,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 1,
-                        ),
-                    itemCount: occ.length,
-                    itemBuilder: (context, i) => _KitchenPictureTile(
-                      key: ValueKey('kitchen-pic-tile-${occ[i].ev.id}'),
-                      state: state,
-                      occ: occ[i],
-                      color:
-                          _kitchenLayerDefFor(state, occ[i].layer)?.color ??
-                          member.color,
-                      onChanged: onOccurrenceChanged,
-                    ),
-                  )
-                : ListView.separated(
+                : ListView(
                     key: ValueKey('kitchen-list-${member.id}'),
                     padding: EdgeInsets.zero,
-                    itemCount: occ.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 7),
-                    itemBuilder: (context, i) => _KitchenTextTile(
-                      state: state,
-                      occ: occ[i],
-                      member: member,
-                      onChanged: onOccurrenceChanged,
-                    ),
+                    children: [
+                      for (final o in events) ...[
+                        state._evPill(
+                          o,
+                          iso: today,
+                          keyPrefix: 'kitchen-event-${member.id}',
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      // The divider only earns its place when the column
+                      // actually has both groups (design §4a).
+                      if (events.isNotEmpty && occ.isNotEmpty)
+                        Padding(
+                          key: ValueKey('kitchen-chores-divider-${member.id}'),
+                          padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Divider(
+                                  height: 1,
+                                  color: kKitchenTileLine,
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 7),
+                                child: Text(
+                                  'CHORES',
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: .7,
+                                    color: Color(0xffc3ccd6),
+                                  ),
+                                ),
+                              ),
+                              const Expanded(
+                                child: Divider(
+                                  height: 1,
+                                  color: kKitchenTileLine,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (pictureMode)
+                        for (final o in occ)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _KitchenPictureTile(
+                              key: ValueKey('kitchen-pic-tile-${o.ev.id}'),
+                              state: state,
+                              occ: o,
+                              member: member,
+                              onChanged: onOccurrenceChanged,
+                              onToast: onToast,
+                            ),
+                          )
+                      else
+                        for (final o in occ)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: _KitchenTextTile(
+                              state: state,
+                              occ: o,
+                              member: member,
+                              onChanged: onOccurrenceChanged,
+                              onToast: onToast,
+                            ),
+                          ),
+                    ],
                   ),
           ),
         ],
@@ -804,334 +1042,189 @@ class _KitchenTextTile extends StatelessWidget {
     required this.occ,
     required this.member,
     required this.onChanged,
+    required this.onToast,
   });
 
   final _ThriveHomeState state;
   final CalendarOccurrence occ;
   final FamilyMember member;
   final VoidCallback onChanged;
+  final void Function(String) onToast;
 
   @override
   Widget build(BuildContext context) {
     final ev = occ.ev;
     final layer = _kitchenLayerDefFor(state, occ.layer);
-    final accent = layer?.color ?? member.color;
     final done = occ.done;
-    final isContent = occ.layer == kLayerContent;
 
     void toggle() {
-      state._toggleOccurrenceDone(occ);
+      state.kitchenToggleChore(occ, member.id);
       onChanged();
     }
 
-    return Opacity(
-      opacity: done ? .58 : 1,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          GestureDetector(
-            onTap: toggle,
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 56),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: done ? B.faint : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isContent && !done ? accent : B.line,
-                  width: isContent && !done ? 1.5 : 1,
-                  style: isContent ? BorderStyle.solid : BorderStyle.solid,
-                ),
-              ),
-              foregroundDecoration: isContent && !done
-                  ? _DashedBoxDecoration(color: accent, radius: 14)
-                  : null,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        key: ValueKey('event-check-${ev.id}-${occ.date}'),
-                        onTap: toggle,
-                        child: Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: done ? accent : Colors.white,
-                            border: Border.all(
-                              color: done ? accent : B.line,
-                              width: 2.5,
-                            ),
-                          ),
-                          child: done
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 14,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                      ),
-                      if (isContent) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: .12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: ic(
-                              layer?.icon ?? 'camera',
-                              size: 13,
-                              sw: 2.1,
-                              color: accent,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+    return GestureDetector(
+      onTap: toggle,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: kKitchenTileBg,
+          border: Border.all(color: kKitchenTileLine),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              key: ValueKey('event-check-${ev.id}-${occ.date}'),
+              onTap: toggle,
+              child: Container(
+                width: 22,
+                height: 22,
+                // ≥44px effective target at arm's length on a tablet.
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: done ? member.color : Colors.white,
+                  border: Border.all(
+                    color: done ? member.color : const Color(0xffcbd5e1),
+                    width: 2,
                   ),
-                  const SizedBox(height: 8),
+                ),
+                child: done
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
                     ev.title,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       height: 1.3,
                       fontWeight: FontWeight.w800,
                       color: done ? B.muted : B.ink,
                       decoration: done ? TextDecoration.lineThrough : null,
                     ),
                   ),
-                  if (layer != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 7),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: .12),
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ic(layer.icon, size: 9.5, sw: 2.4, color: accent),
-                              const SizedBox(width: 4),
-                              Text(
-                                layer.label,
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: accent,
-                                ),
-                              ),
-                            ],
-                          ),
+                  const SizedBox(height: 3),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: [
+                      if (layer != null)
+                        _kitchenChip(
+                          layer.label,
+                          layer.color,
+                          layer.color.withValues(alpha: .08),
                         ),
-                      ),
-                    ),
-                  if (ev.recur != 'none')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 5),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: B.soft,
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ic('repeat', size: 9.5, sw: 2.6, color: B.deep),
-                              const SizedBox(width: 3),
-                              Text(
-                                ev.recur,
-                                style: const TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: B.deep,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                      if (ev.recur != 'none')
+                        _kitchenChip('↻ repeats', B.muted, B.faint),
+                    ],
+                  ),
                 ],
               ),
             ),
-          ),
-          if (ev.kitchenOrigin)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: GestureDetector(
+            // Only kitchen-created items can be taken off the wall here;
+            // app-created items are managed from the phone's calendar.
+            if (ev.kitchenOrigin) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
                 key: ValueKey('kitchen-remove-${ev.id}'),
                 onTap: () {
                   state.deleteKitchenItem(ev.id);
+                  onToast('Taken off the wall');
                   onChanged();
                 },
                 child: Container(
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: B.line),
-                    boxShadow: [
-                      BoxShadow(
-                        color: B.ink.withValues(alpha: .12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: const Color(0xfff1f5f9),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.close, size: 13, color: B.muted),
                 ),
               ),
-            ),
-        ],
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 5-star behavior row (independent of chore/task completion). Tapping a
-/// star sets the filled count up to that star (rating-style); tapping the
-/// already-filled top star again clears one back down. At 5/5, a "claim
-/// reward" affordance replaces the row.
+Widget _kitchenChip(String label, Color ink, Color bg) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+  child: Text(
+    label,
+    style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: ink),
+  ),
+);
+
+/// Display-only star bar — stars are EARNED by ticking chores (#333), never
+/// set by tapping. At 5/5 the column swaps this row for the gold claim
+/// button instead.
 class _KitchenStarRow extends StatelessWidget {
   const _KitchenStarRow({
     super.key,
-    required this.state,
     required this.memberId,
-    required this.onChanged,
+    required this.stars,
   });
 
-  final _ThriveHomeState state;
   final String memberId;
-
-  /// Called after every star tap / reward claim — see
-  /// [_KitchenMemberColumn.onOccurrenceChanged]: cheap to call, and needed
-  /// here because star taps mutate shared state directly (not through the
-  /// occurrence-list's [Listener]), so without this the pushed dashboard
-  /// route wouldn't otherwise pick up the change.
-  final VoidCallback onChanged;
+  final int stars;
 
   @override
   Widget build(BuildContext context) {
-    final stars = state.starsFor(memberId);
-    final full = stars >= 5;
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: full ? B.orangeSoft : B.faint,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: full ? const Color(0xfff5d78e) : B.line),
-      ),
-      child: Column(
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (var i = 1; i <= 5; i++)
-                GestureDetector(
-                  key: ValueKey('kitchen-star-$memberId-$i'),
-                  onTap: () {
-                    state.setMemberStars(memberId, i);
-                    onChanged();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(1),
-                    child: Icon(
-                      i <= stars ? Icons.star : Icons.star_border,
-                      size: 13,
-                      color: i <= stars ? const Color(0xffe8a827) : B.muted,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          if (full) ...[
-            const SizedBox(height: 6),
-            GestureDetector(
-              key: ValueKey('kitchen-claim-$memberId'),
-              onTap: () {
-                state.claimMemberReward(memberId);
-                onChanged();
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xffe8a827),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.card_giftcard, size: 15, color: Colors.white),
-                      SizedBox(width: 5),
-                      Text(
-                        'Claim reward!',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          for (var i = 1; i <= 5; i++)
+            Padding(
+              key: ValueKey('kitchen-star-$memberId-$i'),
+              padding: const EdgeInsets.only(right: 2),
+              child: Icon(
+                i <= stars ? Icons.star : Icons.star_border,
+                size: 14,
+                color: i <= stars ? const Color(0xffe8a827) : B.muted,
               ),
             ),
-          ],
         ],
       ),
     );
   }
 }
 
-/// Large square glyph tile for picture-mode columns (pre-readers): just a
-/// photo/emoji with a checkmark overlay to mark done — no text. A
-/// kitchen-origin item without a glyph yet shows a placeholder instead so a
-/// parent can tap it to attach one.
+/// Picture-mode tile for pre-readers (#335): a big photo with the title
+/// small beneath. Tapping ANYWHERE toggles done — done tints the card in the
+/// member's colour, greys the image and puts a ✓ badge top-right.
 class _KitchenPictureTile extends StatelessWidget {
   const _KitchenPictureTile({
     super.key,
     required this.state,
     required this.occ,
-    required this.color,
+    required this.member,
     required this.onChanged,
+    required this.onToast,
   });
 
   final _ThriveHomeState state;
   final CalendarOccurrence occ;
-  final Color color;
+  final FamilyMember member;
   final VoidCallback onChanged;
+  final void Function(String) onToast;
 
   Future<void> _openGlyphPicker(BuildContext context) async {
     await state._showSheet(
@@ -1144,98 +1237,104 @@ class _KitchenPictureTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ev = occ.ev;
     final done = occ.done;
+    final color = member.color;
     final hasGlyph =
         (ev.picture?.isNotEmpty ?? false) || (ev.emoji?.isNotEmpty ?? false);
-    return Opacity(
-      opacity: done ? .55 : 1,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          GestureDetector(
-            key: ValueKey('kitchen-pic-set-${ev.id}'),
-            onTap: ev.kitchenOrigin ? () => _openGlyphPicker(context) : null,
-            child: Container(
-              decoration: BoxDecoration(
-                color: B.faint,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: done ? color : B.line, width: 2),
-              ),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final size = constraints.biggest.shortestSide;
-                  return glyphTile(
-                    size: size,
-                    radius: 16,
-                    picture: ev.picture,
-                    emoji: ev.emoji,
-                    emojiSize: 42,
-                    fallback: Center(
-                      child: Icon(
-                        hasGlyph ? Icons.edit : Icons.add_photo_alternate,
-                        color: B.muted,
-                      ),
-                    ),
-                  );
-                },
+    return Stack(
+      children: [
+        GestureDetector(
+          key: ValueKey('kitchen-pic-check-${ev.id}'),
+          onTap: () {
+            state.kitchenToggleChore(occ, member.id);
+            onChanged();
+          },
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 14, 8, 10),
+            decoration: BoxDecoration(
+              color: done ? color.withValues(alpha: .07) : kKitchenTileBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: done ? color : kKitchenTileLine,
+                width: 2,
               ),
             ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Opacity(
+                  opacity: done ? .5 : 1,
+                  child: SizedBox(
+                    height: 74,
+                    child: glyphTile(
+                      size: 74,
+                      radius: 11,
+                      picture: ev.picture,
+                      emoji: ev.emoji,
+                      emojiSize: 46,
+                      fallback: Center(
+                        child: Icon(
+                          hasGlyph ? Icons.edit : Icons.add_photo_alternate,
+                          color: B.muted,
+                          size: 30,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  ev.title,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: done ? B.muted : B.text,
+                    decoration: done ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+        if (done)
           Positioned(
-            bottom: 6,
-            right: 6,
+            top: 7,
+            right: 7,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: const Icon(Icons.check, size: 12, color: Colors.white),
+            ),
+          ),
+        if (ev.kitchenOrigin) ...[
+          Positioned(
+            top: 7,
+            left: 7,
             child: GestureDetector(
-              key: ValueKey('kitchen-pic-check-${ev.id}'),
+              key: ValueKey('kitchen-remove-${ev.id}'),
               onTap: () {
-                state._toggleOccurrenceDone(occ);
+                state.deleteKitchenItem(ev.id);
+                onToast('Taken off the wall');
                 onChanged();
               },
               child: Container(
-                width: 34,
-                height: 34,
+                width: 24,
+                height: 24,
                 decoration: BoxDecoration(
-                  color: done ? color : Colors.white.withValues(alpha: .92),
+                  color: Colors.white.withValues(alpha: .92),
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: B.ink.withValues(alpha: .22),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                child: Icon(
-                  Icons.check,
-                  color: done ? Colors.white : color,
-                  size: 18,
-                ),
+                child: const Icon(Icons.close, size: 13, color: B.muted),
               ),
             ),
           ),
-          if (ev.kitchenOrigin)
+          if (!done)
             Positioned(
-              top: 6,
-              left: 6,
-              child: GestureDetector(
-                key: ValueKey('kitchen-remove-${ev.id}'),
-                onTap: () {
-                  state.deleteKitchenItem(ev.id);
-                  onChanged();
-                },
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .92),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, size: 13, color: B.muted),
-                ),
-              ),
-            ),
-          if (ev.kitchenOrigin)
-            Positioned(
-              top: 6,
-              right: 6,
+              bottom: 7,
+              right: 7,
               child: GestureDetector(
                 key: ValueKey('kitchen-pic-edit-${ev.id}'),
                 onTap: () => _openGlyphPicker(context),
@@ -1251,7 +1350,7 @@ class _KitchenPictureTile extends StatelessWidget {
               ),
             ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1308,14 +1407,19 @@ class _KitchenItemGlyphSheetState extends State<_KitchenItemGlyphSheet> {
   }
 }
 
-/// Floating "+" quick-add sheet: title/image plus a single assignee. Creates
-/// an independent kitchen-origin [CalendarEvent] due today via
-/// [_ThriveKitchenDashboard.createKitchenItem].
+/// "Add to the wall" (#334): assignee chips tinted in the member's colour,
+/// a REQUIRED photo step for picture-mode members (no emoji shortcut — a
+/// pre-reader needs a real photo), a title field, and "Add for today".
 class _KitchenQuickAddSheet extends StatefulWidget {
-  const _KitchenQuickAddSheet({required this.state, required this.members});
+  const _KitchenQuickAddSheet({
+    required this.state,
+    required this.members,
+    this.onToast,
+  });
 
   final _ThriveHomeState state;
   final List<FamilyMember> members;
+  final void Function(String)? onToast;
 
   @override
   State<_KitchenQuickAddSheet> createState() => _KitchenQuickAddSheetState();
@@ -1323,8 +1427,8 @@ class _KitchenQuickAddSheet extends StatefulWidget {
 
 class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
   final _title = TextEditingController();
+  final _picker = ImagePicker();
   String? _assignee;
-  String? _emoji;
   String? _picture;
 
   @override
@@ -1339,70 +1443,96 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
     super.dispose();
   }
 
-  bool get _selectedMemberUsesPictures =>
+  bool get _pictureMode =>
       _assignee != null && widget.state.pictureModeFor(_assignee!);
+
+  String get _assigneeName {
+    for (final m in widget.members) {
+      if (m.id == _assignee) return m.name;
+    }
+    return 'they';
+  }
+
+  // coverage:ignore-start
+  Future<void> _takePhoto(ImageSource source) async {
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        maxWidth: 700,
+        maxHeight: 700,
+        imageQuality: 82,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() => _picture = base64Encode(bytes));
+    } catch (_) {
+      /* ignore an unreadable image */
+    }
+  }
+  // coverage:ignore-end
+
+  Widget _photoBtn(Key key, String label, ImageSource source) {
+    return Expanded(
+      child: GestureDetector(
+        key: key,
+        onTap: () => _takePhoto(source),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: kKitchenTileBg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          foregroundDecoration: const _DottedBoxDecoration(
+            color: Color(0xffcbd5e1),
+            radius: 14,
+            width: 2,
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: B.text,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pictureMode = _selectedMemberUsesPictures;
-    final hasGlyph =
-        (_picture?.isNotEmpty ?? false) || (_emoji?.isNotEmpty ?? false);
-    final valid =
-        _assignee != null &&
-        (pictureMode ? hasGlyph : _title.text.trim().isNotEmpty);
+    final hasPhoto = _picture?.isNotEmpty ?? false;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sheetHead(context, 'Add item', 'Shows up in their column today.'),
-          if (pictureMode)
-            _sheetField(
-              'Emoji or picture',
-              KeyedSubtree(
-                key: const ValueKey('kitchen-add-image'),
-                child: _GlyphPicker(
-                  emoji: _emoji,
-                  picture: _picture,
-                  onChanged: ({String? emoji, String? picture}) {
-                    setState(() {
-                      _emoji = emoji;
-                      _picture = picture;
-                    });
-                  },
-                ),
-              ),
-            )
-          else
-            _sheetField(
-              'Title',
-              _sheetInput(
-                _title,
-                hint: 'e.g. Feed the cat',
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
+          _sheetHead(
+            context,
+            'Add to the wall',
+            'Lands as an all-day kitchen item, due today.',
+          ),
           _sheetField(
-            'Assignee',
+            'Who is it for?',
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 for (final m in widget.members)
                   GestureDetector(
                     key: ValueKey('kitchen-add-assignee-${m.id}'),
-                    onTap: () => setState(() {
-                      _assignee = m.id;
-                      if (!widget.state.pictureModeFor(m.id)) {
-                        _emoji = null;
-                        _picture = null;
-                      }
-                    }),
+                    onTap: () => setState(() => _assignee = m.id),
                     child: Container(
-                      padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
+                      padding: const EdgeInsets.fromLTRB(5, 6, 11, 6),
                       decoration: BoxDecoration(
-                        color: _assignee == m.id ? B.soft : Colors.white,
+                        color: _assignee == m.id
+                            ? m.color.withValues(alpha: .08)
+                            : Colors.white,
                         border: Border.all(
-                          color: _assignee == m.id ? B.primary : B.line,
+                          color: _assignee == m.id ? m.color : B.line,
+                          width: 1.5,
                         ),
                         borderRadius: BorderRadius.circular(999),
                       ),
@@ -1414,17 +1544,17 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                             emoji: m.emoji,
                             initials: m.initials,
                             color: m.color,
-                            size: 22,
-                            radius: 11,
-                            fs: 10,
+                            size: 20,
+                            radius: 10,
+                            fs: 9,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             m.name,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w800,
-                              color: _assignee == m.id ? B.deep : B.soft2,
+                              color: _assignee == m.id ? m.color : B.soft2,
                             ),
                           ),
                         ],
@@ -1434,22 +1564,120 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
               ],
             ),
           ),
-          _primaryBtn('Add', () {
+          if (_pictureMode)
+            _sheetField(
+              'Add a photo — $_assigneeName reads pictures, not words',
+              hasPhoto
+                  ? Container(
+                      key: const ValueKey('kitchen-add-photo-ready'),
+                      padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
+                      decoration: BoxDecoration(
+                        color: B.soft,
+                        border: Border.all(color: B.primary, width: 1.5),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: glyphTile(
+                              size: 44,
+                              radius: 9,
+                              picture: _picture,
+                              emoji: null,
+                              emojiSize: 20,
+                              fallback: const SizedBox.shrink(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'Photo ready ✓',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: B.deep,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            key: const ValueKey('kitchen-add-photo-retake'),
+                            onTap: () => setState(() => _picture = null),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: const Text(
+                                'Retake',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: B.soft2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Row(
+                      key: const ValueKey('kitchen-add-photo-choose'),
+                      children: [
+                        _photoBtn(
+                          const ValueKey('kitchen-add-photo-camera'),
+                          '📷 Take a photo',
+                          ImageSource.camera,
+                        ),
+                        const SizedBox(width: 8),
+                        _photoBtn(
+                          const ValueKey('kitchen-add-photo-library'),
+                          '🖼 From library',
+                          ImageSource.gallery,
+                        ),
+                      ],
+                    ),
+            ),
+          _sheetField(
+            _pictureMode ? 'Name it (shown under the photo)' : 'Title',
+            _sheetInput(
+              _title,
+              hint: _pictureMode
+                  ? 'e.g. Tidy toys'
+                  : 'What needs doing? e.g. Set the table',
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          _primaryBtn('Add for today', () {
+            final name = _title.text.trim();
+            if (name.isEmpty) {
+              widget.onToast?.call('Give it a name first');
+              return;
+            }
+            if (_pictureMode && !hasPhoto) {
+              widget.onToast?.call('Add a photo first');
+              return;
+            }
             widget.state.createKitchenItem(
-              title: _title.text,
+              title: name,
               assignee: _assignee!,
-              emoji: _emoji,
               picture: _picture,
             );
+            widget.onToast?.call('On the wall — due today');
             Navigator.of(context).pop();
-          }, enabled: valid),
+          }, enabled: _assignee != null),
         ],
       ),
     );
   }
 }
 
-/// Thin rounded progress bar for completed-vs-total chores/content today.
+/// Thin rounded progress bar for completed-vs-total chores today, animating
+/// as chores get ticked (#336).
 class _KitchenProgressBadge extends StatelessWidget {
   const _KitchenProgressBadge({
     super.key,
@@ -1468,13 +1696,17 @@ class _KitchenProgressBadge extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: SizedBox(
-        height: 7,
+        height: 5,
         child: Stack(
           children: [
-            Container(color: B.faint),
-            FractionallySizedBox(
-              widthFactor: pct,
-              child: Container(color: color),
+            Container(color: kKitchenTileLine),
+            LayoutBuilder(
+              builder: (context, constraints) => AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                width: constraints.maxWidth * pct,
+                color: color,
+              ),
             ),
           ],
         ),

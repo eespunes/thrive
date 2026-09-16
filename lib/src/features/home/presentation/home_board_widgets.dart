@@ -1189,7 +1189,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     final next =
         (eventOccurrences(today, horizon)
               ..sort((a, b) => a.date.compareTo(b.date)))
-            .where((o) => o.ev.recur == 'yearly')
+            .where((o) => o.isBirthday)
             .firstOrNull;
     final days = next == null
         ? 0

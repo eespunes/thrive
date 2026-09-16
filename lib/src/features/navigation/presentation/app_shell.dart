@@ -156,11 +156,12 @@ extension _ThriveAppShell on _ThriveHomeState {
             ? ("${firstName()}'s home", 'Only you see this layout')
             : ('Hi, ${firstName()}', prettyToday());
       case 'calendar':
+        // The title block IS the month selector (design §2a): "Calendar"
+        // over "August 2026 ▾", and "· Agenda" while the agenda is shown.
         return (
           'Calendar',
-          calView == 'agenda'
-              ? _weekNumberLabelIso(agendaDay)
-              : _monthTitleIso(calAnchor),
+          _monthTitleIso(calView == 'agenda' ? agendaDay : calAnchor) +
+              (calView == 'agenda' ? ' · Agenda' : ''),
         );
       case 'lists':
         // Fridge door (#302): live "4 notes · 7 things to do", recounted

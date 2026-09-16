@@ -61,58 +61,78 @@ Map<String, Object> _prefs({
 Future<void> _openKitchen(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-calendar')));
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('cal-header-view')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('cal-view-kitchen-dashboard')));
-  await tester.pumpAndSettle();
-}
-
-Future<void> _pickEmoji(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('glyph-pick-emoji')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byType(Tab).at(1));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text('😀').first);
+  await tester.tap(find.byKey(const ValueKey('cal-view-kitchen')));
   await tester.pumpAndSettle();
 }
 
 void main() {
   testWidgets(
-    'picture-mode quick-add via emoji, glyph re-edit and remove control',
+    'picture-mode quick-add needs a real photo, and a tile keeps its glyph '
+    'sheet and remove control',
     (tester) async {
       await pumpApp(
         tester,
-        prefs: _prefs(picMembers: {'erik': true}),
+        prefs: _prefs(
+          picMembers: {'erik': true},
+          events: [
+            CalendarEvent(
+              id: 'k1',
+              title: 'Tidy toys',
+              allDay: true,
+              date: todayIso(),
+              color: kMemberColors[1],
+              attendees: const ['erik'],
+              layerId: '',
+              todo: true,
+              kitchenOrigin: true,
+              emoji: '🧸',
+            ),
+          ],
+        ),
         landOnDefaultTab: true,
       );
       await _openKitchen(tester);
 
-      // Quick-add for the picture-mode member: pick an emoji, no title.
+      // Quick-add offers no emoji shortcut for a picture-mode member — a
+      // pre-reader's tile needs a real photo — and Add is blocked without
+      // one (#334).
       await tester.tap(find.byKey(const ValueKey('kitchen-quick-add-fab')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('kitchen-add-assignee-erik')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('kitchen-add-image')), findsOneWidget);
-      await _pickEmoji(tester);
-      await tester.tap(find.text('Add'));
+      expect(find.byKey(const ValueKey('glyph-pick-emoji')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('kitchen-add-photo-camera')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('kitchen-add-photo-library')),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextField).first, 'Water plants');
+      await tester.pump();
+      await tester.tap(find.text('Add for today'));
+      await tester.pumpAndSettle();
+      expect(
+        thriveDebug.events.where((e) => e.title == 'Water plants'),
+        isEmpty,
+      );
+      await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      final item = thriveDebug.events.singleWhere((e) => e.kitchenOrigin);
-      expect(item.emoji, '😀');
-
-      // Re-open the tile's glyph sheet and clear the glyph.
-      await tester.tap(find.byKey(ValueKey('kitchen-pic-edit-${item.id}')));
+      // The seeded picture tile still opens the glyph sheet for editing...
+      expect(find.byKey(const ValueKey('kitchen-pic-tile-k1')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('kitchen-pic-edit-k1')));
       await tester.pumpAndSettle();
       expect(find.text('Task picture'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('glyph-clear')));
       await tester.pumpAndSettle();
-      expect(item.emoji, isNull);
-      // Dismiss the sheet.
+      expect(thriveDebug.events.singleWhere((e) => e.id == 'k1').emoji, isNull);
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      // Remove the kitchen item with its overlay control.
-      await tester.tap(find.byKey(ValueKey('kitchen-remove-${item.id}')));
+      // ...and its overlay × still takes it off the wall.
+      await tester.tap(find.byKey(const ValueKey('kitchen-remove-k1')));
       await tester.pumpAndSettle();
       expect(thriveDebug.events.where((e) => e.kitchenOrigin), isEmpty);
     },

@@ -32,6 +32,7 @@ class CalendarEvent {
     this.kitchenOrigin = false,
     this.picture,
     this.emoji,
+    this.birthday = false,
   }) : attendees = attendees ?? <String>['me'],
        recurWeekdays = recurWeekdays ?? <int>[],
        exceptions = exceptions ?? <String>[],
@@ -128,6 +129,14 @@ class CalendarEvent {
   /// Mutually exclusive with [picture] in the shared glyph picker.
   String? emoji;
 
+  /// Whether this event is a birthday/anniversary — its own display kind
+  /// across every calendar surface (cream/amber treatment, cake glyph,
+  /// never a time, sorts to the top of the day). Before this flag existed
+  /// birthdays were only guessed at on the Home board via a
+  /// `recur == 'yearly'` heuristic; [fromJson] migrates those saved events
+  /// (yearly + all-day) to a real flag so nothing has to guess again.
+  bool birthday;
+
   /// Whether the occurrence on [iso] is completed. Falls back to [done] for
   /// non-recurring events so old data with only a `done` flag keeps working.
   bool isDoneOn(String iso) =>
@@ -163,6 +172,7 @@ class CalendarEvent {
     if (kitchenOrigin) 'kitchenOrigin': kitchenOrigin,
     if (picture != null) 'picture': picture,
     if (emoji != null) 'emoji': emoji,
+    if (birthday) 'birthday': birthday,
   };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
@@ -219,6 +229,14 @@ class CalendarEvent {
     emoji: (j['emoji'] as String?)?.isNotEmpty == true
         ? j['emoji'] as String
         : null,
+    // Migration: events saved before the flag existed are birthdays if they
+    // match what the Home board used to guess at — a yearly all-day event.
+    birthday:
+        j['birthday'] == true ||
+        (j['birthday'] == null &&
+            j['kitchenOrigin'] != true &&
+            j['recur'] == 'yearly' &&
+            j['allDay'] == true),
   );
 }
 

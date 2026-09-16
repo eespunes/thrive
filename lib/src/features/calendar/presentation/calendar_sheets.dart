@@ -668,8 +668,10 @@ class _RecurDeleteSheet extends StatelessWidget {
   }
 }
 
-/// Month picker — year nav + a 3x4 month grid, ported from the design's
-/// `monthSheet()`. Tapping a month jumps `calAnchor` there.
+/// "Go to month" (design §2a): a 2-column grid of month cards carrying the
+/// month's event count under the current filters, plus a full-width
+/// gradient "Jump to today". Tapping a card travels there — selecting today
+/// for the current month, the 1st otherwise — and closes.
 class _CalMonthPickerSheet extends StatefulWidget {
   const _CalMonthPickerSheet({required this.state});
   final _ThriveHomeState state;
@@ -691,8 +693,7 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
   Widget build(BuildContext context) {
     final s = widget.state;
     final cur = _parseIso(s.calAnchor);
-    final todayYear = _parseIso(todayIso()).year;
-    final todayMonth = _parseIso(todayIso()).month;
+    final today = _parseIso(todayIso());
 
     Widget yearBtn(String icon, int dy) {
       return GestureDetector(
@@ -714,9 +715,9 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sheetHead(context, 'Jump to a month'),
+        _sheetHead(context, 'Go to month'),
         Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 14),
           child: Row(
             children: [
               yearBtn('cleft', -1),
@@ -736,54 +737,78 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
           ),
         ),
         GridView.count(
-          crossAxisCount: 3,
+          crossAxisCount: 2,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 9,
-          crossAxisSpacing: 9,
-          childAspectRatio: 1.9,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.6,
           children: [
             for (var m = 1; m <= 12; m++)
               Builder(
                 builder: (_) {
                   final on = m == cur.month && _year == cur.year;
-                  final isNow = m == todayMonth && _year == todayYear;
+                  final isNow = m == today.month && _year == today.year;
+                  final past =
+                      _year < today.year ||
+                      (_year == today.year && m < today.month);
+                  final first = _isoOf(_year, m, 1);
+                  final last = _isoOf(_year, m, DateTime(_year, m + 1, 0).day);
+                  final count = s.eventOccurrences(first, last).length;
+                  final sub = count == 0
+                      ? 'Nothing yet'
+                      : '$count event${count > 1 ? 's' : ''}'
+                            '${past ? ' · past' : ''}';
                   return GestureDetector(
                     key: ValueKey('cal-pick-month-$_year-$m'),
                     onTap: () {
-                      s.update(() => s.calAnchor = _isoOf(_year, m, 1));
+                      s.update(() {
+                        s.calAnchor = first;
+                        final landing = s._calLandingDay(first);
+                        s.calSel = landing;
+                        s.agendaDay = landing;
+                      });
                       Navigator.of(context).pop();
                     },
                     child: Container(
+                      padding: const EdgeInsets.fromLTRB(13, 10, 11, 10),
+                      alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
-                        color: on ? B.primary : Colors.white,
-                        border: Border.all(color: on ? B.primary : B.line),
-                        borderRadius: BorderRadius.circular(13),
+                        color: on ? const Color(0xffe7f5f3) : Colors.white,
+                        border: Border.all(
+                          color: on ? B.primary : B.line,
+                          width: on ? 1.5 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Stack(
-                        alignment: Alignment.center,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            kMonthsShort[m - 1],
+                            '${kMonthsEn[m - 1]} $_year'
+                            '${isNow ? ' · now' : ''}',
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
-                              color: on ? Colors.white : B.ink,
+                              color: on ? B.deep : B.text,
                             ),
                           ),
-                          if (isNow && !on)
-                            Positioned(
-                              top: 6,
-                              right: 8,
-                              child: Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: B.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            sub,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: on
+                                  ? B.deep
+                                  : past
+                                  ? B.amberText
+                                  : B.muted,
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -792,142 +817,48 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
               ),
           ],
         ),
-        const SizedBox(height: 18),
-        _primaryBtn('Jump to today', () {
-          s.calToday();
-          Navigator.of(context).pop();
-        }),
-      ],
-    );
-  }
-}
-
-/// View-switcher sheet — Month/Agenda plus the Kitchen dashboard entry point.
-class _ViewPickerSheet extends StatelessWidget {
-  const _ViewPickerSheet({required this.state});
-  final _ThriveHomeState state;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget row({
-      required Key key,
-      required String icon,
-      required String label,
-      String? sub,
-      required bool on,
-      required VoidCallback onTap,
-    }) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: GestureDetector(
-          key: key,
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              color: on ? B.soft : Colors.white,
-              border: Border.all(color: on ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: on ? B.primary : B.faint,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Center(
-                    child: ic(
-                      icon,
-                      size: 17,
-                      sw: 2.2,
-                      color: on ? Colors.white : B.soft2,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                          color: on ? B.deep : B.ink,
-                        ),
-                      ),
-                      if (sub != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          sub,
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: B.soft2,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (on) ic('check', size: 19, sw: 2.6, color: B.primary),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sheetHead(context, 'View'),
-        for (final (value, label, icon) in kCalViews)
-          Builder(
-            builder: (_) {
-              final on = state.calView == value;
-              return row(
-                key: ValueKey('cal-view-$value'),
-                icon: icon,
-                label: label,
-                on: on,
-                onTap: () {
-                  state.setCalView(value);
-                  Navigator.of(context).pop();
-                },
-              );
-            },
-          ),
-        row(
-          key: const ValueKey('cal-view-kitchen-dashboard'),
-          icon: 'columns',
-          label: 'Kitchen dashboard',
-          sub: state.kitchenEnabled
-              ? 'Wall-tablet family view'
-              : 'Disabled - tap to re-enable',
-          on: false,
+        const SizedBox(height: 16),
+        GestureDetector(
+          key: const ValueKey('cal-jump-today'),
           onTap: () {
+            s.calToday();
+            s.update(() => s.agendaDay = todayIso());
             Navigator.of(context).pop();
-            if (state.kitchenEnabled) {
-              state.openKitchenDashboard();
-            } else {
-              state.toggleKitchenEnabled();
-            }
           },
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 50),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xff12b3a4), B.primary, B.deep],
+                stops: [0.0, .55, 1.0],
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Text(
+              'Jump to today',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-/// Multi-select filter sheet — family members + categories, ported from
-/// `filterSheet()`.
+/// "What do you want to see?" (design §2a) — three chip groups: Layers,
+/// Categories (the appointment layers' categories) and Members. Chips are ON
+/// by default; switched off they grey out, strike through their label and
+/// dim their colour dot. Filters are per-user, never family-wide, and apply
+/// live to the month, the agenda, the day sheets and the kitchen wall alike
+/// through the shared [_ThriveCalendarActions.passes] gate.
 class _CalFilterSheet extends StatefulWidget {
   const _CalFilterSheet({required this.state});
   final _ThriveHomeState state;
@@ -939,7 +870,8 @@ class _CalFilterSheet extends StatefulWidget {
 class _CalFilterSheetState extends State<_CalFilterSheet> {
   Widget _chip({
     Key? key,
-    required Widget? leading,
+    Widget? leading,
+    required Widget dot,
     required String label,
     required bool on,
     required Color color,
@@ -949,22 +881,27 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
       key: key,
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.fromLTRB(leading != null ? 5 : 13, 8, 13, 8),
+        constraints: const BoxConstraints(minHeight: 40),
+        padding: EdgeInsets.fromLTRB(leading != null ? 5 : 11, 8, 13, 8),
         decoration: BoxDecoration(
-          color: on ? color.withValues(alpha: .12) : Colors.white,
-          border: Border.all(color: on ? color : B.line, width: on ? 1.5 : 1),
+          color: on ? color.withValues(alpha: .08) : Colors.white,
+          border: Border.all(color: on ? color : B.line, width: 1.5),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (leading != null) ...[leading, const SizedBox(width: 6)],
+            if (leading != null) leading else dot,
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: on ? color : B.soft2,
+                color: on ? color : B.muted,
+                decoration: on
+                    ? TextDecoration.none
+                    : TextDecoration.lineThrough,
               ),
             ),
           ],
@@ -973,11 +910,44 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
     );
   }
 
+  Widget _colorDot(Color color, bool on) => Container(
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: on ? 1 : .35),
+      shape: BoxShape.circle,
+    ),
+  );
+
+  Widget _group(String title, List<Widget> chips) {
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .4,
+            color: B.muted,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 16),
+          child: Wrap(spacing: 6, runSpacing: 6, children: chips),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
-    final count = s.calFilterCount();
+    final layers = s.calendarLayers.isEmpty
+        ? kDefaultCalendarLayers()
+        : s.calendarLayers;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -985,33 +955,40 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
       children: [
         Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Text(
-                'Filters',
-                style: const TextStyle(
-                  fontSize: 17,
+                'What do you want to see?',
+                style: TextStyle(
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.3,
                   color: B.ink,
                 ),
               ),
             ),
-            if (count > 0)
-              GestureDetector(
-                key: const ValueKey('cal-filter-clear'),
-                onTap: () => setState(s.clearCalFilters),
-                child: const Padding(
-                  padding: EdgeInsets.only(right: 10),
-                  child: Text(
-                    'Clear all',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.primary,
-                    ),
+            GestureDetector(
+              key: const ValueKey('cal-filter-clear'),
+              onTap: () => setState(s.showAllCalFilters),
+              child: Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: B.faint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Show all',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: B.soft2,
                   ),
                 ),
               ),
+            ),
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
               child: Container(
@@ -1029,124 +1006,85 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text(
-          'LAYERS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .3,
-            color: B.muted,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 20),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              // Falls back to the 3 built-in layer definitions when
-              // [calendarLayers] hasn't been seeded yet (a legacy/new
-              // workspace with zero layer definitions) — the filter chips
-              // (and `layerFilter`, which already defaults to all 3 ids)
-              // must still work even before any layer has been customized.
-              for (final layer
-                  in s.calendarLayers.isEmpty
-                      ? kDefaultCalendarLayers()
-                      : s.calendarLayers)
-                _chip(
+        _group('LAYERS', [
+          for (final layer in layers)
+            Builder(
+              builder: (_) {
+                final on = s.layerFilter.contains(layer.id);
+                return _chip(
                   key: ValueKey('cal-filter-layer-${layer.id}'),
-                  leading: glyphTile(
-                    size: 14,
-                    radius: 4,
-                    picture: layer.picture,
-                    emoji: layer.emoji,
-                    emojiSize: 12,
-                    fallback: ic(
-                      layer.icon,
-                      size: 14,
-                      sw: 2.3,
-                      color: s.layerFilter.contains(layer.id)
-                          ? layer.color
-                          : B.soft2,
-                    ),
-                  ),
+                  dot: _colorDot(layer.color, on),
                   label: layer.label,
-                  on: s.layerFilter.contains(layer.id),
+                  on: on,
                   color: layer.color,
                   onTap: () => setState(() => s.toggleLayerFilter(layer.id)),
-                ),
-            ],
-          ),
-        ),
-        const Text(
-          'FAMILY MEMBERS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .3,
-            color: B.muted,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 20),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in members)
-                _chip(
-                  key: ValueKey('cal-filter-member-${m.id}'),
-                  leading: s._memberAvatar(m.id, size: 22),
-                  label: m.name,
-                  on: s.calFilter.contains(m.id),
-                  color: m.color,
-                  onTap: () => setState(() => s.toggleCalMemberFilter(m.id)),
-                ),
-            ],
-          ),
-        ),
-        const Text(
-          'CATEGORIES',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .3,
-            color: B.muted,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 22),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final c in s.eventCategories)
-                if (s.layerFilter.contains(c.layerId))
-                  _chip(
+                );
+              },
+            ),
+        ]),
+        _group('CATEGORIES', [
+          for (final c in s.eventCategories)
+            if (s.layerFilter.contains(c.layerId))
+              Builder(
+                builder: (_) {
+                  final on = s.calCategoryOn(c.id);
+                  return _chip(
                     key: ValueKey('cal-filter-cat-${c.id}'),
-                    leading: categoryGlyph(c, size: 15, iconColor: c.color),
+                    dot: _colorDot(c.color, on),
                     label: c.name,
-                    on: s.calCatFilter.contains(c.id),
+                    on: on,
                     color: c.color,
                     onTap: () =>
                         setState(() => s.toggleCalCategoryFilter(c.id)),
+                  );
+                },
+              ),
+        ]),
+        _group('MEMBERS', [
+          for (final m in members)
+            Builder(
+              builder: (_) {
+                final on = s.calMemberOn(m.id);
+                return _chip(
+                  key: ValueKey('cal-filter-member-${m.id}'),
+                  leading: Opacity(
+                    opacity: on ? 1 : .35,
+                    child: s._memberAvatar(m.id, size: 22),
                   ),
-            ],
+                  dot: _colorDot(m.color, on),
+                  label: m.name,
+                  on: on,
+                  color: m.color,
+                  onTap: () => setState(() => s.toggleCalMemberFilter(m.id)),
+                );
+              },
+            ),
+        ]),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 14),
+          child: Text(
+            'Categories live inside their layer. Events for several people '
+            'stay visible while any of them is on. Filters apply to the '
+            'month, the agenda, the day sheets and the kitchen wall — only '
+            'for you, not the family.',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+              color: B.muted,
+            ),
           ),
         ),
-        _primaryBtn(
-          count > 0
-              ? 'Show $count filter${count > 1 ? 's' : ''}'
-              : 'Show all events',
-          () => Navigator.of(context).pop(),
-        ),
+        _primaryBtn('Done', () => Navigator.of(context).pop()),
       ],
     );
   }
 }
 
-/// Full day's events, ported from `daySheet()` — replaces Month view's old
-/// inline "selected day" panel; opened by tapping a day number.
+/// One day's events (design §2a `daySheet`): the day's title with its event
+/// count, full agenda rows from the shared builder, and — for today and
+/// future days only — a dashed "＋ Add on this day". A past day is
+/// view-only and says so.
 class _DayDetailSheet extends StatefulWidget {
   const _DayDetailSheet({required this.state, required this.iso});
   final _ThriveHomeState state;
@@ -1162,12 +1100,10 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
     final state = widget.state;
     final iso = widget.iso;
     final evs = state.eventOccurrences(iso, iso)
-      ..sort(
-        (a, b) => (a.ev.allDay ? '' : a.ev.start).compareTo(
-          b.ev.allDay ? '' : b.ev.start,
-        ),
-      );
-    final isToday = iso == todayIso();
+      ..sort(state._compareAgendaOccurrences);
+    final today = todayIso();
+    final isToday = iso == today;
+    final isPast = iso.compareTo(today) < 0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1181,7 +1117,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _prettyDateIso(iso),
+                    _daySheetTitleIso(iso),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -1192,8 +1128,9 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                   Text(
                     (isToday ? 'Today · ' : '') +
                         (evs.isEmpty
-                            ? 'No events'
-                            : '${evs.length} event${evs.length > 1 ? 's' : ''}'),
+                            ? 'Free day'
+                            : '${evs.length} event'
+                                  '${evs.length > 1 ? 's' : ''}'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1221,12 +1158,13 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
         ),
         const SizedBox(height: 14),
         if (evs.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 22),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 22),
             child: Center(
               child: Text(
-                'Nothing scheduled for this day.',
-                style: const TextStyle(
+                'Nothing planned — enjoy the calm.',
+                key: ValueKey('day-sheet-empty'),
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: B.muted,
@@ -1240,6 +1178,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
               for (final o in evs) ...[
                 state._eventCard(
                   o,
+                  iso: iso,
                   popSheetFirst: true,
                   onToggleDone: () => setState(() {}),
                 ),
@@ -1248,10 +1187,55 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
             ],
           ),
         const SizedBox(height: 14),
-        _primaryBtn('Add event for this day', () {
-          Navigator.of(context).pop();
-          state.openEvent(null, iso);
-        }),
+        if (isPast)
+          Container(
+            key: const ValueKey('day-sheet-past-notice'),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xfff6efdb),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Text(
+              'This day is in the past — view only.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xff8a7734),
+              ),
+            ),
+          )
+        else
+          GestureDetector(
+            key: const ValueKey('day-sheet-add'),
+            onTap: () {
+              Navigator.of(context).pop();
+              state.openEvent(null, iso);
+            },
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 48),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              foregroundDecoration: const _DottedBoxDecoration(
+                color: B.primary,
+                radius: 14,
+                width: 1.5,
+              ),
+              child: const Text(
+                '＋ Add on this day',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: B.deep,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

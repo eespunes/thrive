@@ -582,6 +582,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         screen = rawScreen;
       }
       layerFilter = _savedLayerFilter(userData['layerFilter']);
+      calFilter = _savedIdList(userData['calFilter']);
+      calCatFilter = _savedIdList(userData['calCatFilter']);
       homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
     }
     _migrateLegacyMeIdsAll(meUid);
@@ -1061,6 +1063,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'monthIdx': monthIdx,
       'screen': screen,
       'layerFilter': layerFilter,
+      'calFilter': calFilter,
+      'calCatFilter': calCatFilter,
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
