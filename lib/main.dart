@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'dart:ui' as ui show Gradient;
 import 'package:barcode/barcode.dart' as bc;
 import 'package:barcode_widget/barcode_widget.dart' as bw;
 import 'package:image/image.dart' as img;

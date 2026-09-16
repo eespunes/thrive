@@ -226,12 +226,16 @@ void main() {
         find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
       );
       final gradient =
-          (surface.decoration! as BoxDecoration).gradient! as LinearGradient;
+          (surface.decoration! as BoxDecoration).gradient! as ImportedStripes;
       // Still striped — read-only is the pattern, not a grey — but the stripes
       // are the category's colour, not the old slate.
+      expect(gradient.base, catColor);
       expect(gradient.colors.first, catColor);
       expect(gradient.colors.toSet().length, 2);
       expect(gradient.colors, isNot(contains(const Color(0xff5d6b7e))));
+      // A real repeating hatch, not one diagonal split of the box.
+      final shader = gradient.createShader(const Rect.fromLTWH(0, 0, 300, 56));
+      expect(shader, isNotNull);
     });
 
     testWidgets('a to-do is a white dotted card with a real checkbox, and a '

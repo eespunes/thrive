@@ -25,20 +25,63 @@ const Color kBirthdaySubInk = Color(0xffb18a45);
 /// assigned category's (see `importedSyntheticEvent`), so a feed reads as its
 /// category everywhere; it's the stripe pattern, not a grey, that says
 /// read-only. Feeds with no category keep falling back to the feed's colour.
-LinearGradient importedStripes(Color base) => LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  tileMode: TileMode.repeated,
-  colors: [base, base, _stripeLift(base), _stripeLift(base)],
-  stops: const [0.0, 0.5, 0.5, 1.0],
-);
+ImportedStripes importedStripes(Color base) => ImportedStripes(base);
+
+/// A repeating 45° hatch, the design's mark for "imported, read-only".
+///
+/// It can't be a plain [LinearGradient]: `begin`/`end` are fractions of the
+/// painted box, so a repeated gradient across topLeft→bottomRight covers the
+/// box exactly once and paints two halves instead of stripes. This builds the
+/// shader itself over a fixed [pitch] in logical pixels, so the hatch reads
+/// the same on a 15px month bar and a 56px agenda row.
+@immutable
+class ImportedStripes extends Gradient {
+  ImportedStripes(this.base, {this.pitch = 7})
+    : super(colors: [base, base, _stripeLift(base), _stripeLift(base)]);
+
+  final Color base;
+
+  /// Logical pixels covered by one dark+light stripe pair.
+  final double pitch;
+
+  static const List<double> _stops = [0.0, 0.5, 0.5, 1.0];
+
+  @override
+  Shader createShader(Rect rect, {TextDirection? textDirection}) {
+    // A 45° band: stepping `pitch / sqrt2` on both axes advances exactly
+    // `pitch` along the stripe normal.
+    final step = pitch / math.sqrt2;
+    return ui.Gradient.linear(
+      rect.topLeft,
+      rect.topLeft + Offset(step, step),
+      colors,
+      _stops,
+      TileMode.repeated,
+    );
+  }
+
+  @override
+  ImportedStripes scale(double factor) =>
+      ImportedStripes(Color.lerp(null, base, factor)!, pitch: pitch);
+
+  @override
+  ImportedStripes withOpacity(double opacity) =>
+      ImportedStripes(base.withValues(alpha: opacity), pitch: pitch);
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImportedStripes && other.base == base && other.pitch == pitch;
+
+  @override
+  int get hashCode => Object.hash(base, pitch);
+}
 
 /// The second stripe tone: a step towards white on dark colours, towards
 /// black on light ones, so the stripes stay visible whatever the category is.
 Color _stripeLift(Color base) => Color.lerp(
   base,
   contrastOn(base) == Colors.white ? Colors.white : Colors.black,
-  .13,
+  .16,
 )!;
 
 /// The resolved display anatomy of one occurrence on one day — the single
