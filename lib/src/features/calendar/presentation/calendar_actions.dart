@@ -1393,6 +1393,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required bool autoSync,
     required bool includeLocation,
     required bool includeDescription,
+    bool holidays = false,
     String reminder = '1h',
   }) async {
     ImportedCalendar? cal;
@@ -1428,6 +1429,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         resolvedCal.autoSync = autoSync;
         resolvedCal.includeLocation = includeLocation;
         resolvedCal.includeDescription = includeDescription;
+        resolvedCal.holidays = holidays;
         resolvedCal.reminder = reminder;
         resolvedCal.events = _applyImportPrefs(
           fetchedEvents ?? resolvedCal.events,
@@ -1478,6 +1480,31 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         );
       }
     });
+  }
+
+  /// Marks a feed as (or un-marks it from being) the family's holidays
+  /// calendar — see [ImportedCalendar.holidays].
+  void toggleImportHolidays(String id) {
+    mutate(() {
+      for (final c in importedCalendars) {
+        if (c.id == id) c.holidays = !c.holidays;
+      }
+    });
+  }
+
+  /// Every ISO day between [from] and [to] that a visible holidays feed puts
+  /// an event on. The month grid paints these like weekends.
+  Set<String> holidayDatesBetween(String from, String to) {
+    final out = <String>{};
+    for (final cal in importedCalendars) {
+      if (!cal.holidays || !cal.visible) continue;
+      for (final e in cal.events) {
+        if (e.date.compareTo(from) >= 0 && e.date.compareTo(to) <= 0) {
+          out.add(e.date);
+        }
+      }
+    }
+    return out;
   }
 
   void deleteImport(String id) {

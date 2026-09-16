@@ -456,6 +456,7 @@ class ImportedCalendar {
     this.autoSync = true,
     this.includeLocation = true,
     this.includeDescription = true,
+    this.holidays = false,
     this.reminder = '1h',
     List<ImportedCalendarEvent>? events,
   }) : events = events ?? <ImportedCalendarEvent>[];
@@ -484,6 +485,11 @@ class ImportedCalendar {
   bool includeLocation;
   bool includeDescription;
 
+  /// Whether this feed is a HOLIDAYS calendar: every day it puts an event on
+  /// is painted like a weekend in the month grid, so a school holiday or a
+  /// bank holiday reads as a day off at a glance rather than as one more bar.
+  bool holidays;
+
   /// `none` | `at` | `5m` | `15m` | `30m` | `1h` | `2h` | `1d` | `2d` — applied
   /// to every occurrence from this feed, since imported events don't have
   /// their own per-event reminder field.
@@ -501,6 +507,7 @@ class ImportedCalendar {
     'autoSync': autoSync,
     'includeLocation': includeLocation,
     'includeDescription': includeDescription,
+    if (holidays) 'holidays': holidays,
     'reminder': reminder,
     'events': events.map((e) => e.toJson()).toList(),
   };
@@ -516,6 +523,7 @@ class ImportedCalendar {
     autoSync: j['autoSync'] != false,
     includeLocation: j['includeLocation'] != false,
     includeDescription: j['includeDescription'] != false,
+    holidays: j['holidays'] == true,
     reminder: (j['reminder'] ?? '1h').toString(),
     events: [
       for (final e in (j['events'] as List? ?? []))

@@ -501,6 +501,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final curMonth = _parseIso(anchor).month;
     final today = todayIso();
     final byDay = _monthOccurrencesByDay(grid);
+    final holidays = holidayDatesBetween(grid.first, grid.last);
     final weeks = [for (var w = 0; w < 6; w++) grid.sublist(w * 7, w * 7 + 7)];
 
     return Column(
@@ -515,6 +516,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       iso,
                       curMonth: curMonth,
                       today: today,
+                      holiday: holidays.contains(iso),
                       occ: byDay[iso] ?? const <CalendarOccurrence>[],
                     ),
                   ),
@@ -562,13 +564,16 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     String iso, {
     required int curMonth,
     required String today,
+    required bool holiday,
     required List<CalendarOccurrence> occ,
   }) {
     final d = _parseIso(iso);
     final ghost = d.month != curMonth;
     final isToday = iso == today;
     final past = !isToday && iso.compareTo(today) < 0;
-    final weekend = d.weekday >= 6;
+    // A day off is a day off: a holidays feed's days wear the same warm tint
+    // as Saturday and Sunday (#: holidays calendar).
+    final weekend = d.weekday >= 6 || holiday;
     final fade = ghost ? .3 : (past ? _calendarFadedOpacity : 1.0);
 
     // A to-do is always a bar, never a banner — its dotted outline and ▢ are

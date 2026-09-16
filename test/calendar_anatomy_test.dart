@@ -366,6 +366,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('a holidays feed tints its days like a weekend', (
+      tester,
+    ) async {
+      debugNowOverride = () => DateTime(2026, 6, 15);
+      addTearDown(() => debugNowOverride = null);
+      const holiday = '2026-06-17'; // a Wednesday
+      const plainDay = '2026-06-18';
+      await pumpApp(
+        tester,
+        prefs: _prefs(
+          imported: [
+            ImportedCalendar(
+              id: 'feed',
+              name: 'School holidays',
+              provider: 'ics',
+              color: const Color(0xff475569),
+              holidays: true,
+              events: [
+                ImportedCalendarEvent(
+                  id: 'h1',
+                  title: 'Mid-term',
+                  date: holiday,
+                  allDay: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+        landOnDefaultTab: true,
+      );
+      await _goToCalendar(tester);
+
+      Color cellColor(String iso) {
+        final box = tester.widget<Container>(
+          find
+              .descendant(
+                of: find.byKey(ValueKey('cal-day-bg-$iso')),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        return (box.decoration! as BoxDecoration).color!;
+      }
+
+      // The weekend's own warm tint, worn by a midweek holiday.
+      expect(cellColor(holiday), cellColor('2026-06-20'));
+      expect(cellColor(plainDay), isNot(cellColor(holiday)));
+    });
+
     testWidgets(
       'a categorised bar leads with the category glyph, not a repeat mark',
       (tester) async {
