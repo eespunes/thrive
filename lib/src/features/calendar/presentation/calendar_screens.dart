@@ -141,8 +141,8 @@ class _EvAnatomy {
 
 /// (value, label, icon) for each calendar view, in picker order.
 const List<(String, String, String)> kCalViews = [
-  ('month', 'Month', 'grid'),
-  ('agenda', 'Agenda', 'list'),
+  ('month', 'Month', 'calmonth'),
+  ('agenda', 'Agenda', 'calagenda'),
 ];
 
 /// The Calendar tab (#152): Month/Agenda views over the shared
@@ -251,7 +251,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               toggleKitchenEnabled();
             }
           },
-          child: ic('columns', size: 16, sw: 2.2, color: B.soft2),
+          child: ic('display', size: 16, sw: 2.2, color: B.soft2),
         ),
         squareBtn(
           key: const ValueKey('cal-header-filter'),
@@ -259,10 +259,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ringTeal: filtersOn,
           dot: filtersOn,
           onTap: openCalFilterSheet,
+          // `funnel` is three shrinking lines despite its name; `filter` is
+          // the actual funnel outline, which is what a filter button should
+          // wear next to three calendar glyphs.
           child: ic(
-            'funnel',
+            'filter',
             size: 15,
-            sw: 2.6,
+            sw: 2.2,
             color: filtersOn ? B.deep : B.soft2,
           ),
         ),

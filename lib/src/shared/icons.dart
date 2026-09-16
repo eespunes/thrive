@@ -326,6 +326,32 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M12 2a9 9 0 0 1 9 9H3a9 9 0 0 1 9-9Z'],
     ['path', 'M12 11v7a2 2 0 0 0 4 0'],
   ],
+  // Calendar-view icons (#: the header switcher). A month is a calendar with
+  // a GRID in it, an agenda is a calendar with ROWS in it, and the kitchen
+  // wall is the screen it runs on — three shapes that can't be mistaken for
+  // each other at 16px, unlike the generic grid/list/columns they replace.
+  'calmonth': [
+    ['rect', 3, 4, 18, 18, 2],
+    ['path', 'M16 2v4'],
+    ['path', 'M8 2v4'],
+    ['path', 'M3 10h18'],
+    ['path', 'M9 10v12'],
+    ['path', 'M15 10v12'],
+    ['path', 'M3 16h18'],
+  ],
+  'calagenda': [
+    ['rect', 3, 4, 18, 18, 2],
+    ['path', 'M16 2v4'],
+    ['path', 'M8 2v4'],
+    ['path', 'M3 10h18'],
+    ['path', 'M7 14h10'],
+    ['path', 'M7 18h6'],
+  ],
+  'display': [
+    ['rect', 2, 4, 20, 13, 2],
+    ['path', 'M12 17v4'],
+    ['path', 'M8 21h8'],
+  ],
   'columns': [
     ['rect', 3, 3, 7, 18, 1.4],
     ['rect', 14, 3, 7, 18, 1.4],
