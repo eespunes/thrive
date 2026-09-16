@@ -258,7 +258,13 @@ void main() {
       expect(find.text('Cabin weekend'), findsOneWidget);
     });
 
-    testWidgets('a cell caps itself at a banner plus one bar, then "+N more"', (
+    /// Shrinks the test surface to a phone-sized viewport and re-lays out.
+    Future<void> setScreenHeight(WidgetTester tester, double logicalH) async {
+      tester.view.physicalSize = Size(1080, logicalH * 2);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a cell fills with as many bars as the screen has room for', (
       tester,
     ) async {
       debugNowOverride = () => DateTime(2026, 6, 15);
@@ -269,20 +275,75 @@ void main() {
         prefs: _prefs(
           events: [
             _ev('a1', 'All day out', today),
-            _ev('t1', 'Nine', today, allDay: false, start: '09:00'),
-            _ev('t2', 'Ten', today, allDay: false, start: '10:00'),
-            _ev('t3', 'Eleven', today, allDay: false, start: '11:00'),
+            for (var i = 0; i < 8; i++)
+              _ev(
+                't$i',
+                'Timed $i',
+                today,
+                allDay: false,
+                start: '${(9 + i).toString().padLeft(2, '0')}:00',
+              ),
           ],
         ),
         landOnDefaultTab: true,
       );
       await _goToCalendar(tester);
 
+      int barsOnToday() => tester
+          .widgetList(
+            find.byWidgetPredicate(
+              (w) =>
+                  w.key is ValueKey<String> &&
+                  (w.key! as ValueKey<String>).value.startsWith('cal-bar-t') &&
+                  (w.key! as ValueKey<String>).value.endsWith(today),
+            ),
+          )
+          .length;
+
+      // The banner stays pinned above the bars, and the rest of the cell is
+      // filled rather than capped at a fixed number of rows.
       expect(find.byKey(ValueKey('cal-banner-a1-$today')), findsOneWidget);
-      expect(find.byKey(ValueKey('cal-bar-t1-$today')), findsOneWidget);
-      expect(find.byKey(ValueKey('cal-bar-t2-$today')), findsNothing);
-      expect(find.text('+2 more'), findsOneWidget);
+      await setScreenHeight(tester, 1400);
+      final tall = barsOnToday();
+      expect(tall, greaterThan(1));
+
+      // A shorter phone gets fewer rows — and says so instead of overflowing.
+      await setScreenHeight(tester, 640);
+      final short = barsOnToday();
+      expect(short, lessThan(tall));
+      expect(find.textContaining('more'), findsWidgets);
+      expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      "today's cell drops the hours that have already gone, not the ones "
+      'still to come',
+      (tester) async {
+        debugNowOverride = () => DateTime(2026, 6, 15, 12, 30);
+        addTearDown(() => debugNowOverride = null);
+        final today = todayIso();
+        await pumpApp(
+          tester,
+          prefs: _prefs(
+            events: [
+              _ev('t1', 'Nine', today, allDay: false, start: '09:00'),
+              _ev('t2', 'Ten', today, allDay: false, start: '10:00'),
+              _ev('t3', 'Six', today, allDay: false, start: '18:00'),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await _goToCalendar(tester);
+        // Small enough that only two of the three bars fit.
+        await setScreenHeight(tester, 620);
+
+        // 09:00 and 10:00 are over at 12:30, so the slots go to the still
+        // upcoming 18:00 and then the most recent past one.
+        expect(find.byKey(ValueKey('cal-bar-t3-$today')), findsOneWidget);
+        expect(find.byKey(ValueKey('cal-bar-t1-$today')), findsNothing);
+        expect(find.text('+1 more'), findsOneWidget);
+      },
+    );
   });
 
   // ---------------------------------------------------- #342 the gate

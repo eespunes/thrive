@@ -388,6 +388,47 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return a.ev.title.compareTo(b.ev.title);
   }
 
+  /// Reorders [bars] so that, when only [maxBars] of them fit, the ones whose
+  /// time has already passed are the ones dropped. Timed occurrences starting
+  /// before the current clock time are demoted behind everything else; the
+  /// kept set is then put back in its original (start-time) order so the cell
+  /// still reads chronologically. All-day/untimed bars are never demoted —
+  /// they have no hour to be past.
+  static List<CalendarOccurrence> _monthBarsPreferUpcoming(
+    List<CalendarOccurrence> bars,
+    int maxBars,
+  ) {
+    if (bars.length <= maxBars) return bars;
+    final now = debugNowOverride?.call() ?? DateTime.now();
+    final nowHm =
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
+    bool isPast(CalendarOccurrence o) =>
+        !o.ev.allDay &&
+        o.ev.start.isNotEmpty &&
+        o.ev.start.compareTo(nowHm) < 0;
+    final upcoming = [
+      for (final o in bars)
+        if (!isPast(o)) o,
+    ];
+    if (upcoming.isEmpty || upcoming.length >= bars.length) return bars;
+    final shownUpcoming = upcoming.take(maxBars).toList();
+    // Any slot the upcoming events leave over goes to the most recent past
+    // ones — the 11:00 that just finished beats the 08:00 nobody cares about.
+    final past = [
+      for (final o in bars.reversed)
+        if (isPast(o)) o,
+    ];
+    final kept = {
+      ...shownUpcoming,
+      ...past.take(maxBars - shownUpcoming.length),
+    };
+    return [
+      for (final o in bars)
+        if (kept.contains(o)) o,
+    ];
+  }
+
   /// Every occurrence touching a month page's 42-day grid, bucketed by the
   /// ISO day it should paint on — a multi-day run appears in every cell it
   /// crosses so each cell can draw its own segment of the continuous
@@ -484,6 +525,22 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
+  // Measured heights of the pieces a month cell stacks. Each is the widget's
+  // own laid-out height (text line + padding + margin), rounded UP where the
+  // variants differ, so the fill maths can only ever under-fill — never
+  // overflow the cell.
+  static const double _kMonthDayNumberH = 24; // 19 dot + 3/2 padding
+  static const double _kMonthBarH = 15.2; // 9.2 line + 4 padding + 2 margin
+  static const double _kMonthMoreH = 11; // the "+N more" line
+
+  /// The laid-out height of [o]'s banner — the three variants pad differently.
+  double _monthBannerHeight(CalendarOccurrence o, String iso) {
+    final a = _evAnatomy(o, iso);
+    if (a.kind == CalEventKind.birthday) return 15.2; // 9.2 + 2 pad + 4 margin
+    if (a.multiDay) return 17.2; // 9.2 + 4 pad + 4 margin
+    return 18.2; // 9.2 + 5 pad + 2 top rule + 2 margin
+  }
+
   /// One month day cell: tinted background, the day number, up to two
   /// per-kind bars, "+N more", and an optional bottom banner.
   Widget _calMonthCell(
@@ -512,10 +569,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       for (final o in occ)
         if (o != banner && !banners.contains(o)) o,
     ];
-    final maxBars = banner != null ? 1 : 2;
-    final shownBars = bars.take(maxBars).toList();
-    final shown = (banner != null ? 1 : 0) + shownBars.length;
-    final more = occ.length - shown;
 
     final bg = ghost
         ? const Color(0xfff7f9fb)
@@ -556,36 +609,74 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             borderRadius: BorderRadius.circular(10),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _calDayNumber(
-                iso,
-                d.day,
-                isToday: isToday,
-                ghost: ghost,
-                past: past,
-              ),
-              for (final o in shownBars)
-                Opacity(opacity: fade, child: _calMonthBar(o, iso)),
-              if (more > 0)
-                Padding(
-                  padding: const EdgeInsets.only(left: 3),
-                  child: Text(
-                    '+$more more',
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: const TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.muted,
-                    ),
+          // How many bars fit isn't a fixed number: a tall phone's cell holds
+          // more rows than a short one's, so the cell measures itself and
+          // fills the space it actually has (never past it — an overflowing
+          // Column would throw).
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final room =
+                  c.maxHeight -
+                  _kMonthDayNumberH -
+                  (banner == null ? 0 : _monthBannerHeight(banner, iso));
+              int fits(double reserve) {
+                final usable = room - reserve;
+                if (usable < _kMonthBarH) return 0;
+                return (usable / _kMonthBarH).floor();
+              }
+
+              final hiddenBanners = banners.length - (banner == null ? 0 : 1);
+              var shownBars = bars.take(fits(0)).toList();
+              var more = hiddenBanners + bars.length - shownBars.length;
+              // Only give up a row to "+N more" when something is actually
+              // hidden — and re-measure, since that row may cost a bar.
+              if (more > 0) {
+                shownBars = bars.take(fits(_kMonthMoreH)).toList();
+                more = hiddenBanners + bars.length - shownBars.length;
+              }
+              // `bars` is already in start-time order (_compareMonthCell). When
+              // they don't all fit, today's cell sheds the ones whose hour has
+              // already gone before it sheds what's still coming — a 09:00
+              // that's over is worth less than an 18:00 that isn't.
+              if (isToday && shownBars.length < bars.length) {
+                shownBars = _monthBarsPreferUpcoming(
+                  bars,
+                  shownBars.length,
+                ).take(shownBars.length).toList();
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _calDayNumber(
+                    iso,
+                    d.day,
+                    isToday: isToday,
+                    ghost: ghost,
+                    past: past,
                   ),
-                ),
-              const Spacer(),
-              if (banner != null)
-                Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
-            ],
+                  if (banner != null)
+                    Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
+                  for (final o in shownBars)
+                    Opacity(opacity: fade, child: _calMonthBar(o, iso)),
+                  if (more > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 3),
+                      child: Text(
+                        '+$more more',
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        style: const TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.muted,
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                ],
+              );
+            },
           ),
         ),
       ),
