@@ -148,6 +148,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   late int _monthlyWeekday;
   late String _layerId;
   late bool _todo;
+  late bool _birthday;
   late bool _done;
   bool _endManuallySet = false;
 
@@ -187,6 +188,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     _monthlyWeekday = e?.monthlyWeekday ?? _parseIso(_date).weekday;
     _layerId = e?.layerId ?? kLayerAppt;
     _todo = e?.todo ?? false;
+    _birthday = e?.birthday ?? false;
     _done = e?.isDoneOn(widget.date) ?? false;
   }
 
@@ -220,7 +222,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   CalendarEvent _draft() => CalendarEvent(
     id: widget.event?.id ?? 'draft',
     title: _title.text,
-    allDay: _allDay,
+    allDay: _allDay || _birthday,
+    birthday: _birthday,
     date: _date,
     start: _allDay ? '' : _start,
     end: _allDay ? '' : _end,
@@ -310,7 +313,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     final edited = CalendarEvent(
       id: widget.event?.id ?? uid(),
       title: _title.text.trim().isEmpty ? 'Untitled' : _title.text.trim(),
-      allDay: _allDay,
+      allDay: _allDay || _birthday,
+      birthday: _birthday,
       date: _date,
       endDate: _recur != 'none' ? _repeatEndDate : (_multiDay ? _endDate : ''),
       start: _allDay ? '' : _start,
@@ -1190,6 +1194,18 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               'All-day',
               _allDay,
               () => setState(() => _allDay = !_allDay),
+            ),
+            const SizedBox(width: 7),
+            // Birthdays/anniversaries are their own display kind on every
+            // calendar surface (#339) — cream + cake, never a time.
+            KeyedSubtree(
+              key: const ValueKey('event-kind-birthday'),
+              child: _chip(null, 'Birthday', _birthday, () {
+                setState(() {
+                  _birthday = !_birthday;
+                  if (_birthday) _allDay = true;
+                });
+              }),
             ),
           ],
         ),

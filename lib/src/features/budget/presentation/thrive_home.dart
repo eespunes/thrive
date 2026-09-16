@@ -928,6 +928,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // accessors read through to it); nothing to re-point.
     _adoptActiveWorkspace();
     layerFilter = _savedLayerFilter(saved['layerFilter']);
+    calFilter = _savedIdList(saved['calFilter']);
+    calCatFilter = _savedIdList(saved['calCatFilter']);
     homeBoard = parseHomeBoard(saved['homeBoard']);
     _widgetHideAmounts = saved['widgetHideAmounts'] == true;
     budgetLimitWarn = saved['budgetLimitWarnOff'] != true;
@@ -1013,6 +1015,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     ];
     return restored.isEmpty ? <String>['appt', 'task', 'content'] : restored;
   }
+
+  /// A persisted id list as-is — an empty/missing value stays empty, which
+  /// for [calFilter]/[calCatFilter] means "nothing switched off".
+  List<String> _savedIdList(Object? raw) => <String>[
+    for (final id in (raw as List? ?? const []))
+      if (id.toString().trim().isNotEmpty) id.toString(),
+  ];
 
   Future<void> _seedFromAsset() async {
     // First launch with no stored state: seed the bundled sample budget so the
@@ -1241,6 +1250,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'screen': screen,
       'tab': tab,
       'layerFilter': layerFilter,
+      // Per-user, never family-wide (#349) — which members/categories this
+      // person has switched off on their own calendar.
+      if (calFilter.isNotEmpty) 'calFilter': calFilter,
+      if (calCatFilter.isNotEmpty) 'calCatFilter': calCatFilter,
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
       if (_widgetHideAmounts) 'widgetHideAmounts': true,
@@ -2011,6 +2024,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               : _tabSubHeader(tab))
         : null;
     final dateInHeader = tab == 'calendar' || tab == 'finance';
+    final isCalendar = ready && tab == 'calendar';
+    final calendarMonthIsPast =
+        isCalendar &&
+        _calMonthIsPast(calView == 'agenda' ? agendaDay : calAnchor);
 
     return Container(
       color: B.page,
@@ -2075,16 +2092,48 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                             child: Text(
                               subtitle,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: B.muted,
+                                fontWeight: isCalendar
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isCalendar ? B.primary : B.muted,
                               ),
                             ),
                           ),
                           if (dateInHeader) ...[
                             const SizedBox(width: 3),
-                            ic('cdown', size: 12, sw: 2.4, color: B.muted),
+                            ic(
+                              'cdown',
+                              size: isCalendar ? 10 : 12,
+                              sw: 2.4,
+                              color: isCalendar ? B.primary : B.muted,
+                            ),
+                          ],
+                          // A past month is view-only — say so quietly
+                          // right next to the month label (design §2a).
+                          if (isCalendar && calendarMonthIsPast) ...[
+                            const SizedBox(width: 7),
+                            Container(
+                              key: const ValueKey('cal-past-pill'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xfff6efdb),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'PAST',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: .5,
+                                  color: Color(0xff8a7734),
+                                ),
+                              ),
+                            ),
                           ],
                         ],
                       ),

@@ -100,21 +100,6 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  Widget _secLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 18, 2, 9),
-      child: Text(
-        label.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          letterSpacing: .3,
-          color: B.soft2,
-        ),
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------- wall
   Widget _buildListsHub() {
     ensureListPrefs();

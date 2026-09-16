@@ -47,10 +47,8 @@ Future<void> openCalManage(WidgetTester tester, {bool imports = false}) async {
   );
 }
 
-/// Switches the calendar view via the header's view-switcher sheet.
+/// Switches the calendar view via the header's three inline view buttons.
 Future<void> setCalView(WidgetTester tester, String value) async {
-  await tester.tap(find.byKey(const ValueKey('cal-header-view')));
-  await tester.pumpAndSettle();
   await tester.tap(find.byKey(ValueKey('cal-view-$value')));
   await tester.pumpAndSettle();
 }
@@ -64,12 +62,19 @@ Future<void> openCalFilters(WidgetTester tester) async {
 /// opens the day-detail sheet first (issue #198), so this taps the bar/day
 /// then the event card inside the sheet to reach the event view/editor.
 Future<void> openMonthEvent(WidgetTester tester, String title) async {
-  await tester.tap(find.text(title).first);
+  // Month bars/banners prefix their label (▢ to-do, ↻ recurring) and suffix
+  // imported ones (⇩), so match the title as a substring (§3a).
+  await tester.tap(find.textContaining(title).first);
   await tester.pumpAndSettle();
   await tester.tap(
-    find.byWidgetPredicate(
-      (w) => w is Text && w.data == title && w.style?.fontSize == 13.5,
-    ),
+    find
+        .byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              (w.data ?? '').startsWith(title) &&
+              w.style?.fontSize == 13,
+        )
+        .first,
   );
   await tester.pumpAndSettle();
 }
@@ -458,18 +463,24 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    final viewButton = find.byKey(const ValueKey('cal-header-view'));
+    // Three inline view buttons (month / agenda / kitchen) plus the funnel
+    // filter button — no view-picker sheet any more (#344).
+    final monthButton = find.byKey(const ValueKey('cal-view-month'));
+    final agendaButton = find.byKey(const ValueKey('cal-view-agenda'));
+    final kitchenButton = find.byKey(const ValueKey('cal-view-kitchen'));
     final filterButton = find.byKey(const ValueKey('cal-header-filter'));
-    expect(viewButton, findsOneWidget);
-    expect(filterButton, findsOneWidget);
-    expect(
-      find.descendant(of: viewButton, matching: find.byType(SvgPicture)),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: filterButton, matching: find.byType(SvgPicture)),
-      findsOneWidget,
-    );
+    for (final button in [
+      monthButton,
+      agendaButton,
+      kitchenButton,
+      filterButton,
+    ]) {
+      expect(button, findsOneWidget);
+      expect(
+        find.descendant(of: button, matching: find.byType(SvgPicture)),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('month events use flat solid colors and category visuals', (
@@ -491,12 +502,13 @@ void main() {
       String id,
       Color color, {
       String? categoryId,
+      String? date,
       String endDate = '',
       List<String>? attendees,
     }) => CalendarEvent(
       id: id,
       title: 'Event $id',
-      date: todayIso(),
+      date: date ?? todayIso(),
       endDate: endDate,
       color: color,
       category: categoryId ?? category.id,
@@ -511,12 +523,20 @@ void main() {
           event(
             'two',
             const Color(0xff1684b4),
-            endDate: addDaysForTest(todayIso(), 1),
+            date: addDaysForTest(todayIso(), 2),
+            endDate: addDaysForTest(todayIso(), 3),
           ),
-          event('plain', plainColor, categoryId: '', attendees: const []),
+          event(
+            'plain',
+            plainColor,
+            date: addDaysForTest(todayIso(), 5),
+            categoryId: '',
+            attendees: const [],
+          ),
           event(
             'member',
             plainColor,
+            date: addDaysForTest(todayIso(), 6),
             categoryId: '',
             attendees: const ['erik'],
           ),
@@ -534,29 +554,21 @@ void main() {
       'member': plainColor,
     }.entries) {
       final id = entry.key;
+      // A multi-day event paints as the cell's bottom banner instead of a
+      // bar now (design §3a); everything else is a solid category-colour
+      // bar. Either way the fill is the resolved event colour.
+      final prefix = id == 'two' ? 'cal-banner-$id-' : 'cal-bar-$id-';
       final bar = find.byWidgetPredicate(
         (widget) =>
             widget.key is ValueKey<String> &&
-            (widget.key! as ValueKey<String>).value.startsWith('cal-bar-$id-'),
+            (widget.key! as ValueKey<String>).value.startsWith(prefix),
       );
-      expect(bar, findsOneWidget);
-      if (id == 'one' || id == 'two') {
-        expect(
-          find.descendant(of: bar, matching: find.byType(SvgPicture)),
-          findsOneWidget,
-        );
-      }
+      expect(bar, findsWidgets);
       final matchingDecorations = tester
-          .widgetList<Container>(
-            find.descendant(of: bar, matching: find.byType(Container)),
-          )
+          .widgetList<Container>(bar)
           .map((container) => container.decoration)
           .whereType<BoxDecoration>()
-          .where(
-            (container) =>
-                container.color == entry.value &&
-                (container.boxShadow?.isNotEmpty != true),
-          )
+          .where((decoration) => decoration.color == entry.value)
           .toList();
       expect(matchingDecorations, isNotEmpty);
     }
@@ -571,25 +583,30 @@ void main() {
     final previousMonthDay = grid.firstWhere(
       (iso) => DateTime.parse('${iso}T00:00:00Z').month != currentMonth,
     );
-    final selectedMonthDay = grid.firstWhere(
-      (iso) => DateTime.parse('${iso}T00:00:00Z').month == currentMonth,
-    );
+    // Use today: it is in the shown month and never past, so it isn't
+    // subject to the ink-grey past treatment (#346). Today carries the
+    // stronger teal fill.
+    final selectedMonthDay = today;
 
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    final previousMonth = tester.widget<Container>(
-      find.byKey(ValueKey('cal-day-bg-$previousMonthDay')),
-    );
-    final selectedMonth = tester.widget<Container>(
-      find.byKey(ValueKey('cal-day-bg-$selectedMonthDay')),
-    );
+    // Every day is tinted now — ghost days (a neighbouring month's) get the
+    // faint ghost fill, in-month days a soft teal or warm weekend cream
+    // (#346). The cell's surface is the Container inside its tap target.
+    BoxDecoration cellDecoration(String iso) => tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(ValueKey('cal-day-bg-$iso')),
+            matching: find.byType(Container),
+          ),
+        )
+        .map((container) => container.decoration)
+        .whereType<BoxDecoration>()
+        .first;
 
-    final previousDecoration = previousMonth.decoration! as BoxDecoration;
-    final selectedDecoration = selectedMonth.decoration! as BoxDecoration;
-    expect(previousDecoration.color, const Color(0xfff0f2f6));
-    expect(selectedDecoration.color, Colors.transparent);
-    expect((selectedDecoration.border! as Border).left.color, B.line);
+    expect(cellDecoration(previousMonthDay).color, const Color(0xfff7f9fb));
+    expect(cellDecoration(selectedMonthDay).color, const Color(0xffd7efeb));
   });
 
   testWidgets('month view fades event bars outside the selected month', (
@@ -601,9 +618,7 @@ void main() {
     final outsideDate = grid.firstWhere(
       (iso) => DateTime.parse('${iso}T00:00:00Z').month != currentMonth,
     );
-    final insideDate = grid.firstWhere(
-      (iso) => DateTime.parse('${iso}T00:00:00Z').month == currentMonth,
-    );
+    final insideDate = today;
 
     await pumpApp(
       tester,
@@ -644,14 +659,16 @@ void main() {
     expect(fadedBar, findsOneWidget);
     expect(normalBar, findsOneWidget);
 
-    final fadedOpacity = tester.widget<Opacity>(
-      find.descendant(of: fadedBar, matching: find.byType(Opacity)),
-    );
-    final normalOpacity = tester.widget<Opacity>(
-      find.descendant(of: normalBar, matching: find.byType(Opacity)),
-    );
-    expect(fadedOpacity.opacity, .45);
-    expect(normalOpacity.opacity, 1);
+    double barOpacity(Finder bar) => tester
+        .widgetList<Opacity>(
+          find.ancestor(of: bar, matching: find.byType(Opacity)),
+        )
+        .first
+        .opacity;
+
+    // Ghost days drop to 30%, the selected month's stay solid (#340).
+    expect(barOpacity(fadedBar), .3);
+    expect(barOpacity(normalBar), 1);
   });
 
   testWidgets('month weekday header aligns with day columns', (tester) async {
@@ -687,11 +704,17 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    final todayCell = tester.widget<Container>(
-      find.byKey(ValueKey('cal-day-bg-${todayIso()}')),
-    );
-    final focus = todayCell.foregroundDecoration! as BoxDecoration;
-    expect((focus.border! as Border).top.color, B.primary);
+    final todayCell = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byKey(ValueKey('cal-day-bg-${todayIso()}')),
+            matching: find.byType(Container),
+          ),
+        )
+        .first;
+    final decoration = todayCell.decoration! as BoxDecoration;
+    expect((decoration.border! as Border).top.color, B.primary);
+    expect(decoration.color, const Color(0xffd7efeb));
   });
 
   testWidgets('month view scrolls horizontally between months', (tester) async {
@@ -721,8 +744,8 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('cal-day-${todayIso()}')));
     await tester.pumpAndSettle();
-    expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
-    expect(find.text('Add event for this day'), findsOneWidget);
+    expect(find.text('Nothing planned — enjoy the calm.'), findsOneWidget);
+    expect(find.text('＋ Add on this day'), findsOneWidget);
   });
 
   testWidgets(
@@ -733,8 +756,8 @@ void main() {
 
       await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
       await tester.pumpAndSettle();
-      expect(find.text('Nothing scheduled for this day.'), findsOneWidget);
-      await tester.tap(find.text('Add event for this day'));
+      expect(find.text('Nothing planned — enjoy the calm.'), findsOneWidget);
+      await tester.tap(find.text('＋ Add on this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
       // The ticket's when-line carries the day ("Thu 27-08 · …").
@@ -985,7 +1008,7 @@ void main() {
       // Bars in the month grid also render event titles (in white, size 9)
       // behind the sheet, so match on the sheet's larger agenda-style title
       // to check what's actually listed inside the day-detail sheet.
-      bool isCardTitle(Widget w) => w is Text && w.style?.fontSize == 13.5;
+      bool isCardTitle(Widget w) => w is Text && w.style?.fontSize == 13;
       expect(
         find.byWidgetPredicate(
           (w) => isCardTitle(w) && (w as Text).data == 'Other day event',
@@ -1624,7 +1647,7 @@ void main() {
 
       // Today's occurrence is gone from Agenda...
       await setCalView(tester, 'agenda');
-      expect(find.text('Standup'), findsNothing);
+      expect(find.text('↻ Standup'), findsNothing);
 
       // ...but the series continues: paging Month view forward a week
       // still shows it (Agenda is single-day now, so the next weekly
@@ -1636,7 +1659,7 @@ void main() {
         1200,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Standup'), findsWidgets);
+      expect(find.textContaining('Standup'), findsWidgets);
     },
   );
 
@@ -1695,7 +1718,7 @@ void main() {
       // Today's single occurrence is the renamed exception...
       await setCalView(tester, 'agenda');
       expect(find.text('Standup once'), findsWidgets);
-      expect(find.text('Standup'), findsNothing);
+      expect(find.text('Standup ↻'), findsNothing);
 
       // ...but the rest of the series keeps its original title (Agenda is
       // single-day now, so the next weekly occurrence — 7 days out — isn't
@@ -1707,7 +1730,7 @@ void main() {
         1200,
       );
       await tester.pumpAndSettle();
-      expect(find.text('Standup'), findsWidgets);
+      expect(find.textContaining('Standup'), findsWidgets);
     },
   );
 
@@ -1737,7 +1760,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await setCalView(tester, 'agenda');
-      expect(find.text('Practice v2'), findsWidgets);
+      expect(find.textContaining('Practice v2'), findsWidgets);
     },
   );
 
@@ -1767,7 +1790,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await setCalView(tester, 'agenda');
-      expect(find.text('Yoga renamed'), findsWidgets);
+      expect(find.textContaining('Yoga renamed'), findsWidgets);
       expect(find.text('Yoga'), findsNothing);
     },
   );
@@ -1871,10 +1894,10 @@ void main() {
     await tester.pumpAndSettle();
     await goToCalendar(tester);
     await setCalView(tester, 'agenda');
-    expect(find.text('Imported event'), findsWidgets);
+    expect(find.textContaining('Imported event'), findsWidgets);
 
     // Tapping the imported event opens a read-only view: no Edit/Delete.
-    await tester.tap(find.text('Imported event').first);
+    await tester.tap(find.textContaining('Imported event').first);
     await tester.pumpAndSettle();
     expect(find.text('Imported events are read-only'), findsOneWidget);
     expect(find.text('Edit'), findsNothing);
@@ -1922,7 +1945,7 @@ void main() {
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
-      await tester.tap(find.text('Match day').first);
+      await tester.tap(find.textContaining('Match day').first);
       await tester.pumpAndSettle();
 
       expect(find.text('Eredivisie fixture'), findsOneWidget);
@@ -1963,7 +1986,7 @@ void main() {
       await rebootApp(tester);
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
-      expect(find.text('Match day v2'), findsWidgets);
+      expect(find.textContaining('Match day v2'), findsWidgets);
 
       // Turn auto-sync off, change the feed again, reboot — should NOT
       // pick up the new title this time.
@@ -1979,7 +2002,7 @@ void main() {
       await rebootApp(tester);
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
-      expect(find.text('Match day v2'), findsWidgets);
+      expect(find.textContaining('Match day v2'), findsWidgets);
       expect(find.text('Match day v3'), findsNothing);
     },
   );
@@ -2055,7 +2078,7 @@ void main() {
       await tester.pumpAndSettle();
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
-      await tester.tap(find.text('Match day').first);
+      await tester.tap(find.textContaining('Match day').first);
       await tester.pumpAndSettle();
 
       expect(find.text('Eredivisie'), findsNothing);
@@ -2179,8 +2202,8 @@ void main() {
     // without picking anything leaves everything showing (default attendee
     // is "me").
     await openCalFilters(tester);
-    expect(find.text('Show all events'), findsOneWidget);
-    await tester.tap(find.text('Show all events'));
+    expect(find.text('Done'), findsOneWidget);
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
     expect(find.text('Solo task'), findsOneWidget);
   });
@@ -2220,11 +2243,11 @@ void main() {
 
       await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStart')));
       await tester.pumpAndSettle();
-      expect(find.text('Daily pill'), findsOneWidget);
+      expect(find.textContaining('Daily pill'), findsOneWidget);
 
       await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekEnd')));
       await tester.pumpAndSettle();
-      expect(find.text('Daily pill'), findsOneWidget);
+      expect(find.textContaining('Daily pill'), findsOneWidget);
     },
   );
 
@@ -2246,7 +2269,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Monthly bill'), findsWidgets);
+    expect(find.textContaining('Monthly bill'), findsWidgets);
 
     await tester.fling(
       find.byKey(const ValueKey('cal-pager-month')),
@@ -2254,7 +2277,7 @@ void main() {
       1200,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Monthly bill'), findsWidgets);
+    expect(find.textContaining('Monthly bill'), findsWidgets);
   });
 
   testWidgets('a recurring event stops at its repeat end date', (tester) async {
@@ -2288,15 +2311,15 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStart')));
     await tester.pumpAndSettle();
-    expect(find.text('Limited daily'), findsOneWidget);
+    expect(find.textContaining('Limited daily'), findsOneWidget);
 
     await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStartPlus1')));
     await tester.pumpAndSettle();
-    expect(find.text('Limited daily'), findsOneWidget);
+    expect(find.textContaining('Limited daily'), findsOneWidget);
 
     await tester.tap(find.byKey(ValueKey('cal-week-strip-$weekStartPlus2')));
     await tester.pumpAndSettle();
-    expect(find.text('Limited daily'), findsNothing);
+    expect(find.textContaining('Limited daily'), findsNothing);
   });
 
   test('custom weekly recurrence expands selected weekdays by interval', () {
@@ -2354,23 +2377,25 @@ void main() {
       await tester.pumpAndSettle();
 
       await setCalView(tester, 'agenda');
-      expect(find.text('Standup'), findsOneWidget);
+      expect(find.textContaining('Standup'), findsOneWidget);
 
-      // The event only has the default "me" attendee; a filter for the
-      // other family member should hide it.
+      // Chips are on by default and tapping one switches it OFF (#349).
+      // This quick-added event has no attendees at all, so no member filter
+      // can hide it — an event only disappears when every one of ITS people
+      // is switched off.
       await openCalFilters(tester);
-      await tester.tap(find.text('Erik Janssen'));
+      await tester.tap(find.text('Eva Janssen'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show 1 filter'));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      expect(find.text('Standup'), findsNothing);
+      expect(find.textContaining('Standup'), findsOneWidget);
 
       await openCalFilters(tester);
-      await tester.tap(find.text('Clear all'));
+      await tester.tap(find.byKey(const ValueKey('cal-filter-clear')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show all events'));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      expect(find.text('Standup'), findsOneWidget);
+      expect(find.textContaining('Standup'), findsOneWidget);
 
       // A category filter for a different category also hides it.
       await openCalManage(tester);
@@ -2385,13 +2410,23 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
 
+      // Switching the event's own category off hides it; other categories
+      // stay on.
       await goToCalendar(tester);
       await openCalFilters(tester);
-      await tester.tap(find.text('Personal'));
+      // The filter chip, not the agenda section header of the same name.
+      await tester.tap(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              w.data == 'Work' &&
+              w.style?.fontWeight == FontWeight.w800,
+        ),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show 1 filter'));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
-      expect(find.text('Standup'), findsNothing);
+      expect(find.textContaining('Standup'), findsNothing);
     },
   );
 
@@ -2496,12 +2531,14 @@ void main() {
     expect(find.text('Work sync'), findsOneWidget);
     expect(find.text('School pickup'), findsOneWidget);
 
+    // Switching Erik and the School category off leaves only Eva's work
+    // appointment showing.
     await openCalFilters(tester);
-    await tester.tap(find.byKey(const ValueKey('cal-filter-member-me')));
+    await tester.tap(find.byKey(const ValueKey('cal-filter-member-erik')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('cal-filter-cat-work')));
+    await tester.tap(find.byKey(const ValueKey('cal-filter-cat-school')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Show 2 filters'));
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 
     expect(find.text('Work sync'), findsOneWidget);
@@ -2584,15 +2621,17 @@ void main() {
       );
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
-      expect(find.text('Parent evening'), findsOneWidget);
+      expect(find.textContaining('Parent evening'), findsOneWidget);
 
+      // Switching Eva off leaves Erik on — and the feed's category lists
+      // Erik, so its events stay visible.
       await openCalFilters(tester);
-      await tester.tap(find.byKey(const ValueKey('cal-filter-member-erik')));
+      await tester.tap(find.byKey(const ValueKey('cal-filter-member-me')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show 1 filter'));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Parent evening'), findsOneWidget);
+      expect(find.textContaining('Parent evening'), findsOneWidget);
     },
   );
 
@@ -2645,7 +2684,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('cal-month-title')));
     await tester.pumpAndSettle();
-    expect(find.text('Jump to a month'), findsOneWidget);
+    expect(find.text('Go to month'), findsOneWidget);
 
     final today = _isoNow();
     final year = int.parse(today.substring(0, 4));
@@ -2815,20 +2854,24 @@ void main() {
       );
       expect(bar, findsOneWidget);
       expect(
-        find.descendant(of: bar, matching: find.text('Take out bins')),
+        find.descendant(of: bar, matching: find.text('▢ Take out bins')),
         findsOneWidget,
       );
-      final usesAssigneeColor = tester
-          .widgetList<Container>(
-            find.descendant(of: bar, matching: find.byType(Container)),
-          )
-          .any(
-            (container) =>
-                container.decoration is BoxDecoration &&
-                (container.decoration! as BoxDecoration).color ==
-                    kMemberColors[1],
-          );
-      expect(usesAssigneeColor, isTrue);
+      // A to-do bar is white with a dotted outline in the resolved event
+      // colour — here the assignee's, since no category is set (§3a).
+      final barBox = tester.widget<Container>(bar);
+      expect((barBox.decoration! as BoxDecoration).color, Colors.white);
+      expect(
+        barBox.foregroundDecoration.runtimeType.toString(),
+        contains('Dotted'),
+      );
+      expect(
+        tester
+            .widget<Text>(find.descendant(of: bar, matching: find.byType(Text)))
+            .style
+            ?.color,
+        kMemberColors[1],
+      );
     });
 
     testWidgets(
@@ -2919,7 +2962,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final cardTitle = find.byWidgetPredicate(
-        (w) => w is Text && w.data == 'Film reel' && w.style?.fontSize == 13.5,
+        (w) =>
+            w is Text &&
+            (w.data ?? '').startsWith('Film reel') &&
+            w.style?.fontSize == 13,
       );
       expect(cardTitle, findsOneWidget);
       expect(find.byKey(ValueKey('event-c1-$today')), findsOneWidget);
@@ -2966,9 +3012,7 @@ void main() {
       final sheetTitle = tester.widget<Text>(
         find.byWidgetPredicate(
           (w) =>
-              w is Text &&
-              w.data == 'Take out bins' &&
-              w.style?.fontSize == 13.5,
+              w is Text && w.data == 'Take out bins' && w.style?.fontSize == 13,
         ),
       );
       expect(sheetTitle.style?.decoration, TextDecoration.lineThrough);
@@ -3015,8 +3059,11 @@ void main() {
         landOnDefaultTab: true,
       );
       await goToCalendar(tester);
+      // The agenda lists every one of the day's events; a month cell caps
+      // itself at a banner plus one bar then "+N more" (#340).
+      await setCalView(tester, 'agenda');
 
-      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.textContaining('Team sync'), findsOneWidget);
       expect(find.text('Take out bins'), findsOneWidget);
       expect(find.text('Film reel'), findsOneWidget);
 
@@ -3028,7 +3075,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
       await tester.pumpAndSettle();
       expect(find.text('Take out bins'), findsNothing);
-      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.textContaining('Team sync'), findsOneWidget);
       expect(find.text('Film reel'), findsOneWidget);
 
       // Turning off content too hides that occurrence, leaving only the
@@ -3036,19 +3083,19 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-content')));
       await tester.pumpAndSettle();
       expect(find.text('Film reel'), findsNothing);
-      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.textContaining('Team sync'), findsOneWidget);
 
       // Tapping the last remaining enabled layer's chip must be ignored —
       // at least one layer always stays visible.
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-appt')));
       await tester.pumpAndSettle();
-      expect(find.text('Team sync'), findsOneWidget);
+      expect(find.textContaining('Team sync'), findsOneWidget);
 
       // Re-enabling brings the hidden occurrences back.
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-task')));
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-content')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Show all events'));
+      await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(find.text('Take out bins'), findsOneWidget);
       expect(find.text('Film reel'), findsOneWidget);
@@ -3085,19 +3132,23 @@ void main() {
               widget.key is ValueKey<String> &&
               (widget.key! as ValueKey<String>).value.startsWith('cal-bar-t1-'),
         );
-        final checkbox = find.byKey(ValueKey('cal-check-t1-$today'));
 
+        // Month bars are label-only now (§3a) — "▢ " marks a to-do and the
+        // checkbox itself lives on the full row in the day sheet.
         expect(monthBar(), findsOneWidget);
-        expect(checkbox, findsOneWidget);
         expect(
-          find.descendant(of: monthBar(), matching: find.text('Take out bins')),
+          find.descendant(
+            of: monthBar(),
+            matching: find.text('▢ Take out bins'),
+          ),
           findsOneWidget,
         );
-        await tester.tap(checkbox);
+
+        await tester.tap(find.byKey(ValueKey('cal-day-bg-$today')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('event-check-t1-$today')));
         await tester.pumpAndSettle();
 
-        expect(monthBar(), findsOneWidget);
-        expect(checkbox, findsOneWidget);
         final titleWidget = tester.widget<Text>(find.text('Take out bins'));
         expect(titleWidget.style?.decoration, TextDecoration.lineThrough);
       },
@@ -3135,23 +3186,35 @@ void main() {
         );
         await goToCalendar(tester);
 
-        final todayCheckbox = ValueKey('cal-check-t1-$today');
-        final futureCheckbox = ValueKey('cal-check-t1-$future');
-        expect(find.byKey(todayCheckbox), findsOneWidget);
-        expect(find.byKey(futureCheckbox), findsOneWidget);
-        final countBefore = find.text('Water plants').evaluate().length;
+        Finder barOn(String iso) => find.byKey(ValueKey('cal-bar-t1-$iso'));
+        expect(barOn(today), findsOneWidget);
+        expect(barOn(future), findsOneWidget);
+        final countBefore = find
+            .textContaining('Water plants')
+            .evaluate()
+            .length;
 
-        await tester.tap(find.byKey(todayCheckbox));
+        // Tick today's occurrence from its day sheet, then close it.
+        await tester.tap(find.byKey(ValueKey('cal-day-bg-$today')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(ValueKey('event-check-t1-$today')));
+        await tester.pumpAndSettle();
+        await tester.tapAt(const Offset(200, 60));
         await tester.pumpAndSettle();
 
         // Both occurrences stay on the calendar (done occurrences are
         // never removed) — only today's picks up the done/strikethrough
         // treatment, the later one is untouched.
-        expect(find.byKey(todayCheckbox), findsOneWidget);
-        expect(find.byKey(futureCheckbox), findsOneWidget);
-        expect(find.text('Water plants').evaluate().length, countBefore);
+        expect(barOn(today), findsOneWidget);
+        expect(barOn(future), findsOneWidget);
+        expect(
+          find.textContaining('Water plants').evaluate().length,
+          countBefore,
+        );
 
-        final titles = tester.widgetList<Text>(find.text('Water plants'));
+        final titles = tester.widgetList<Text>(
+          find.textContaining('Water plants'),
+        );
         final decorations = titles.map((t) => t.style?.decoration).toList();
         expect(decorations, contains(TextDecoration.lineThrough));
         expect(decorations, contains(TextDecoration.none));
@@ -3183,34 +3246,21 @@ void main() {
         );
         await goToCalendar(tester);
 
-        final bar = find.byWidgetPredicate(
+        // An all-day event of ANY layer paints as the cell's bottom banner
+        // — tinted in its own colour with a rule on top, never a dotted
+        // content-only outline (§3a).
+        final banner = find.byWidgetPredicate(
           (widget) =>
               widget.key is ValueKey<String> &&
-              (widget.key! as ValueKey<String>).value.startsWith('cal-bar-c1-'),
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'cal-banner-c1-',
+              ),
         );
-        expect(bar, findsOneWidget);
-        final hasDashedOutline = tester
-            .widgetList<Container>(
-              find.descendant(of: bar, matching: find.byType(Container)),
-            )
-            .any(
-              (c) =>
-                  c.foregroundDecoration != null &&
-                  c.foregroundDecoration!.runtimeType.toString().contains(
-                    'Dashed',
-                  ),
-            );
-        expect(hasDashedOutline, isFalse);
-        final usesSolidFill = tester
-            .widgetList<Container>(
-              find.descendant(of: bar, matching: find.byType(Container)),
-            )
-            .any(
-              (c) =>
-                  c.decoration is BoxDecoration &&
-                  (c.decoration! as BoxDecoration).color == kCatColors[2],
-            );
-        expect(usesSolidFill, isTrue);
+        expect(banner, findsOneWidget);
+        final decoration =
+            tester.widget<Container>(banner).decoration! as BoxDecoration;
+        expect(tester.widget<Container>(banner).foregroundDecoration, isNull);
+        expect((decoration.border! as Border).top.color, kCatColors[2]);
       },
     );
 
@@ -3317,20 +3367,19 @@ void main() {
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
 
+      // Only sections that actually have something show now — an enabled
+      // but empty layer no longer renders a header + "No events yet" row
+      // (#348).
       expect(find.byKey(ValueKey('agenda-appt-e1-$today')), findsOneWidget);
       expect(
-        find.byKey(ValueKey('agenda-layer-empty-task-$today')),
+        find.byKey(ValueKey('agenda-layer-header-appt-$today')),
         findsOneWidget,
       );
       expect(
-        find.byKey(ValueKey('agenda-layer-empty-content-$today')),
+        find.byKey(ValueKey('agenda-layer-header-task-$today')),
         findsNothing,
       );
-      expect(find.text('No events yet'), findsOneWidget);
-      expect(
-        find.byKey(ValueKey('agenda-layer-header-content-$today')),
-        findsNothing,
-      );
+      expect(find.text('No events yet'), findsNothing);
     });
 
     testWidgets(
@@ -3364,7 +3413,8 @@ void main() {
         );
         final decoration = container.decoration as BoxDecoration;
         expect(decoration.color, kMemberColors[1]);
-        expect(decoration.boxShadow?.isNotEmpty ?? false, isFalse);
+        // Appointment rows carry a soft shadow in their own colour (§3a).
+        expect(decoration.boxShadow?.isNotEmpty ?? false, isTrue);
         expect(
           find.byKey(ValueKey('agenda-attendees-e1-$today')),
           findsOneWidget,
@@ -3512,10 +3562,7 @@ void main() {
       );
       final decoration = container.decoration as BoxDecoration;
       expect(decoration.color, activity.color);
-      expect(
-        find.byKey(ValueKey('agenda-title-category-e1-$today')),
-        findsOneWidget,
-      );
+      expect(find.byKey(ValueKey('agenda-appt-ico-e1-$today')), findsOneWidget);
       expect(
         find.byKey(ValueKey('agenda-attendees-e1-$today')),
         findsOneWidget,
@@ -3610,21 +3657,12 @@ void main() {
         await goToCalendar(tester);
         await setCalView(tester, 'agenda');
 
-        Row dotsRowOf(String iso) => tester.widget<Row>(
-          find.descendant(
-            of: find.byKey(ValueKey('cal-week-strip-$iso')),
-            matching: find.byWidgetPredicate(
-              (w) => w is Row && w.mainAxisSize == MainAxisSize.min,
-            ),
-          ),
-        );
-
-        // The appt layer has an occurrence today, so its dot shows.
+        // One teal dot means "this day has something" — not one dot per
+        // layer in layer colours any more (#348).
         expect(
-          find.byKey(ValueKey('cal-week-strip-dot-$today-0')),
+          find.byKey(ValueKey('cal-week-strip-dot-$today')),
           findsOneWidget,
         );
-        expect(dotsRowOf(today).children.length, 1);
 
         // Disabling the appt layer hides that day's dot even though
         // the occurrence still exists.
@@ -3633,14 +3671,10 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('cal-filter-layer-appt')));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Show all events'));
+        await tester.tap(find.text('Done'));
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(ValueKey('cal-week-strip-dot-$today-0')),
-          findsNothing,
-        );
-        expect(dotsRowOf(today).children, isEmpty);
+        expect(find.byKey(ValueKey('cal-week-strip-dot-$today')), findsNothing);
       },
     );
 

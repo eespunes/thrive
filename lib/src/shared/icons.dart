@@ -169,6 +169,13 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M9 8h6'],
     ['path', 'M17 16h6'],
   ],
+  // Three narrowing bars — the calendar header's filter button (design
+  // §2a), distinct from the solid 'filter' funnel used elsewhere.
+  'funnel': [
+    ['path', 'M4 6h16'],
+    ['path', 'M7 12h10'],
+    ['path', 'M10 18h4'],
+  ],
   'filter': [
     ['path', 'M22 3H2l8 9.46V19l4 2v-8.54L22 3Z'],
   ],

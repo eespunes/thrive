@@ -1,20 +1,85 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Memo cache for Month-view week rows: occurrence expansion + lane packing
-/// is expensive (recurrence expansion over all events + imported calendars)
-/// and runs for 6 week rows per month page on every whole-app rebuild.
-/// Keyed by week start/end; entries are invalidated by the state revision
+/// Memo cache for a Month-view page's occurrences: expansion is expensive
+/// (recurrence expansion over all events + imported calendars) and would
+/// otherwise rerun for every one of the 42 cells on every whole-app
+/// rebuild. Keyed by grid start/end, holding the per-day buckets each cell
+/// reads. Entries are invalidated by the state revision
 /// ([_ThriveHomeState._rev]) and a signature of everything else that affects
 /// the result (active filters, family, state instance).
 final Map<
   String,
-  ({
-    int rev,
-    String sig,
-    ({List<List<CalendarOccurrence?>> lanes, Map<int, int> overflow}) packed,
-  })
+  ({int rev, String sig, Map<String, List<CalendarOccurrence>> byDay})
 >
 _calWeekMemo = {};
+
+/// Birthday kind palette (design §3a) — cream fill, amber rule, amber-brown
+/// ink. Shared by every surface so a birthday looks identical everywhere.
+const Color kBirthdayCream = Color(0xfffdf1d8);
+const Color kBirthdayAmber = Color(0xffd97706);
+const Color kBirthdayInk = Color(0xff92610c);
+const Color kBirthdaySubInk = Color(0xffb18a45);
+
+/// Imported-feed stripes — "not ours": read-only, tap opens details.
+const LinearGradient kImportedStripes = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  tileMode: TileMode.repeated,
+  colors: [
+    Color(0xff5d6b7e),
+    Color(0xff5d6b7e),
+    Color(0xff6b7a8e),
+    Color(0xff6b7a8e),
+  ],
+  stops: [0.0, 0.5, 0.5, 1.0],
+);
+
+/// The resolved display anatomy of one occurrence on one day — the single
+/// source every calendar surface paints from (epic #343).
+class _EvAnatomy {
+  const _EvAnatomy({
+    required this.kind,
+    required this.color,
+    required this.category,
+    required this.layer,
+    required this.title,
+    required this.sub,
+    required this.when,
+    required this.chip,
+    required this.done,
+    required this.past,
+    required this.recurring,
+    required this.multiDay,
+  });
+
+  final CalEventKind kind;
+  final Color color;
+  final EventCategory? category;
+  final CalendarLayerDef? layer;
+
+  /// Title with its ↻ / ⇩ affixes already applied, in that order.
+  final String title;
+
+  /// `when · Category (· read-only)`.
+  final String sub;
+  final String when;
+
+  /// The compact time-chip text used by kitchen pills.
+  final String chip;
+  final bool done;
+  final bool past;
+  final bool recurring;
+  final bool multiDay;
+
+  /// The month-cell bar label: prefixes, then the title.
+  String get barLabel {
+    final buf = StringBuffer();
+    if (kind == CalEventKind.todo) buf.write('▢ ');
+    if (recurring) buf.write('↻ ');
+    buf.write(title);
+    return buf.toString();
+  }
+}
 
 /// (value, label, icon) for each calendar view, in picker order.
 const List<(String, String, String)> kCalViews = [
@@ -31,69 +96,60 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   static const int _calendarPageCenter = 10000;
 
-  String _calViewIcon() {
-    for (final (v, _, icon) in kCalViews) {
-      if (v == calView) return icon;
-    }
-    return 'grid';
-  }
-
-  /// View-switcher + filter (badge) icon buttons shown in the app header
-  /// when the Calendar tab is active.
+  /// The calendar header's right-hand controls (design §2a): three inline
+  /// view buttons — month / agenda / kitchen — and the funnel filter
+  /// button. There is no second toolbar and no view-picker sheet: the three
+  /// buttons ARE the switcher.
   Widget _calHeaderActions() {
-    final fc = calFilterCount();
-    Widget iconBtn(
-      String icon,
-      String keySuffix,
-      VoidCallback onTap, {
-      int? badge,
+    final filtersOn = calFiltersActive();
+
+    Widget squareBtn({
+      required Key key,
+      required Widget child,
+      required VoidCallback onTap,
+      required bool active,
+      bool dimmed = false,
+      bool ringTeal = false,
+      bool dot = false,
     }) {
-      final active = badge != null && badge > 0;
       return GestureDetector(
-        key: ValueKey('cal-header-$keySuffix'),
+        key: key,
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(left: 8),
-          width: 38,
-          height: 38,
+          margin: const EdgeInsets.only(left: 6),
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            border: Border.all(color: active ? B.primary : B.line),
-            color: active ? B.soft : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: active
+                ? B.ink
+                : ringTeal
+                ? B.soft
+                : Colors.white,
+            borderRadius: BorderRadius.circular(11),
+            border: active
+                ? null
+                : Border.all(
+                    color: ringTeal ? B.primary : const Color(0xffdde3ea),
+                    width: ringTeal ? 1.5 : 1,
+                  ),
           ),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               Center(
-                child: ic(
-                  icon,
-                  size: 18,
-                  sw: 2.1,
-                  color: active ? B.deep : B.soft2,
-                ),
+                child: Opacity(opacity: dimmed ? .5 : 1, child: child),
               ),
-              if (badge != null && badge > 0)
+              if (dot)
                 Positioned(
-                  top: -5,
-                  right: -5,
+                  top: 4,
+                  right: 4,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 17),
-                    height: 17,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 7,
+                    height: 7,
                     decoration: BoxDecoration(
                       color: B.primary,
-                      borderRadius: BorderRadius.circular(9),
-                      border: Border.all(color: B.page, width: 2),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$badge',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
                   ),
                 ),
@@ -103,12 +159,55 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       );
     }
 
+    Widget viewBtn(String value, String icon) {
+      final active = calView == value;
+      return squareBtn(
+        key: ValueKey('cal-view-$value'),
+        active: active,
+        onTap: () => setCalView(value),
+        child: ic(
+          icon,
+          size: 16,
+          sw: 2.2,
+          color: active ? Colors.white : B.soft2,
+        ),
+      );
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _deviceCalendarSavingIndicator(),
-        iconBtn(_calViewIcon(), 'view', openViewPicker),
-        iconBtn('filter', 'filter', openCalFilterSheet, badge: fc),
+        for (final (value, _, icon) in kCalViews) viewBtn(value, icon),
+        // The kitchen wall is a full-screen route, not a `calView` — the
+        // chef button is greyed while the wall is switched off, and tapping
+        // it then re-enables it (as the old picker sheet row did).
+        squareBtn(
+          key: const ValueKey('cal-view-kitchen'),
+          active: false,
+          dimmed: !kitchenEnabled,
+          onTap: () {
+            if (kitchenEnabled) {
+              openKitchenDashboard();
+            } else {
+              toggleKitchenEnabled();
+            }
+          },
+          child: ic('columns', size: 16, sw: 2.2, color: B.soft2),
+        ),
+        squareBtn(
+          key: const ValueKey('cal-header-filter'),
+          active: false,
+          ringTeal: filtersOn,
+          dot: filtersOn,
+          onTap: openCalFilterSheet,
+          child: ic(
+            'funnel',
+            size: 15,
+            sw: 2.6,
+            color: filtersOn ? B.deep : B.soft2,
+          ),
+        ),
       ],
     );
   }
@@ -190,6 +289,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         }
         update(() {
           calAnchor = nextAnchor;
+          // Selection resets on month travel: today for the current month,
+          // the 1st otherwise (design §2a state model).
+          final landing = _calLandingDay(nextAnchor);
+          calSel = landing;
+          agendaDay = landing;
         });
       },
       itemBuilder: (context, index) {
@@ -265,324 +369,396 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   // -------------------------------------------------------------- month
+  /// Cell-stack order inside a month day (design `onDayM`): birthdays
+  /// first, then all-day/multi-day banners, then timed events, then to-dos.
+  static int _monthCellRank(CalendarOccurrence o) {
+    if (o.isBirthday) return 0;
+    if (o.ev.allDay || o.isMultiDay) return 1;
+    if (o.isTask) return 3;
+    return 2;
+  }
+
+  static int _compareMonthCell(CalendarOccurrence a, CalendarOccurrence b) {
+    final rank = _monthCellRank(a).compareTo(_monthCellRank(b));
+    if (rank != 0) return rank;
+    final time = (a.ev.allDay ? '' : a.ev.start).compareTo(
+      b.ev.allDay ? '' : b.ev.start,
+    );
+    if (time != 0) return time;
+    return a.ev.title.compareTo(b.ev.title);
+  }
+
+  /// Every occurrence touching a month page's 42-day grid, bucketed by the
+  /// ISO day it should paint on — a multi-day run appears in every cell it
+  /// crosses so each cell can draw its own segment of the continuous
+  /// ribbon. Memoised per grid (see [_calWeekMemo]).
+  Map<String, List<CalendarOccurrence>> _monthOccurrencesByDay(
+    List<String> grid,
+  ) {
+    final ws = grid.first;
+    final we = grid.last;
+    final sig =
+        '${identityHashCode(this)}|$familyId'
+        '|${calFilter.join(',')}|${calCatFilter.join(',')}'
+        '|${layerFilter.join(',')}';
+    final key = '$ws|$we';
+    var memo = _calWeekMemo[key];
+    if (memo == null || memo.rev != _rev.value || memo.sig != sig) {
+      if (_calWeekMemo.length > 24) _calWeekMemo.clear();
+      final byDay = <String, List<CalendarOccurrence>>{};
+      for (final o in eventOccurrences(ws, we)) {
+        var d = o.date.compareTo(ws) < 0 ? ws : o.date;
+        final end = o.spanEnd.compareTo(we) > 0 ? we : o.spanEnd;
+        while (d.compareTo(end) <= 0) {
+          (byDay[d] ??= <CalendarOccurrence>[]).add(o);
+          d = _addDaysIso(d, 1);
+        }
+      }
+      for (final list in byDay.values) {
+        list.sort(_compareMonthCell);
+      }
+      memo = (rev: _rev.value, sig: sig, byDay: byDay);
+      _calWeekMemo[key] = memo;
+    }
+    return memo.byDay;
+  }
+
+  /// A past month is view-only (design §2a) — its day sheets lose the add
+  /// button and the header carries the amber PAST pill.
+  bool _calMonthIsPast(String anchor) {
+    final d = _parseIso(anchor);
+    final now = _parseIso(todayIso());
+    return d.year < now.year || (d.year == now.year && d.month < now.month);
+  }
+
+  /// Where selection lands after travelling to [anchor]'s month: today when
+  /// it IS the current month, otherwise the 1st (design `gPrev`/`gNext`).
+  String _calLandingDay(String anchor) {
+    final d = _parseIso(anchor);
+    final now = _parseIso(todayIso());
+    if (d.year == now.year && d.month == now.month) return todayIso();
+    return _isoOf(d.year, d.month, 1);
+  }
+
   Widget _calMonth(String anchor) {
     final grid = monthGrid(anchor);
     final curMonth = _parseIso(anchor).month;
     final today = todayIso();
-
-    bool isInCurrentMonth(String iso) => _parseIso(iso).month == curMonth;
-
-    Widget dayNumber(String iso) {
-      final d = _parseIso(iso);
-      final inMonth = d.month == curMonth;
-      final isToday = iso == today;
-      return GestureDetector(
-        key: ValueKey('cal-day-$iso'),
-        onTap: () {
-          setCalSel(iso);
-          openDayDetail(iso);
-        },
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.only(top: 2),
-          child: Container(
-            width: 19,
-            height: 19,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isToday ? B.primary : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${d.day}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isToday ? FontWeight.w800 : FontWeight.w700,
-                color: isToday
-                    ? Colors.white
-                    : (inMonth ? B.ink : const Color(0xffc2cad6)),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    Widget weekRow(List<String> row, int wi) {
-      final ws = row.first;
-      final we = row.last;
-      final sig =
-          '${identityHashCode(this)}|$familyId'
-          '|${calFilter.join(',')}|${calCatFilter.join(',')}'
-          '|${layerFilter.join(',')}';
-      final key = '$ws|$we';
-      var memo = _calWeekMemo[key];
-      if (memo == null || memo.rev != _rev.value || memo.sig != sig) {
-        if (_calWeekMemo.length > 64) _calWeekMemo.clear();
-        final occ = eventOccurrences(ws, we);
-        memo = (rev: _rev.value, sig: sig, packed: packWeekLanes(occ, ws, we));
-        _calWeekMemo[key] = memo;
-      }
-      final packed = memo.packed;
-      final inCurrentMonth = [for (final iso in row) isInCurrentMonth(iso)];
-
-      // Every occurrence's Month-view bar uses the exact same visual
-      // treatment now — a solid colour-filled block, regardless of which
-      // calendar layer it belongs to (issue: calendar layers uniform
-      // rendering) — rather than appointments getting a solid block while
-      // task/content occurrences got a distinct outlined/dashed pill.
-      // To-do/content-style occurrences (`o.isTask`) still get a small
-      // leading checkbox that toggles completion independently of the
-      // day-detail tap; a done occurrence stays on the calendar (never
-      // removed) but shows a strikethrough label and reduced opacity.
-      Widget bar(CalendarOccurrence o, int cs, int ce, {bool faded = false}) {
-        final col = evColor(o.ev);
-        final barFg = contrastOn(col);
-        final category = catById(o.ev.category);
-        final left = o.date.compareTo(ws) < 0;
-        final right = o.spanEnd.compareTo(we) > 0;
-        final label = (o.isMultiDay && left) ? '‹ ${o.ev.title}' : o.ev.title;
-        final span = ce - cs + 1;
-        final done = o.done;
-
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // Tapping an event bar (single- or multi-day) always opens the
-            // day-detail sheet for the day under the finger — never the
-            // individual event view directly — so every tap on a Month-view
-            // day, on an event or on empty space, shows the day's full
-            // event list first (issue #198).
-            void openDetailForTap(double localX) {
-              final width = constraints.maxWidth;
-              final frac = width > 0 ? (localX / width).clamp(0.0, 0.999) : 0;
-              final dayIndex = (cs + (frac * span).floor()).clamp(cs, ce);
-              final iso = row[dayIndex];
-              setCalSel(iso);
-              openDayDetail(iso);
-            }
-
-            return GestureDetector(
-              key: ValueKey('cal-bar-${o.ev.id}-$wi-$cs'),
-              onTapUp: (details) => openDetailForTap(details.localPosition.dx),
-              child: Opacity(
-                opacity: (faded || done) ? _calendarFadedOpacity : 1,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 1,
-                    vertical: .5,
-                  ),
-                  height: 14,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: col,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(left ? 0 : 4),
-                      bottomLeft: Radius.circular(left ? 0 : 4),
-                      topRight: Radius.circular(right ? 0 : 4),
-                      bottomRight: Radius.circular(right ? 0 : 4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (o.isTask)
-                        GestureDetector(
-                          key: ValueKey('cal-check-${o.ev.id}-${o.date}'),
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _toggleOccurrenceDone(o),
-                          child: Container(
-                            width: 9,
-                            height: 9,
-                            margin: const EdgeInsets.only(right: 3),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: done ? barFg.withValues(alpha: .22) : null,
-                              border: Border.all(color: barFg, width: 1.2),
-                            ),
-                            child: done
-                                ? Icon(Icons.check, size: 6.5, color: barFg)
-                                : null,
-                          ),
-                        )
-                      else if (category != null) ...[
-                        categoryGlyph(category, size: 10, iconColor: barFg),
-                        const SizedBox(width: 3),
-                      ] else if (!o.isMultiDay)
-                        Container(
-                          width: 5,
-                          height: 5,
-                          margin: const EdgeInsets.only(right: 3),
-                          decoration: BoxDecoration(
-                            color: barFg,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      Flexible(
-                        child: Text(
-                          label,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                            color: barFg,
-                            decoration: done
-                                ? TextDecoration.lineThrough
-                                : TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      }
-
-      final laneRows = <Widget>[];
-      for (final lane in packed.lanes) {
-        final cells = <Widget>[];
-        var c = 0;
-        while (c < 7) {
-          final o = lane[c];
-          if (o == null) {
-            cells.add(const Expanded(child: SizedBox()));
-            c++;
-            continue;
-          }
-          final startInCurrentMonth = inCurrentMonth[c];
-          var span = 1;
-          while (c + span < 7 &&
-              lane[c + span] == o &&
-              (inCurrentMonth[c + span] == startInCurrentMonth)) {
-            span++;
-          }
-          cells.add(
-            Expanded(
-              flex: span,
-              child: bar(o, c, c + span - 1, faded: !startInCurrentMonth),
-            ),
-          );
-          c += span;
-        }
-        laneRows.add(Row(children: cells));
-      }
-      final overflowRow = packed.overflow.isEmpty
-          ? null
-          : Row(
-              children: [
-                for (var i = 0; i < 7; i++)
-                  Expanded(
-                    child: packed.overflow[i] != null
-                        ? Padding(
-                            padding: const EdgeInsets.only(left: 3),
-                            child: Text(
-                              '+${packed.overflow[i]}',
-                              style: const TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w800,
-                                color: B.muted,
-                              ),
-                            ),
-                          )
-                        : const SizedBox(),
-                  ),
-              ],
-            );
-
-      return Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: wi == 0 ? BorderSide.none : BorderSide(color: B.line),
-          ),
-        ),
-        padding: const EdgeInsets.fromLTRB(0, 3, 0, 4),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Row(
-              children: [
-                for (var dayIndex = 0; dayIndex < row.length; dayIndex++)
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        setCalSel(row[dayIndex]);
-                        openDayDetail(row[dayIndex]);
-                      },
-                      child: Container(
-                        key: ValueKey('cal-day-bg-${row[dayIndex]}'),
-                        decoration: BoxDecoration(
-                          color: inCurrentMonth[dayIndex]
-                              ? Colors.transparent
-                              : B.faint,
-                          border: Border(
-                            left: dayIndex == 0
-                                ? BorderSide.none
-                                : const BorderSide(color: B.line),
-                          ),
-                        ),
-                        foregroundDecoration: row[dayIndex] == today
-                            ? BoxDecoration(
-                                border: Border.all(
-                                  color: B.primary,
-                                  width: 1.4,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            Column(
-              children: [
-                Row(
-                  children: [
-                    for (final iso in row) Expanded(child: dayNumber(iso)),
-                  ],
-                ),
-                ...laneRows,
-                ?overflowRow,
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
+    final byDay = _monthOccurrencesByDay(grid);
     final weeks = [for (var w = 0; w < 6; w++) grid.sublist(w * 7, w * 7 + 7)];
 
-    // No card chrome or weekday header here: `_withStickyMonthWeekdays`
-    // (the caller) already renders the single genuinely-sticky weekday
-    // header and the card's border/shadow/rounded corners exactly once,
-    // outside the swipeable month pager. Previously this page ALSO built
-    // its own weekday-letter row (`cal-weekday-N`) and its own copy of the
-    // card chrome, so every month page showed a second, non-sticky header
-    // stacked directly below the real sticky one while scrolling (issue
-    // #190).
     return Column(
       children: [
         for (var wi = 0; wi < weeks.length; wi++)
-          Expanded(child: weekRow(weeks[wi], wi)),
+          Expanded(
+            child: Row(
+              children: [
+                for (final iso in weeks[wi])
+                  Expanded(
+                    child: _calMonthCell(
+                      iso,
+                      curMonth: curMonth,
+                      today: today,
+                      occ: byDay[iso] ?? const <CalendarOccurrence>[],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        // Month travel is swipe-only — there are deliberately no ‹ › arrows
+        // and no Today button in the header (design §2a).
+        const Padding(
+          key: ValueKey('cal-swipe-hint'),
+          padding: EdgeInsets.fromLTRB(0, 5, 0, 4),
+          child: Text(
+            '‹ swipe to change month ›',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xffb3bcc9),
+            ),
+          ),
+        ),
       ],
     );
   }
 
+  /// One month day cell: tinted background, the day number, up to two
+  /// per-kind bars, "+N more", and an optional bottom banner.
+  Widget _calMonthCell(
+    String iso, {
+    required int curMonth,
+    required String today,
+    required List<CalendarOccurrence> occ,
+  }) {
+    final d = _parseIso(iso);
+    final ghost = d.month != curMonth;
+    final isToday = iso == today;
+    final past = !isToday && iso.compareTo(today) < 0;
+    final weekend = d.weekday >= 6;
+    final fade = ghost ? .3 : (past ? _calendarFadedOpacity : 1.0);
+
+    // A to-do is always a bar, never a banner — its dotted outline and ▢ are
+    // the point, and app to-dos are all-day by nature (design §3a).
+    final banners = [
+      for (final o in occ)
+        if (o.kind != CalEventKind.todo &&
+            (o.isBirthday || o.ev.allDay || o.isMultiDay))
+          o,
+    ];
+    final banner = banners.isEmpty ? null : banners.first;
+    final bars = [
+      for (final o in occ)
+        if (o != banner && !banners.contains(o)) o,
+    ];
+    final maxBars = banner != null ? 1 : 2;
+    final shownBars = bars.take(maxBars).toList();
+    final shown = (banner != null ? 1 : 0) + shownBars.length;
+    final more = occ.length - shown;
+
+    final bg = ghost
+        ? const Color(0xfff7f9fb)
+        : past
+        ? const Color(0xffe9edf1)
+        : isToday
+        ? const Color(0xffd7efeb)
+        : weekend
+        ? const Color(0xfffaf0d6)
+        : const Color(0xffe7f5f3);
+    final border = isToday
+        ? B.primary
+        : ghost
+        ? const Color(0xffeef1f5)
+        : past
+        ? const Color(0xffdfe3e8)
+        : weekend
+        ? const Color(0xffefe3c2)
+        : const Color(0xffcfe8e4);
+
+    return GestureDetector(
+      key: ValueKey('cal-day-bg-$iso'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        // Tapping a ghost day travels to its month first, then opens it
+        // (design §2a) — it used to open the sheet without travelling.
+        if (ghost) update(() => calAnchor = iso);
+        setCalSel(iso);
+        openDayDetail(iso);
+      },
+      child: Opacity(
+        opacity: ghost ? .75 : 1,
+        child: Container(
+          margin: const EdgeInsets.all(1.5),
+          decoration: BoxDecoration(
+            color: bg,
+            border: Border.all(color: border, width: isToday ? 1.5 : 1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _calDayNumber(
+                iso,
+                d.day,
+                isToday: isToday,
+                ghost: ghost,
+                past: past,
+              ),
+              for (final o in shownBars)
+                Opacity(opacity: fade, child: _calMonthBar(o, iso)),
+              if (more > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 3),
+                  child: Text(
+                    '+$more more',
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      color: B.muted,
+                    ),
+                  ),
+                ),
+              const Spacer(),
+              if (banner != null)
+                Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _calDayNumber(
+    String iso,
+    int day, {
+    required bool isToday,
+    required bool ghost,
+    required bool past,
+  }) {
+    return Container(
+      key: ValueKey('cal-day-$iso'),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.only(top: 3, bottom: 2),
+      child: Container(
+        width: 19,
+        height: 19,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isToday ? B.primary : Colors.transparent,
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          '$day',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: isToday
+                ? Colors.white
+                : ghost
+                ? const Color(0xffc3ccd6)
+                : past
+                ? const Color(0xffb3bcc9)
+                : B.text,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A single timed/to-do/imported bar inside a month cell (design §3a).
+  Widget _calMonthBar(CalendarOccurrence o, String iso) {
+    final a = _evAnatomy(o, iso);
+    final isTodo = a.kind == CalEventKind.todo;
+    final isImported = a.kind == CalEventKind.imported;
+    final ink = isTodo ? a.color : Colors.white;
+    return Container(
+      key: ValueKey('cal-bar-${o.ev.id}-$iso'),
+      margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
+      padding: EdgeInsets.symmetric(horizontal: 3, vertical: isTodo ? 1 : 2),
+      decoration: BoxDecoration(
+        color: isTodo
+            ? Colors.white
+            : isImported
+            ? null
+            : a.color,
+        gradient: isImported ? kImportedStripes : null,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      foregroundDecoration: isTodo
+          ? _DottedBoxDecoration(color: a.color, radius: 4, width: 1.5)
+          : null,
+      child: Text(
+        a.barLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.left,
+        style: TextStyle(
+          fontSize: 8,
+          height: 1.15,
+          fontWeight: FontWeight.w800,
+          color: ink,
+          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
+        ),
+      ),
+    );
+  }
+
+  /// The cell's bottom banner: a birthday ribbon, a continuous multi-day
+  /// ribbon (rounded only at the real run ends, flush mid-run so adjacent
+  /// cells touch), or an all-day strip with a top rule in its colour.
+  Widget _calMonthBanner(CalendarOccurrence o, String iso) {
+    final a = _evAnatomy(o, iso);
+    if (a.kind == CalEventKind.birthday) {
+      return Container(
+        key: ValueKey('cal-banner-${o.ev.id}-$iso'),
+        margin: const EdgeInsets.fromLTRB(2, 2, 2, 2),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+        decoration: BoxDecoration(
+          color: kBirthdayCream,
+          border: Border.all(color: kBirthdayAmber.withValues(alpha: .33)),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          '\u{1F382} ${a.title}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 8,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            color: kBirthdayInk,
+          ),
+        ),
+      );
+    }
+    if (a.multiDay) {
+      final runStart = o.date == iso;
+      final runEnd = o.spanEnd == iso;
+      final fg = contrastOn(a.color);
+      return Container(
+        key: ValueKey('cal-banner-${o.ev.id}-$iso'),
+        margin: EdgeInsets.fromLTRB(runStart ? 2 : 0, 2, runEnd ? 2 : 0, 2),
+        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+        decoration: BoxDecoration(
+          color: a.color,
+          borderRadius: BorderRadius.horizontal(
+            left: Radius.circular(runStart ? 4 : 0),
+            right: Radius.circular(runEnd ? 4 : 0),
+          ),
+        ),
+        // The title paints once, on the run's first visible day; the rest
+        // of the ribbon stays blank so it reads as one continuous strip.
+        child: Text(
+          runStart ? a.title : ' ',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 8,
+            height: 1.15,
+            fontWeight: FontWeight.w800,
+            color: fg,
+          ),
+        ),
+      );
+    }
+    return Container(
+      key: ValueKey('cal-banner-${o.ev.id}-$iso'),
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.fromLTRB(3, 2, 3, 3),
+      decoration: BoxDecoration(
+        color: a.color.withValues(alpha: .15),
+        border: Border(top: BorderSide(color: a.color, width: 2)),
+      ),
+      child: Text(
+        a.title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 8,
+          height: 1.15,
+          fontWeight: FontWeight.w800,
+          color: a.color,
+          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
+        ),
+      ),
+    );
+  }
+
   // ------------------------------------------------------------- agenda
-  /// Agenda mode: a Mon-Sun week strip day-picker (`weekStrip()` in the
-  /// design) above a single selected day's (`agendaDay`) 3 gated
-  /// layer-sections (`daySchedule()`), rather than an infinite multi-day
-  /// list. Tapping a strip day-cell switches which day's sections show.
+  /// Agenda mode (design §2a): a week strip clamped to the shown month,
+  /// then the selected day's events grouped under fixed-order section
+  /// headers. Horizontal swipe changes the MONTH, not the week.
   Widget _calAgenda() {
-    final dayOcc = eventOccurrences(agendaDay, agendaDay);
     final today = todayIso();
-    final sections = _agendaDaySections(agendaDay, dayOcc);
+    final dayOcc = eventOccurrences(agendaDay, agendaDay)
+      ..sort(_compareAgendaOccurrences);
+    final count = dayOcc.length;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _weekStripPager(),
         Expanded(
@@ -591,43 +767,57 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _secLabel(
-                  agendaDay == today
-                      ? 'Today · ${_shortDateIso(agendaDay)}'
-                      : _prettyDateIso(agendaDay),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 4, 2, 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          agendaDay == today
+                              ? 'Today · ${_prettyDateIso(agendaDay)}'
+                              : _prettyDateIso(agendaDay),
+                          key: const ValueKey('cal-agenda-day-heading'),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        count == 0 ? '' : '$count event${count > 1 ? 's' : ''}',
+                        key: const ValueKey('cal-agenda-day-count'),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.primary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                sections,
+                _agendaDaySections(agendaDay, dayOcc),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    '‹ swipe to change month ›',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xffb3bcc9),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ],
     );
-  }
-
-  List<CalendarLayerDef> _agendaLayerDefs(List<CalendarOccurrence> dayOcc) {
-    final base = calendarLayers.isEmpty
-        ? kDefaultCalendarLayers()
-        : calendarLayers;
-    final out = <CalendarLayerDef>[
-      for (final layer in base)
-        if (layerFilter.contains(layer.id)) layer,
-    ];
-    final seen = {for (final layer in out) layer.id};
-    for (final o in dayOcc) {
-      if (!layerFilter.contains(o.layer) || seen.contains(o.layer)) continue;
-      out.add(
-        layerDefFor(o.layer) ??
-            CalendarLayerDef(
-              id: o.layer,
-              label: 'Layer',
-              icon: 'cal',
-              color: evColor(o.ev),
-            ),
-      );
-      seen.add(o.layer);
-    }
-    return out;
   }
 
   int _compareAgendaOccurrences(CalendarOccurrence a, CalendarOccurrence b) {
@@ -638,16 +828,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return a.ev.title.compareTo(b.ev.title);
   }
 
-  /// Mon-Sun day-picker strip for the week containing [agendaDay] — 7
-  /// cells, each showing the weekday letter, date number, and a row of
-  /// small layer-colour dots for any layer with an occurrence that day
-  /// (gated by `layerFilter`, mirroring `layerEnabled`). The selected cell
-  /// fills solid `B.ink` with white text; today (if not selected) shows its
-  /// weekday letter/number in `B.primary` (`weekStrip()` in the design).
-  /// Swipeable pager over Mon-Sun weeks, so the user can navigate to the
-  /// next/previous week; the first day of each page is always Monday.
-  /// Swiping settles `agendaDay` on the Monday of the newly-shown week
-  /// (mirrors `_calPagedView`'s month-paging pattern).
+  /// Mon-Sun day-picker strip for the week containing [agendaDay],
+  /// **clamped to that day's month** — days belonging to a neighbouring
+  /// month render as empty slots rather than travelling by week. A single
+  /// teal dot marks a day with any event under the current filters.
+  /// Swiping the strip pages by MONTH (design §2a).
   Widget _weekStripPager() {
     return SizedBox(
       height: 78,
@@ -659,24 +844,31 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         onPageChanged: (page) {
           final offset = page - _calendarPageCenter;
           if (offset == 0) return;
-          final weekStart = _startOfWeekIso(agendaDay);
-          final nextWeekStart = _addDaysIso(weekStart, offset * 7);
+          final nextAnchor = _addMonthsIso(agendaDay, offset);
           if (calWeekPageController.hasClients) {
             calWeekPageController.jumpToPage(_calendarPageCenter);
           }
-          update(() => agendaDay = nextWeekStart);
+          update(() {
+            final landing = _calLandingDay(nextAnchor);
+            calAnchor = landing;
+            agendaDay = landing;
+            calSel = landing;
+          });
         },
         itemBuilder: (context, index) {
           final offset = index - _calendarPageCenter;
-          final weekStart = _addDaysIso(_startOfWeekIso(agendaDay), offset * 7);
-          return _weekStrip(weekStart);
+          final day = offset == 0
+              ? agendaDay
+              : _calLandingDay(_addMonthsIso(agendaDay, offset));
+          return _weekStrip(_startOfWeekIso(day), day);
         },
       ),
     );
   }
 
-  Widget _weekStrip(String weekStart) {
+  Widget _weekStrip(String weekStart, String anchorDay) {
     final today = todayIso();
+    final month = _parseIso(anchorDay).month;
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
       child: Row(
@@ -684,7 +876,17 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           for (var i = 0; i < 7; i++) ...[
             if (i != 0) const SizedBox(width: 6),
             Expanded(
-              child: _weekStripCell(_addDaysIso(weekStart, i), i, today),
+              child: Builder(
+                builder: (_) {
+                  final iso = _addDaysIso(weekStart, i);
+                  // Clamped: the strip never shows a neighbouring month's
+                  // days, so swiping can only mean "change month".
+                  if (_parseIso(iso).month != month) {
+                    return const SizedBox(height: 60);
+                  }
+                  return _weekStripCell(iso, i, today);
+                },
+              ),
             ),
           ],
         ],
@@ -695,27 +897,25 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   Widget _weekStripCell(String iso, int weekdayIdx, String today) {
     final selected = iso == agendaDay;
     final isToday = iso == today;
+    final past = iso.compareTo(today) < 0;
     final d = _parseIso(iso);
-    final dayOcc = eventOccurrences(iso, iso);
-    // Built straight from the day's occurrences (gated by `layerFilter`)
-    // rather than by iterating [calendarLayers] — so a dot still shows for
-    // a layer with an occurrence that day (e.g. plain appointments) even
-    // when [calendarLayers] hasn't been seeded yet (a legacy/new
-    // workspace with zero layer definitions).
-    final seenLayers = <String>{};
-    final dotColors = <Color>[
-      for (final o in dayOcc)
-        if (layerFilter.contains(o.layer) && seenLayers.add(o.layer))
-          layerDefFor(o.layer)?.color ?? evColor(o.ev),
-    ];
+    final hasEvents = eventOccurrences(iso, iso).isNotEmpty;
+    final ink = selected
+        ? B.deep
+        : past
+        ? const Color(0xffb3bcc9)
+        : B.text;
     return GestureDetector(
       key: ValueKey('cal-week-strip-$iso'),
-      onTap: () => update(() => agendaDay = iso),
+      onTap: () => update(() {
+        agendaDay = iso;
+        calSel = iso;
+      }),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 7),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? B.ink : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: selected ? const Color(0xffe7f5f3) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -723,42 +923,45 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             Text(
               kWeekdayLetters[weekdayIdx],
               style: TextStyle(
-                fontSize: 9.5,
+                fontSize: 9,
                 fontWeight: FontWeight.w800,
-                color: selected
-                    ? Colors.white
-                    : (isToday ? B.primary : B.muted),
+                color: ink.withValues(alpha: .7),
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              '${d.day}',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: selected ? Colors.white : (isToday ? B.primary : B.ink),
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isToday ? B.primary : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '${d.day}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: isToday ? Colors.white : ink,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
+            // One teal dot for "this day has something", not one dot per
+            // layer in layer colours (design §2a).
             SizedBox(
-              height: 4,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var ci = 0; ci < dotColors.length; ci++) ...[
-                    if (ci != 0) const SizedBox(width: 2),
-                    Container(
-                      key: ValueKey('cal-week-strip-dot-$iso-$ci'),
-                      width: 4,
-                      height: 4,
+              height: 5,
+              child: hasEvents
+                  ? Container(
+                      key: ValueKey('cal-week-strip-dot-$iso'),
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
-                        color: selected ? Colors.white : dotColors[ci],
+                        color: selected ? B.deep : B.primary,
                         shape: BoxShape.circle,
                       ),
-                    ),
-                  ],
-                ],
-              ),
+                    )
+                  : null,
             ),
           ],
         ),
@@ -766,34 +969,115 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  Widget _agendaLayerHeader(CalendarLayerDef layer, String date) {
+  /// The agenda's section headers, in one fixed order for every day
+  /// (design §2a): the layers and their categories first, then Birthdays,
+  /// then Imported.
+  List<({String id, String keyId, String label, Color color, Widget swatch})>
+  _agendaSectionOrder() {
+    final layers = calendarLayers.isEmpty
+        ? kDefaultCalendarLayers()
+        : calendarLayers;
+    final out =
+        <
+          ({String id, String keyId, String label, Color color, Widget swatch})
+        >[];
+    Widget swatchFor(Color color, Widget child) => Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .13),
+        border: Border.all(color: color, width: 1.5),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Center(child: child),
+    );
+    for (final layer in layers) {
+      if (!layerFilter.contains(layer.id)) continue;
+      out.add((
+        id: 'layer:${layer.id}',
+        keyId: layer.id,
+        label: layer.label,
+        color: layer.color,
+        swatch: swatchFor(
+          layer.color,
+          glyphTile(
+            size: 13,
+            radius: 4,
+            picture: layer.picture,
+            emoji: layer.emoji,
+            emojiSize: 11,
+            fallback: ic(layer.icon, size: 11, sw: 2.3, color: layer.color),
+          ),
+        ),
+      ));
+      for (final c in eventCategories) {
+        if (c.layerId != layer.id) continue;
+        out.add((
+          id: 'cat:${c.id}',
+          keyId: c.id,
+          label: c.name,
+          color: c.color,
+          swatch: swatchFor(
+            c.color,
+            categoryGlyph(c, size: 12, iconColor: c.color),
+          ),
+        ));
+      }
+    }
+    out.add((
+      id: 'kind:birthday',
+      keyId: 'birthday',
+      label: 'Birthdays',
+      color: kBirthdayAmber,
+      swatch: swatchFor(
+        kBirthdayAmber,
+        const Text('\u{1F382}', style: TextStyle(fontSize: 11)),
+      ),
+    ));
+    out.add((
+      id: 'kind:imported',
+      keyId: 'imported',
+      label: 'Imported',
+      color: B.soft2,
+      swatch: swatchFor(
+        B.soft2,
+        ic('download', size: 11, sw: 2.4, color: B.soft2),
+      ),
+    ));
+    return out;
+  }
+
+  /// Which section an occurrence belongs to — kind wins over layer so a
+  /// birthday, a to-do and an imported event always land in their own
+  /// section whatever layer they were filed under.
+  String _agendaSectionIdFor(CalendarOccurrence o) {
+    switch (o.kind) {
+      case CalEventKind.birthday:
+        return 'kind:birthday';
+      case CalEventKind.imported:
+        return 'kind:imported';
+      case CalEventKind.todo:
+      case CalEventKind.appointment:
+        return o.ev.category != null
+            ? 'cat:${o.ev.category}'
+            : 'layer:${o.layer}';
+    }
+  }
+
+  Widget _agendaSectionHeader(
+    ({String id, String keyId, String label, Color color, Widget swatch}) sec,
+    String date,
+  ) {
     return Container(
-      key: ValueKey('agenda-layer-header-${layer.id}-$date'),
-      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      key: ValueKey('agenda-layer-header-${sec.keyId}-$date'),
+      padding: const EdgeInsets.only(top: 12, bottom: 7),
       child: Row(
         children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: layer.color.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: glyphTile(
-              size: 24,
-              radius: 8,
-              picture: layer.picture,
-              emoji: layer.emoji,
-              emojiSize: 13,
-              fallback: Center(
-                child: ic(layer.icon, size: 13, sw: 2.3, color: layer.color),
-              ),
-            ),
-          ),
+          sec.swatch,
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              layer.label,
+              sec.label,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
@@ -807,83 +1091,248 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  Widget _agendaLayerEmpty(CalendarLayerDef layer, String date) {
-    return Container(
-      key: ValueKey('agenda-layer-empty-${layer.id}-$date'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-      decoration: BoxDecoration(
-        color: B.faint,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: B.line),
-      ),
-      child: const Text(
-        'No events yet',
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: B.muted,
-        ),
-      ),
-    );
-  }
-
-  /// A single day's occurrences grouped by the enabled calendar layers in
-  /// their saved order. Each visible layer renders a header and either its
-  /// time-sorted rows or an empty state, while every actual occurrence keeps
-  /// the same solid agenda row style regardless of layer.
+  /// A single day's occurrences under fixed-order section headers. Sections
+  /// with nothing in them are simply not shown; a day with nothing at all
+  /// gets the calm empty copy.
   Widget _agendaDaySections(String date, List<CalendarOccurrence> dayOcc) {
-    final layers = _agendaLayerDefs(dayOcc);
-    if (layers.isEmpty) {
-      return _emptyState(
-        icon: 'cal',
-        title: 'No layers enabled',
-        sub: 'Turn on a calendar layer to see its agenda.',
-        actionLabel: 'Add event',
-        onAction: () => openEvent(null),
+    if (dayOcc.isEmpty) {
+      return Padding(
+        key: const ValueKey('cal-agenda-empty'),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            layerFilter.isEmpty
+                ? 'No layers enabled — turn one on to see its agenda.'
+                : 'Nothing scheduled — enjoy the calm.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
+            ),
+          ),
+        ),
       );
+    }
+    final grouped = <String, List<CalendarOccurrence>>{};
+    for (final o in dayOcc) {
+      (grouped[_agendaSectionIdFor(o)] ??= <CalendarOccurrence>[]).add(o);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final layer in layers) ...[
-          _agendaLayerHeader(layer, date),
-          Builder(
-            builder: (context) {
-              final rows = dayOcc.where((o) => o.layer == layer.id).toList()
-                ..sort(_compareAgendaOccurrences);
-              if (rows.isEmpty) return _agendaLayerEmpty(layer, date);
-              return Column(
-                children: [
-                  for (final o in rows) ...[
-                    _apptAgendaRow(o),
-                    if (o != rows.last) const SizedBox(height: 8),
-                  ],
-                ],
-              );
-            },
-          ),
-        ],
+        for (final sec in _agendaSectionOrder())
+          if (grouped[sec.id] case final rows? when rows.isNotEmpty) ...[
+            _agendaSectionHeader(sec, date),
+            for (final o in rows) ...[
+              _evRowFull(o, iso: date),
+              if (o != rows.last) const SizedBox(height: 7),
+            ],
+          ],
       ],
     );
   }
 
-  /// Agenda row for ANY occurrence, regardless of layer — a solid block
-  /// filled with the resolved event colour, a narrow time column, and a repeat
-  /// badge when recurring (`apptRow()` in the design). Colour priority is
-  /// category, explicit event colour, then assigned member fallback.
-  Widget _apptAgendaRow(
+  // ------------------------------------------------- event display anatomy
+  // One rule set for every calendar surface (epic #343, design §3a): the
+  // month cell bar, the agenda/day-sheet row and the kitchen pill are three
+  // projections of the SAME resolved anatomy — kind, category colour,
+  // category icon, recurrence, run length and attendees. No surface may
+  // introduce its own colour or wording; add it here instead.
+
+  /// Everything a surface needs to paint [o] on the day [iso].
+  _EvAnatomy _evAnatomy(CalendarOccurrence o, String iso) {
+    final ev = o.ev;
+    final kind = o.kind;
+    final col = evColor(ev);
+    final cat = catById(ev.category);
+    final layer = layerDefFor(o.layer);
+    final label = cat?.name ?? layer?.label ?? 'Appointments';
+    final recurring = ev.recur != 'none';
+    final multi = o.isMultiDay;
+
+    final when = switch (kind) {
+      CalEventKind.todo => 'Due this day',
+      CalEventKind.birthday => 'Every year',
+      _ when multi => 'Day ${o.runIndexOn(iso)} of ${o.runLength}',
+      _ when ev.allDay => 'All day',
+      _ => ev.start.isEmpty ? 'All day' : ev.start,
+    };
+    final chip = switch (kind) {
+      CalEventKind.todo => 'Due',
+      CalEventKind.birthday => 'Yearly',
+      _ when multi => '${o.runIndexOn(iso)} / ${o.runLength}',
+      _ when ev.allDay => 'All day',
+      _ => ev.start.isEmpty ? 'All day' : ev.start,
+    };
+
+    final buf = StringBuffer(ev.title);
+    if (recurring) buf.write(' ↻');
+    if (kind == CalEventKind.imported) buf.write(' ⇩');
+
+    return _EvAnatomy(
+      kind: kind,
+      color: col,
+      category: cat,
+      layer: layer,
+      title: buf.toString(),
+      sub:
+          '$when · $label'
+          '${kind == CalEventKind.imported ? ' · read-only' : ''}',
+      when: when,
+      chip: chip,
+      done: o.done,
+      past: iso.compareTo(todayIso()) < 0,
+      recurring: recurring,
+      multiDay: multi,
+    );
+  }
+
+  /// The small square glyph box every full row leads with.
+  Widget _evIconBox(
+    _EvAnatomy a,
     CalendarOccurrence o, {
+    double size = 26,
+    VoidCallback? onToggleDone,
+  }) {
+    switch (a.kind) {
+      case CalEventKind.todo:
+        // An empty checkbox square — tickable in place (design §3a).
+        return GestureDetector(
+          key: ValueKey('event-check-${o.ev.id}-${o.date}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _toggleOccurrenceDone(o);
+            onToggleDone?.call();
+          },
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: a.color, width: 2),
+            ),
+            child: a.done ? Icon(Icons.check, size: 12, color: a.color) : null,
+          ),
+        );
+      case CalEventKind.birthday:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: kBirthdayAmber.withValues(alpha: .13),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: const Center(
+            child: Text('\u{1F382}', style: TextStyle(fontSize: 13)),
+          ),
+        );
+      case CalEventKind.imported:
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .22),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Center(
+            child: ic('download', size: 13, sw: 2.4, color: Colors.white),
+          ),
+        );
+      case CalEventKind.appointment:
+        final fg = contrastOn(a.color);
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: fg.withValues(alpha: .25),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Center(
+            child: a.category != null
+                ? categoryGlyph(a.category!, size: size * .58, iconColor: fg)
+                : glyphTile(
+                    size: size * .62,
+                    radius: 6,
+                    picture: a.layer?.picture,
+                    emoji: a.layer?.emoji,
+                    emojiSize: size * .5,
+                    fallback: Center(
+                      child: ic(
+                        a.layer?.icon ?? 'cal',
+                        size: size * .5,
+                        sw: 2.2,
+                        color: fg,
+                      ),
+                    ),
+                  ),
+          ),
+        );
+    }
+  }
+
+  /// The row's surface: solid colour / dotted white / cream / stripes.
+  BoxDecoration _evRowDecoration(_EvAnatomy a, {double radius = 13}) {
+    switch (a.kind) {
+      case CalEventKind.todo:
+        return BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        );
+      case CalEventKind.birthday:
+        return BoxDecoration(
+          color: kBirthdayCream,
+          border: Border.all(color: kBirthdayAmber.withValues(alpha: .33)),
+          borderRadius: BorderRadius.circular(radius),
+        );
+      case CalEventKind.imported:
+        return BoxDecoration(
+          gradient: kImportedStripes,
+          borderRadius: BorderRadius.circular(radius),
+        );
+      case CalEventKind.appointment:
+        return BoxDecoration(
+          color: a.color,
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: [
+            BoxShadow(
+              color: a.color.withValues(alpha: .35),
+              blurRadius: 18,
+              spreadRadius: -12,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        );
+    }
+  }
+
+  (Color title, Color sub) _evRowInk(_EvAnatomy a) {
+    switch (a.kind) {
+      case CalEventKind.todo:
+        return (a.color, B.muted);
+      case CalEventKind.birthday:
+        return (kBirthdayInk, kBirthdaySubInk);
+      case CalEventKind.imported:
+        return (Colors.white, Colors.white.withValues(alpha: .8));
+      case CalEventKind.appointment:
+        final fg = contrastOn(a.color);
+        return (fg, fg.withValues(alpha: .8));
+    }
+  }
+
+  /// THE full agenda/day-sheet row for any occurrence of any kind — the
+  /// design's `evRowFull()`. Every other surface is a projection of this.
+  Widget _evRowFull(
+    CalendarOccurrence o, {
+    String? iso,
     bool popSheetFirst = false,
     String rowKeyPrefix = 'agenda-appt',
     VoidCallback? onToggleDone,
   }) {
+    final day = iso ?? o.date;
+    final a = _evAnatomy(o, day);
+    final (titleInk, subInk) = _evRowInk(a);
     final ev = o.ev;
-    final col = evColor(ev);
-    final fg = contrastOn(col);
-    final cat = catById(ev.category);
-    final isTodo = o.isTask;
-    final done = o.done;
     return Builder(
       builder: (context) {
         void openTap() {
@@ -892,142 +1341,55 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         }
 
         return Opacity(
-          opacity: done ? _calendarFadedOpacity : 1,
+          opacity: (a.done || a.past) ? _calendarFadedOpacity : 1,
           child: GestureDetector(
             key: ValueKey('$rowKeyPrefix-${ev.id}-${o.date}'),
             onTap: openTap,
             child: Container(
               key: ValueKey('$rowKeyPrefix-surface-${ev.id}-${o.date}'),
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-              decoration: BoxDecoration(
-                color: col,
-                borderRadius: BorderRadius.circular(14),
-              ),
+              constraints: const BoxConstraints(minHeight: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: _evRowDecoration(a),
+              foregroundDecoration: a.kind == CalEventKind.todo
+                  ? _DottedBoxDecoration(color: a.color, radius: 13, width: 2)
+                  : null,
               child: Row(
                 children: [
-                  if (isTodo)
-                    GestureDetector(
-                      key: ValueKey('event-check-${ev.id}-${o.date}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        _toggleOccurrenceDone(o);
-                        onToggleDone?.call();
-                      },
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: done ? fg.withValues(alpha: .22) : null,
-                          border: Border.all(color: fg, width: 2),
-                        ),
-                        child: done
-                            ? Icon(Icons.check, size: 14, color: fg)
-                            : null,
-                      ),
-                    ),
-                  SizedBox(
-                    width: 40,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            ev.allDay ? 'All' : ev.start,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              height: 1.05,
-                            ).copyWith(color: fg),
-                          ),
-                          Text(
-                            ev.allDay ? 'day' : ev.end,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              height: 1.05,
-                              color: fg.withValues(alpha: .75),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  KeyedSubtree(
+                    key: ValueKey('$rowKeyPrefix-ico-${ev.id}-${o.date}'),
+                    child: _evIconBox(a, o, onToggleDone: onToggleDone),
                   ),
-                  Container(
-                    width: 1,
-                    height: 32,
-                    margin: const EdgeInsets.symmetric(horizontal: 11),
-                    color: fg.withValues(alpha: .35),
-                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            if (cat != null) ...[
-                              Container(
-                                key: ValueKey(
-                                  'agenda-title-category-${ev.id}-${o.date}',
-                                ),
-                                width: 20,
-                                height: 20,
-                                margin: const EdgeInsets.only(right: 7),
-                                decoration: BoxDecoration(
-                                  color: fg.withValues(alpha: .18),
-                                  borderRadius: BorderRadius.circular(7),
-                                  border: Border.all(
-                                    color: fg.withValues(alpha: .28),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: categoryGlyph(
-                                    cat,
-                                    size: 14,
-                                    iconColor: fg,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            Expanded(
-                              child: Text(
-                                ev.title,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: fg,
-                                  decoration: done
-                                      ? TextDecoration.lineThrough
-                                      : TextDecoration.none,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (ev.recur != 'none')
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ic('repeat', size: 10, sw: 2.6, color: fg),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Repeats ${ev.recur}',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: fg.withValues(alpha: .85),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        Text(
+                          a.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: titleInk,
+                            decoration: a.done
+                                ? TextDecoration.lineThrough
+                                : TextDecoration.none,
                           ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          a.sub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: subInk,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1035,11 +1397,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     const SizedBox(width: 8),
                     KeyedSubtree(
                       key: ValueKey('agenda-attendees-${ev.id}-${o.date}'),
-                      child: _attendeeStack(
-                        ev.attendees,
-                        22,
-                        maxShown: ev.attendees.length,
-                      ),
+                      child: _attendeeStack(ev.attendees, 20),
                     ),
                   ],
                 ],
@@ -1051,216 +1409,105 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  /// Agenda "To-Dos" row — a white bordered card with a tappable checkbox
-  /// (untouched semantics: tapping calls [_toggleOccurrenceDone], which marks
-  /// the occurrence done while keeping it visible) and a recurrence badge chip
-  /// (`taskRow()` in the design). [checkColor] lets the Kitchen Dashboard fill
-  /// the checkbox with the member's colour instead of the to-do layer's accent;
-  /// [showAvatar] is turned off there too since each column is already scoped
-  /// to one member.
-  // ignore: unused_element
-  Widget _taskAgendaRow(
+  /// Compact single-line projection of [_evRowFull] used by the kitchen wall
+  /// (#341): a fixed-width leading chip so titles align down a column, then
+  /// the category icon + title.
+  Widget _evPill(
     CalendarOccurrence o, {
-    Color? checkColor,
-    bool showAvatar = true,
+    String? iso,
+    String keyPrefix = 'kitchen-pill',
+    VoidCallback? onTap,
   }) {
-    final ev = o.ev;
-    final accent = checkColor ?? const Color(0xff2563eb);
-    return Container(
-      key: ValueKey('agenda-task-${ev.id}-${o.date}'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            key: ValueKey('event-check-${ev.id}-${o.date}'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _toggleOccurrenceDone(o),
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: accent, width: 2),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            // The recurrence badge sits below the title in its own row —
-            // rather than sharing the title's line — so it can never force
-            // a fixed-width horizontal overflow when this row is narrow
-            // (e.g. a Kitchen Dashboard member column).
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => openEventView(ev.id, o.date),
-                  child: Text(
-                    ev.title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: B.ink,
-                    ),
+    final day = iso ?? o.date;
+    final a = _evAnatomy(o, day);
+    final (titleInk, _) = _evRowInk(a);
+    final chipInk = switch (a.kind) {
+      CalEventKind.todo => a.color,
+      CalEventKind.birthday => kBirthdayInk,
+      CalEventKind.imported => Colors.white,
+      CalEventKind.appointment => contrastOn(a.color),
+    };
+    final chipBg = switch (a.kind) {
+      CalEventKind.todo => a.color.withValues(alpha: .08),
+      CalEventKind.birthday => kBirthdayAmber.withValues(alpha: .13),
+      _ => Colors.white.withValues(alpha: .25),
+    };
+    return Opacity(
+      opacity: (a.done || a.past) ? _calendarFadedOpacity : 1,
+      child: GestureDetector(
+        key: ValueKey('$keyPrefix-${o.ev.id}-${o.date}'),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: _evRowDecoration(a, radius: 11),
+          foregroundDecoration: a.kind == CalEventKind.todo
+              ? _DottedBoxDecoration(color: a.color, radius: 11, width: 2)
+              : null,
+          child: Row(
+            children: [
+              // Fixed-width so titles align down a column — but it gives
+              // way rather than overflowing in a very narrow one.
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 46),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
                   ),
-                ),
-                if (ev.recur != 'none')
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    // `FittedBox` (rather than a bare `Container`/`Row`)
-                    // guarantees this badge never render-overflows however
-                    // narrow its column gets (e.g. a Kitchen Dashboard
-                    // member tile) — it scales itself down to fit instead.
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: B.soft,
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ic('repeat', size: 9.5, sw: 2.6, color: B.deep),
-                            const SizedBox(width: 3),
-                            Text(
-                              ev.recur,
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: B.deep,
-                              ),
-                            ),
-                          ],
-                        ),
+                  decoration: BoxDecoration(
+                    color: chipBg,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      a.chip,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: chipInk,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-          if (showAvatar) ...[
-            const SizedBox(width: 8),
-            _attendeeStack(ev.attendees, 22),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Agenda "Content creation" row — a white card with a dashed pink
-  /// border, a small camera icon badge, and a pink "Content" label beneath
-  /// the title (`contentRow()` in the design). [checkColor] lets the
-  /// Kitchen Dashboard fill the checkbox with the member's colour instead
-  /// of the content layer's pink accent; [showAvatar] is turned off there
-  /// too since each column is already scoped to one member.
-  // ignore: unused_element
-  Widget _contentAgendaRow(
-    CalendarOccurrence o, {
-    Color? checkColor,
-    bool showAvatar = true,
-    CalendarLayerDef? layer,
-  }) {
-    final ev = o.ev;
-    final def = layer ?? layerDefFor(o.layer);
-    final pink = def?.color ?? const Color(0xffdb2777);
-    final accent = checkColor ?? pink;
-    return Container(
-      key: ValueKey('agenda-content-${ev.id}-${o.date}'),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.all(Radius.circular(14)),
-      ),
-      foregroundDecoration: _DashedBoxDecoration(color: pink, radius: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: pink.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: glyphTile(
-              size: 30,
-              radius: 10,
-              picture: def?.picture,
-              emoji: def?.emoji,
-              emojiSize: 16,
-              fallback: Center(
-                child: ic(
-                  def?.icon ?? 'camera',
-                  size: 15,
-                  sw: 2.1,
-                  color: pink,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => openEventView(ev.id, o.date),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    ev.title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: B.ink,
-                    ),
+              const SizedBox(width: 8),
+              if (a.kind == CalEventKind.todo) ...[
+                Container(
+                  width: 15,
+                  height: 15,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: a.color, width: 2),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    def?.label ?? 'Content',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: pink,
-                    ),
+                ),
+                const SizedBox(width: 6),
+              ] else if (a.kind == CalEventKind.birthday) ...[
+                const Text('\u{1F382}', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 6),
+              ] else if (a.category != null) ...[
+                categoryGlyph(a.category!, size: 13, iconColor: titleInk),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  a.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: titleInk,
+                    decoration: a.done
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            key: ValueKey('event-check-${ev.id}-${o.date}'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _toggleOccurrenceDone(o),
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: accent, width: 2),
-              ),
-            ),
-          ),
-          if (showAvatar) ...[
-            const SizedBox(width: 8),
-            _attendeeStack(ev.attendees, 22),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -1268,10 +1515,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   // ---------------------------------------------------------------- card
   Widget _eventCard(
     CalendarOccurrence o, {
+    String? iso,
     bool popSheetFirst = false,
     VoidCallback? onToggleDone,
-  }) => _apptAgendaRow(
+  }) => _evRowFull(
     o,
+    iso: iso,
     popSheetFirst: popSheetFirst,
     rowKeyPrefix: 'event',
     onToggleDone: onToggleDone,
@@ -1305,27 +1554,32 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 }
 
-/// A dashed rounded-rect border, painted as a [foregroundDecoration] —
-/// content-layer occurrences (Month bars, Agenda/day-detail cards) use this
-/// to stand out from the solid borders/fills of real appointments and
-/// household task pills (Calendar Layers design).
-class _DashedBoxDecoration extends Decoration {
-  const _DashedBoxDecoration({required this.color, required this.radius});
+/// A dotted rounded-rect border painted as a [foregroundDecoration] — the
+/// to-do kind's outline on every calendar surface (design §3a: "dashed
+/// outline + a real checkbox"), from month-cell bars to agenda rows and
+/// kitchen pills.
+class _DottedBoxDecoration extends Decoration {
+  const _DottedBoxDecoration({
+    required this.color,
+    required this.radius,
+    this.width = 1.5,
+  });
 
   final Color color;
   final double radius;
-  final double strokeWidth = 1.2;
-  final double dashWidth = 3;
-  final double gapWidth = 2;
+  final double width;
+  double get strokeWidth => width;
+  double get dashWidth => width * 1.2;
+  double get gapWidth => width * 1.3;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
-      _DashedBoxPainter(this);
+      _DottedBoxPainter(this);
 }
 
-class _DashedBoxPainter extends BoxPainter {
-  _DashedBoxPainter(this.decoration);
-  final _DashedBoxDecoration decoration;
+class _DottedBoxPainter extends BoxPainter {
+  _DottedBoxPainter(this.decoration);
+  final _DottedBoxDecoration decoration;
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {

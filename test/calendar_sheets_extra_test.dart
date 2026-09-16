@@ -90,7 +90,7 @@ void main() {
       (e) => e.title == 'Temp event',
     );
 
-    await tester.tap(find.text('Temp event').first);
+    await tester.tap(find.textContaining('Temp event').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('event-${plain.id}-${plain.date}')));
     await tester.pumpAndSettle();
@@ -115,7 +115,7 @@ void main() {
     final rec = thriveDebug.events.singleWhere(
       (e) => e.title == 'Weekly thing',
     );
-    await tester.tap(find.text('Weekly thing').first);
+    await tester.tap(find.textContaining('Weekly thing').first);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(ValueKey('event-${rec.id}-${rec.date}')));
     await tester.pumpAndSettle();

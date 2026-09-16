@@ -20,7 +20,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('cal-month-title')), findsOneWidget);
-    expect(find.byKey(const ValueKey('cal-header-view')), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-view-month')), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-header-filter')), findsOneWidget);
     expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-lists')));

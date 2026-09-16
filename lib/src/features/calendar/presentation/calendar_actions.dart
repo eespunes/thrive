@@ -47,7 +47,38 @@ class CalendarOccurrence {
   bool get isContent => isTask && layer != kLayerTask;
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
+
+  /// True when this occurrence is a birthday/anniversary. Imported feed
+  /// events never become birthdays — they keep the read-only striped kind.
+  bool get isBirthday => !imported && ev.birthday;
+
+  /// The one display kind this occurrence renders as on EVERY calendar
+  /// surface (month cell, agenda row, day sheet, kitchen pill). Resolved
+  /// once here so no surface can invent its own rule (epic #343).
+  CalEventKind get kind {
+    if (imported) return CalEventKind.imported;
+    if (isBirthday) return CalEventKind.birthday;
+    if (isTask) return CalEventKind.todo;
+    return CalEventKind.appointment;
+  }
+
+  /// Total days in this occurrence's run (1 for a single-day event).
+  int get runLength =>
+      _parseIso(spanEnd).difference(_parseIso(date)).inDays + 1;
+
+  /// 1-based position of [iso] inside this occurrence's run, clamped to the
+  /// run so a day outside it still yields a sane number.
+  int runIndexOn(String iso) {
+    final n = _parseIso(iso).difference(_parseIso(date)).inDays + 1;
+    return n.clamp(1, runLength);
+  }
 }
+
+/// The five display kinds of the event-display anatomy (design
+/// `Calendar options.dc.html` §3a). Multi-day is a modifier on top of a
+/// kind (it changes the `when` line and the month-cell banner), not a kind
+/// of its own, so it is not listed here.
+enum CalEventKind { appointment, todo, birthday, imported }
 
 /// Renders a category's visual (issue: match the budget block emoji/picture
 /// picker) — an uploaded [EventCategory.picture] wins, then
@@ -529,6 +560,70 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     return fallback ?? kCatColors.first;
   }
 
+  /// THE single visibility gate every calendar surface runs an event
+  /// through — month, agenda, day sheets, the Home board AND the kitchen
+  /// wall (issue #342). Before this existed the kitchen re-implemented its
+  /// own checks and quietly diverged.
+  ///
+  /// Semantics (design `Calendar options.dc.html`, `passes(e,f)`):
+  /// * the event's layer must be on in [layers] (the kitchen passes its own
+  ///   [kitchenLayerFilter] here, the phone passes [layerFilter]);
+  /// * if the event carries a category and a category filter is active,
+  ///   that category must be on — an uncategorised event is never hidden by
+  ///   a category filter;
+  /// * an event with attendees stays visible while ANY of them is on; an
+  ///   event with no attendees is never hidden by a member filter.
+  ///
+  /// [members]/[cats] default to the per-user [calFilter]/[calCatFilter]
+  /// (an EMPTY list means "nothing switched off" — everything passes).
+  bool passes(
+    CalendarEvent ev, {
+    required List<String> layers,
+    List<String>? members,
+    List<String>? cats,
+  }) {
+    if (!layers.contains(ev.layerId)) return false;
+    final cflt = cats ?? calCatFilter;
+    final category = ev.category;
+    if (cflt.isNotEmpty && category != null && !cflt.contains(category)) {
+      return false;
+    }
+    final mflt = members ?? calFilter;
+    if (mflt.isNotEmpty &&
+        ev.attendees.isNotEmpty &&
+        !ev.attendees.any(mflt.contains)) {
+      return false;
+    }
+    return true;
+  }
+
+  /// [passes] for an imported feed: the feed itself must be visible, its
+  /// layer on, and its category/member gating mirrors the real-event rules
+  /// via the category's assigned members (imports have no attendees).
+  bool passesImported(
+    ImportedCalendar cal, {
+    required List<String> layers,
+    List<String>? members,
+    List<String>? cats,
+  }) {
+    if (!cal.visible) return false;
+    if (!layers.contains(kLayerAppt)) return false;
+    final cflt = cats ?? calCatFilter;
+    if (cflt.isNotEmpty &&
+        cal.category != null &&
+        !cflt.contains(cal.category)) {
+      return false;
+    }
+    final mflt = members ?? calFilter;
+    if (mflt.isNotEmpty) {
+      final cat = catById(cal.category);
+      if (cat != null && cat.members.isNotEmpty) {
+        if (!cat.members.any(mflt.contains)) return false;
+      }
+    }
+    return true;
+  }
+
   /// Expands recurring events (minus their `exceptions`), keeps multi-day
   /// spans as a single occurrence, and appends visible imported-calendar
   /// events — all overlapping `[rangeStart, rangeEnd]` (inclusive, ISO
@@ -555,9 +650,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     // every month/day/home query.
     for (final ev in _eventsTouchingRange(rangeStart, rangeEnd)) {
       if (ev.kitchenOrigin) continue;
-      if (!layerFilter.contains(ev.layerId)) continue;
-      if (flt.isNotEmpty && !ev.attendees.any(flt.contains)) continue;
-      if (cflt.isNotEmpty && !cflt.contains(ev.category)) continue;
+      if (!passes(ev, layers: layerFilter, members: flt, cats: cflt)) continue;
 
       if (ev.recur == 'none') {
         final spanEnd =
@@ -588,15 +681,9 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
     // Imported calendars are read-only and have no direct attendees, so when
     // member filters are active we match them via their assigned category.
-    for (final cal
-        in layerFilter.contains(kLayerAppt)
-            ? importedCalendars
-            : const <ImportedCalendar>[]) {
-      if (!cal.visible) continue;
-      if (cflt.isNotEmpty && !cflt.contains(cal.category)) continue;
-      if (flt.isNotEmpty) {
-        final cat = catById(cal.category);
-        if (cat == null || !cat.members.any(flt.contains)) continue;
+    for (final cal in importedCalendars) {
+      if (!passesImported(cal, layers: layerFilter, members: flt, cats: cflt)) {
+        continue;
       }
       for (final e in cal.events) {
         if (e.date.compareTo(rangeStart) >= 0 &&
@@ -758,17 +845,108 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }
   });
 
-  void toggleCalMemberFilter(String memberId) => update(() {
-    if (!calFilter.remove(memberId)) calFilter.add(memberId);
-  });
-  void toggleCalCategoryFilter(String catId) => update(() {
-    if (!calCatFilter.remove(catId)) calCatFilter.add(catId);
-  });
-  void clearCalFilters() => update(() {
+  /// Every family member id, in family order — the implicit "all on" set
+  /// behind an empty [calFilter].
+  List<String> allCalMemberIds() => [
+    for (final m in curFamily()?.members ?? const <FamilyMember>[]) m.id,
+  ];
+
+  /// Category ids offered by the filter sheet — those whose layer is on.
+  List<String> filterableCalCategoryIds() => [
+    for (final c in eventCategories)
+      if (layerFilter.contains(c.layerId)) c.id,
+  ];
+
+  /// Filter chips read "on by default" (design §2a): an EMPTY
+  /// [calFilter]/[calCatFilter] means nothing is switched off.
+  bool calMemberOn(String memberId) =>
+      calFilter.isEmpty || calFilter.contains(memberId);
+  bool calCategoryOn(String catId) =>
+      calCatFilter.isEmpty || calCatFilter.contains(catId);
+
+  /// Flips one chip off/on, keeping the "empty means everything" invariant
+  /// and never letting the user switch the last one off.
+  void _toggleOnByDefault(
+    List<String> current,
+    List<String> all,
+    String id,
+    void Function(List<String>) assign,
+  ) {
+    if (!all.contains(id)) return;
+    if (current.isEmpty) {
+      if (all.length <= 1) return;
+      assign([
+        for (final x in all)
+          if (x != id) x,
+      ]);
+      return;
+    }
+    if (current.contains(id)) {
+      if (current.length <= 1) return;
+      assign([
+        for (final x in current)
+          if (x != id) x,
+      ]);
+      return;
+    }
+    final next = [
+      for (final x in all)
+        if (x == id || current.contains(x)) x,
+    ];
+    // Everything back on — collapse to the canonical "nothing switched off".
+    assign(next.length >= all.length ? <String>[] : next);
+  }
+
+  void toggleCalMemberFilter(String memberId) => mutate(
+    () => _toggleOnByDefault(
+      calFilter,
+      allCalMemberIds(),
+      memberId,
+      (next) => calFilter = next,
+    ),
+  );
+  void toggleCalCategoryFilter(String catId) => mutate(
+    () => _toggleOnByDefault(
+      calCatFilter,
+      filterableCalCategoryIds(),
+      catId,
+      (next) => calCatFilter = next,
+    ),
+  );
+
+  /// "Show all" in the filter sheet — every layer, category and member back
+  /// on.
+  void showAllCalFilters() => mutate(() {
     calFilter = [];
     calCatFilter = [];
+    layerFilter = [
+      for (final l
+          in calendarLayers.isEmpty ? kDefaultCalendarLayers() : calendarLayers)
+        l.id,
+    ];
   });
-  int calFilterCount() => calFilter.length + calCatFilter.length;
+
+  /// How many chips are switched off across all three groups — drives the
+  /// header funnel button's teal tint + dot (#344).
+  int calFilterCount() {
+    final layers = calendarLayers.isEmpty
+        ? kDefaultCalendarLayers()
+        : calendarLayers;
+    final layersOff = layers.where((l) => !layerFilter.contains(l.id)).length;
+    final membersOff = calFilter.isEmpty
+        ? 0
+        : (allCalMemberIds().length - calFilter.length).clamp(0, 99);
+    final catsOff = calCatFilter.isEmpty
+        ? 0
+        : (filterableCalCategoryIds().length - calCatFilter.length).clamp(
+            0,
+            99,
+          );
+    return layersOff + membersOff + catsOff;
+  }
+
+  /// True when anything at all is switched off.
+  bool calFiltersActive() => calFilterCount() > 0;
 
   void openCalMonthPicker() {
     _showSheet((ctx) => _CalMonthPickerSheet(state: this));
@@ -778,83 +956,12 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     openCalMonthPicker();
   }
 
-  void openViewPicker() {
-    _showSheet((ctx) => _ViewPickerSheet(state: this));
-  }
-
   void openCalFilterSheet() {
     _showSheet((ctx) => _CalFilterSheet(state: this));
   }
 
   void openDayDetail(String iso) {
     _showSheet((ctx) => _DayDetailSheet(state: this, iso: iso));
-  }
-
-  /// Greedy lane-packing for a Month-view week row: multi-day/longest
-  /// occurrences first, capped at [maxLanes]; anything beyond that is
-  /// counted per-day into the returned overflow map (day index 0-6 → count).
-  ({List<List<CalendarOccurrence?>> lanes, Map<int, int> overflow})
-  packWeekLanes(
-    List<CalendarOccurrence> occ,
-    String weekStart,
-    String weekEnd, {
-    int maxLanes = 4,
-  }) {
-    final items = <({CalendarOccurrence o, int cs, int ce})>[];
-    for (final o in occ) {
-      final cs = o.date.compareTo(weekStart) < 0
-          ? 0
-          : _parseIso(o.date).difference(_parseIso(weekStart)).inDays;
-      final ce = o.spanEnd.compareTo(weekEnd) > 0
-          ? 6
-          : _parseIso(o.spanEnd).difference(_parseIso(weekStart)).inDays;
-      items.add((o: o, cs: cs, ce: ce));
-    }
-    items.sort((a, b) {
-      final aMulti = a.o.isMultiDay;
-      final bMulti = b.o.isMultiDay;
-      if (aMulti != bMulti) return aMulti ? -1 : 1;
-      final aSpan = a.ce - a.cs;
-      final bSpan = b.ce - b.cs;
-      if (aSpan != bSpan) return bSpan - aSpan;
-      return (a.o.ev.start).compareTo(b.o.ev.start);
-    });
-
-    final lanes = <List<CalendarOccurrence?>>[];
-    final overflow = <int, int>{};
-    for (final it in items) {
-      var placed = false;
-      for (final lane in lanes) {
-        var free = true;
-        for (var c = it.cs; c <= it.ce; c++) {
-          if (lane[c] != null) {
-            free = false;
-            break;
-          }
-        }
-        if (free) {
-          for (var c = it.cs; c <= it.ce; c++) {
-            lane[c] = it.o;
-          }
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        if (lanes.length < maxLanes) {
-          final lane = List<CalendarOccurrence?>.filled(7, null);
-          for (var c = it.cs; c <= it.ce; c++) {
-            lane[c] = it.o;
-          }
-          lanes.add(lane);
-        } else {
-          for (var c = it.cs; c <= it.ce; c++) {
-            overflow[c] = (overflow[c] ?? 0) + 1;
-          }
-        }
-      }
-    }
-    return (lanes: lanes, overflow: overflow);
   }
 
   // -------------------------------------------------------------- events
