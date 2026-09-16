@@ -30,7 +30,11 @@ Future<void> _fill(
 Future<void> _tapKey(WidgetTester tester, String key) async {
   final f = find.byKey(ValueKey(key));
   await tester.ensureVisible(f);
-  await tester.tap(f, warnIfMissed: false);
+  // An `entry-section-*` key is a card, not a control: the editor has no
+  // trays any more, so bringing it on screen is the whole job.
+  if (!key.startsWith('entry-section-')) {
+    await tester.tap(f, warnIfMissed: false);
+  }
   await tester.pumpAndSettle();
 }
 
@@ -188,7 +192,7 @@ void main() {
     await pumpApp(tester); // June 2026 → anchorOrd 24317
     await _openAddTo(tester, 'Home');
     await _fill(tester);
-    await _tapKey(tester, 'entry-badge-repeat');
+    await _tapKey(tester, 'entry-section-repeat');
 
     await _tapKey(tester, 'entry-repeat-off');
     expect(find.textContaining('One-off — only this June'), findsOneWidget);
@@ -259,7 +263,7 @@ void main() {
 
     await tester.tap(find.text('Gym - Membership').first);
     await tester.pumpAndSettle();
-    await _tapKey(tester, 'entry-tab-block');
+    await _tapKey(tester, 'entry-section-block');
     expect(find.textContaining('Moving recounts both caps'), findsOneWidget);
     await _tapKey(tester, 'entry-move-block-food');
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -289,7 +293,7 @@ void main() {
     // One-off: plain confirm dialog instead of scopes.
     await _openAddTo(tester, 'Home');
     await _fill(tester, payee: 'Once', label: 'Fee');
-    await _tapKey(tester, 'entry-badge-repeat');
+    await _tapKey(tester, 'entry-section-repeat');
     await _tapKey(tester, 'entry-repeat-off');
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -318,12 +322,13 @@ void main() {
 
     await _openAddTo(tester, 'Home');
     await _fill(tester);
-    await _tapKey(tester, 'entry-badge-card');
+    await _tapKey(tester, 'entry-section-card');
     await _tapKey(tester, 'entry-card-none'); // explicit no-card first
     await _tapKey(tester, 'entry-card-c1');
     expect(find.text('💳 AH Bonus'), findsOneWidget);
     await _tapKey(tester, 'entry-stamp');
-    expect(find.text('PAID ✓'), findsOneWidget);
+    // The rotated stamp became the paid toggle in the account card.
+    expect(find.text('Paid — it counts as settled'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(thriveDebug.cards.single.timesUsed, 1);
@@ -383,7 +388,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('⚠ Card deleted'), findsOneWidget);
       expect(find.textContaining('clamped'), findsOneWidget);
-      await _tapKey(tester, 'entry-tab-account');
+      await _tapKey(tester, 'entry-section-account');
       expect(
         find.textContaining('The original account was deleted'),
         findsOneWidget,
@@ -393,7 +398,7 @@ void main() {
         find.textContaining('The original account was deleted'),
         findsNothing,
       );
-      await _tapKey(tester, 'entry-badge-card');
+      await _tapKey(tester, 'entry-section-card');
       expect(
         find.text('This card was deleted from the wallet.'),
         findsOneWidget,
@@ -406,7 +411,7 @@ void main() {
       // A stored end date round-trips into the repeat summary.
       await tester.tap(find.text('Ends - Loan').first);
       await tester.pumpAndSettle();
-      await _tapKey(tester, 'entry-badge-repeat');
+      await _tapKey(tester, 'entry-section-repeat');
       expect(find.textContaining('until Sep 2026'), findsOneWidget);
       await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
       await tester.pumpAndSettle();
@@ -449,6 +454,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('CLOSED'), findsOneWidget);
-    expect(find.textContaining('this ticket is a snapshot'), findsOneWidget);
+    expect(find.textContaining('this entry is a snapshot'), findsOneWidget);
   });
 }

@@ -57,6 +57,7 @@ dependencies:
   screen_brightness: ^2.1.11
   home_widget: ^0.9.4
   barcode: ^2.2.9
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

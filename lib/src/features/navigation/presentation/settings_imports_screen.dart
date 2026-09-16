@@ -152,6 +152,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
       leading: settingsBadgeTile(color: cal.color, icon: 'link'),
       label: cal.name,
       sub:
+          '${cal.holidays ? 'Holidays · ' : ''}'
           '${catName != null ? '$catName · ' : ''}ICS · '
           '$n event${n == 1 ? '' : 's'} · ${s.importSyncLabel(cal)}',
       value: failing ? 'Failing' : (cal.visible ? 'Shown' : 'Hidden'),
@@ -178,6 +179,12 @@ class _ImportedCalendarsScreen extends StatelessWidget {
           label: 'Description',
           on: cal.includeDescription,
           onTap: () => s.toggleImportField(cal.id, location: false),
+        ),
+        _chip(
+          key: ValueKey('imp-chip-holidays-${cal.id}'),
+          label: 'Holidays',
+          on: cal.holidays,
+          onTap: () => s.toggleImportHolidays(cal.id),
         ),
         _chip(
           key: ValueKey('imp-chip-sync-${cal.id}'),
@@ -221,6 +228,7 @@ class _ImportStudioState extends State<_ImportStudio> {
   late bool _visible;
   late bool _loc;
   late bool _desc;
+  late bool _holidays;
   late String _reminder;
   String? _category;
   bool _saving = false;
@@ -242,6 +250,7 @@ class _ImportStudioState extends State<_ImportStudio> {
     _visible = c?.visible ?? true;
     _loc = c?.includeLocation ?? true;
     _desc = c?.includeDescription ?? true;
+    _holidays = c?.holidays ?? false;
     _reminder = c?.reminder ?? '1h';
     _category = c?.category;
   }
@@ -266,6 +275,7 @@ class _ImportStudioState extends State<_ImportStudio> {
       autoSync: _autoSync,
       includeLocation: _loc,
       includeDescription: _desc,
+      holidays: _holidays,
       reminder: _reminder,
     );
     if (!mounted) return;
@@ -494,6 +504,16 @@ class _ImportStudioState extends State<_ImportStudio> {
               sub: 'Display its imported events in the calendar',
               value: _visible,
               onChanged: () => setState(() => _visible = !_visible),
+              boxed: false,
+            ),
+            studioToggleRow(
+              key: const ValueKey('imp-holidays'),
+              label: 'This is a holidays calendar',
+              sub:
+                  'Every day it lands on is tinted like a weekend in the '
+                  'month grid — school and bank holidays read as days off',
+              value: _holidays,
+              onChanged: () => setState(() => _holidays = !_holidays),
               boxed: false,
             ),
             studioSectionLabel('Category (optional)'),

@@ -170,7 +170,9 @@ void main() {
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('entry-badge-card')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('entry-section-card')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('DISCOUNT CARD'), findsOneWidget);
     expect(find.byKey(const ValueKey('entry-card-none')), findsOneWidget);

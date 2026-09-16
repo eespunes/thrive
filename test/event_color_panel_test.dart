@@ -26,9 +26,9 @@ void main() {
     }
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('ticket-colour')));
+    await tester.ensureVisible(find.byKey(const ValueKey('event-card-colour')));
     await tester.tap(
-      find.byKey(const ValueKey('ticket-colour')),
+      find.byKey(const ValueKey('event-card-colour')),
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();

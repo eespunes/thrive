@@ -17,35 +17,40 @@ Future<void> openEditor(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('ticket elements open their trays and log analytics', (
+  testWidgets('every decision is a card on one page, nothing behind a tap', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await openEditor(tester);
-    kAnalyticsEvents.clear();
 
-    // New events start on Kind & layer (#264).
+    // The editor is a scroll of labelled cards (design "Event & finance
+    // editors" 1a) — there are no trays to open, so every decision is
+    // readable at once.
+    for (final card in [
+      'kind',
+      'category',
+      'when',
+      'repeat',
+      'reminder',
+      'people',
+      'colour',
+      'place',
+    ]) {
+      expect(
+        find.byKey(ValueKey('event-card-$card')),
+        findsOneWidget,
+        reason: 'card $card is missing',
+      );
+    }
     expect(find.text('KIND & LAYER'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('ticket-when')));
-    await tester.pumpAndSettle();
     expect(find.text('WHEN'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ticket-badge-repeat')));
-    await tester.pumpAndSettle();
     expect(find.text('Does it happen again?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ticket-badge-reminder')));
-    await tester.pumpAndSettle();
     expect(find.text('Want a heads-up?'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('ticket-place')));
-    await tester.pumpAndSettle();
     expect(find.text('PLACE & NOTES'), findsOneWidget);
 
-    expect(
-      kAnalyticsEvents.where((e) => e.name == 'ticket_tray_opened').length,
-      4,
-    );
-    // Exactly one tray open at a time.
-    expect(find.text('WHEN'), findsNothing);
+    // And the pinned preview strip answers them.
+    expect(find.byKey(const ValueKey('event-editor-preview')), findsOneWidget);
+    expect(find.text('HOW IT WILL LOOK'), findsOneWidget);
   });
 
   testWidgets('save is disabled until the title is non-empty', (tester) async {
@@ -62,22 +67,19 @@ void main() {
     expect(thriveDebug.events.length, before + 1);
   });
 
-  testWidgets('to-do paper state: live checkbox previews and saves done', (
+  testWidgets('to-do kind reveals the done toggle and saves it ticked', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Take out bins');
     await tester.pump();
-    expect(find.byKey(const ValueKey('ticket-check')), findsNothing);
-    expect(find.text('THRIVE'), findsOneWidget);
+    // An event has no done state, so the toggle only exists for to-dos.
+    expect(find.byKey(const ValueKey('event-done')), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('event-kind-todo')));
     await tester.pumpAndSettle();
-    // The ticket transformed (#265): TO-DO stub mark + live checkbox.
-    expect(find.text('TO-DO'), findsOneWidget);
-    expect(find.text('THRIVE'), findsNothing);
-    await tester.tap(find.byKey(const ValueKey('ticket-check')));
+    await tester.tap(find.byKey(const ValueKey('event-done')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -108,15 +110,17 @@ void main() {
     await openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Match');
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('ticket-category')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('event-card-category')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('event-cat-sport')));
     await tester.pumpAndSettle();
 
     // Colour tray shows the locked "from category" swatch (#266).
-    await tester.tap(find.byKey(const ValueKey('ticket-colour')));
+    await tester.ensureVisible(find.byKey(const ValueKey('event-card-colour')));
     await tester.pumpAndSettle();
-    expect(find.text("The ticket takes the category's colour"), findsOneWidget);
+    expect(find.text("The event takes the category's colour"), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -132,7 +136,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Course');
     await tester.pump();
     await setTicketRepeatFor(tester);
-    await tester.tap(find.byKey(const ValueKey('ticket-when')));
+    await tester.ensureVisible(find.byKey(const ValueKey('event-card-when')));
     await tester.pumpAndSettle();
     expect(find.text('Multi-day'), findsNothing);
     expect(
@@ -148,7 +152,9 @@ void main() {
     await openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Dentist');
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('ticket-badge-reminder')));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('event-card-reminder')),
+    );
     await tester.pumpAndSettle();
     // Default 1h → the ring line shows an actual time.
     expect(find.byKey(const ValueKey('ticket-ring-line')), findsOneWidget);
@@ -248,7 +254,7 @@ void main() {
 
 /// Same as calendar_test's helper (kept local to avoid cross-imports).
 Future<void> setTicketRepeatFor(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('ticket-badge-repeat')));
+  await tester.ensureVisible(find.byKey(const ValueKey('event-card-repeat')));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
   await tester.pumpAndSettle();

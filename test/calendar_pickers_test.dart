@@ -40,11 +40,21 @@ Future<void> _pickDialogDay(WidgetTester tester, int day) async {
   await tester.pumpAndSettle();
 }
 
+/// Scrolls one of the event editor's cards into view. The editor no longer
+/// has trays to open — every card is always on the page — so this only has to
+/// bring the card on screen before the test touches its controls.
 Future<void> _openTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
-  await tester.tap(find.byKey(key), warnIfMissed: false);
   await tester.pumpAndSettle();
 }
+
+/// Scopes a text match to one editor card. The editor now carries a live
+/// "How it will look" preview, so a time or date also appears there — a bare
+/// find.text would match twice.
+Finder _inCard(String card, String text) => find.descendant(
+  of: find.byKey(ValueKey('event-card-$card')),
+  matching: find.text(text),
+);
 
 void main() {
   testWidgets('event editor start/end time pickers set the time fields', (
@@ -52,7 +62,7 @@ void main() {
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await _openEditor(tester);
-    await _openTray(tester, const ValueKey('ticket-when'));
+    await _openTray(tester, const ValueKey('event-card-when'));
 
     // Start time — the custom dialog types-to-overwrite: entering digits
     // replaces the selected value, no deleting needed, and two hour digits
@@ -69,9 +79,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('time-input-ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('time-input-hour')), findsNothing);
-    expect(find.text('14:30'), findsOneWidget);
+    expect(_inCard('when', '14:30'), findsOneWidget);
     // Start auto-set the end +1h (new event, end untouched).
-    expect(find.text('15:30'), findsOneWidget);
+    expect(_inCard('when', '15:30'), findsOneWidget);
 
     // End time — out-of-range input clamps, confirming marks the end as
     // manually set.
@@ -85,7 +95,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('time-input-ok')));
     await tester.pumpAndSettle();
-    expect(find.text('23:59'), findsOneWidget);
+    expect(_inCard('when', '23:59'), findsOneWidget);
 
     // Cancelling leaves the fields untouched.
     await tester.tap(find.byKey(const ValueKey('event-time-end')));
@@ -93,7 +103,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('time-input-cancel')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('time-input-hour')), findsNothing);
-    expect(find.text('23:59'), findsOneWidget);
+    expect(_inCard('when', '23:59'), findsOneWidget);
   });
 
   testWidgets(
@@ -101,35 +111,35 @@ void main() {
     (tester) async {
       await pumpApp(tester, landOnDefaultTab: true);
       await _openEditor(tester);
-      await _openTray(tester, const ValueKey('ticket-when'));
+      await _openTray(tester, const ValueKey('event-card-when'));
 
       final today = DateTime.now();
 
       // Plain confirm keeps today's date.
-      await tester.tap(find.text(_display(today)).first);
+      await tester.tap(_inCard('when', _display(today)).first);
       await tester.pumpAndSettle();
       expect(find.byType(DatePickerDialog), findsOneWidget);
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
-      expect(find.text(_display(today)), findsOneWidget);
+      expect(_inCard('when', _display(today)), findsOneWidget);
 
       // Multi-day reveals the end-date field; pick an end date.
       await tester.tap(find.text('Multi-day'));
       await tester.pumpAndSettle();
       // The end-date box appears, showing today's date too.
-      expect(find.text(_display(today)), findsNWidgets(2));
-      await tester.tap(find.text(_display(today)).last);
+      expect(_inCard('when', _display(today)), findsNWidgets(2));
+      await tester.tap(_inCard('when', _display(today)).last);
       await tester.pumpAndSettle();
       final other = _otherDayThisMonth();
       await _pickDialogDay(tester, other.day);
       if (other.isAfter(today)) {
-        expect(find.text(_display(other)), findsOneWidget);
+        expect(_inCard('when', _display(other)), findsOneWidget);
 
         // Moving the start date past the end date clamps the end date.
-        await tester.tap(find.text(_display(today)).first);
+        await tester.tap(_inCard('when', _display(today)).first);
         await tester.pumpAndSettle();
         await _pickDialogDay(tester, other.day);
-        expect(find.text(_display(other)), findsNWidgets(2));
+        expect(_inCard('when', _display(other)), findsNWidgets(2));
       }
     },
   );
@@ -141,7 +151,7 @@ void main() {
     await _openEditor(tester);
 
     final today = DateTime.now();
-    await _openTray(tester, const ValueKey('ticket-badge-repeat'));
+    await _openTray(tester, const ValueKey('event-card-repeat'));
     await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
     await tester.pumpAndSettle();
     expect(find.text('Ends'), findsOneWidget);
@@ -152,17 +162,17 @@ void main() {
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
     // The repeat-ends field now shows today's date.
-    expect(find.text(_display(today)), findsOneWidget);
+    expect(_inCard('repeat', _display(today)), findsOneWidget);
 
     final other = _otherDayThisMonth();
     if (other.isAfter(today)) {
       // Moving the start date (When tray) past the repeat end clamps it.
-      await _openTray(tester, const ValueKey('ticket-when'));
-      await tester.tap(find.text(_display(today)).first);
+      await _openTray(tester, const ValueKey('event-card-when'));
+      await tester.tap(_inCard('when', _display(today)).first);
       await tester.pumpAndSettle();
       await _pickDialogDay(tester, other.day);
-      await _openTray(tester, const ValueKey('ticket-badge-repeat'));
-      expect(find.text(_display(other)), findsOneWidget);
+      await _openTray(tester, const ValueKey('event-card-repeat'));
+      expect(_inCard('repeat', _display(other)), findsOneWidget);
     }
   });
 }

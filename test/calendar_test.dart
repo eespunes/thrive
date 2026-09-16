@@ -201,14 +201,23 @@ String shortDateForTest(String iso) {
 /// Ticket-editor helpers: the editor is now the WYSIWYG ticket with trays
 /// (epic: replace `_EventEditSheet`), so repeat/reminder/when controls live
 /// behind their ticket elements.
+/// Scrolls one of the event editor's cards into view. The editor no longer
+/// has trays to open — every card is always on the page — so this only has to
+/// bring the card on screen before the test touches its controls.
+/// Scopes a text match to one editor card — the editor's live preview strip
+/// repeats titles, times and dates, so a bare find.text matches twice.
+Finder inEditorCard(String card, String text) => find.descendant(
+  of: find.byKey(ValueKey('event-card-$card')),
+  matching: find.text(text),
+);
+
 Future<void> openTicketTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
-  await tester.tap(find.byKey(key), warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
 Future<void> setTicketRepeat(WidgetTester tester, {String? cadence}) async {
-  await openTicketTray(tester, const ValueKey('ticket-badge-repeat'));
+  await openTicketTray(tester, const ValueKey('event-card-repeat'));
   await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
   await tester.pumpAndSettle();
   if (cadence != null && cadence != 'weekly') {
@@ -767,11 +776,15 @@ void main() {
       await tester.tap(find.text('＋ Add on this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
-      // The ticket's when-line carries the day ("Thu 27-08 · …").
+      // The editor opens prefilled on the tapped day — its When card carries
+      // the date, dd-mm-yyyy.
       final iso = todayIso();
       expect(
-        find.textContaining('${iso.substring(8)}-${iso.substring(5, 7)} ·'),
-        findsWidgets,
+        inEditorCard(
+          'when',
+          '${iso.substring(8)}-${iso.substring(5, 7)}-${iso.substring(0, 4)}',
+        ),
+        findsOneWidget,
       );
     },
   );
@@ -1097,14 +1110,14 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await openTicketTray(tester, const ValueKey('ticket-when'));
-    expect(find.text('09:00'), findsOneWidget);
-    expect(find.text('10:00'), findsOneWidget);
+    await openTicketTray(tester, const ValueKey('event-card-when'));
+    expect(inEditorCard('when', '09:00'), findsOneWidget);
+    expect(inEditorCard('when', '10:00'), findsOneWidget);
 
     await tester.tap(find.text('All-day'));
     await tester.pumpAndSettle();
-    expect(find.text('09:00'), findsNothing);
-    expect(find.text('10:00'), findsNothing);
+    expect(inEditorCard('when', '09:00'), findsNothing);
+    expect(inEditorCard('when', '10:00'), findsNothing);
   });
 
   testWidgets('event time picker opens in keyboard input mode', (tester) async {
@@ -1113,7 +1126,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await openTicketTray(tester, const ValueKey('ticket-when'));
+    await openTicketTray(tester, const ValueKey('event-card-when'));
     await tester.tap(find.byKey(const ValueKey('event-time-start')));
     await tester.pumpAndSettle();
 
@@ -1128,7 +1141,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await openTicketTray(tester, const ValueKey('ticket-badge-reminder'));
+    await openTicketTray(tester, const ValueKey('event-card-reminder'));
 
     // Two-question design (2a): yes/no first, offsets after a yes.
     expect(find.text('Want a heads-up?'), findsOneWidget);
@@ -1219,7 +1232,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await openTicketTray(tester, const ValueKey('ticket-when'));
+    await openTicketTray(tester, const ValueKey('event-card-when'));
     final dates = find.text(shortDateForTest(todayIso()));
     final before = dates.evaluate().length;
 
@@ -1267,7 +1280,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
-    await openTicketTray(tester, const ValueKey('ticket-category'));
+    await openTicketTray(tester, const ValueKey('event-card-category'));
     await tester.tap(find.byKey(const ValueKey('event-new-category')));
     await tester.pumpAndSettle();
     expect(find.text('New category'), findsWidgets);
@@ -1557,7 +1570,7 @@ void main() {
       await openMonthEvent(tester, 'Picnic');
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
-      await openTicketTray(tester, const ValueKey('ticket-colour'));
+      await openTicketTray(tester, const ValueKey('event-card-colour'));
       expect(find.text('Palette'), findsOneWidget);
       await tester.tap(find.byType(AnimatedContainer).last);
       await tester.pump();
@@ -1592,7 +1605,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Dinner');
     await tester.pump();
-    await openTicketTray(tester, const ValueKey('ticket-category'));
+    await openTicketTray(tester, const ValueKey('event-card-category'));
     await tester.tap(find.text('Family').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -2166,7 +2179,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Dinner');
       await tester.pump();
-      await openTicketTray(tester, const ValueKey('ticket-category'));
+      await openTicketTray(tester, const ValueKey('event-card-category'));
       await tester.tap(find.text('Household').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -2377,7 +2390,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Standup');
       await tester.pump();
-      await openTicketTray(tester, const ValueKey('ticket-category'));
+      await openTicketTray(tester, const ValueKey('event-card-category'));
       await tester.tap(find.text('Work').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -2461,13 +2474,13 @@ void main() {
       await goToCalendar(tester);
       await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
       await tester.pumpAndSettle();
-      await openTicketTray(tester, const ValueKey('ticket-category'));
+      await openTicketTray(tester, const ValueKey('event-card-category'));
       expect(find.text('Chores'), findsNothing);
 
-      await openTicketTray(tester, const ValueKey('ticket-tab-layer'));
+      await openTicketTray(tester, const ValueKey('event-card-kind'));
       await tester.tap(find.byKey(const ValueKey('event-layer-task')));
       await tester.pumpAndSettle();
-      await openTicketTray(tester, const ValueKey('ticket-category'));
+      await openTicketTray(tester, const ValueKey('event-card-category'));
       expect(find.text('Chores'), findsOneWidget);
     },
   );

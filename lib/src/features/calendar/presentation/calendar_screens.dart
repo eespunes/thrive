@@ -20,19 +20,69 @@ const Color kBirthdayAmber = Color(0xffd97706);
 const Color kBirthdayInk = Color(0xff92610c);
 const Color kBirthdaySubInk = Color(0xffb18a45);
 
-/// Imported-feed stripes — "not ours": read-only, tap opens details.
-const LinearGradient kImportedStripes = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  tileMode: TileMode.repeated,
-  colors: [
-    Color(0xff5d6b7e),
-    Color(0xff5d6b7e),
-    Color(0xff6b7a8e),
-    Color(0xff6b7a8e),
-  ],
-  stops: [0.0, 0.5, 0.5, 1.0],
-);
+/// Imported-feed stripes — "not ours": read-only, tap opens details. The
+/// stripes take the event's OWN colour, which for an imported feed is its
+/// assigned category's (see `importedSyntheticEvent`), so a feed reads as its
+/// category everywhere; it's the stripe pattern, not a grey, that says
+/// read-only. Feeds with no category keep falling back to the feed's colour.
+ImportedStripes importedStripes(Color base) => ImportedStripes(base);
+
+/// A repeating 45° hatch, the design's mark for "imported, read-only".
+///
+/// It can't be a plain [LinearGradient]: `begin`/`end` are fractions of the
+/// painted box, so a repeated gradient across topLeft→bottomRight covers the
+/// box exactly once and paints two halves instead of stripes. This builds the
+/// shader itself over a fixed [pitch] in logical pixels, so the hatch reads
+/// the same on a 15px month bar and a 56px agenda row.
+@immutable
+class ImportedStripes extends Gradient {
+  ImportedStripes(this.base, {this.pitch = 7})
+    : super(colors: [base, base, _stripeLift(base), _stripeLift(base)]);
+
+  final Color base;
+
+  /// Logical pixels covered by one dark+light stripe pair.
+  final double pitch;
+
+  static const List<double> _stops = [0.0, 0.5, 0.5, 1.0];
+
+  @override
+  Shader createShader(Rect rect, {TextDirection? textDirection}) {
+    // A 45° band: stepping `pitch / sqrt2` on both axes advances exactly
+    // `pitch` along the stripe normal.
+    final step = pitch / math.sqrt2;
+    return ui.Gradient.linear(
+      rect.topLeft,
+      rect.topLeft + Offset(step, step),
+      colors,
+      _stops,
+      TileMode.repeated,
+    );
+  }
+
+  @override
+  ImportedStripes scale(double factor) =>
+      ImportedStripes(Color.lerp(null, base, factor)!, pitch: pitch);
+
+  @override
+  ImportedStripes withOpacity(double opacity) =>
+      ImportedStripes(base.withValues(alpha: opacity), pitch: pitch);
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImportedStripes && other.base == base && other.pitch == pitch;
+
+  @override
+  int get hashCode => Object.hash(base, pitch);
+}
+
+/// The second stripe tone: a step towards white on dark colours, towards
+/// black on light ones, so the stripes stay visible whatever the category is.
+Color _stripeLift(Color base) => Color.lerp(
+  base,
+  contrastOn(base) == Colors.white ? Colors.white : Colors.black,
+  .16,
+)!;
 
 /// The resolved display anatomy of one occurrence on one day — the single
 /// source every calendar surface paints from (epic #343).
@@ -43,6 +93,7 @@ class _EvAnatomy {
     required this.category,
     required this.layer,
     required this.title,
+    required this.barTitle,
     required this.sub,
     required this.when,
     required this.chip,
@@ -60,6 +111,12 @@ class _EvAnatomy {
   /// Title with its ↻ / ⇩ affixes already applied, in that order.
   final String title;
 
+  /// The title WITHOUT the ↻ recurrence mark (⇩ stays — read-only is worth
+  /// the character). Month bars use this: they lead with the event's category
+  /// glyph instead, which says more in the same space than a repeat mark
+  /// repeated on every occurrence.
+  final String barTitle;
+
   /// `when · Category (· read-only)`.
   final String sub;
   final String when;
@@ -71,20 +128,21 @@ class _EvAnatomy {
   final bool recurring;
   final bool multiDay;
 
-  /// The month-cell bar label: prefixes, then the title.
+  /// The month-cell bar label: prefixes, then the title. The category glyph
+  /// is a widget, not text, so [_ThriveCalendarScreens._calMonthBar] draws it
+  /// ahead of this.
   String get barLabel {
     final buf = StringBuffer();
     if (kind == CalEventKind.todo) buf.write('▢ ');
-    if (recurring) buf.write('↻ ');
-    buf.write(title);
+    buf.write(barTitle);
     return buf.toString();
   }
 }
 
 /// (value, label, icon) for each calendar view, in picker order.
 const List<(String, String, String)> kCalViews = [
-  ('month', 'Month', 'grid'),
-  ('agenda', 'Agenda', 'list'),
+  ('month', 'Month', 'calmonth'),
+  ('agenda', 'Agenda', 'calagenda'),
 ];
 
 /// The Calendar tab (#152): Month/Agenda views over the shared
@@ -193,7 +251,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               toggleKitchenEnabled();
             }
           },
-          child: ic('columns', size: 16, sw: 2.2, color: B.soft2),
+          child: ic('display', size: 16, sw: 2.2, color: B.soft2),
         ),
         squareBtn(
           key: const ValueKey('cal-header-filter'),
@@ -201,10 +259,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ringTeal: filtersOn,
           dot: filtersOn,
           onTap: openCalFilterSheet,
+          // `funnel` is three shrinking lines despite its name; `filter` is
+          // the actual funnel outline, which is what a filter button should
+          // wear next to three calendar glyphs.
           child: ic(
-            'funnel',
+            'filter',
             size: 15,
-            sw: 2.6,
+            sw: 2.2,
             color: filtersOn ? B.deep : B.soft2,
           ),
         ),
@@ -388,6 +449,47 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return a.ev.title.compareTo(b.ev.title);
   }
 
+  /// Reorders [bars] so that, when only [maxBars] of them fit, the ones whose
+  /// time has already passed are the ones dropped. Timed occurrences starting
+  /// before the current clock time are demoted behind everything else; the
+  /// kept set is then put back in its original (start-time) order so the cell
+  /// still reads chronologically. All-day/untimed bars are never demoted —
+  /// they have no hour to be past.
+  static List<CalendarOccurrence> _monthBarsPreferUpcoming(
+    List<CalendarOccurrence> bars,
+    int maxBars,
+  ) {
+    if (bars.length <= maxBars) return bars;
+    final now = debugNowOverride?.call() ?? DateTime.now();
+    final nowHm =
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}';
+    bool isPast(CalendarOccurrence o) =>
+        !o.ev.allDay &&
+        o.ev.start.isNotEmpty &&
+        o.ev.start.compareTo(nowHm) < 0;
+    final upcoming = [
+      for (final o in bars)
+        if (!isPast(o)) o,
+    ];
+    if (upcoming.isEmpty || upcoming.length >= bars.length) return bars;
+    final shownUpcoming = upcoming.take(maxBars).toList();
+    // Any slot the upcoming events leave over goes to the most recent past
+    // ones — the 11:00 that just finished beats the 08:00 nobody cares about.
+    final past = [
+      for (final o in bars.reversed)
+        if (isPast(o)) o,
+    ];
+    final kept = {
+      ...shownUpcoming,
+      ...past.take(maxBars - shownUpcoming.length),
+    };
+    return [
+      for (final o in bars)
+        if (kept.contains(o)) o,
+    ];
+  }
+
   /// Every occurrence touching a month page's 42-day grid, bucketed by the
   /// ISO day it should paint on — a multi-day run appears in every cell it
   /// crosses so each cell can draw its own segment of the continuous
@@ -445,6 +547,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final curMonth = _parseIso(anchor).month;
     final today = todayIso();
     final byDay = _monthOccurrencesByDay(grid);
+    final holidays = holidayDatesBetween(grid.first, grid.last);
     final weeks = [for (var w = 0; w < 6; w++) grid.sublist(w * 7, w * 7 + 7)];
 
     return Column(
@@ -459,6 +562,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       iso,
                       curMonth: curMonth,
                       today: today,
+                      holiday: holidays.contains(iso),
                       occ: byDay[iso] ?? const <CalendarOccurrence>[],
                     ),
                   ),
@@ -484,19 +588,38 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
+  // Measured heights of the pieces a month cell stacks. Each is the widget's
+  // own laid-out height (text line + padding + margin), rounded UP where the
+  // variants differ, so the fill maths can only ever under-fill — never
+  // overflow the cell.
+  static const double _kMonthDayNumberH = 24; // 19 dot + 3/2 padding
+  static const double _kMonthBarH = 15.2; // 9.2 line + 4 padding + 2 margin
+  static const double _kMonthMoreH = 11; // the "+N more" line
+
+  /// The laid-out height of [o]'s banner — the three variants pad differently.
+  double _monthBannerHeight(CalendarOccurrence o, String iso) {
+    final a = _evAnatomy(o, iso);
+    if (a.kind == CalEventKind.birthday) return 15.2; // 9.2 + 2 pad + 4 margin
+    if (a.multiDay) return 17.2; // 9.2 + 4 pad + 4 margin
+    return 18.2; // 9.2 + 5 pad + 2 top rule + 2 margin
+  }
+
   /// One month day cell: tinted background, the day number, up to two
   /// per-kind bars, "+N more", and an optional bottom banner.
   Widget _calMonthCell(
     String iso, {
     required int curMonth,
     required String today,
+    required bool holiday,
     required List<CalendarOccurrence> occ,
   }) {
     final d = _parseIso(iso);
     final ghost = d.month != curMonth;
     final isToday = iso == today;
     final past = !isToday && iso.compareTo(today) < 0;
-    final weekend = d.weekday >= 6;
+    // A day off is a day off: a holidays feed's days wear the same warm tint
+    // as Saturday and Sunday (#: holidays calendar).
+    final weekend = d.weekday >= 6 || holiday;
     final fade = ghost ? .3 : (past ? _calendarFadedOpacity : 1.0);
 
     // A to-do is always a bar, never a banner — its dotted outline and ▢ are
@@ -512,10 +635,6 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       for (final o in occ)
         if (o != banner && !banners.contains(o)) o,
     ];
-    final maxBars = banner != null ? 1 : 2;
-    final shownBars = bars.take(maxBars).toList();
-    final shown = (banner != null ? 1 : 0) + shownBars.length;
-    final more = occ.length - shown;
 
     final bg = ghost
         ? const Color(0xfff7f9fb)
@@ -556,36 +675,74 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             borderRadius: BorderRadius.circular(10),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _calDayNumber(
-                iso,
-                d.day,
-                isToday: isToday,
-                ghost: ghost,
-                past: past,
-              ),
-              for (final o in shownBars)
-                Opacity(opacity: fade, child: _calMonthBar(o, iso)),
-              if (more > 0)
-                Padding(
-                  padding: const EdgeInsets.only(left: 3),
-                  child: Text(
-                    '+$more more',
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: const TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.muted,
-                    ),
+          // How many bars fit isn't a fixed number: a tall phone's cell holds
+          // more rows than a short one's, so the cell measures itself and
+          // fills the space it actually has (never past it — an overflowing
+          // Column would throw).
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final room =
+                  c.maxHeight -
+                  _kMonthDayNumberH -
+                  (banner == null ? 0 : _monthBannerHeight(banner, iso));
+              int fits(double reserve) {
+                final usable = room - reserve;
+                if (usable < _kMonthBarH) return 0;
+                return (usable / _kMonthBarH).floor();
+              }
+
+              final hiddenBanners = banners.length - (banner == null ? 0 : 1);
+              var shownBars = bars.take(fits(0)).toList();
+              var more = hiddenBanners + bars.length - shownBars.length;
+              // Only give up a row to "+N more" when something is actually
+              // hidden — and re-measure, since that row may cost a bar.
+              if (more > 0) {
+                shownBars = bars.take(fits(_kMonthMoreH)).toList();
+                more = hiddenBanners + bars.length - shownBars.length;
+              }
+              // `bars` is already in start-time order (_compareMonthCell). When
+              // they don't all fit, today's cell sheds the ones whose hour has
+              // already gone before it sheds what's still coming — a 09:00
+              // that's over is worth less than an 18:00 that isn't.
+              if (isToday && shownBars.length < bars.length) {
+                shownBars = _monthBarsPreferUpcoming(
+                  bars,
+                  shownBars.length,
+                ).take(shownBars.length).toList();
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _calDayNumber(
+                    iso,
+                    d.day,
+                    isToday: isToday,
+                    ghost: ghost,
+                    past: past,
                   ),
-                ),
-              const Spacer(),
-              if (banner != null)
-                Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
-            ],
+                  if (banner != null)
+                    Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
+                  for (final o in shownBars)
+                    Opacity(opacity: fade, child: _calMonthBar(o, iso)),
+                  if (more > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 3),
+                      child: Text(
+                        '+$more more',
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        style: const TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          color: B.muted,
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -634,7 +791,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final a = _evAnatomy(o, iso);
     final isTodo = a.kind == CalEventKind.todo;
     final isImported = a.kind == CalEventKind.imported;
-    final ink = isTodo ? a.color : Colors.white;
+    // Imported bars are no longer a fixed dark grey, so the ink has to follow
+    // whatever the category colour is rather than assuming white reads on it.
+    final ink = isTodo ? a.color : contrastOn(a.color);
     return Container(
       key: ValueKey('cal-bar-${o.ev.id}-$iso'),
       margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
@@ -645,24 +804,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             : isImported
             ? null
             : a.color,
-        gradient: isImported ? kImportedStripes : null,
+        gradient: isImported ? importedStripes(a.color) : null,
         borderRadius: BorderRadius.circular(4),
       ),
       foregroundDecoration: isTodo
           ? _DottedBoxDecoration(color: a.color, radius: 4, width: 1.5)
           : null,
-      child: Text(
+      // A categorised event leads with its category's glyph — the one mark on
+      // the bar that says what the event IS. It replaces the ↻ that used to
+      // prefix every single recurring occurrence.
+      child: _monthLabel(
         a.barLabel,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.left,
-        style: TextStyle(
-          fontSize: 8,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          color: ink,
-          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
-        ),
+        category: a.category,
+        ink: ink,
+        strike: a.done,
       ),
     );
   }
@@ -712,16 +867,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         ),
         // The title paints once, on the run's first visible day; the rest
         // of the ribbon stays blank so it reads as one continuous strip.
-        child: Text(
-          runStart ? a.title : ' ',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 8,
-            height: 1.15,
-            fontWeight: FontWeight.w800,
-            color: fg,
-          ),
+        child: _monthLabel(
+          runStart ? a.barTitle : ' ',
+          category: runStart ? a.category : null,
+          ink: fg,
         ),
       );
     }
@@ -733,18 +882,50 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         color: a.color.withValues(alpha: .15),
         border: Border(top: BorderSide(color: a.color, width: 2)),
       ),
-      child: Text(
-        a.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 8,
-          height: 1.15,
-          fontWeight: FontWeight.w800,
-          color: a.color,
-          decoration: a.done ? TextDecoration.lineThrough : TextDecoration.none,
-        ),
+      child: _monthLabel(
+        a.barTitle,
+        category: a.category,
+        ink: a.color,
+        strike: a.done,
       ),
+    );
+  }
+
+  /// The label every month bar/banner paints: the event's category glyph (when
+  /// it has one) hard against the name, then the name itself. The glyph is
+  /// exactly one text line tall, so adding it never changes a row's height —
+  /// see the `_kMonth*H` constants the cell fills against.
+  Widget _monthLabel(
+    String text, {
+    required EventCategory? category,
+    required Color ink,
+    bool strike = false,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (category != null) ...[
+          categoryGlyph(category, size: 9.2, iconColor: ink),
+          const SizedBox(width: 2),
+        ],
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 8,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              color: ink,
+              decoration: strike
+                  ? TextDecoration.lineThrough
+                  : TextDecoration.none,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1180,6 +1361,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final buf = StringBuffer(ev.title);
     if (recurring) buf.write(' ↻');
     if (kind == CalEventKind.imported) buf.write(' ⇩');
+    final bare = StringBuffer(ev.title);
+    if (kind == CalEventKind.imported) bare.write(' ⇩');
 
     return _EvAnatomy(
       kind: kind,
@@ -1187,6 +1370,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       category: cat,
       layer: layer,
       title: buf.toString(),
+      barTitle: bare.toString(),
       sub:
           '$when · $label'
           '${kind == CalEventKind.imported ? ' · read-only' : ''}',
@@ -1239,20 +1423,21 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ),
         );
       case CalEventKind.imported:
+        final importedInk = contrastOn(a.color);
         return Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .22),
+            color: importedInk.withValues(alpha: .22),
             borderRadius: BorderRadius.circular(9),
           ),
-          child: const Center(
+          child: Center(
             child: Text(
               '\u21E9',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: importedInk,
               ),
             ),
           ),
@@ -1305,7 +1490,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         );
       case CalEventKind.imported:
         return BoxDecoration(
-          gradient: kImportedStripes,
+          gradient: importedStripes(a.color),
           borderRadius: BorderRadius.circular(radius),
         );
       case CalEventKind.appointment:
@@ -1331,7 +1516,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       case CalEventKind.birthday:
         return (kBirthdayInk, kBirthdaySubInk);
       case CalEventKind.imported:
-        return (Colors.white, Colors.white.withValues(alpha: .8));
+        final ink = contrastOn(a.color);
+        return (ink, ink.withValues(alpha: .8));
       case CalEventKind.appointment:
         final fg = contrastOn(a.color);
         return (fg, fg.withValues(alpha: .8));
@@ -1442,7 +1628,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final chipInk = switch (a.kind) {
       CalEventKind.todo => a.color,
       CalEventKind.birthday => kBirthdayInk,
-      CalEventKind.imported => Colors.white,
+      CalEventKind.imported => contrastOn(a.color),
       CalEventKind.appointment => contrastOn(a.color),
     };
     final chipBg = switch (a.kind) {

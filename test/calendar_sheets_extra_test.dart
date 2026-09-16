@@ -17,14 +17,16 @@ Future<void> _openEditor(WidgetTester tester) async {
   expect(find.text('New event'), findsOneWidget);
 }
 
+/// Scrolls one of the event editor's cards into view. The editor no longer
+/// has trays to open — every card is always on the page — so this only has to
+/// bring the card on screen before the test touches its controls.
 Future<void> _openTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
-  await tester.tap(find.byKey(key), warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
 Future<void> _repeatYes(WidgetTester tester) async {
-  await _openTray(tester, const ValueKey('ticket-badge-repeat'));
+  await _openTray(tester, const ValueKey('event-card-repeat'));
   await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
   await tester.pumpAndSettle();
 }
@@ -42,19 +44,19 @@ void main() {
     await tester.pumpAndSettle();
 
     // Location field lives in the Place & notes tray.
-    await _openTray(tester, const ValueKey('ticket-place'));
+    await _openTray(tester, const ValueKey('event-card-place'));
     await tester.enterText(find.byType(TextField).at(1), 'Park');
     await tester.pump();
 
     // Attendee chip toggles off and on (People tray).
-    await _openTray(tester, const ValueKey('ticket-people'));
+    await _openTray(tester, const ValueKey('event-card-people'));
     await tester.tap(find.byKey(const ValueKey('event-att-me')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('event-att-me')));
     await tester.pump();
 
     // Reminder: two-question tray, then an offset chip.
-    await _openTray(tester, const ValueKey('ticket-badge-reminder'));
+    await _openTray(tester, const ValueKey('event-card-reminder'));
     await tester.tap(find.text('1 day'));
     await tester.pump();
 
@@ -141,7 +143,7 @@ void main() {
     await _openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Trip');
     await tester.pump();
-    await _openTray(tester, const ValueKey('ticket-when'));
+    await _openTray(tester, const ValueKey('event-card-when'));
     await tester.tap(find.text('Multi-day'));
     await tester.pumpAndSettle();
     if (today.day < 28) {

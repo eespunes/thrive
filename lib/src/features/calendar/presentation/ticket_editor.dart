@@ -1,21 +1,13 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// The ticket event editor (epic: replace `_EventEditSheet`), mirroring
-/// `Add event options.dc.html` option 2d with the Repeat/Reminder
-/// interaction from option 2a of `Repeat & reminder options.dc.html`
-/// (docs/design/): the editor's top half IS the event — a WYSIWYG ticket
-/// card — and one tray below edits whichever ticket element was tapped.
-
-const List<String> _kTicketTrays = [
-  'kind',
-  'when',
-  'category',
-  'people',
-  'colour',
-  'reminder',
-  'repeat',
-  'place',
-];
+/// The event editor (design "Event & finance editors" 1a): a scroll of
+/// labelled white cards — one card per decision, chips instead of dropdowns,
+/// delete at the very end — above which a pinned "How it will look" strip
+/// paints the draft with the calendar's own month, agenda and kitchen
+/// builders. Same anatomy as the category editor and the import studio.
+///
+/// It replaces the WYSIWYG ticket: colour and layer are still judged from a
+/// live preview, but nothing is hidden behind a tray any more.
 
 /// Plain-language repeat summary (#267) — the same phrase month/agenda rows
 /// render, so the tray's summary and the calendar always agree.
@@ -102,7 +94,7 @@ String reminderRingLine(CalendarEvent ev) {
 }
 
 extension _ThriveTicketEditor on _ThriveHomeState {
-  /// Opens the ticket editor (#270 — the single event-editing surface).
+  /// Opens the event editor — the single event-editing surface.
   void openTicketEditor(CalendarEvent? ev, [String? date]) {
     _showSheet(
       (ctx) => _TicketEditorSheet(state: this, event: ev, date: date ?? calSel),
@@ -151,8 +143,6 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   late bool _birthday;
   late bool _done;
   bool _endManuallySet = false;
-
-  String _tray = 'kind';
 
   bool get _editing => widget.event != null;
 
@@ -203,12 +193,6 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   // ------------------------------------------------------------ helpers
 
   Color get _effColor => s.catById(_category)?.color ?? _color;
-
-  void _openTray(String tray) {
-    if (!_kTicketTrays.contains(tray) || _tray == tray) return;
-    setState(() => _tray = tray);
-    logAnalyticsEvent('ticket_tray_opened', {'tray': tray});
-  }
 
   /// Coupling rule (#266): a layer change clears foreign-layer categories.
   void _setLayerId(String layerId) {
@@ -402,530 +386,133 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     }
   }
 
-  // -------------------------------------------------------------- ticket
+  // ------------------------------------------------------------- preview
 
-  /// The when-line as the design writes it: date · times / all day / span.
-  String _whenLine() {
-    final day = _fmtDay(_date);
-    if (_recur == 'none' && _multiDay && _endDate != _date) {
-      return '$day → ${_fmtDay(_endDate)}';
-    }
-    if (_allDay) return '$day · all day';
-    return '$day · $_start–$_end';
-  }
+  /// The draft as a throwaway event, so the preview can paint it with the
+  /// SAME builders the calendar uses. Never saved, never added to `events` —
+  /// its id is deliberately unlike any real one so the strip can't collide
+  /// with the grid behind the sheet.
+  CalendarEvent _previewEvent() => CalendarEvent(
+    id: 'editor-preview',
+    title: _title.text.trim().isEmpty
+        ? (_titlePlaceholder())
+        : _title.text.trim(),
+    allDay: _allDay || _birthday,
+    birthday: _birthday,
+    date: _date,
+    endDate: _recur != 'none' ? _repeatEndDate : (_multiDay ? _endDate : ''),
+    start: _allDay ? '' : _start,
+    end: _allDay ? '' : _end,
+    location: _location.text.trim(),
+    notes: _notes.text.trim(),
+    category: _category,
+    color: _effColor,
+    attendees: _attendees,
+    reminder: _reminder,
+    recur: _recur,
+    recurEvery: _recurEvery,
+    recurUnit: _recurUnit,
+    recurWeekdays: _recurWeekdays,
+    monthlyMode: _recur == 'monthly' ? _monthlyMode : 'date',
+    monthlyNth: _monthlyNth,
+    monthlyWeekday: _monthlyWeekday,
+    layerId: _layerId,
+    todo: _todo,
+    done: _todo && _done,
+  );
 
-  /// A small ticket badge, per the design's `tBadge`: radius 8, no icon.
-  /// The 44px hit area wraps a visually compact pill.
-  Widget _badge(Key key, String label, Color fg, Color bg, VoidCallback onTap) {
-    return GestureDetector(
-      key: key,
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        alignment: Alignment.center,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: fg,
-            ),
-          ),
-        ),
+  String _titlePlaceholder() => _todo ? 'Your to-do' : 'Your event';
+
+  /// The pinned "How it will look" strip: the real month bar, agenda row and
+  /// kitchen pill, rebuilt on every tap below. It is the only thing the
+  /// design pins, because colour, layer and kind are the choices you can't
+  /// judge from their own control.
+  Widget _previewStrip() {
+    final o = CalendarOccurrence(ev: _previewEvent(), date: _date);
+    final day = _parseIso(_date).day;
+    return Container(
+      key: const ValueKey('event-editor-preview'),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: B.line),
+        borderRadius: BorderRadius.circular(18),
       ),
-    );
-  }
-
-  /// The layer tab, per the design's `tKindTabStyle`: a bordered pill whose
-  /// border lights up while its tray is open; on to-dos it takes the ticket
-  /// colour.
-  Widget _layerPill(String label, bool paper, Color col, Color fg) {
-    final border = paper
-        ? col
-        : (_tray == 'kind' ? fg : fg.withValues(alpha: .45));
-    return GestureDetector(
-      key: const ValueKey('ticket-tab-layer'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => _openTray('kind'),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-          decoration: BoxDecoration(
-            color: paper
-                ? col.withValues(alpha: .12)
-                : fg.withValues(alpha: .16),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: border, width: 1.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          studioSectionLabel(
+            'How it will look',
+            padding: const EdgeInsets.only(bottom: 8),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: paper ? col : fg,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The design's day stamp: "Thu 27-08".
-  String _fmtDay(String iso) {
-    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final d = _parseIso(iso);
-    String two(int v) => v.toString().padLeft(2, '0');
-    return '${wd[d.weekday - 1]} ${two(d.day)}-${two(d.month)}';
-  }
-
-  /// The repeat badge's wording, per the design: "Once", "Weekly on
-  /// Thursday", or the repeat phrase without its "Repeats " prefix.
-  String _repeatBadgeLabel() {
-    if (_recur == 'none') return 'Once';
-    if (_recur == 'weekly') {
-      const names = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      return 'Weekly on ${names[_parseIso(_date).weekday - 1]}';
-    }
-    final phrase = repeatPhrase(_draft()).replaceFirst('Repeats ', '');
-    return phrase[0].toUpperCase() + phrase.substring(1);
-  }
-
-  /// The reminder badge's wording, per the design: "Remind 1h".
-  String _reminderBadgeLabel() {
-    if (_reminder == 'none') return 'No reminder';
-    if (_reminder == 'at') return 'Remind on time';
-    return 'Remind $_reminder';
-  }
-
-  /// The WYSIWYG ticket (#263) — every element opens its tray. To-dos
-  /// transform to the paper card (#265).
-  Widget _ticket() {
-    final cat = s.catById(_category);
-    final col = _effColor;
-    final paper = _todo;
-    final fg = paper ? B.ink : contrastOn(col);
-    final soft = paper ? B.soft2 : fg.withValues(alpha: .85);
-    final layer = s.calendarLayers.where((l) => l.id == _layerId).firstOrNull;
-    final badgeBg = paper ? B.faint : fg.withValues(alpha: .18);
-    final badgeFg = paper ? B.soft2 : fg;
-    final members = s.curFamily()?.members ?? const <FamilyMember>[];
-    final attending = [
-      for (final m in members)
-        if (_attendees.contains(m.id)) m,
-    ];
-
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(paper ? 26 : 16, 14, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Layer tab (top-left) + repeat/reminder badges (top-right).
-              Row(
-                children: [
-                  _layerPill(
-                    '${paper ? 'To-do · ' : ''}${layer?.label ?? 'Appointments'}',
-                    paper,
-                    col,
-                    fg,
-                  ),
-                  const Spacer(),
-                  Flexible(
-                    child: _badge(
-                      const ValueKey('ticket-badge-repeat'),
-                      _repeatBadgeLabel(),
-                      badgeFg,
-                      badgeBg,
-                      () => _openTray('repeat'),
+          // The strip mirrors the calendar; it is never a way INTO it.
+          IgnorePointer(
+            child: Column(
+              children: [
+                _previewRow(
+                  'Month',
+                  Container(
+                    width: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xffdfe5ee)),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: _badge(
-                      const ValueKey('ticket-badge-reminder'),
-                      _reminderBadgeLabel(),
-                      badgeFg,
-                      badgeBg,
-                      () => _openTray('reminder'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Title, typed directly on the card (#263); to-dos get the live
-              // checkbox previewing done (#265).
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (paper)
-                    GestureDetector(
-                      key: const ValueKey('ticket-check'),
-                      onTap: () => setState(() => _done = !_done),
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          color: _done ? col : Colors.transparent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: col, width: 2.5),
+                    padding: const EdgeInsets.only(top: 2, bottom: 3),
+                    child: Column(
+                      children: [
+                        Text(
+                          '$day',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
                         ),
-                        child: _done
-                            ? Center(
-                                child: ic(
-                                  'check',
-                                  size: 15,
-                                  sw: 3,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
-                  Expanded(
-                    child: TextField(
-                      controller: _title,
-                      onChanged: (_) => setState(() {}),
-                      textCapitalization: TextCapitalization.sentences,
-                      maxLines: 2,
-                      minLines: 1,
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.4,
-                        color: paper && _done ? fg.withValues(alpha: .55) : fg,
-                        decoration: paper && _done
-                            ? TextDecoration.lineThrough
-                            : null,
-                        decorationColor: fg,
-                      ),
-                      cursorColor: fg,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        hintText: paper
-                            ? 'What needs doing?'
-                            : 'Tap to name it…',
-                        hintStyle: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -.4,
-                          color: soft.withValues(alpha: .6),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              // When-line.
-              GestureDetector(
-                key: const ValueKey('ticket-when'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openTray('when'),
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${_whenLine()} · tap to change',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: soft,
+                        s._calMonthBar(o, _date),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              // People + category + colour row.
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: GestureDetector(
-                      key: const ValueKey('ticket-people'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _openTray('people'),
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minHeight: 44,
-                          minWidth: 44,
-                        ),
-                        alignment: Alignment.centerLeft,
-                        child: attending.isEmpty
-                            ? Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeBg,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Nobody yet · tap to invite',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: badgeFg,
-                                  ),
-                                ),
-                              )
-                            : SizedBox(
-                                height: 32,
-                                width: 20.0 * attending.length + 12,
-                                child: Stack(
-                                  children: [
-                                    for (final (i, m) in attending.indexed)
-                                      Positioned(
-                                        left: 20.0 * i,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white.withValues(
-                                                alpha: .8,
-                                              ),
-                                              width: 2,
-                                            ),
-                                          ),
-                                          child: s.avatarNode(
-                                            photo: m.photo,
-                                            emoji: m.emoji,
-                                            initials: m.initials,
-                                            color: m.color,
-                                            size: 28,
-                                            radius: 14,
-                                            fs: 10,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: _badge(
-                      const ValueKey('ticket-category'),
-                      cat?.name ?? 'No category',
-                      badgeFg,
-                      badgeBg,
-                      () => _openTray('category'),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    key: const ValueKey('ticket-colour'),
-                    onTap: () => _openTray('colour'),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      // The design's rainbow dot: a picker affordance, not the
-                      // current colour (the whole ticket already shows that).
-                      child: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: paper ? col : Colors.white,
-                            width: 2.5,
-                          ),
-                          gradient: const SweepGradient(
-                            colors: [
-                              Color(0xff7c3aed),
-                              B.green,
-                              B.amber,
-                              Color(0xffe11d48),
-                              Color(0xff7c3aed),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        // Perforated stub (#263): full-bleed dashed rule, place/notes, mark.
-        Padding(
-          padding: const EdgeInsets.only(top: 13),
-          child: SizedBox(
-            height: 2,
-            child: LayoutBuilder(
-              builder: (context, constraints) => Row(
-                children: [
-                  for (var i = 0; i < (constraints.maxWidth / 9).floor(); i++)
-                    Container(
-                      width: 5,
-                      height: 2,
-                      margin: const EdgeInsets.only(right: 4),
-                      color: paper
-                          ? const Color(0xffe2ded0)
-                          : fg.withValues(alpha: .35),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(paper ? 26 : 16, 0, 16, 6),
-          child: GestureDetector(
-            key: const ValueKey('ticket-place'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _openTray('place'),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      [
-                            if (_location.text.trim().isNotEmpty)
-                              _location.text.trim(),
-                            if (_notes.text.trim().isNotEmpty)
-                              _notes.text.trim(),
-                          ].join(' · ').isEmpty
-                          ? 'Add a place or notes'
-                          : [
-                              if (_location.text.trim().isNotEmpty)
-                                _location.text.trim(),
-                              if (_notes.text.trim().isNotEmpty)
-                                _notes.text.trim(),
-                            ].join(' · '),
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: soft,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    paper ? 'TO-DO' : 'THRIVE',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                      color: paper
-                          ? col.withValues(alpha: .9)
-                          : fg.withValues(alpha: .6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    if (paper) {
-      // The to-do "paper card" (#265): off-white, dashed outline in the
-      // ticket colour, solid colour spine on the left.
-      return Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xfffffdf6),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x800f172a),
-                  offset: Offset(0, 16),
-                  blurRadius: 34,
-                  spreadRadius: -24,
+                const SizedBox(height: 8),
+                _previewRow(
+                  'Agenda',
+                  s._evRowFull(o, rowKeyPrefix: 'event-editor-preview-agenda'),
+                ),
+                const SizedBox(height: 8),
+                _previewRow(
+                  'Kitchen',
+                  s._evPill(o, keyPrefix: 'event-editor-preview-pill'),
                 ),
               ],
             ),
-            child: body,
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _DashedRectPainter(color: col, radius: 20, inset: 1),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            child: Container(
-              width: 6,
-              decoration: BoxDecoration(
-                color: col,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(20),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    // The event ticket: the colour under a soft 150° light-to-shade wash,
-    // floating on its own colour's shadow (the design's `tTicketStyle`).
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(Colors.white.withValues(alpha: .16), col),
-            Color.alphaBlend(B.ink.withValues(alpha: .14), col),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: col.withValues(alpha: .6),
-            offset: const Offset(0, 20),
-            blurRadius: 40,
-            spreadRadius: -22,
           ),
         ],
       ),
-      child: body,
     );
   }
 
-  // --------------------------------------------------------------- trays
+  Widget _previewRow(String label, Widget child) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 60,
+          child: Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              color: Color(0xffb3bcc9),
+            ),
+          ),
+        ),
+        Flexible(child: child),
+      ],
+    );
+  }
 
-  /// A tray chip, per the design's `chip(on, color)`: a pill that fills
-  /// solid (teal, or [onColor]) when selected. The 44px hit area wraps a
-  /// visually compact pill.
   Widget _chip(
     Key? key,
     String label,
@@ -1009,6 +596,21 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               ),
           ],
         ),
+        // A to-do carries a done state; the ticket used to preview it with a
+        // checkbox on the card. With the ticket gone it lives here, next to
+        // the switch that made it a to-do, and the preview strip above still
+        // shows what done looks like.
+        if (_todo) ...[
+          const SizedBox(height: 4),
+          studioToggleRow(
+            key: const ValueKey('event-done'),
+            label: 'Already done',
+            sub: 'Ticks it off the moment you save',
+            value: _done,
+            onChanged: () => setState(() => _done = !_done),
+            boxed: false,
+          ),
+        ],
       ],
     );
   }
@@ -1402,7 +1004,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
             const SizedBox(width: 9),
             const Expanded(
               child: Text(
-                "The ticket takes the category's colour",
+                "The event takes the category's colour",
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -1827,10 +1429,51 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           'Location',
           _sheetInput(
             _location,
+            key: const ValueKey('event-location'),
             hint: 'Optional',
             onChanged: (_) => setState(() {}),
           ),
         ),
+        // Checking the place is the real one belongs HERE, while you are
+        // still typing it — not after saving.
+        if (_location.text.trim().isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              key: const ValueKey('event-open-in-maps'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () async {
+                final ok = await openPlaceInMaps(_location.text);
+                if (!ok) s.flash('Could not open Maps on this device');
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: B.soft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ic('mappin', size: 13, sw: 2.2, color: B.deep),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Find it on Google Maps',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.deep,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         _sheetField(
           'Notes',
           _sheetInput(
@@ -1844,59 +1487,19 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     );
   }
 
-  Widget _tray_() {
-    final child = switch (_tray) {
-      'when' => _trayWhen(),
-      'category' => _trayCategory(),
-      'people' => _trayPeople(),
-      'colour' => _trayColour(),
-      'reminder' => _trayReminder(),
-      'repeat' => _trayRepeat(),
-      'place' => _trayPlace(),
-      _ => _trayKind(),
-    };
-    final layerLabel = s.calendarLayers
+  /// One labelled white card in the editor's scroll — the design's shape,
+  /// the same one the category editor and the import studio already use.
+  Widget _card(String id, String title, Widget child) => KeyedSubtree(
+    key: ValueKey('event-card-$id'),
+    child: studioCard(title: title, children: [child]),
+  );
+
+  String get _categoryCardTitle {
+    final layer = s.calendarLayers
         .where((l) => l.id == _layerId)
         .firstOrNull
         ?.label;
-    final titles = {
-      'kind': 'Kind & layer',
-      'when': 'When',
-      'category': layerLabel == null ? 'Category' : 'Category · $layerLabel',
-      'people': 'People',
-      'colour': s.catById(_category) != null
-          ? 'Colour (from category)'
-          : 'Colour',
-      'reminder': 'Reminder',
-      'repeat': 'Repeat',
-      'place': 'Place & notes',
-    };
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: B.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            titles[_tray]!.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .4,
-              color: B.muted,
-            ),
-          ),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
+    return layer == null ? 'Category' : 'Category · $layer';
   }
 
   @override
@@ -1908,29 +1511,59 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
       children: [
         _sheetHeadWithTick(
           context,
-          _editing ? 'Edit the ticket' : 'New event',
-          sub: _editing ? null : 'Tap the ticket to shape it',
+          _editing ? 'Edit event' : 'New event',
+          sub: _editing
+              ? 'One card per decision'
+              : 'One card per decision — nothing hidden',
           onConfirm: _submit,
           confirmEnabled: valid,
         ),
+        // The preview is pinned above the scroll: it answers every tap made
+        // below it, so it has to stay on screen while you make them.
+        _previewStrip(),
         Flexible(
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ticket(),
-                _tray_(),
+                studioTextField(
+                  key: const ValueKey('event-title'),
+                  controller: _title,
+                  hint: _todo ? 'What needs doing?' : 'What is it?',
+                  onChanged: (_) => setState(() {}),
+                  capitalization: TextCapitalization.sentences,
+                ),
+                _card('kind', 'Kind & layer', _trayKind()),
+                _card('category', _categoryCardTitle, _trayCategory()),
+                _card('when', 'When', _trayWhen()),
+                _card('repeat', 'Repeat', _trayRepeat()),
+                _card('reminder', 'Reminder', _trayReminder()),
+                _card('people', 'People', _trayPeople()),
+                _card(
+                  'colour',
+                  s.catById(_category) != null
+                      ? 'Colour (from category)'
+                      : 'Colour',
+                  _trayColour(),
+                ),
+                _card('place', 'Place & notes', _trayPlace()),
                 if (_editing)
                   GestureDetector(
                     key: const ValueKey('ticket-delete'),
                     onTap: _delete,
-                    child: const Padding(
-                      padding: EdgeInsets.fromLTRB(0, 14, 0, 2),
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 4, bottom: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xfffecaca)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       child: Text(
-                        'Delete event',
+                        _todo ? 'Delete to-do' : 'Delete event',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
+                        style: const TextStyle(
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w800,
                           color: B.red,
                         ),
