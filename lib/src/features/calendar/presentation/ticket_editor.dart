@@ -1429,10 +1429,51 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           'Location',
           _sheetInput(
             _location,
+            key: const ValueKey('event-location'),
             hint: 'Optional',
             onChanged: (_) => setState(() {}),
           ),
         ),
+        // Checking the place is the real one belongs HERE, while you are
+        // still typing it — not after saving.
+        if (_location.text.trim().isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              key: const ValueKey('event-open-in-maps'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () async {
+                final ok = await openPlaceInMaps(_location.text);
+                if (!ok) s.flash('Could not open Maps on this device');
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: B.soft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ic('mappin', size: 13, sw: 2.2, color: B.deep),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Find it on Google Maps',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.deep,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         _sheetField(
           'Notes',
           _sheetInput(

@@ -73,8 +73,8 @@ class _EventViewSheet extends StatelessWidget {
   final String eventId;
   final String date;
 
-  Widget _metaRow(String icon, String label) {
-    return Container(
+  Widget _metaRow(String icon, String label, {VoidCallback? onTap, Key? key}) {
+    final row = Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: B.faint)),
@@ -94,15 +94,29 @@ class _EventViewSheet extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: B.text,
+                color: onTap == null ? B.text : B.deep,
+                decoration: onTap == null
+                    ? TextDecoration.none
+                    : TextDecoration.underline,
+                decorationColor: B.deep.withValues(alpha: .4),
               ),
             ),
           ),
+          // An actionable row says so: the chevron is the only thing that
+          // distinguishes "a place you can open" from a line of text.
+          if (onTap != null) ic('mappin', size: 14, sw: 2.2, color: B.deep),
         ],
       ),
+    );
+    if (onTap == null) return row;
+    return GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: row,
     );
   }
 
@@ -247,7 +261,18 @@ class _EventViewSheet extends StatelessWidget {
                     ? 'All day'
                     : '${ev.start}${ev.end.isNotEmpty ? ' – ${ev.end}' : ''}',
               ),
-              if (ev.location.isNotEmpty) _metaRow('mappin', ev.location),
+              // A typed place is a real place: tapping it searches Google
+              // Maps for it, so "Sports hall, Utrecht" becomes directions.
+              if (ev.location.isNotEmpty)
+                _metaRow(
+                  'mappin',
+                  ev.location,
+                  key: const ValueKey('event-view-location'),
+                  onTap: () async {
+                    final ok = await openPlaceInMaps(ev.location);
+                    if (!ok) state.flash('Could not open Maps on this device');
+                  },
+                ),
               if (ev.recur != 'none')
                 _metaRow(
                   'repeat',
