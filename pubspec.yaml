@@ -51,7 +51,7 @@ dependencies:
   flutter_timezone: ^5.1.0
   package_info_plus: ^10.2.1
   firebase_app_check: ^0.4.7
-  image: ^4.9.2
+  image: ^4.10.1
   zxing2: ^0.2.4
   barcode_widget: ^2.0.4
   screen_brightness: ^2.1.11
