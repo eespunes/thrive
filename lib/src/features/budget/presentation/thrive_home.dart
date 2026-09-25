@@ -462,8 +462,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   VoidCallback? toastUndo;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _wsSub;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _eventsSub;
+
+  /// One realtime listener per record collection of the active family.
+  final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
+  _recordSubs = [];
   bool _applyingCloudSnapshot = false;
 
   /// The family id the Firestore family/workspace streams are currently bound
@@ -471,36 +473,33 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// changes (its own persist echoes used to trigger a full resubscribe).
   String? _boundFamilyId;
 
-  /// Per-family cache of the workspace subcollection's section payloads
-  /// (timestamps stripped) and their digests — what we believe the server
-  /// holds, so a persist only uploads sections that actually changed.
-  final Map<String, Map<String, Map<String, dynamic>>> _wsSectionCache = {};
-  final Map<String, Map<String, String>> _wsSectionDigests = {};
+  /// Per-family normalized copy of every workspace record the server (or the
+  /// local Firestore cache, which includes our own queued writes) holds —
+  /// record key `<collection>/<docId>` → payload (see cloud_records.dart).
+  /// It's the "last version this device knew": a persist writes only the
+  /// fields where the in-memory workspace differs from it, and an incoming
+  /// snapshot is rebased onto it, so a device never re-uploads data it didn't
+  /// change.
+  final Map<String, Records> _cloudBase = {};
 
-  /// Per-family cache of the `events` subcollection's per-event digests
-  /// (eventId -> [eventDocDigest]) — what we believe the server holds, so a
-  /// persist only writes/deletes the individual event docs that changed. Each
-  /// event is its own doc, so two members editing different events no longer
-  /// clobber each other (the concurrent-edit data-loss bug).
-  final Map<String, Map<String, String>> _eventDigests = {};
+  /// Per-family record collections whose contents are known (a server read,
+  /// or a non-empty cache read). New docs are only created in a known
+  /// collection, so an unloaded one can't be overwritten blind.
+  final Map<String, Set<String>> _cloudLoaded = {};
 
-  /// Families whose `events` subcollection has been fetched/streamed at least
-  /// once this session. The per-event delete sweep only runs for these, so an
-  /// empty/unloaded workspace can never wipe a family's events.
-  final Set<String> _eventsLoaded = {};
+  /// Per-family pre-record workspace docs still on the server (whole-array
+  /// `budget_*`/`lists`/`cards`/`weekly`/`events*` docs, or current ids still
+  /// embedding `blocks`/`tasks`/`items`), docId → raw payload.
+  final Map<String, Map<String, Map<String, dynamic>>> _legacyDocs = {};
 
-  /// Families whose legacy in-`workspace` event docs (`events`/`events_*`) have
-  /// been migrated into the per-event subcollection this session (once-only).
-  final Set<String> _eventsMigrated = {};
+  /// Per-family legacy single-doc `workspace` blob still on the meta doc.
+  final Map<String, Map<String, dynamic>> _legacyBlob = {};
 
-  /// Transient per-family events read during a boot fetch of the `events`
-  /// subcollection, consumed by `_applyFamilyDocs` to seed each workspace.
-  final Map<String, List<CalendarEvent>> _loadedEvents = {};
+  /// Per-family normalized meta-doc fields last seen on the server.
+  final Map<String, Map<String, dynamic>> _metaBase = {};
 
-  /// Families whose legacy single-doc `workspace` blob has been dropped from
-  /// the meta doc this session (it's re-dropped once per session — a cheap
-  /// no-op when already gone — so migrated docs stay slim).
-  final Set<String> _legacyBlobCleared = {};
+  /// Families whose legacy docs are being migrated right now.
+  final Set<String> _legacyMigrating = {};
 
   /// Trailing-debounce timer for [_persist]: serializing and uploading state
   /// on EVERY tap caused main-thread jank and a network write per keystroke.
@@ -575,8 +574,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
     _familySub?.cancel();
-    _wsSub?.cancel();
-    _eventsSub?.cancel();
+    for (final sub in _recordSubs) {
+      sub.cancel();
+    }
     _flushPersist();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
@@ -1069,8 +1069,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   /// Session cache of the last-written local section digests, so unchanged
-  /// sections are skipped on every save (same contract as the cloud sync's
-  /// `_wsSectionDigests`).
+  /// sections are skipped on every save.
   final Map<String, Map<String, String>> _localWsDigests = {};
 
   Future<void> _persist() async {
@@ -1106,8 +1105,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         // survive as a ghost member row).
         final meUid = _firebaseUid()!;
         _promoteLocalFamiliesForCloud(meUid);
-        await _persistAllFamilies(meUid);
+        final promoted = await _persistAllFamilies(meUid);
         await _recordMembership(meUid);
+        // A rejected write leaves the local copy as the only one.
+        if (!promoted) return;
       } else {
         await _pushCloudState();
       }
@@ -1544,9 +1545,16 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               .firstOrNull;
           if (existing == null) {
             month.blocks.putIfAbsent(anchor.catKey, () => <ExpenseItem>[]);
-            final nextItem = anchor.item.copyWithId(uid(), generated: true)
-              ..paid = false
-              ..until = anchor.item.recurEndDate ?? anchor.item.until;
+            // Deterministic id: every family member's device generates the
+            // SAME doc for this occurrence (cloud records are keyed by item
+            // id), instead of each adding its own duplicate.
+            final nextItem =
+                anchor.item.copyWithId(
+                    safeDocId('g_${seriesId}_${yr}_$mIdx'),
+                    generated: true,
+                  )
+                  ..paid = false
+                  ..until = anchor.item.recurEndDate ?? anchor.item.until;
             month.blocks[anchor.catKey]!.add(nextItem);
             occurrences.add((
               year: yr,

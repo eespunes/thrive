@@ -247,16 +247,41 @@ describe('family creation', () => {
 });
 
 describe('workspace subcollection', () => {
-  const wsRef = (d) => doc(d, 'families', FAM, 'workspace', 'budget');
+  const wsRef = (d, id = 'budget') =>
+    doc(d, 'families', FAM, 'workspace', id);
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget'),
         { years: {} });
+      await setDoc(
+        doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget_2026_Mei'),
+        { caps: {}, blocks: { home: [{ id: 'a' }] } });
     });
   });
   it('member can read and write', async () => {
     await assertSucceeds(getDoc(wsRef(db(MEMBER))));
     await assertSucceeds(setDoc(wsRef(db(MEMBER)), { years: { 2026: {} } }));
+  });
+  it('rejects writes that embed item arrays (outdated app versions)', async () => {
+    await assertFails(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
+      caps: {}, blocks: { home: [] },
+    }));
+    await assertFails(setDoc(wsRef(db(MEMBER), 'list_task_l1'), {
+      name: 'Chores', tasks: [],
+    }));
+    await assertFails(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
+      caps: { home: 100 },
+    }));
+  });
+  it('allows the migration to strip legacy arrays', async () => {
+    const { deleteField } = await import('firebase/firestore');
+    await assertSucceeds(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
+      blocks: deleteField(), _blocks: ['home'],
+    }));
+    await assertSucceeds(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
+      caps: {}, _blocks: ['home'],
+    }));
+    await assertSucceeds(deleteDoc(wsRef(db(MEMBER), 'budget')));
   });
   it('non-member cannot read or write', async () => {
     await assertFails(getDoc(wsRef(db(OTHER))));
@@ -286,6 +311,26 @@ describe('events subcollection', () => {
   it('unauthenticated cannot read', async () => {
     await assertFails(getDoc(evRef(db(null))));
   });
+});
+
+describe('per-item collections', () => {
+  for (const [col, id] of [
+    ['budgetItems', '2026_Mei_a'],
+    ['listItems', 'task_l1_t1'],
+    ['weekly', '2026-05-04'],
+  ]) {
+    it(`${col}: members only`, async () => {
+      await assertSucceeds(setDoc(doc(db(MEMBER), 'families', FAM, col, id),
+        { label: 'x' }));
+      await assertSucceeds(updateDoc(doc(db(OWNER), 'families', FAM, col, id),
+        { paid: true }));
+      await assertSucceeds(getDoc(doc(db(MEMBER), 'families', FAM, col, id)));
+      await assertFails(getDoc(doc(db(OTHER), 'families', FAM, col, id)));
+      await assertFails(setDoc(doc(db(OTHER), 'families', FAM, col, id),
+        { label: 'hacked' }));
+      await assertSucceeds(deleteDoc(doc(db(MEMBER), 'families', FAM, col, id)));
+    });
+  }
 });
 
 describe('family_handles', () => {

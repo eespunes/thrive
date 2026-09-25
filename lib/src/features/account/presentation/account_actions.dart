@@ -242,16 +242,17 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _cloudSub = null;
     _familySub?.cancel();
     _familySub = null;
-    _wsSub?.cancel();
-    _wsSub = null;
-    _eventsSub?.cancel();
-    _eventsSub = null;
+    for (final sub in _recordSubs) {
+      sub.cancel();
+    }
+    _recordSubs.clear();
     _boundFamilyId = null;
-    _wsSectionCache.clear();
-    _wsSectionDigests.clear();
-    _eventDigests.clear();
-    _eventsLoaded.clear();
-    _eventsMigrated.clear();
+    _cloudBase.clear();
+    _cloudLoaded.clear();
+    _legacyDocs.clear();
+    _legacyBlob.clear();
+    _metaBase.clear();
+    _legacyMigrating.clear();
     _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {
       unawaited(GoogleSignIn.instance.signOut());
