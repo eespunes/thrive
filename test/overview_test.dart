@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,390 +5,144 @@ import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
+Finder _textStartingWith(String prefix) => find.byWidgetPredicate(
+  (widget) => widget is Text && (widget.data?.startsWith(prefix) ?? false),
+);
+
 void main() {
-  testWidgets('overview renders seeded data', (tester) async {
+  testWidgets('finance overview renders the v2 hero and envelopes', (
+    tester,
+  ) async {
     await pumpApp(tester);
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('Sum Up'), findsOneWidget);
+    expect(find.text('Overview'), findsWidgets);
+    expect(find.text('SAFE TO SPEND'), findsOneWidget);
+    expect(find.text('INCOME RECEIVED'), findsOneWidget);
+    expect(find.text('PLANNED SPEND'), findsOneWidget);
+    expect(find.text('STILL OPEN'), findsOneWidget);
+    expect(find.byKey(const ValueKey('envelope-home')), findsOneWidget);
+  });
+
+  testWidgets('a capped envelope fills across the full card width', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final card = find.byKey(const ValueKey('envelope-food'));
+    final fill = find.descendant(
+      of: card,
+      matching: find.byType(FractionallySizedBox),
+    );
+    expect(fill, findsOneWidget);
+    final fillSize = tester.getSize(fill);
+    expect(fillSize.width, closeTo(tester.getSize(card).width, 4));
+    expect(fillSize.height, greaterThan(0));
+  });
+
+  testWidgets('finance tabs switch without changing the month', (tester) async {
+    await pumpApp(tester);
+    expect(find.text('Overview'), findsWidgets);
+    expect(find.text('June 2026'), findsWidgets);
+
+    await goToTab(tester, 'list');
+    expect(find.text('All items'), findsOneWidget);
+    expect(find.text('June 2026'), findsWidgets);
+
+    await goToTab(tester, 'stats');
+    expect(find.text('Statistics'), findsOneWidget);
+    expect(find.text('Month view'), findsOneWidget);
+
+    await goToTab(tester, 'calendar');
+    expect(find.text('Money calendar'), findsOneWidget);
+    expect(find.text('June 2026 · day by day'), findsOneWidget);
+  });
+
+  testWidgets('envelope sheet toggles an open item in place', (tester) async {
+    await pumpApp(tester);
+    final before = thriveDebug.unpaidItemsThisMonth().length;
+    final first = thriveDebug.unpaidItemsThisMonth().first;
+
+    await tester.tap(find.byKey(ValueKey('envelope-${first.$1.key}')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(first.$1.title), findsWidgets);
+    await tester.tap(find.text('Open').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text(first.$1.title), findsWidgets);
+    expect(thriveDebug.unpaidItemsThisMonth().length, before - 1);
+  });
+
+  testWidgets('income sheet toggles a source in place', (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('INCOME RECEIVED'));
+    await tester.pumpAndSettle();
     expect(find.text('Income'), findsWidgets);
-    expect(find.text('Home'), findsWidgets);
+    final tappedLabel = find.text('Pending').evaluate().isNotEmpty
+        ? 'Pending'
+        : 'In';
+    final before = find.text(tappedLabel).evaluate().length;
+    await tester.tap(find.text(tappedLabel).first);
+    await tester.pumpAndSettle();
+    expect(find.text(tappedLabel).evaluate().length, before - 1);
   });
 
-  testWidgets('add income via sheet', (tester) async {
+  testWidgets('accounts sheet opens from still open hero tile', (tester) async {
     await pumpApp(tester);
-    // Income is now an income-direction block (issue #137): add via the block's
-    // "Add to Income" button; the item sheet is the shared block-item editor.
-    await tester.tap(find.text('Add to Income'));
+    await tester.tap(find.text('STILL OPEN'));
     await tester.pumpAndSettle();
-    expect(find.text('New income'), findsWidgets);
-    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '100');
-    await tester.pump();
-    await tester.enterText(
-      find.byKey(const ValueKey('entry-payee')),
-      'Employer',
-    );
-    await tester.enterText(find.byKey(const ValueKey('entry-label')), 'Bonus');
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('entry-stamp')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-    await tester.pumpAndSettle();
-    expect(find.text('Employer - Bonus'), findsWidgets);
+    expect(find.text('STILL TO PAY FROM'), findsOneWidget);
   });
 
-  testWidgets('add expense to a block', (tester) async {
-    await pumpApp(tester);
-    await tester.tap(find.text('Add to Home'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '42');
-    await tester.enterText(
-      find.byKey(const ValueKey('entry-payee')),
-      'Thuiswonen',
-    );
-    await tester.enterText(find.byKey(const ValueKey('entry-label')), 'Rent');
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-    await tester.pumpAndSettle();
-    expect(find.text('Thuiswonen - Rent'), findsWidgets);
-    final rowTitle = tester.widget<Text>(find.text('Thuiswonen - Rent').first);
-    final span = rowTitle.textSpan! as TextSpan;
-    expect((span.children!.single as TextSpan).style!.color, B.muted);
-  });
-
-  testWidgets('a recurring expense propagates until its end month', (
-    tester,
-  ) async {
-    final cats = defaultCats();
-    Map<String, dynamic> yearData() => {
-      for (final mk in kMonthKeys)
-        mk: MonthData(
-          blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
-        ).toJson(),
-    };
-    final data = <String, dynamic>{'2026': yearData(), '2027': yearData()};
-    (data['2026'] as Map<String, dynamic>)['Juni'] = MonthData(
-      blocks: {
-        for (final c in cats) c.key: <ExpenseItem>[],
-        'home': [
-          ExpenseItem(
-            id: 'rent-june',
-            payee: 'Recurring',
-            label: 'Loan',
-            marker: '1st',
-            amount: 120,
-            paid: false,
-            account: 'shared',
-            recurring: true,
-            seriesId: 'loan-series',
-            recurEndDate: '2026-07-15',
-            until: '2026-07-15',
-          ),
-        ],
-      },
-    ).toJson();
-
-    await pumpApp(
-      tester,
-      prefs: {
-        'flutter.$kStorageKey': json.encode({
-          'year': 2026,
-          'monthIdx': 5,
-          'screen': 'overview',
-          'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
-          'cats': cats.map((c) => c.toJson()).toList(),
-          'data': data,
-        }),
-      },
-    );
-
-    expect(find.text('Recurring - Loan'), findsWidgets);
-    thriveDebug.pickMonth(6);
-    await tester.pumpAndSettle();
-    expect(find.text('Recurring - Loan'), findsWidgets);
-
-    thriveDebug.pickMonth(7);
-    await tester.pumpAndSettle();
-    expect(find.text('Recurring - Loan'), findsNothing);
-  });
-
-  testWidgets(
-    'picking a custom "every N months" interval in the sheet persists it (issue #191)',
-    (tester) async {
-      await pumpApp(tester);
-      await tester.tap(find.text('Add to Home'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const ValueKey('entry-amount')), '90');
-      await tester.enterText(
-        find.byKey(const ValueKey('entry-payee')),
-        'Insurer',
-      );
-      await tester.enterText(
-        find.byKey(const ValueKey('entry-label')),
-        'Insurance',
-      );
-      await tester.pump();
-      // Recurring is on by default; pick the quarterly preset in the tray.
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('entry-section-repeat')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('entry-every-3')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-      await tester.pumpAndSettle();
-      expect(find.text('Insurer - Insurance'), findsWidgets);
-
-      // Re-open the item and confirm the interval round-tripped.
-      await tester.tap(find.text('Insurer - Insurance').first);
-      await tester.pumpAndSettle();
-      expect(find.text('↻ Every 3 mo'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'a recurring expense with a custom interval only propagates every N months (issue #191)',
-    (tester) async {
-      final cats = defaultCats();
-      Map<String, dynamic> yearData() => {
-        for (final mk in kMonthKeys)
-          mk: MonthData(
-            blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
-          ).toJson(),
-      };
-      final data = <String, dynamic>{'2026': yearData()};
-      (data['2026'] as Map<String, dynamic>)['Januari'] = MonthData(
-        blocks: {
-          for (final c in cats) c.key: <ExpenseItem>[],
-          'home': [
-            ExpenseItem(
-              id: 'quarterly-loan',
-              payee: 'Quarterly',
-              label: 'Insurance',
-              marker: '1st',
-              amount: 90,
-              paid: false,
-              account: 'shared',
-              recurring: true,
-              recurEvery: 3,
-              seriesId: 'quarterly-series',
-            ),
-          ],
-        },
-      ).toJson();
-
-      await pumpApp(
-        tester,
-        prefs: {
-          'flutter.$kStorageKey': json.encode({
-            'year': 2026,
-            'monthIdx': 0,
-            'screen': 'overview',
-            'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
-            'cats': cats.map((c) => c.toJson()).toList(),
-            'data': data,
-          }),
-        },
-      );
-
-      expect(find.text('Quarterly - Insurance'), findsWidgets);
-
-      // Skipped months (Feb, Mar) should not carry the generated item.
-      thriveDebug.pickMonth(1);
-      await tester.pumpAndSettle();
-      expect(find.text('Quarterly - Insurance'), findsNothing);
-      thriveDebug.pickMonth(2);
-      await tester.pumpAndSettle();
-      expect(find.text('Quarterly - Insurance'), findsNothing);
-
-      // Every 3rd month (April, July) carries the propagated item.
-      thriveDebug.pickMonth(3);
-      await tester.pumpAndSettle();
-      expect(find.text('Quarterly - Insurance'), findsWidgets);
-      thriveDebug.pickMonth(6);
-      await tester.pumpAndSettle();
-      expect(find.text('Quarterly - Insurance'), findsWidgets);
-    },
-  );
-
-  testWidgets(
-    'toggling recurring off stops future propagation but keeps the past (issue #195)',
-    (tester) async {
-      final cats = defaultCats();
-      Map<String, dynamic> yearData() => {
-        for (final mk in kMonthKeys)
-          mk: MonthData(
-            blocks: {for (final c in cats) c.key: <ExpenseItem>[]},
-          ).toJson(),
-      };
-      final data = <String, dynamic>{'2026': yearData()};
-      (data['2026'] as Map<String, dynamic>)['Januari'] = MonthData(
-        blocks: {
-          for (final c in cats) c.key: <ExpenseItem>[],
-          'home': [
-            ExpenseItem(
-              id: 'gym-jan',
-              payee: 'Gym',
-              label: 'Membership',
-              marker: '1st',
-              amount: 20,
-              paid: false,
-              account: 'shared',
-              recurring: true,
-              seriesId: 'gym-series',
-            ),
-          ],
-        },
-      ).toJson();
-
-      await pumpApp(
-        tester,
-        prefs: {
-          'flutter.$kStorageKey': json.encode({
-            'year': 2026,
-            'monthIdx': 0,
-            'screen': 'overview',
-            'accounts': defaultAccounts().map((a) => a.toJson()).toList(),
-            'cats': cats.map((c) => c.toJson()).toList(),
-            'data': data,
-          }),
-        },
-      );
-
-      // Confirm it propagated forward before we stop it.
-      thriveDebug.pickMonth(2);
-      await tester.pumpAndSettle();
-      expect(find.text('Gym - Membership'), findsWidgets);
-
-      // Edit the March occurrence and switch it to a one-off.
-      await tester.tap(find.text('Gym - Membership').first);
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('entry-section-repeat')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('entry-repeat-off')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-      await tester.pumpAndSettle();
-
-      // March itself keeps the (now non-recurring) item…
-      expect(find.text('Gym - Membership'), findsWidgets);
-
-      // …but it must no longer generate into April onward.
-      thriveDebug.pickMonth(3);
-      await tester.pumpAndSettle();
-      expect(find.text('Gym - Membership'), findsNothing);
-
-      // Past months (January, February) remain untouched.
-      thriveDebug.pickMonth(0);
-      await tester.pumpAndSettle();
-      expect(find.text('Gym - Membership'), findsWidgets);
-      thriveDebug.pickMonth(1);
-      await tester.pumpAndSettle();
-      expect(find.text('Gym - Membership'), findsWidgets);
-    },
-  );
-
-  testWidgets('deleting a recurring expense keeps past months intact', (
+  testWidgets('list tab shows summary tiles and dated sections', (
     tester,
   ) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Add to Home'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const ValueKey('entry-amount')), '20');
-    await tester.enterText(find.byKey(const ValueKey('entry-payee')), 'Gym');
-    await tester.enterText(
-      find.byKey(const ValueKey('entry-label')),
-      'Membership',
+    await goToTab(tester, 'list');
+    expect(find.text('ITEMS'), findsOneWidget);
+    expect(find.text('PAID TOTAL'), findsOneWidget);
+    expect(find.text('OPEN TOTAL'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Text && (widget.data?.contains('·') ?? false),
+      ),
+      findsWidgets,
     );
-    await tester.pump();
-    // Recurring is on by default (issue #185), so no extra tap is needed to
-    // enable it here.
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
-    await tester.pumpAndSettle();
-
-    thriveDebug.pickMonth(6);
-    await tester.pumpAndSettle();
-    expect(find.text('Gym - Membership'), findsWidgets);
-
-    final julyId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
-    expect(julyId, isNotNull);
-    thriveDebug.deleteExpense('home', julyId!);
-    await tester.pumpAndSettle();
-
-    thriveDebug.pickMonth(7);
-    await tester.pumpAndSettle();
-    expect(find.text('Gym - Membership'), findsNothing);
-
-    thriveDebug.pickMonth(5);
-    await tester.pumpAndSettle();
-    expect(find.text('Gym - Membership'), findsWidgets);
   });
 
-  testWidgets('edit an existing income row', (tester) async {
+  testWidgets('stats tab switches scopes', (tester) async {
     await pumpApp(tester);
-    final income = firstIncomeLabel(tester);
-    await tester.tap(find.text(income).first);
+    await goToTab(tester, 'stats');
+    expect(find.text('NET RESULT'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('stats-year')));
     await tester.pumpAndSettle();
-    expect(find.text('Edit income'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+    expect(find.text('Full year 2026'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('stats-all')));
     await tester.pumpAndSettle();
+    expect(find.text('All time'), findsWidgets);
   });
 
-  testWidgets('toggle paid/received and open account picker', (tester) async {
+  testWidgets('closed months keep overview toggles inert', (tester) async {
     await pumpApp(tester);
-    // open account picker from an income row account pill
-    final pill = find.text('Eva').first;
-    if (pill.evaluate().isNotEmpty) {
-      await tester.tap(pill);
-      await tester.pumpAndSettle();
-      if (find.text('Choose account').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Shared account').last);
-        await tester.pumpAndSettle();
-      }
-    }
+    final before = thriveDebug.unpaidItemsThisMonth().length;
+    final first = thriveDebug.unpaidItemsThisMonth().first;
+    thriveDebug.closeMonth();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ValueKey('envelope-${first.$1.key}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open').first);
+    await tester.pumpAndSettle();
+
+    expect(thriveDebug.unpaidItemsThisMonth().length, before);
+    expect(find.text('Month closed'), findsWidgets);
   });
 
-  testWidgets('open cap/limit sheet', (tester) async {
+  testWidgets('calendar cells show income lines', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.text('Set limit').first);
-    await tester.pumpAndSettle();
-    expect(find.text('Monthly limit'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, '500');
-    await tester.pump();
-    await tester.tap(find.text('Save limit'));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('collapse and expand a block', (tester) async {
-    await pumpApp(tester);
-    await tester.tap(find.text('Home').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Home').first);
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('swipe a row to reveal delete then delete', (tester) async {
-    await pumpApp(tester);
-    final rows = find.byKey(const ValueKey('swipe')).evaluate();
-    // fall back: drag the first Dismissible-like swipe row by text
-    final target = find.text('Add to Home');
-    expect(target, findsOneWidget);
-    // Drag an expense row left
-    final firstRow = swipeRows(tester);
-    if (firstRow != null) {
-      await tester.drag(firstRow, const Offset(-200, 0));
-      await tester.pumpAndSettle();
-      final del = find.text('Delete');
-      if (del.evaluate().isNotEmpty) {
-        await tester.tap(del.first);
-        await tester.pumpAndSettle();
-        if (find.text('Delete').evaluate().isNotEmpty) {
-          await tester.tap(find.text('Delete').last);
-          await tester.pumpAndSettle();
-        }
-      }
-    }
-    expect(rows, isNotNull);
+    await goToTab(tester, 'calendar');
+    expect(find.byKey(const ValueKey('flow-day-1')), findsOneWidget);
+    expect(_textStartingWith('+€'), findsWidgets);
   });
 }

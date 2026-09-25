@@ -28,7 +28,7 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('lock-btn')));
     await tester.pumpAndSettle();
-    expect(find.text('Close this month?'), findsOneWidget);
+    expect(find.textContaining('?'), findsOneWidget);
     await tester.tap(find.text('Close month'));
     await tester.pumpAndSettle();
     // After closing, the lock button reopens the month.

@@ -14,6 +14,7 @@ class _StatsMonth {
     required this.year,
     required this.monthIdx,
     required this.income,
+    required this.receivedIncome,
     required this.expenses,
     required this.fixed,
     required this.savings,
@@ -23,6 +24,7 @@ class _StatsMonth {
   final int year;
   final int monthIdx;
   final double income;
+  final double receivedIncome;
   final double expenses;
 
   /// Sum of `recurring` (issue #191) expense items for this month — used as
@@ -34,7 +36,8 @@ class _StatsMonth {
   final double savings;
   final Map<String, double> cats;
 
-  double get net => income - expenses;
+  double get expectedNet => income - expenses;
+  double get net => receivedIncome - expenses;
 }
 
 /// Aggregate of one or more [_StatsMonth] entries for a chosen scope
@@ -44,6 +47,7 @@ class _StatsAgg {
   _StatsAgg({
     required this.months,
     required this.income,
+    required this.receivedIncome,
     required this.expenses,
     required this.fixed,
     required this.savings,
@@ -52,6 +56,7 @@ class _StatsAgg {
 
   final List<_StatsMonth> months;
   final double income;
+  final double receivedIncome;
   final double expenses;
   final double fixed;
   final double savings;
@@ -65,11 +70,12 @@ class _StatsAgg {
   List<_StatsAgg> byYear = const [];
   int? yearLabel;
 
-  double get net => income - expenses;
+  double get expectedNet => income - expenses;
+  double get net => receivedIncome - expenses;
 
   /// Share of income actually set aside in savings blocks (issue #192 fix —
   /// previously this was leftover `net/income`, not real savings).
-  double get rate => income > 0 ? savings / income * 100 : 0;
+  double get rate => receivedIncome > 0 ? net / receivedIncome * 100 : 0;
 }
 
 class _StatsCatRow {
@@ -118,21 +124,35 @@ extension _ThriveStats on _ThriveHomeState {
       for (int mi = 0; mi < kMonthKeys.length; mi++) {
         final m = months[kMonthKeys[mi]];
         if (m == null) continue;
-        double income = 0, expenses = 0, fixed = 0, savings = 0;
+        double income = 0,
+            receivedIncome = 0,
+            expenses = 0,
+            fixed = 0,
+            savings = 0;
         final catTotals = <String, double>{};
         for (final c in catsForMonth(mi, y)) {
           final items = m.blocks[c.key];
           if (items == null || items.isEmpty) continue;
           double total = 0;
+          double received = 0;
           for (final it in items) {
             total += it.amount;
-            if (!c.isIncome && it.recurring) fixed += it.amount;
+            if (it.paid) received += it.amount;
           }
           if (c.isIncome) {
             income += total;
+            receivedIncome += received;
           } else {
             expenses += total;
             if (c.isSavings) savings += total;
+            if (const {
+              'home',
+              'debt',
+              'subscriptions',
+              'health',
+            }.contains(c.key)) {
+              fixed += total;
+            }
             catTotals[c.key] = (catTotals[c.key] ?? 0) + total;
           }
         }
@@ -141,6 +161,7 @@ extension _ThriveStats on _ThriveHomeState {
             year: y,
             monthIdx: mi,
             income: income,
+            receivedIncome: receivedIncome,
             expenses: expenses,
             fixed: fixed,
             savings: savings,
@@ -153,10 +174,11 @@ extension _ThriveStats on _ThriveHomeState {
   }
 
   _StatsAgg _aggStats(List<_StatsMonth> months) {
-    double income = 0, expenses = 0, fixed = 0, savings = 0;
+    double income = 0, receivedIncome = 0, expenses = 0, fixed = 0, savings = 0;
     final cats = <String, double>{};
     for (final m in months) {
       income += m.income;
+      receivedIncome += m.receivedIncome;
       expenses += m.expenses;
       fixed += m.fixed;
       savings += m.savings;
@@ -165,6 +187,7 @@ extension _ThriveStats on _ThriveHomeState {
     return _StatsAgg(
       months: months,
       income: income,
+      receivedIncome: receivedIncome,
       expenses: expenses,
       fixed: fixed,
       savings: savings,
@@ -258,7 +281,11 @@ extension _ThriveStats on _ThriveHomeState {
   /// year/all-time "≈ €x per month" subtitles.
   ({double income, double expenses, double net}) _statsPerMonth(_StatsAgg p) {
     final n = p.months.isEmpty ? 1 : p.months.length;
-    return (income: p.income / n, expenses: p.expenses / n, net: p.net / n);
+    return (
+      income: p.receivedIncome / n,
+      expenses: p.expenses / n,
+      net: p.net / n,
+    );
   }
 
   List<_StatsCatRow> _statsCatRows(_StatsAgg p) {
@@ -296,7 +323,7 @@ extension _ThriveStats on _ThriveHomeState {
           .map(
             (a) => (
               label: '${a.yearLabel}',
-              income: a.income,
+              income: a.receivedIncome,
               expenses: a.expenses,
               hi: a.yearLabel == year,
             ),
@@ -308,7 +335,7 @@ extension _ThriveStats on _ThriveHomeState {
         .map(
           (m) => (
             label: kMonthsShort[m.monthIdx],
-            income: m.income,
+            income: m.receivedIncome,
             expenses: m.expenses,
             hi: p.unit == 'year'
                 ? m.monthIdx == monthIdx
@@ -322,9 +349,11 @@ extension _ThriveStats on _ThriveHomeState {
   Widget _buildStats() {
     final p = _statsPeriod();
     final rows = _statsCatRows(p);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildStatsModeSwitcher(),
+        const SizedBox(height: 12),
         _statsHero(p),
         const SizedBox(height: 11),
         Row(
@@ -396,19 +425,21 @@ extension _ThriveStats on _ThriveHomeState {
 
   Widget _statsHero(_StatsAgg p) {
     final dNet = _statsChangePct(p.net, p.prev?.net);
-    final trail = p.trail;
+    final trail = p.trail.length > 6
+        ? p.trail.sublist(p.trail.length - 6)
+        : p.trail;
     double tMax = 1;
     for (final m in trail) {
       tMax = math.max(tMax, m.net.abs());
     }
     final subtitle = p.unit == 'month'
         ? 'vs ${p.prevLabel} ${eur(p.prev?.net ?? 0, cents: false)}'
-        : '\u2248 ${eur(_statsPerMonth(p).net, cents: false)} per month';
+        : 'received vs expected spending';
     final trailCaption = p.unit == 'month'
         ? 'LAST 6 MONTHS'
         : p.unit == 'year'
-        ? 'MONTH BY MONTH'
-        : '${trail.length} MONTHS';
+        ? 'LAST 12 MONTHS'
+        : 'LAST 24 MONTHS';
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 17, 18, 16),
       decoration: BoxDecoration(
@@ -672,11 +703,11 @@ extension _ThriveStats on _ThriveHomeState {
 
   Widget _statsIncomeTile(_StatsAgg p) => _statsTile(
     label: 'Income',
-    val: eur(p.income, cents: false),
+    val: eur(p.receivedIncome, cents: false),
     sub: p.unit == 'month'
-        ? 'this month'
-        : '${_kEur(_statsPerMonth(p).income)}/mo',
-    delta: _statsChangePct(p.income, p.prev?.income),
+        ? 'received · expected ${eur(p.income, cents: false)}'
+        : 'received · ${_kEur(_statsPerMonth(p).income)}/mo',
+    delta: _statsChangePct(p.receivedIncome, p.prev?.receivedIncome),
     icon: 'wallet',
     color: B.green,
     invert: false,
@@ -686,7 +717,7 @@ extension _ThriveStats on _ThriveHomeState {
     label: 'Spending',
     val: eur(p.expenses, cents: false),
     sub: p.unit == 'month'
-        ? 'this month'
+        ? 'expected this month'
         : '${_kEur(_statsPerMonth(p).expenses)}/mo',
     delta: _statsChangePct(p.expenses, p.prev?.expenses),
     icon: 'cart',

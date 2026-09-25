@@ -331,6 +331,6 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.textContaining('PROJECTED BALANCE'));
     await tester.pumpAndSettle();
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
   });
 }
