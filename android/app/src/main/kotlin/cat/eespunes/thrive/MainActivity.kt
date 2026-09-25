@@ -1,11 +1,14 @@
 package cat.eespunes.thrive
 
 import android.Manifest
+import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
@@ -18,6 +21,8 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.TimeZone
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val deviceCalendarChannel = "cat.eespunes.thrive/device_calendar"
@@ -25,6 +30,12 @@ class MainActivity : FlutterActivity() {
     private val thriveAccountName = "Thrive"
     private val thriveAccountType = "cat.eespunes.thrive.calendar"
     private val thriveCalendarName = "Thrive"
+    private val calendarBatchSize = 250
+
+    // Calendar Provider writes are slow; keep them off the main thread, which
+    // also drives Flutter's UI, and serialize them so syncs never interleave.
+    private val calendarSyncExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var pendingSyncArgs: Map<*, *>? = null
     private var pendingSyncResult: MethodChannel.Result? = null
@@ -81,21 +92,61 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onDestroy() {
+        calendarSyncExecutor.shutdown()
+        super.onDestroy()
+    }
+
     private fun runCalendarSync(args: Map<*, *>, result: MethodChannel.Result) {
-        try {
-            val calendarId = findOrCreateThriveCalendar()
-            clearThriveCalendar(calendarId)
-            val events = args["events"] as? List<*> ?: emptyList<Any?>()
-            var inserted = 0
-            for (rawEvent in events) {
-                val event = rawEvent as? Map<*, *> ?: continue
-                if (insertThriveEvent(calendarId, event)) inserted++
+        calendarSyncExecutor.execute {
+            try {
+                val inserted = replaceThriveEvents(args)
+                postResult { result.success(mapOf("permissionGranted" to true, "synced" to inserted)) }
+            } catch (e: Exception) {
+                postResult { result.error("device_calendar_sync_failed", e.message, null) }
             }
-            result.success(mapOf("permissionGranted" to true, "synced" to inserted))
-        } catch (e: Exception) {
-            result.error("device_calendar_sync_failed", e.message, null)
         }
     }
+
+    private fun postResult(reply: () -> Unit) {
+        mainHandler.post {
+            try {
+                reply()
+            } catch (_: Exception) {
+                // Engine detached while syncing; nothing left to notify.
+            }
+        }
+    }
+
+    /** Runs on [calendarSyncExecutor]. Returns the number of inserted events. */
+    private fun replaceThriveEvents(args: Map<*, *>): Int {
+        val calendarId = findOrCreateThriveCalendar()
+        val events = args["events"] as? List<*> ?: emptyList<Any?>()
+        val inserts = events.mapNotNull { raw ->
+            (raw as? Map<*, *>)?.let { thriveEventValues(calendarId, it) }
+        }
+
+        val ops = ArrayList<ContentProviderOperation>(calendarBatchSize + 1)
+        ops.add(clearThriveCalendarOp(calendarId))
+        var inserted = 0
+        for (values in inserts) {
+            ops.add(
+                ContentProviderOperation.newInsert(Events.CONTENT_URI)
+                    .withValues(values)
+                    .build(),
+            )
+            if (ops.size >= calendarBatchSize) {
+                inserted += applyCalendarBatch(ops)
+                ops.clear()
+            }
+        }
+        if (ops.isNotEmpty()) inserted += applyCalendarBatch(ops)
+        return inserted
+    }
+
+    private fun applyCalendarBatch(ops: ArrayList<ContentProviderOperation>): Int =
+        contentResolver.applyBatch(CalendarContract.AUTHORITY, ops)
+            .count { it.uri != null }
 
     private fun hasCalendarPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
@@ -153,18 +204,15 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    private fun clearThriveCalendar(calendarId: Long) {
-        contentResolver.delete(
-            Events.CONTENT_URI,
-            "${Events.CALENDAR_ID}=?",
-            arrayOf(calendarId.toString()),
-        )
-    }
+    private fun clearThriveCalendarOp(calendarId: Long): ContentProviderOperation =
+        ContentProviderOperation.newDelete(Events.CONTENT_URI)
+            .withSelection("${Events.CALENDAR_ID}=?", arrayOf(calendarId.toString()))
+            .build()
 
-    private fun insertThriveEvent(calendarId: Long, event: Map<*, *>): Boolean {
+    private fun thriveEventValues(calendarId: Long, event: Map<*, *>): ContentValues? {
         val title = event["title"]?.toString()?.trim().orEmpty()
         val date = event["date"]?.toString()?.trim().orEmpty()
-        if (title.isEmpty() || date.isEmpty()) return false
+        if (title.isEmpty() || date.isEmpty()) return null
 
         val allDay = event["allDay"] == true
         val values = ContentValues().apply {
@@ -202,7 +250,7 @@ class MainActivity : FlutterActivity() {
                 put(Events.EVENT_END_TIMEZONE, zone.id)
             }
         }
-        return contentResolver.insert(Events.CONTENT_URI, values) != null
+        return values
     }
 
     private fun syncAdapterCalendarUri(): Uri =
