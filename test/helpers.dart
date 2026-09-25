@@ -125,7 +125,7 @@ Future<void> rebootApp(WidgetTester tester) async {
   await tester.pumpAndSettle(const Duration(milliseconds: 100));
 }
 
-/// Navigates to a Finance sub-screen (overview | stats), or to the
+/// Navigates to a Finance sub-screen (overview | calendar | list | stats), or to the
 /// Settings v2 sub-screens behind the More hub: `settings` opens the
 /// Accounts sub-screen (#328, historical `more-finsettings` key) and
 /// `blocks` the Budget-blocks sub-screen (#329).
@@ -144,7 +144,8 @@ Future<void> goToTab(WidgetTester tester, String tab) async {
     await tester.tap(find.byKey(const ValueKey('nav-finance')));
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.byKey(ValueKey('tab-$tab')));
+  final target = tab == 'flow' ? 'calendar' : tab;
+  await tester.tap(find.byKey(ValueKey('tab-$target')));
   await tester.pumpAndSettle();
 }
 

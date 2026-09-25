@@ -135,6 +135,9 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
+      await goToTab(tester, 'flow');
+      await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('RENT').first);
       await tester.pumpAndSettle();
       expect(find.text('PAY DAY — WHICH DAY OF THE MONTH?'), findsOneWidget);
@@ -149,6 +152,9 @@ void main() {
 
     testWidgets('shift field appears in the income edit sheet', (tester) async {
       await pumpApp(tester);
+      await goToTab(tester, 'flow');
+      await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
+      await tester.pumpAndSettle();
       final income = firstIncomeLabel(tester);
       await tester.tap(find.text(income).first);
       await tester.pumpAndSettle();
