@@ -77,8 +77,9 @@ void main() {
     await tester.tap(find.text('INCOME RECEIVED'));
     await tester.pumpAndSettle();
     expect(find.text('Income'), findsWidgets);
-    final tappedLabel =
-        find.text('Pending').evaluate().isNotEmpty ? 'Pending' : 'In';
+    final tappedLabel = find.text('Pending').evaluate().isNotEmpty
+        ? 'Pending'
+        : 'In';
     final before = find.text(tappedLabel).evaluate().length;
     await tester.tap(find.text(tappedLabel).first);
     await tester.pumpAndSettle();
@@ -92,7 +93,9 @@ void main() {
     expect(find.text('STILL TO PAY FROM'), findsOneWidget);
   });
 
-  testWidgets('list tab shows summary tiles and dated sections', (tester) async {
+  testWidgets('list tab shows summary tiles and dated sections', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await goToTab(tester, 'list');
     expect(find.text('ITEMS'), findsOneWidget);
@@ -100,8 +103,7 @@ void main() {
     expect(find.text('OPEN TOTAL'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
-        (widget) =>
-            widget is Text && (widget.data?.contains('·') ?? false),
+        (widget) => widget is Text && (widget.data?.contains('·') ?? false),
       ),
       findsWidgets,
     );

@@ -769,7 +769,7 @@ class _SwipeRowState extends State<_SwipeRow>
                 ),
               ),
             ),
-            ),
+          ),
           GestureDetector(
             onHorizontalDragStart: (_) {
               if (_dx == 0) setState(() => _dx = -1);

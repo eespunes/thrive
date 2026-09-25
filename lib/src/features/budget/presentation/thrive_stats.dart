@@ -124,7 +124,11 @@ extension _ThriveStats on _ThriveHomeState {
       for (int mi = 0; mi < kMonthKeys.length; mi++) {
         final m = months[kMonthKeys[mi]];
         if (m == null) continue;
-        double income = 0, receivedIncome = 0, expenses = 0, fixed = 0, savings = 0;
+        double income = 0,
+            receivedIncome = 0,
+            expenses = 0,
+            fixed = 0,
+            savings = 0;
         final catTotals = <String, double>{};
         for (final c in catsForMonth(mi, y)) {
           final items = m.blocks[c.key];
@@ -141,7 +145,12 @@ extension _ThriveStats on _ThriveHomeState {
           } else {
             expenses += total;
             if (c.isSavings) savings += total;
-            if (const {'home', 'debt', 'subscriptions', 'health'}.contains(c.key)) {
+            if (const {
+              'home',
+              'debt',
+              'subscriptions',
+              'health',
+            }.contains(c.key)) {
               fixed += total;
             }
             catTotals[c.key] = (catTotals[c.key] ?? 0) + total;
@@ -314,7 +323,7 @@ extension _ThriveStats on _ThriveHomeState {
           .map(
             (a) => (
               label: '${a.yearLabel}',
-                income: a.receivedIncome,
+              income: a.receivedIncome,
               expenses: a.expenses,
               hi: a.yearLabel == year,
             ),
@@ -416,7 +425,9 @@ extension _ThriveStats on _ThriveHomeState {
 
   Widget _statsHero(_StatsAgg p) {
     final dNet = _statsChangePct(p.net, p.prev?.net);
-    final trail = p.trail.length > 6 ? p.trail.sublist(p.trail.length - 6) : p.trail;
+    final trail = p.trail.length > 6
+        ? p.trail.sublist(p.trail.length - 6)
+        : p.trail;
     double tMax = 1;
     for (final m in trail) {
       tMax = math.max(tMax, m.net.abs());

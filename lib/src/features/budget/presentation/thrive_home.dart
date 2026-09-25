@@ -153,17 +153,20 @@ class ThriveDebugController {
         .firstOrNull
         ?.id;
   }
+
   String? findIncomeId(String payee, String label, [int? mIdx, int? yr]) {
     yr ??= _s.year;
     mIdx ??= _s.monthIdx;
-    final items = _s.data[yr]?[kMonthKeys[mIdx]]?.blocks[kIncomeBlockKey] ?? const [];
+    final items =
+        _s.data[yr]?[kMonthKeys[mIdx]]?.blocks[kIncomeBlockKey] ?? const [];
     return items
         .where((it) => it.payee == payee && it.label == label)
         .firstOrNull
         ?.id;
   }
 
-  void openEntry(String catKey, String id) => _s.openEntryTicket(cat: catKey, id: id);
+  void openEntry(String catKey, String id) =>
+      _s.openEntryTicket(cat: catKey, id: id);
 
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
 
@@ -2271,10 +2274,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         title: 'Money calendar',
         subtitle: '$monthYear · day by day',
       ),
-      'list' => (
-        title: 'All items',
-        subtitle: '$monthYear · by date',
-      ),
+      'list' => (title: 'All items', subtitle: '$monthYear · by date'),
       'stats' => (
         title: 'Statistics',
         subtitle: switch (statsMode) {
@@ -2392,12 +2392,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            ic(
-                              'cdown',
-                              size: 11,
-                              sw: 2.6,
-                              color: Colors.white,
-                            ),
+                            ic('cdown', size: 11, sw: 2.6, color: Colors.white),
                           ],
                         ),
                       ),
@@ -2490,7 +2485,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         ),
       );
       if (onTap == null) return Expanded(child: child);
-      return Expanded(child: GestureDetector(onTap: onTap, child: child));
+      return Expanded(
+        child: GestureDetector(onTap: onTap, child: child),
+      );
     }
 
     return Column(

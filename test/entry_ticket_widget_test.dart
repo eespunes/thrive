@@ -16,7 +16,9 @@ Future<void> _openAddTo(WidgetTester tester, String block) async {
     'Home': 'overview-add-home',
     'Savings': 'overview-add-savings',
   };
-  await tester.tap(find.byKey(ValueKey(keys[block] ?? 'overview-add-${block.toLowerCase()}')));
+  await tester.tap(
+    find.byKey(ValueKey(keys[block] ?? 'overview-add-${block.toLowerCase()}')),
+  );
   await tester.pumpAndSettle();
 }
 
