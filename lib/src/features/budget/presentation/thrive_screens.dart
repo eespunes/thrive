@@ -41,6 +41,8 @@ extension _ThriveScreens on _ThriveHomeState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (c.closed) _closedBanner(),
+        _buildIncomeQuickAdd(c),
+        const SizedBox(height: 12),
         if (envelopes.isEmpty)
           Container(
             width: double.infinity,
@@ -93,13 +95,51 @@ extension _ThriveScreens on _ThriveHomeState {
               crossAxisCount: 2,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              mainAxisExtent: 118,
+              mainAxisExtent: 138,
             ),
             itemCount: envelopes.length,
             itemBuilder: (context, index) => _buildEnvelopeCard(envelopes[index]),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildIncomeQuickAdd(_Compute c) {
+    final canEdit = !c.closed;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: GestureDetector(
+        key: const ValueKey('overview-add-income'),
+        onTap: canEdit ? () => openEntryTicket(cat: kIncomeBlockKey) : null,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 120),
+          opacity: canEdit ? 1 : .5,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: B.line),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ic('plus', size: 14, sw: 2.6, color: B.primary),
+                const SizedBox(width: 7),
+                const Text(
+                  'Add to Income',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: B.deep,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -174,12 +214,12 @@ extension _ThriveScreens on _ThriveHomeState {
   }
 
   Widget _buildEnvelopeCard(_BlockCompute block) {
-    final stateColor = _envelopeStateColor(block);
     final fillColor = _envelopeFillColor(block);
     final fillFactor = block.cap == null || block.cap == 0
         ? 0.0
         : block.capFraction.clamp(0.0, 1.0).toDouble();
     final delta = _envelopeDelta(block);
+    final canEdit = !isClosed();
     return GestureDetector(
       key: ValueKey('envelope-${block.key}'),
       onTap: () => openEnvelopeSheet(block.key),
@@ -205,11 +245,12 @@ extension _ThriveScreens on _ThriveHomeState {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 13),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _categoryGlyph(block, size: 24, radius: 8),
                       const SizedBox(width: 7),
@@ -225,6 +266,15 @@ extension _ThriveScreens on _ThriveHomeState {
                             height: 1.15,
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 6),
+                      _overviewCardAction(
+                        key: ValueKey('overview-add-${block.key}'),
+                        tooltip: 'Add to ${block.title}',
+                        icon: 'plus',
+                        color: B.primary,
+                        enabled: canEdit,
+                        onTap: () => openEntryTicket(cat: block.key),
                       ),
                     ],
                   ),
@@ -248,33 +298,83 @@ extension _ThriveScreens on _ThriveHomeState {
                       color: delta.$2,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _overviewCardAction(
+                          key: ValueKey('overview-cap-${block.key}'),
+                          label: block.cap == null
+                              ? 'Set limit'
+                              : 'Limit ${eur(block.cap!, cents: false)}',
+                          icon: block.cap == null ? 'plus' : 'edit',
+                          color: block.overCap ? B.red : B.soft2,
+                          enabled: canEdit,
+                          onTap: () => openCapSheet(block.key, block.cap),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            if (block.cap != null && block.cap! > 0)
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .9),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${(block.total / block.cap! * 100).round()}%',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      color: stateColor,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _overviewCardAction({
+    Key? key,
+    String? label,
+    String? tooltip,
+    required String icon,
+    required Color color,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    final button = GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 120),
+        opacity: enabled ? 1 : .5,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: label == null ? 7 : 8,
+            vertical: 5,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .92),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: B.line),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ic(icon, size: 11, sw: 2.5, color: color),
+              if (label != null) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    if (tooltip != null) return Tooltip(message: tooltip, child: button);
+    return button;
   }
 
   (String, Color) _envelopeDelta(_BlockCompute block) {

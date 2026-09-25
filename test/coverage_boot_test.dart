@@ -68,7 +68,7 @@ void main() {
     // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
     app.thriveDebug.goTab('finance');
     await tester.pumpAndSettle();
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
 
     expect(await app.thriveDebug.signInWithGoogle(), isNull);
     await tester.pumpAndSettle();

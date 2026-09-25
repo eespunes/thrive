@@ -153,6 +153,17 @@ class ThriveDebugController {
         .firstOrNull
         ?.id;
   }
+  String? findIncomeId(String payee, String label, [int? mIdx, int? yr]) {
+    yr ??= _s.year;
+    mIdx ??= _s.monthIdx;
+    final items = _s.data[yr]?[kMonthKeys[mIdx]]?.blocks[kIncomeBlockKey] ?? const [];
+    return items
+        .where((it) => it.payee == payee && it.label == label)
+        .firstOrNull
+        ?.id;
+  }
+
+  void openEntry(String catKey, String id) => _s.openEntryTicket(cat: catKey, id: id);
 
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
 
@@ -2335,6 +2346,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                           children: [
                             Text(
                               meta.title,
+                              key: const ValueKey('finance-header-title'),
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,

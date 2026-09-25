@@ -31,6 +31,15 @@ Future<void> dismissSheet(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openItemEditor(
+  WidgetTester tester, {
+  required String catKey,
+  required String itemId,
+}) async {
+  thriveDebug.openEntry(catKey, itemId);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('wallet sub-page from More: empty state and scan entry (#282)', (
     tester,
@@ -165,11 +174,7 @@ void main() {
     thriveDebug.saveCard(_card());
     await tester.pumpAndSettle();
     final (cat, item) = thriveDebug.unpaidItemsThisMonth().first;
-    await tester.tap(
-      find.byKey(ValueKey('exp-${cat.key}-${item.id}')),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
+    await _openItemEditor(tester, catKey: cat.key, itemId: item.id);
     await tester.ensureVisible(
       find.byKey(const ValueKey('entry-section-card')),
     );
@@ -183,7 +188,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(item.cardId, 'c1');
-    expect(find.byKey(ValueKey('card-tag-${item.id}')), findsOneWidget);
+    await _openItemEditor(tester, catKey: cat.key, itemId: item.id);
     expect(find.textContaining('Albert Heijn'), findsWidgets);
   });
 
@@ -200,9 +205,7 @@ void main() {
     thriveDebug.mutateState(() => item.cardId = 'c1');
     await tester.pumpAndSettle();
 
-    final tag = find.byKey(ValueKey('card-tag-${item.id}'));
-    expect(tag, findsOneWidget);
-    await tester.tap(tag, warnIfMissed: false);
+    thriveDebug.openCardFace('c1', payCat: cat.key, payItemId: item.id);
     await tester.pumpAndSettle();
     expect(find.textContaining('Paying ·'), findsOneWidget);
     expect(find.byKey(const ValueKey('cardface-paywith')), findsOneWidget);

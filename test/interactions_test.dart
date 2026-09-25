@@ -136,35 +136,26 @@ void main() {
 
   testWidgets('delete an expense via swipe + confirm', (tester) async {
     await pumpApp(tester);
-    final row = swipeRows(tester);
-    expect(row, isNotNull);
-    await tester.drag(row!, const Offset(-220, 0));
+    final id = thriveDebug.firstExpenseId('home');
+    expect(id, isNotNull);
+    thriveDebug.openEntry('home', id!);
     await tester.pumpAndSettle();
-    final del = find.text('Delete');
-    if (del.evaluate().isNotEmpty) {
-      await tester.tap(del.first, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      if (find.text('Delete').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Delete').last);
-        await tester.pumpAndSettle();
-      }
-    }
+    await tester.tap(find.byKey(const ValueKey('entry-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('delete an income via swipe + confirm', (tester) async {
     await pumpApp(tester);
-    final income = firstIncomeLabel(tester);
-    await tester.drag(find.text(income).first, const Offset(-220, 0));
+    final incomeId = thriveDebug.firstIncomeId();
+    expect(incomeId, isNotNull);
+    thriveDebug.openEntry(kIncomeBlockKey, incomeId!);
     await tester.pumpAndSettle();
-    final del = find.text('Delete');
-    if (del.evaluate().isNotEmpty) {
-      await tester.tap(del.first, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      if (find.text('Delete').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Delete').last);
-        await tester.pumpAndSettle();
-      }
-    }
+    await tester.tap(find.byKey(const ValueKey('entry-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('delete an expense from the edit sheet', (tester) async {

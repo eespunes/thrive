@@ -11,7 +11,21 @@ import 'helpers.dart';
 /// badges, scope sheets, block picker, error/edge states.
 
 Future<void> _openAddTo(WidgetTester tester, String block) async {
-  await tester.tap(find.text('Add to $block'));
+  const keys = {
+    'Income': 'overview-add-income',
+    'Home': 'overview-add-home',
+    'Savings': 'overview-add-savings',
+  };
+  await tester.tap(find.byKey(ValueKey(keys[block] ?? 'overview-add-${block.toLowerCase()}')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openExistingEntryById(
+  WidgetTester tester, {
+  required String catKey,
+  required String id,
+}) async {
+  thriveDebug.openEntry(catKey, id);
   await tester.pumpAndSettle();
 }
 
@@ -219,11 +233,12 @@ void main() {
     await _fill(tester);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
-    expect(find.text('Gym - Membership'), findsWidgets);
+    expect(thriveDebug.findExpenseId('home', 'Gym', 'Membership'), isNotNull);
 
     // Cancel keeps everything as it was.
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
+    expect(gymId, isNotNull);
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '25');
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -232,24 +247,22 @@ void main() {
     await _tapKey(tester, 'entry-scope-cancel');
 
     // Month-only makes an exception.
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId);
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '30');
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     await _tapKey(tester, 'entry-scope-month');
-    expect(find.text('Gym - Membership'), findsWidgets);
+    expect(thriveDebug.findExpenseId('home', 'Gym', 'Membership'), isNotNull);
 
     // Onward rewrites this and future months.
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId);
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '35');
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     await _tapKey(tester, 'entry-scope-onward');
-    expect(find.text('Gym - Membership'), findsWidgets);
+    expect(thriveDebug.findExpenseId('home', 'Gym', 'Membership'), isNotNull);
   });
 
   testWidgets('the block tray moves an entry to a sibling block (#294)', (
@@ -261,8 +274,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
+    expect(gymId, isNotNull);
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
     await _tapKey(tester, 'entry-section-block');
     expect(find.textContaining('Moving recounts both caps'), findsOneWidget);
     await _tapKey(tester, 'entry-move-block-food');
@@ -283,12 +297,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
+    expect(gymId, isNotNull);
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
     await _tapKey(tester, 'entry-delete');
     expect(find.text('Remove “Gym”?'), findsOneWidget);
     await _tapKey(tester, 'entry-scope-onward');
-    expect(find.text('Gym - Membership'), findsNothing);
+    expect(thriveDebug.findExpenseId('home', 'Gym', 'Membership'), isNull);
 
     // One-off: plain confirm dialog instead of scopes.
     await _openAddTo(tester, 'Home');
@@ -297,8 +312,9 @@ void main() {
     await _tapKey(tester, 'entry-repeat-off');
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Once - Fee').first);
-    await tester.pumpAndSettle();
+    final onceId = thriveDebug.findExpenseId('home', 'Once', 'Fee');
+    expect(onceId, isNotNull);
+    await _openExistingEntryById(tester, catKey: 'home', id: onceId!);
     await _tapKey(tester, 'entry-delete');
     expect(find.text('It only ever existed this month.'), findsOneWidget);
     await tester.tap(find.text('Delete').last);
@@ -384,8 +400,7 @@ void main() {
       );
 
       // Deleted account + deleted card + day-31 clamp, all on one ticket.
-      await tester.tap(find.text('Clamp - Rent').first);
-      await tester.pumpAndSettle();
+      await _openExistingEntryById(tester, catKey: 'home', id: 'r31');
       expect(find.text('⚠ Card deleted'), findsOneWidget);
       expect(find.textContaining('clamped'), findsOneWidget);
       await _tapKey(tester, 'entry-section-account');
@@ -409,16 +424,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // A stored end date round-trips into the repeat summary.
-      await tester.tap(find.text('Ends - Loan').first);
-      await tester.pumpAndSettle();
+      await _openExistingEntryById(tester, catKey: 'home', id: 'ends');
       await _tapKey(tester, 'entry-section-repeat');
       expect(find.textContaining('until Sep 2026'), findsOneWidget);
       await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
       await tester.pumpAndSettle();
 
       // Migrated dayless income asks to confirm the day (#288).
-      await tester.tap(find.text('Boss - Cash').first);
-      await tester.pumpAndSettle();
+      await _openExistingEntryById(tester, catKey: kIncomeBlockKey, id: 'mig');
       expect(find.textContaining('Migrated: this income'), findsOneWidget);
       // Income unscheduled hint is the by-choice one.
       await _tapKey(tester, 'entry-day-unscheduled');
@@ -435,8 +448,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Gym - Membership').first);
-    await tester.pumpAndSettle();
+    final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
+    expect(gymId, isNotNull);
+    await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
     thriveDebug.closeMonth();
     await tester.pump();
 

@@ -12,7 +12,7 @@ void main() {
     // shared_preferences mock prefixes keys with `flutter.`.
     await pumpApp(tester, prefs: {'flutter.thrive.v3': 'not valid json {['});
     // Falls through to the bundled seed instead of crashing.
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
   });
 
   testWidgets('clamps out-of-range and unknown persisted values', (
@@ -29,7 +29,7 @@ void main() {
     await pumpApp(tester, prefs: {'flutter.thrive.v3': payload});
     // App renders the (whitelisted) overview screen without RangeError/null
     // assertion crashes, and default accounts/categories are restored.
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
   });
 
   testWidgets('boots from v4 persisted JSON', (tester) async {
@@ -46,14 +46,14 @@ void main() {
       signedIn: false,
       prefs: {'flutter.thrive.v4': payload},
     );
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
   });
 
   testWidgets('reboot restores persisted state', (tester) async {
     await pumpApp(tester);
     // Make a change that persists, then reboot to hit the _restore path.
     // Income is an income-direction block now (issue #137).
-    await tester.tap(find.text('Add to Income'));
+    await tester.tap(find.byKey(const ValueKey('overview-add-income')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '50');
     await tester.enterText(
@@ -67,11 +67,11 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
-    expect(find.text('Persisted - Service'), findsWidgets);
+    expect(thriveDebug.findIncomeId('Persisted', 'Service'), isNotNull);
 
     await rebootApp(tester);
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('Persisted - Service'), findsWidgets);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
+    expect(thriveDebug.findIncomeId('Persisted', 'Service'), isNotNull);
   });
 
   testWidgets('hold-drag reorder persists across a reboot', (tester) async {
@@ -100,6 +100,6 @@ void main() {
     // tapping right side. Fall back: just pick a month to exercise setYear.
     await tester.tap(find.text('Jul').first);
     await tester.pumpAndSettle();
-    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
   });
 }

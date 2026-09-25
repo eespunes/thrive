@@ -83,7 +83,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('One last step'), findsNothing);
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
 
     testWidgets(
@@ -161,7 +161,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('One last step'), findsNothing);
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
 
     testWidgets('join flow validates input', (tester) async {
@@ -204,7 +204,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('One last step'), findsNothing);
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
 
     testWidgets('sign out from onboarding returns to the auth gate', (

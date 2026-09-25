@@ -24,7 +24,7 @@ void main() {
       // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
       await tester.tap(find.byKey(const ValueKey('nav-finance')));
       await tester.pumpAndSettle();
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
 
     testWidgets('email validation rejects bad input', (tester) async {
@@ -73,7 +73,7 @@ void main() {
       // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
       await tester.tap(find.byKey(const ValueKey('nav-finance')));
       await tester.pumpAndSettle();
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
 
     testWidgets('keyboard Enter advances email to password (#142)', (
@@ -108,7 +108,7 @@ void main() {
       // Sign-in lands on the new Home tab (issue #149); navigate to Finance.
       await tester.tap(find.byKey(const ValueKey('nav-finance')));
       await tester.pumpAndSettle();
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
     });
   });
 
