@@ -746,10 +746,7 @@ class _FinanceSheetFrame extends StatelessWidget {
         ),
         if (showDivider) const Divider(height: 1, thickness: 1, color: B.faint),
         Flexible(
-          child: SingleChildScrollView(
-            padding: bodyPadding,
-            child: child,
-          ),
+          child: SingleChildScrollView(padding: bodyPadding, child: child),
         ),
       ],
     );
@@ -837,8 +834,10 @@ class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
               label: block.items[i].item.label.trim().isNotEmpty
                   ? block.items[i].item.label.trim()
                   : block.items[i].item.payee.trim(),
-              day:
-                  '${block.items[i].item.day ?? dayNumFromMarker(block.items[i].item.marker) ?? 1} ${kMonthsEn[widget.state.monthIdx]}',
+              day: _financeItemDayLabel(
+                block.items[i].item,
+                widget.state.monthIdx,
+              ),
               amount: eur(block.items[i].item.amount),
               trailing: widget.state._statusPill(
                 block.items[i].item.paid,
@@ -846,7 +845,10 @@ class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
                 onTap: locked
                     ? null
                     : () {
-                        widget.state.togglePaid(block.key, block.items[i].item.id);
+                        widget.state.togglePaid(
+                          block.key,
+                          block.items[i].item.id,
+                        );
                         setState(() {});
                       },
               ),
@@ -874,8 +876,7 @@ class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
     final locked = compute.closed;
     final rows = [
       for (final block in compute.incomeBlocks)
-        for (final row in block.items)
-          (block: block, row: row),
+        for (final row in block.items) (block: block, row: row),
     ];
     final expected = compute.expIncome;
     final received = compute.realIncome;
@@ -928,8 +929,10 @@ class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
               label: rows[i].row.item.label.trim().isNotEmpty
                   ? rows[i].row.item.label.trim()
                   : rows[i].row.item.payee.trim(),
-              day:
-                  '${rows[i].row.item.day ?? dayNumFromMarker(rows[i].row.item.marker) ?? 1} ${kMonthsEn[widget.state.monthIdx]}',
+              day: _financeItemDayLabel(
+                rows[i].row.item,
+                widget.state.monthIdx,
+              ),
               amount: eur(rows[i].row.item.amount),
               trailing: widget.state._statusPill(
                 rows[i].row.item.paid,
@@ -1041,11 +1044,7 @@ class _AccountsDetailSheet extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            state._bar(
-                              amount / max,
-                              acc.color,
-                              height: 6,
-                            ),
+                            state._bar(amount / max, acc.color, height: 6),
                           ],
                         ),
                       ),
@@ -1468,7 +1467,9 @@ class _CloseConfirmSheet extends StatelessWidget {
           color: B.ink,
           borderRadius: BorderRadius.circular(11),
         ),
-        child: Center(child: ic('lock', size: 16, sw: 2.2, color: Colors.white)),
+        child: Center(
+          child: ic('lock', size: 16, sw: 2.2, color: Colors.white),
+        ),
       ),
       title: 'Close $monthYear?',
       showDivider: false,
@@ -1925,4 +1926,9 @@ class _GlyphPickerState extends State<_GlyphPicker> {
 String _numStr(double v) {
   if (v == v.roundToDouble()) return v.toInt().toString();
   return v.toString().replaceAll('.', ',');
+}
+
+String _financeItemDayLabel(ExpenseItem item, int monthIdx) {
+  final day = item.day ?? dayNumFromMarker(item.marker);
+  return day == null ? 'No date' : '$day ${kMonthsEn[monthIdx]}';
 }

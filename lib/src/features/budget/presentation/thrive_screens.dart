@@ -98,7 +98,8 @@ extension _ThriveScreens on _ThriveHomeState {
               mainAxisExtent: 138,
             ),
             itemCount: envelopes.length,
-            itemBuilder: (context, index) => _buildEnvelopeCard(envelopes[index]),
+            itemBuilder: (context, index) =>
+                _buildEnvelopeCard(envelopes[index]),
           ),
         ],
       ],
@@ -238,6 +239,7 @@ extension _ThriveScreens on _ThriveHomeState {
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: FractionallySizedBox(
+                    widthFactor: 1,
                     heightFactor: math.max(.08, fillFactor),
                     alignment: Alignment.bottomCenter,
                     child: ColoredBox(color: fillColor),
@@ -385,15 +387,14 @@ extension _ThriveScreens on _ThriveHomeState {
     if (block.cap == null || block.cap == 0) return ('No limit set', B.muted);
     final left = math.max(0, block.cap! - block.total);
     final nearCap = block.total / block.cap! >= .85;
-    return (
-      '${eur(left, cents: false)} left',
-      nearCap ? B.amberText : B.muted,
-    );
+    return ('${eur(left, cents: false)} left', nearCap ? B.amberText : B.muted);
   }
 
   Color _envelopeStateColor(_BlockCompute block) {
     if (block.overCap) return B.red;
-    if (block.cap != null && block.cap! > 0 && block.total / block.cap! >= .85) {
+    if (block.cap != null &&
+        block.cap! > 0 &&
+        block.total / block.cap! >= .85) {
       return B.amber;
     }
     return B.primary;
@@ -401,7 +402,9 @@ extension _ThriveScreens on _ThriveHomeState {
 
   Color _envelopeFillColor(_BlockCompute block) {
     if (block.overCap) return const Color(0x22dc2626);
-    if (block.cap != null && block.cap! > 0 && block.total / block.cap! >= .85) {
+    if (block.cap != null &&
+        block.cap! > 0 &&
+        block.total / block.cap! >= .85) {
       return const Color(0x26d97706);
     }
     return const Color(0x1f0E9A8D);
@@ -433,9 +436,17 @@ extension _ThriveScreens on _ThriveHomeState {
             children: [
               _summaryTile('Items', '${rows.length}', B.ink),
               const SizedBox(width: 8),
-              _summaryTile('Paid total', eur(paidTotal, cents: false), B.greenText),
+              _summaryTile(
+                'Paid total',
+                eur(paidTotal, cents: false),
+                B.greenText,
+              ),
               const SizedBox(width: 8),
-              _summaryTile('Open total', eur(openTotal, cents: false), B.amberText),
+              _summaryTile(
+                'Open total',
+                eur(openTotal, cents: false),
+                B.amberText,
+              ),
             ],
           ),
         ),
@@ -526,7 +537,11 @@ extension _ThriveScreens on _ThriveHomeState {
     return out;
   }
 
-  Widget _buildListRow(_FinanceListRow row, bool locked, {required bool topBorder}) {
+  Widget _buildListRow(
+    _FinanceListRow row,
+    bool locked, {
+    required bool topBorder,
+  }) {
     final canTap = !locked;
     final label = row.isIncome
         ? (row.done ? 'In' : 'Pending')
@@ -542,7 +557,9 @@ extension _ThriveScreens on _ThriveHomeState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          border: topBorder ? const Border(top: BorderSide(color: B.faint)) : null,
+          border: topBorder
+              ? const Border(top: BorderSide(color: B.faint))
+              : null,
         ),
         child: Row(
           children: [
@@ -576,7 +593,7 @@ extension _ThriveScreens on _ThriveHomeState {
             ),
             const SizedBox(width: 10),
             Text(
-              '${row.isIncome ? '+' : '−'}${eur(row.amount)}',
+              '${row.isIncome == (row.amount >= 0) ? '+' : '−'}${eur(row.amount.abs())}',
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
@@ -637,7 +654,9 @@ extension _ThriveScreens on _ThriveHomeState {
             day: item.day ?? dayNumFromMarker(item.marker),
             label: item.label.trim().isNotEmpty
                 ? item.label.trim()
-                : (item.payee.trim().isNotEmpty ? item.payee.trim() : block.title),
+                : (item.payee.trim().isNotEmpty
+                      ? item.payee.trim()
+                      : block.title),
             subtitle: block.title,
             amount: item.amount,
             done: item.paid,

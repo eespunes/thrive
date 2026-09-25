@@ -22,6 +22,21 @@ void main() {
     expect(find.byKey(const ValueKey('envelope-home')), findsOneWidget);
   });
 
+  testWidgets('a capped envelope fills across the full card width', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    final card = find.byKey(const ValueKey('envelope-food'));
+    final fill = find.descendant(
+      of: card,
+      matching: find.byType(FractionallySizedBox),
+    );
+    expect(fill, findsOneWidget);
+    final fillSize = tester.getSize(fill);
+    expect(fillSize.width, closeTo(tester.getSize(card).width, 4));
+    expect(fillSize.height, greaterThan(0));
+  });
+
   testWidgets('finance tabs switch without changing the month', (tester) async {
     await pumpApp(tester);
     expect(find.text('Overview'), findsWidgets);
