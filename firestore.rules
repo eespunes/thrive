@@ -136,27 +136,51 @@ service cloud.firestore {
       // Only the owner may delete the family.
       allow delete: if isOwner();
 
-      // Per-section workspace documents (budget years, events, imported
-      // calendars, lists, weekly plan, settings). Splitting the workspace out
-      // of the single family doc keeps each write/download small; access is
-      // exactly the parent doc's membership. Joining clients cannot touch
-      // these (they only become members via the parent-doc self-join above).
-      match /workspace/{section} {
-        allow read, write: if request.auth != null
+      function isFamilyMember() {
+        return request.auth != null
           && request.auth.uid in
                get(/databases/$(database)/documents/families/$(familyId))
                  .data.memberUids;
       }
 
-      // Per-event documents (one doc per calendar event, id = event id).
-      // Events moved out of the whole-array `events_<year>` workspace doc so
-      // two members editing different events can't overwrite each other.
-      // Access is the same parent-doc membership as the workspace sections.
+      // Workspace container docs: `settings`, one per budget month
+      // (`budget_<y>_<month>`, month fields only), task/shopping list
+      // (`list_task_<id>`/`list_shop_<id>`, list fields only), discount card
+      // (`card_<id>`) and imported calendar (`import_<id>`). Access is exactly
+      // the parent doc's membership.
+      //
+      // Items live one-per-doc in the sibling collections below, never as
+      // arrays in here: a write that would leave an embedded item array
+      // (`blocks`, `tasks`, `items`, `weeklyPlan`, …) is rejected. That's what
+      // stops an outdated app version — which re-uploads whole arrays from its
+      // possibly stale copy — from reverting other members' edits. Deleting
+      // such legacy arrays (the one-time migration) stays allowed.
+      match /workspace/{section} {
+        allow read, delete: if isFamilyMember();
+        allow create, update: if isFamilyMember()
+          && !request.resource.data.keys().hasAny([
+               'blocks', 'income', 'tasks', 'items', 'months', 'cards',
+               'taskLists', 'shoppingLists', 'weeklyPlan', 'events']);
+      }
+
+      // One doc per budget item: `<year>_<month>_<itemId>`.
+      match /budgetItems/{itemId} {
+        allow read, write: if isFamilyMember();
+      }
+
+      // One doc per task / shopping item: `<task|shop>_<listId>_<itemId>`.
+      match /listItems/{itemId} {
+        allow read, write: if isFamilyMember();
+      }
+
+      // One doc per weekly-plan day.
+      match /weekly/{day} {
+        allow read, write: if isFamilyMember();
+      }
+
+      // One doc per calendar event (id = event id).
       match /events/{eventId} {
-        allow read, write: if request.auth != null
-          && request.auth.uid in
-               get(/databases/$(database)/documents/families/$(familyId))
-                 .data.memberUids;
+        allow read, write: if isFamilyMember();
       }
     }
 

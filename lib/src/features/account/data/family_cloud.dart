@@ -189,14 +189,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // -------------------------------------------------------- (de)serialize
   // The pure serialization/digest layer lives in workspace_sections.dart,
   // where it is unit-tested without a widget tree or a live backend.
-  CollectionReference<Map<String, dynamic>> _workspaceCol(String fid) =>
-      _familyDocRef(fid).collection('workspace');
+  /// One of the family's record collections (see cloud_records.dart).
+  CollectionReference<Map<String, dynamic>> _recordCol(
+    String fid,
+    String col,
+  ) => _familyDocRef(fid).collection(col);
 
-  /// Per-event subcollection: one doc per calendar event, id = `event.id`.
-  /// Replaces the array-in-a-doc `events_<year>` sections so concurrent edits
-  /// to different events touch different docs (no whole-array overwrite).
-  CollectionReference<Map<String, dynamic>> _eventsCol(String fid) =>
-      _familyDocRef(fid).collection('events');
+  DocumentReference<Map<String, dynamic>> _recordRef(String fid, String key) {
+    final (col, id) = splitRecordKey(key);
+    return _recordCol(fid, col).doc(id);
+  }
 
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
@@ -237,7 +239,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
-        await _fetchAllSections([
+        await _fetchAllRecords([
           for (final d in docs) d.key,
         ], source: Source.cache);
         _applyFamilyDocs(meUid, docs, cachedUserData);
@@ -267,7 +269,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
-        await _fetchAllSections([for (final d in docs) d.key]);
+        await _fetchAllRecords([for (final d in docs) d.key]);
         _applyFamilyDocs(meUid, docs, userData);
         if (families.isNotEmpty) {
           // Repair the user-doc mirror so its `familyIds` reflects reality.
@@ -310,220 +312,314 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       for (final (i, s) in snaps.indexed)
         if (s.data() != null) MapEntry(ids[i], s.data()!),
     ];
-    await _fetchAllSections([for (final d in docs) d.key]);
+    await _fetchAllRecords([for (final d in docs) d.key]);
     _applyFamilyDocs(meUid, docs, userData);
   }
 
-  /// Loads every family's workspace subcollection concurrently into
-  /// [_wsSectionCache] (payloads keyed by section id, timestamps stripped).
-  /// Families that predate the split simply have no section docs and fall
-  /// back to their legacy single `workspace` map on apply.
-  Future<void> _fetchAllSections(
+  /// Loads every record collection of every family in [fids] concurrently
+  /// into [_cloudBase] (full replace per collection). A collection whose read
+  /// fails stays unloaded, so nothing is ever created or deleted there blind.
+  Future<void> _fetchAllRecords(
     List<String> fids, {
     Source source = Source.serverAndCache,
   }) async {
     await Future.wait([
-      for (final fid in fids) ...[
-        _workspaceCol(fid)
-            .get(GetOptions(source: source))
-            .timeout(kCloudOpTimeout)
-            .then((snap) {
-              _adoptSectionSnapshot(fid, snap);
-            })
-            .catchError((Object e) {
-              debugPrint('[cloud] workspace sections read failed for $fid: $e');
-            }),
-        _eventsCol(fid)
-            .get(GetOptions(source: source))
-            .timeout(kCloudOpTimeout)
-            .then((snap) {
-              _adoptEventsBootSnapshot(fid, snap);
-            })
-            .catchError((Object e) {
-              debugPrint('[cloud] events read failed for $fid: $e');
-            }),
-      ],
+      for (final fid in fids)
+        for (final col in kRecordCollections)
+          _recordCol(fid, col)
+              .get(GetOptions(source: source))
+              .timeout(kCloudOpTimeout)
+              .then((snap) {
+                _ingestRecordSnapshot(fid, col, snap, full: true);
+              })
+              .catchError((Object e) {
+                debugPrint('[cloud] $col read failed for $fid: $e');
+              }),
     ]);
   }
 
-  /// Parses an `events` subcollection snapshot into (event list, per-event
-  /// digest map). Shared by the boot fetch and the realtime listener.
-  (List<CalendarEvent>, Map<String, String>) _parseEventDocs(
-    QuerySnapshot<Map<String, dynamic>> snap,
-  ) {
-    final events = <CalendarEvent>[];
-    final digests = <String, String>{};
-    for (final d in snap.docs) {
-      final payload = Map<String, dynamic>.from(d.data())
-        ..remove('updatedAtMillis')
-        ..remove('updatedAt');
-      final e = CalendarEvent.fromJson(payload);
-      events.add(e);
-      digests[e.id] = eventDocDigest(e);
-    }
-    return (events, digests);
-  }
-
-  /// Caches a boot-time `events` snapshot for [_applyFamilyDocs] to seed into
-  /// the workspace, records the server digests, and marks the family's events
-  /// as loaded (so the persist delete-sweep is allowed for it).
-  void _adoptEventsBootSnapshot(
+  /// Folds a record-collection snapshot into the family's server state
+  /// ([_cloudBase] / [_legacyDocs]) and marks the collection loaded. [full]
+  /// replaces the collection wholesale (boot reads, a listener's first
+  /// snapshot); otherwise only `docChanges` apply.
+  void _ingestRecordSnapshot(
     String fid,
-    QuerySnapshot<Map<String, dynamic>> snap,
-  ) {
-    final (events, digests) = _parseEventDocs(snap);
-    _loadedEvents[fid] = events;
-    _eventDigests[fid] = digests;
-    _eventsLoaded.add(fid);
-  }
-
-  /// Union of two event lists by id, [primary] winning on a clash.
-  List<CalendarEvent> _mergeEventsById(
-    Iterable<CalendarEvent> primary,
-    Iterable<CalendarEvent> secondary,
-  ) {
-    final byId = <String, CalendarEvent>{};
-    for (final e in secondary) {
-      byId[e.id] = e;
-    }
-    for (final e in primary) {
-      byId[e.id] = e;
-    }
-    return byId.values.toList();
-  }
-
-  /// Applies a realtime `events` subcollection snapshot to the active family:
-  /// adopts server events, keeps any locally-dirty (edited-but-not-yet-persisted)
-  /// event and any un-synced local add, and drops events another member deleted.
-  void _adoptEventsSnapshot(
-    String fid,
-    QuerySnapshot<Map<String, dynamic>> snap,
-  ) {
-    final (serverEvents, serverDigests) = _parseEventDocs(snap);
-    final known = _eventDigests[fid] ?? const <String, String>{};
-    var changed = serverDigests.length != known.length;
-    if (!changed) {
-      for (final e in serverDigests.entries) {
-        if (known[e.key] != e.value) {
-          changed = true;
-          break;
-        }
-      }
-    }
-    _eventsLoaded.add(fid);
-    if (!changed) {
-      _eventDigests[fid] = serverDigests;
+    String col,
+    QuerySnapshot<Map<String, dynamic>> snap, {
+    required bool full,
+  }) {
+    final base = _cloudBase.putIfAbsent(fid, () => {});
+    final fromCache = snap.metadata.isFromCache;
+    // An empty CACHE answer for a collection we already hold data for is a
+    // cold/partial cache, not "everything was deleted" — wait for the server.
+    if (full &&
+        fromCache &&
+        snap.docs.isEmpty &&
+        base.keys.any((k) => k.startsWith('$col/'))) {
       return;
     }
-
-    final localWs = workspaces[fid];
-    final localById = {
-      for (final e in localWs?.events ?? const <CalendarEvent>[]) e.id: e,
-    };
-    final serverById = {for (final e in serverEvents) e.id: e};
-    final merged = <CalendarEvent>[];
-    for (final e in serverEvents) {
-      final local = localById[e.id];
-      if (local != null) {
-        final ld = eventDocDigest(local);
-        // Locally dirty within the debounce window: keep our copy, the pending
-        // persist will upload it (mirrors the section-level dirty merge).
-        if (ld != known[e.id] && ld != serverDigests[e.id]) {
-          merged.add(local);
-          continue;
+    final legacy = _legacyDocs.putIfAbsent(fid, () => {});
+    if (full) {
+      base.removeWhere((k, _) => k.startsWith('$col/'));
+      if (col == kWorkspaceCol) legacy.clear();
+    }
+    final changes = full
+        ? [for (final d in snap.docs) (d.id, d.data())]
+        : [
+            for (final c in snap.docChanges)
+              (
+                c.doc.id,
+                c.type == DocumentChangeType.removed ? null : c.doc.data(),
+              ),
+          ];
+    for (final (id, raw) in changes) {
+      final key = recordKey(col, id);
+      if (col == kWorkspaceCol) {
+        if (raw != null && isLegacyWorkspaceDoc(id, raw)) {
+          legacy[id] = Map<String, dynamic>.from(raw)
+            ..remove('updatedAtMillis')
+            ..remove('updatedAt');
+        } else {
+          legacy.remove(id);
         }
       }
-      merged.add(e);
-    }
-    // Local-only events: keep genuine un-synced local adds; an event we had
-    // synced before (present in `known`) that the server now lacks was deleted
-    // by another member — drop it.
-    for (final e in localById.values) {
-      if (!serverById.containsKey(e.id) && !known.containsKey(e.id)) {
-        merged.add(e);
+      final rec = raw == null ? null : normalizeRecord(key, raw);
+      if (rec == null) {
+        base.remove(key);
+      } else {
+        base[key] = rec;
       }
     }
-
-    _eventDigests[fid] = serverDigests;
-    if (localWs != null) {
-      _applyingCloudSnapshot = true;
-      localWs.events
-        ..clear()
-        ..addAll(merged);
-      workspaces[fid] = localWs;
-      if (fid == familyId) _adoptActiveWorkspace();
-      _applyingCloudSnapshot = false;
+    // A cache answer only proves the collection's contents when it has docs
+    // (an empty cache may simply never have synced it).
+    if (!fromCache || snap.docs.isNotEmpty) {
+      _cloudLoaded.putIfAbsent(fid, () => {}).add(col);
     }
+  }
+
+  /// Everything the server holds for [fid] as records: the current-format
+  /// records, plus records still embedded in legacy docs / the legacy blob
+  /// (current-format records win on a clash).
+  Records _serverView(String fid) {
+    final base = _cloudBase[fid] ?? const <String, Map<String, dynamic>>{};
+    final docs = _legacyDocs[fid] ?? const <String, Map<String, dynamic>>{};
+    final hasWsDocs =
+        docs.isNotEmpty ||
+        base.keys.any((k) => k.startsWith('$kWorkspaceCol/'));
+    // The blob only counts for a family that never got workspace docs.
+    final blob = hasWsDocs ? null : _legacyBlob[fid];
+    if (docs.isEmpty && blob == null) return base;
+    return {...legacyRecords(docs, blob: blob), ...base};
+  }
+
+  bool _hasLegacyData(String fid) =>
+      (_legacyDocs[fid]?.isNotEmpty ?? false) || _legacyBlob[fid] != null;
+
+  /// Builds [fid]'s workspace from the server state alone.
+  Workspace _workspaceFromCloud(String fid) =>
+      workspaceFromRecords(_serverView(fid));
+
+  /// Applies a server-side change to [fid]: runs [mutate] (which updates the
+  /// server state), then rebases this device's in-memory workspace onto it —
+  /// records this device didn't touch take the server's version, records
+  /// with a pending local edit keep it (merged per field where both sides
+  /// changed). The workspace object is only swapped when something visible
+  /// actually changed, so our own write echoing back is a no-op.
+  void _onCloudChange(String fid, void Function() mutate) {
+    final hadBase = _cloudBase.containsKey(fid);
+    final before = hadBase
+        ? _serverView(fid)
+        : const <String, Map<String, dynamic>>{};
+    mutate();
+    final after = _serverView(fid);
+    final localWs = workspaces[fid];
+    Workspace next;
+    if (!hadBase || localWs == null) {
+      // Nothing of this family was loaded before: adopt the server wholesale
+      // (a placeholder workspace's defaults must never win over real data).
+      next = workspaceFromRecords(after);
+    } else {
+      final changed = <String>{
+        for (final k in {...before.keys, ...after.keys})
+          if (!jsonEquals(before[k], after[k])) k,
+      };
+      if (changed.isEmpty) return;
+      final local = normalizedRecords(localWs);
+      local.addAll(orphanListItems(before, local));
+      final oldBase = {...before};
+      for (final k in changed) {
+        // A record this device never saw from the server (a placeholder
+        // month, a doc another member created with the same id): rebase it
+        // against the model defaults, so only fields we really edited win.
+        if (!before.containsKey(k) && local.containsKey(k)) {
+          // Settings are never created while unloaded, so a local copy the
+          // server hadn't confirmed is a placeholder: the server's wins.
+          oldBase[k] = k == recordKey(kWorkspaceCol, 'settings')
+              ? local[k]!
+              : placeholderRecord(k, local[k]!);
+        }
+      }
+      final merged = rebaseRecords(
+        oldBase: oldBase,
+        newBase: after,
+        local: local,
+        changed: changed,
+      );
+      if (changed.every((k) => jsonEquals(merged[k], local[k]))) return;
+      next = workspaceFromRecords(merged);
+    }
+    // Card photos never travel through the cloud (issue #234).
+    mergeCardPhotos(next.cards, localWs?.cards ?? const []);
+    _applyingCloudSnapshot = true;
+    workspaces[fid] = next;
+    if (fid == familyId) _adoptActiveWorkspace();
+    _applyingCloudSnapshot = false;
     if (mounted) {
       update(() {});
       _rescheduleReminders();
     }
   }
 
-  /// One-time migration of a family's legacy in-`workspace` calendar events
-  /// (the single `events` doc or the per-year `events_*` docs) into the
-  /// per-event `events` subcollection: writes each event as its own doc, then
-  /// deletes the legacy section docs so [workspaceFromSections] stops re-reading
-  /// them. Idempotent and guarded to run once per family per session.
-  Future<void> _migrateLegacyEvents(
-    String fid,
-    List<CalendarEvent> legacy,
-  ) async {
-    if (_eventsMigrated.contains(fid)) return;
-    _eventsMigrated.add(fid);
+  /// Meta-doc fields this app owns, normalized through the model.
+  Map<String, dynamic> _metaOf(Family f) => familyMetaDoc(f)
+    ..remove('updatedAtMillis')
+    ..remove('updatedAt');
+
+  Map<String, dynamic> _metaFromDoc(String fid, Map<String, dynamic> data) =>
+      _metaOf(Family.fromJson({...data, 'id': fid})..id = fid);
+
+  /// Marks [fid] as a family the server has nothing for yet (just created,
+  /// or promoted from local storage): every record will be created.
+  void _markFreshCloudFamily(String fid) {
+    _cloudBase[fid] = {};
+    _cloudLoaded[fid] = {...kRecordCollections};
+    _legacyDocs.remove(fid);
+    _legacyBlob.remove(fid);
+  }
+
+  /// One-time migration of [fid]'s pre-record data (whole-array workspace
+  /// docs, embedded `blocks`/`tasks`/`items` arrays, the single-doc
+  /// `workspace` blob) into one document per item. Records are created from
+  /// this device's current copy (so edits/deletes made meanwhile survive),
+  /// and only once every create landed are the legacy docs removed. Runs
+  /// once all collections are loaded, so nothing already migrated (by
+  /// another member) is overwritten. Idempotent; retried on failure.
+  Future<void> _migrateLegacyData(String fid) async {
+    if (!_hasLegacyData(fid)) return;
+    final loaded = _cloudLoaded[fid] ?? const <String>{};
+    if (!kRecordCollections.every(loaded.contains)) return;
+    if (!_legacyMigrating.add(fid)) return;
     try {
-      final digests = _eventDigests.putIfAbsent(fid, () => {});
+      final base = _cloudBase[fid]!;
+      final view = _serverView(fid);
+      final localWs = workspaces[fid];
+      final local = localWs == null ? null : normalizedRecords(localWs);
       final now = DateTime.now().millisecondsSinceEpoch;
-      final batch = FirebaseFirestore.instance.batch();
-      final staged = <void Function()>[];
-      for (final e in legacy) {
-        final digest = eventDocDigest(e);
-        if (digests[e.id] == digest) continue; // already present, identical
-        batch.set(_eventsCol(fid).doc(e.id), {
-          ...e.toJson(),
-          'updatedAtMillis': now,
-        });
-        staged.add(() => digests[e.id] = digest);
+      final creates = <String, Map<String, dynamic>>{};
+      for (final e in view.entries) {
+        if (base.containsKey(e.key)) continue;
+        if (local != null && !local.containsKey(e.key)) continue; // deleted
+        creates[e.key] = local?[e.key] ?? e.value;
       }
-      final sectionDigests = _wsSectionDigests[fid] ?? const <String, String>{};
-      final legacyDocIds = [
-        for (final id in sectionDigests.keys)
-          if (id == 'events' || id.startsWith('events_')) id,
+      final ops = <void Function(WriteBatch)>[
+        for (final e in creates.entries)
+          (b) => b.set(
+            _recordRef(fid, e.key),
+            _createBody(fid, e.key, e.value, now),
+            SetOptions(merge: true),
+          ),
       ];
-      for (final id in legacyDocIds) {
-        batch.delete(_workspaceCol(fid).doc(id));
-        staged.add(() {
-          _wsSectionDigests[fid]?.remove(id);
-          _wsSectionCache[fid]?.remove(id);
-        });
+      final written = _commitInChunks(ops);
+      // Optimistic, so edits made from now on become plain updates.
+      for (final e in creates.entries) {
+        base.putIfAbsent(e.key, () => e.value);
       }
-      await batch.commit();
-      for (final apply in staged) {
-        apply();
+      try {
+        await written;
+      } catch (e) {
+        for (final k in creates.keys) {
+          if (jsonEquals(base[k], creates[k])) base.remove(k);
+        }
+        rethrow;
       }
+
+      final docs = Map<String, Map<String, dynamic>>.from(
+        _legacyDocs[fid] ?? const {},
+      );
+      final blob = _legacyBlob[fid];
+      final cleanup = <void Function(WriteBatch)>[];
+      docs.forEach((id, raw) {
+        final ref = _recordCol(fid, kWorkspaceCol).doc(id);
+        if (legacyDocIsWholeDoc(id)) {
+          cleanup.add((b) => b.delete(ref));
+          return;
+        }
+        final rec = base[recordKey(kWorkspaceCol, id)];
+        cleanup.add(
+          (b) => b.update(ref, {
+            for (final k in kLegacyWorkspaceKeys)
+              if (raw.containsKey(k)) k: FieldValue.delete(),
+            if (rec != null && rec['_blocks'] != null)
+              '_blocks': rec['_blocks'],
+            'updatedAtMillis': now,
+          }),
+        );
+      });
+      if (blob != null) {
+        cleanup.add(
+          (b) =>
+              b.update(_familyDocRef(fid), {'workspace': FieldValue.delete()}),
+        );
+      }
+      await _commitInChunks(cleanup);
+      final left = _legacyDocs[fid];
+      if (left != null) {
+        for (final id in docs.keys) {
+          left.remove(id);
+        }
+      }
+      if (blob != null) _legacyBlob.remove(fid);
+      debugPrint(
+        '[cloud] migrated ${creates.length} legacy record(s) for $fid',
+      );
+      // Pending local edits to migrated records can now be written.
+      if (fid == familyId) _schedulePersist();
     } catch (e) {
-      debugPrint('[cloud] legacy event migration failed for $fid: $e');
-      _eventsMigrated.remove(fid); // allow a retry on the next boot
+      debugPrint('[cloud] legacy migration failed for $fid: $e');
+    } finally {
+      _legacyMigrating.remove(fid);
     }
   }
 
-  /// Caches a workspace-subcollection snapshot's payloads (and their digests,
-  /// so the next persist skips sections the server already has).
-  void _adoptSectionSnapshot(
-    String fid,
-    QuerySnapshot<Map<String, dynamic>> snap,
-  ) {
-    final sections = <String, Map<String, dynamic>>{};
-    final digests = <String, String>{};
-    for (final d in snap.docs) {
-      final payload = Map<String, dynamic>.from(d.data())
-        ..remove('updatedAtMillis')
-        ..remove('updatedAt');
-      sections[d.id] = payload;
-      digests[d.id] = sectionDigest(payload);
+  /// Commits [ops] in batches below Firestore's 500-write limit. Every batch
+  /// is issued immediately (and so durably queued offline, in order); only
+  /// the acks are awaited.
+  Future<void> _commitInChunks(List<void Function(WriteBatch)> ops) {
+    final commits = <Future<void>>[];
+    for (var i = 0; i < ops.length; i += 450) {
+      final batch = FirebaseFirestore.instance.batch();
+      for (final op in ops.skip(i).take(450)) {
+        op(batch);
+      }
+      commits.add(batch.commit());
     }
-    _wsSectionCache[fid] = sections;
-    _wsSectionDigests[fid] = digests;
+    return Future.wait(commits);
+  }
+
+  /// The merge-safe body for creating record [key] (see [createPayload]).
+  /// Where the collection is known to lack the doc, container docs are
+  /// written whole (a fresh family's settings, a new month's block order).
+  Map<String, dynamic> _createBody(
+    String fid,
+    String key,
+    Map<String, dynamic> rec,
+    int now,
+  ) {
+    final wsKnown = _cloudLoaded[fid]?.contains(kWorkspaceCol) ?? false;
+    final body = key == recordKey(kWorkspaceCol, 'settings') && wsKnown
+        ? rec
+        : createPayload(key, rec, includeBlocks: wsKnown);
+    return {...body, 'updatedAtMillis': now};
   }
 
   /// Adopts a set of loaded family documents into local state, choosing the
@@ -540,26 +636,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     for (final entry in docs) {
       final fid = entry.key;
       loadedFamilies.add(_familyFromDoc(fid, entry.value));
-      // Prefer the split subcollection sections; families that haven't
-      // migrated yet still carry the legacy single `workspace` map.
-      final ws =
-          workspaceFromSections(_wsSectionCache[fid] ?? const {}) ??
-          workspaceFromDoc(entry.value);
-      // Events are owned by the per-event `events` subcollection. `ws.events`
-      // as built above holds only LEGACY events (from a pre-migration `events`
-      // / `events_*` section doc, or the legacy blob). Merge them with the
-      // subcollection events (subcollection wins on id — it's the migrated
-      // copy) and kick off the one-time migration of any legacy events.
-      final legacyEvents = List<CalendarEvent>.from(ws.events);
-      final subEvents = _loadedEvents[fid] ?? const <CalendarEvent>[];
-      ws.events
-        ..clear()
-        ..addAll(_mergeEventsById(subEvents, legacyEvents));
-      if (legacyEvents.isNotEmpty) {
-        unawaited(_migrateLegacyEvents(fid, legacyEvents));
+      _metaBase[fid] = _metaFromDoc(fid, entry.value);
+      final blob = entry.value['workspace'];
+      if (blob is Map) {
+        _legacyBlob[fid] = Map<String, dynamic>.from(blob);
+      } else {
+        _legacyBlob.remove(fid);
       }
+      final ws = _workspaceFromCloud(fid);
       loadedWorkspaces[fid] = ws;
-      // Cloud sections never carry card photos (issue #234) — restore the
+      // Cloud records never carry card photos (issue #234) — restore the
       // ones this device already had from local storage.
       mergeCardPhotos(ws.cards, workspaces[fid]?.cards ?? const []);
     }
@@ -588,23 +674,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
     }
     _migrateLegacyMeIdsAll(meUid);
-    // Heal families still carrying the legacy single-doc `workspace` blob NOW
-    // instead of waiting for the user's first edit: with offline persistence
-    // on, that multi-MB blob is re-read from the SQLite cache on every later
-    // launch and can overflow Android's ~2MB CursorWindow — a fatal,
-    // un-catchable crash before the first frame. Persisting the split
-    // sections also deletes the blob from the meta doc (see
-    // _persistFamilySections), fixing the family for every member's device.
+    // Move families still on the pre-record layout (legacy array docs or the
+    // multi-MB single-doc blob, which can overflow Android's CursorWindow
+    // when re-read from the offline cache) now, not on the first edit.
     for (final entry in docs) {
-      if (entry.value['workspace'] is! Map) continue;
-      final fam = loadedFamilies.firstWhere((f) => f.id == entry.key);
-      unawaited(
-        _persistFamily(fam, loadedWorkspaces[entry.key]!).catchError(
-          (Object e) => debugPrint(
-            '[cloud] legacy blob migration failed for ${entry.key}: $e',
-          ),
-        ),
-      );
+      unawaited(_migrateLegacyData(entry.key));
     }
   }
 
@@ -618,6 +692,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _restoreV4(Map<String, dynamic>.from(state));
     if (families.isEmpty) return false;
     for (final f in families) {
+      _markFreshCloudFamily(f.id);
       f.ownerUid ??= meUid;
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       if (f.username.trim().isEmpty) f.username = familySlug(f.name);
@@ -635,7 +710,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   Future<void> bindCloudSync(String meUid) async {
     await _cloudSub?.cancel();
     await _familySub?.cancel();
-    await _wsSub?.cancel();
+    _cancelRecordSubs();
     try {
       _cloudSub = _userDocRef(meUid).snapshots().listen((snap) {
         final data = snap.data();
@@ -723,135 +798,89 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
   }
 
+  void _cancelRecordSubs() {
+    for (final sub in _recordSubs) {
+      sub.cancel();
+    }
+    _recordSubs.clear();
+  }
+
   void _bindActiveFamily(String meUid) {
     final fid = familyId;
     _boundFamilyId = fid;
     _familySub?.cancel();
-    _wsSub?.cancel();
-    _eventsSub?.cancel();
+    _cancelRecordSubs();
     try {
-      // Per-section workspace stream: with persistence re-enabled Firestore
-      // only re-downloads the section docs that actually changed, so another
-      // member's edit costs one small doc, not the whole family blob.
-      //
-      // "Did the server change?" is answered by comparing section DIGESTS
-      // against what we last wrote/received — never by comparing this
-      // device's wall clock against another device's timestamps, which
-      // silently dropped edits from any family member whose clock ran a
-      // little behind.
-      _wsSub = _workspaceCol(fid).snapshots().listen((snap) {
-        if (snap.metadata.hasPendingWrites) return; // our own local echo
-        final known = _wsSectionDigests[fid] ?? const <String, String>{};
-        final incoming = <String, Map<String, dynamic>>{};
-        final incomingDigests = <String, String>{};
-        var changed = false;
-        for (final d in snap.docs) {
-          final payload = Map<String, dynamic>.from(d.data())
-            ..remove('updatedAtMillis')
-            ..remove('updatedAt');
-          incoming[d.id] = payload;
-          final digest = sectionDigest(payload);
-          incomingDigests[d.id] = digest;
-          if (known[d.id] != digest) changed = true;
-        }
-        for (final id in known.keys) {
-          if (id != '__meta' && !incoming.containsKey(id)) changed = true;
-        }
-        if (!changed) return; // our own echo, or nothing new
-        // Section-level merge: a debounced local edit may not have been
-        // persisted yet. For each section, keep the LOCAL version when it
-        // differs from what we last synced (the pending persist will upload
-        // it); adopt the server's version otherwise. Without this, a remote
-        // snapshot landing inside the 2s debounce window rebuilt the whole
-        // workspace from server state and silently discarded the local edit.
-        final localWs = workspaces[fid];
-        final local = localWs == null
-            ? const <String, Map<String, dynamic>>{}
-            : workspaceSections(localWs, includeEvents: false);
-        final merged = <String, Map<String, dynamic>>{...incoming};
-        local.forEach((id, payload) {
-          final localDigest = sectionDigest(payload);
-          if (localDigest != known[id] && localDigest != incomingDigests[id]) {
-            // Locally dirty. Wholesale keeping our copy used to discard —
-            // and, on the next persist, permanently DELETE — anything another
-            // member added to the same section concurrently. Instead, union
-            // id-keyed items: keep local versions, add remote-only items
-            // (see [mergeDirtySection] for the exact per-section semantics
-            // and the deletion-resurrection trade-off).
-            final remote = incoming[id];
-            merged[id] = remote == null
-                ? payload
-                : mergeDirtySection(id, payload, remote);
-          }
-        });
-        final ws = workspaceFromSections(merged);
-        if (ws == null) return;
-        // Events are owned by the per-event `events` subcollection (see
-        // `_eventsSub`), NOT by the section docs. A section snapshot must never
-        // touch events, so carry the current in-memory events over unchanged.
-        if (localWs != null) {
-          ws.events
-            ..clear()
-            ..addAll(localWs.events);
-        }
-        // Card photos never travel through the cloud (issue #234), so carry
-        // this device's local photos over into the rebuilt workspace.
-        mergeCardPhotos(ws.cards, localWs?.cards ?? const []);
-        // The digest cache always tracks the SERVER's state, so the next
-        // persist re-uploads exactly the locally-kept sections.
-        final meta = (_wsSectionDigests[fid] ?? const {})['__meta'];
-        _wsSectionCache[fid] = incoming;
-        _wsSectionDigests[fid] = {...incomingDigests, '__meta': ?meta};
-        _applyingCloudSnapshot = true;
-        workspaces[fid] = ws;
-        if (fid == familyId) _adoptActiveWorkspace();
-        _applyingCloudSnapshot = false;
-        if (mounted) {
-          update(() {});
-          _rescheduleReminders();
-        }
-      }, onError: (Object e) => _onFamilyStreamError(fid, 'workspace', e));
-      // Per-event stream: one small doc per calendar event, so another
-      // member's edit to a DIFFERENT event never overwrites ours.
-      _eventsSub = _eventsCol(fid).snapshots().listen((snap) {
-        if (snap.metadata.hasPendingWrites) return; // our own local echo
-        _adoptEventsSnapshot(fid, snap);
-      }, onError: (Object e) => _onFamilyStreamError(fid, 'events', e));
+      // One realtime listener per record collection. EVERY snapshot is
+      // processed — including the local echo of our own pending writes,
+      // which is simply a no-op after the rebase — so the in-memory
+      // workspace always converges on what Firestore holds. Only the docs
+      // that changed are applied (docChanges), and they are rebased onto
+      // this device's pending edits instead of overwriting them.
+      for (final col in kRecordCollections) {
+        var first = true;
+        _recordSubs.add(
+          _recordCol(fid, col).snapshots().listen((snap) {
+            final full = first;
+            first = false;
+            _onCloudChange(
+              fid,
+              () => _ingestRecordSnapshot(fid, col, snap, full: full),
+            );
+            unawaited(_migrateLegacyData(fid));
+          }, onError: (Object e) => _onFamilyStreamError(fid, col, e)),
+        );
+      }
       _familySub = _familyDocRef(fid).snapshots().listen((snap) {
         final data = snap.data();
         if (data == null) return;
-        final fam = _familyFromDoc(fid, data);
         // We're no longer a member of this family (we left it, or an owner
         // removed us). Drop it locally and fall back to the next family — or
         // the create/join gate when it was our last — instead of re-adopting
-        // it. The shared doc lives on for everyone else, so without this guard
-        // the active-family stream fires on our own leave-write and keeps
-        // re-adding a family we just left (issue #133).
-        if (!fam.memberUids.contains(meUid)) {
+        // it (issue #133).
+        final uids = data['memberUids'];
+        if (uids is! List || !uids.contains(meUid)) {
           _dropFamilyLocally(fid);
           return;
         }
-        // Change detection by content digest over the meta fields we own —
-        // not by comparing another device's timestamp to our clock.
-        final metaDigest = metaDocDigest(data);
-        final digests = _wsSectionDigests.putIfAbsent(fid, () => {});
-        if (digests['__meta'] == metaDigest) return;
-        _applyingCloudSnapshot = true;
+        final rawBlob = data['workspace'];
+        final blob = rawBlob is Map ? Map<String, dynamic>.from(rawBlob) : null;
+        if (!jsonEquals(blob, _legacyBlob[fid])) {
+          _onCloudChange(fid, () {
+            if (blob == null) {
+              _legacyBlob.remove(fid);
+            } else {
+              _legacyBlob[fid] = blob;
+            }
+          });
+          unawaited(_migrateLegacyData(fid));
+        }
+        // Meta fields: same three-way rebase as records, so a pending local
+        // change (e.g. a rename) survives while another member's change to a
+        // different field is adopted.
+        final serverMeta = _metaFromDoc(fid, data);
+        final oldMeta = _metaBase[fid];
+        _metaBase[fid] = serverMeta;
+        if (oldMeta != null && jsonEquals(oldMeta, serverMeta)) return;
         final idx = families.indexWhere((f) => f.id == fid);
+        final merged = oldMeta == null || idx < 0
+            ? serverMeta
+            : Map<String, dynamic>.from(
+                rebaseValue(oldMeta, serverMeta, _metaOf(families[idx])) as Map,
+              );
+        final fam = _familyFromDoc(fid, {
+          ...data,
+          ...merged,
+          if (!merged.containsKey('picture')) 'picture': null,
+        });
+        _applyingCloudSnapshot = true;
         if (idx >= 0) {
           families[idx] = fam;
         } else {
           families = [...families, fam];
         }
-        // The workspace itself streams from the subcollection listener above;
-        // only a family that predates the split (no section docs yet) still
-        // syncs its legacy single `workspace` map through the meta doc.
-        if ((_wsSectionCache[fid] ?? const {}).isEmpty) {
-          workspaces[fid] = workspaceFromDoc(data);
-        }
         if (fid == familyId) _adoptActiveWorkspace();
         _migrateLegacyMeIdsAll(meUid);
-        digests['__meta'] = metaDigest;
         _applyingCloudSnapshot = false;
         if (mounted) {
           update(() {});
@@ -866,114 +895,43 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // ----------------------------------------------------------- persist
   Future<void> cloudPersist(String meUid) async {
     if (_applyingCloudSnapshot) return;
-    // Workspace sections FIRST: they carry the user's actual edits, and the
-    // batch.commit() only needs to START for Firestore to durably queue it
-    // offline. The user-doc mirror used to be awaited unbounded before this —
-    // offline, that set() never resolves (writes only ack from the backend),
-    // so the section persist was never reached and edits never entered the
-    // SDK's offline queue at all (silent data loss on app kill).
     final f = curFamily();
     if (f != null) {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
-      await _persistFamily(f, workspaces[f.id] ?? Workspace.empty());
+      // The writes are issued (and durably queued by the SDK's offline
+      // persistence) synchronously inside _persistFamily; only the backend
+      // acks are async. Not awaiting them keeps an offline device from
+      // stalling here until reconnect.
+      unawaited(_persistFamily(f, workspaces[f.id] ?? Workspace.empty()));
     }
-    // Best-effort, bounded mirror write: a timeout just means no backend ack
-    // yet — the set() is already queued by the SDK and will land when online.
+    // Best-effort, bounded mirror write.
     await _recordMembership(meUid);
   }
 
-  /// Writes [f]'s metadata doc and only the workspace section docs whose
-  /// payload digest changed since they were last written or received — one
-  /// small batched write per edit instead of re-uploading the whole family
-  /// blob. Sections that vanished locally (a deleted year or removed imported
-  /// calendar) are deleted from the subcollection.
+  /// Writes to Firestore exactly what this device changed in [f] since the
+  /// server state it last saw ([_cloudBase] / [_metaBase]): new records are
+  /// created, changed records get FIELD-LEVEL updates (so another member's
+  /// edit to a different field of the same item is never overwritten), and
+  /// records deleted locally are deleted. Nothing this device didn't touch is
+  /// ever written, so a stale device can't revert anyone's edits.
   ///
-  /// The digest/payload caches are updated only AFTER the commit succeeds:
-  /// updating them optimistically meant a failed commit (offline past the
-  /// queue, rules rejection) left the cache claiming the server already had
-  /// the data, silently suppressing every retry until restart.
-  Future<void> _persistFamilySections(Family f, Workspace ws) async {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    // Events are persisted per-doc by _persistFamilyEvents, not as sections.
-    final sections = workspaceSections(ws, includeEvents: false);
-    final digests = _wsSectionDigests.putIfAbsent(f.id, () => {});
-    final cache = _wsSectionCache.putIfAbsent(f.id, () => {});
-
-    // Safety net against permanently wiping a family whose workspace never
-    // finished loading on this device. Several callers substitute a
-    // `Workspace.empty()` (and `_activeWs`'s `putIfAbsent` inserts an empty
-    // sentinel) whenever `workspaces[f.id]` is momentarily absent — e.g. a
-    // secondary family whose subcollection read timed out, or the active
-    // family touched before its stream delivered. An empty workspace produces
-    // NO content sections, so the stale-section sweep further down would then
-    // DELETE every real `events_*`/`budget_*`/`import_*`/`lists`/`cards` doc on
-    // the server as "vanished locally", destroying data that only failed to
-    // load. (This is exactly how a legacy family's 91-event `events` doc was
-    // lost.) The decision is a pure function (unit-tested in
-    // workspace_sections_test.dart) so this net can't silently rot.
-    if (emptyWorkspacePersistWouldWipe(sections, digests)) {
-      debugPrint(
-        '[cloud] SKIPPED persist for ${f.id}: an empty/unloaded workspace '
-        'would have deleted ${digests.keys.where(isWorkspaceContentSection).length} '
-        'server content section(s). Leaving server data intact.',
-      );
-      return;
-    }
-    final batch = FirebaseFirestore.instance.batch();
-    // Cache mutations staged here run only once the batch has committed.
-    final staged = <void Function()>[];
-
-    final metaDigest = metaDocDigest(familyMetaDoc(f));
-    // Once the sections are written (below, same batch), the legacy single-doc
-    // `workspace` blob is dead weight on the meta doc — and, at multi-MB, the
-    // very thing that used to crash Android's offline cache. Drop it once per
-    // session (a no-op when already gone).
-    final clearLegacy = !_legacyBlobCleared.contains(f.id);
-    if (digests['__meta'] != metaDigest || clearLegacy) {
-      batch.set(_familyDocRef(f.id), {
-        ...familyMetaDoc(f),
-        if (clearLegacy) 'workspace': FieldValue.delete(),
-      }, SetOptions(merge: true));
-      staged.add(() {
-        digests['__meta'] = metaDigest;
-        _legacyBlobCleared.add(f.id);
-      });
-    }
-    sections.forEach((id, payload) {
-      final digest = sectionDigest(payload);
-      if (digests[id] == digest) return;
-      batch.set(_workspaceCol(f.id).doc(id), {
-        ...payload,
-        'updatedAtMillis': now,
-      });
-      staged.add(() {
-        digests[id] = digest;
-        cache[id] = payload;
-      });
-    });
-    for (final stale in digests.keys.toList()) {
-      if (stale == '__meta' || sections.containsKey(stale)) continue;
-      // Legacy event docs are NOT swept here: since cloud sections no longer
-      // include events, they'd always look stale, and deleting them before
-      // _migrateLegacyEvents copies them into the per-event subcollection would
-      // lose data. Their deletion is owned solely by _migrateLegacyEvents.
-      if (stale == 'events' || stale.startsWith('events_')) continue;
-      batch.delete(_workspaceCol(f.id).doc(stale));
-      staged.add(() {
-        digests.remove(stale);
-        cache.remove(stale);
-      });
-    }
-    if (staged.isEmpty) return;
-    try {
-      await batch.commit();
-    } catch (e) {
-      debugPrint('[cloud] persist commit failed for ${f.id}: $e');
-      // Surface the queue on the Settings v2 sub-pages (#283): the header
-      // pill flips to "Queued — offline" and the amber banner appears; the
-      // queued sections retry on the next persist.
-      if (mounted) {
+  /// The base is updated optimistically (a second persist racing this one
+  /// won't re-send the same changes) and rolled back if a write is rejected,
+  /// so the next persist retries it. Completes with whether every write was
+  /// acknowledged.
+  Future<bool> _persistFamily(Family f, Workspace ws) async {
+    final acks = <Future<void>>[];
+    _persistFamilyMeta(f, acks);
+    _persistFamilyRecords(f.id, ws, acks);
+    if (acks.isEmpty) return true;
+    final results = await Future.wait([
+      for (final a in acks) a.then((_) => true, onError: (Object _) => false),
+    ]);
+    final ok = results.every((r) => r);
+    if (mounted) {
+      if (!ok) {
+        // Surface the queue on the Settings v2 sub-pages (#283).
         if (!netOffline.value) {
           netOffline.value = true;
           showError('Could not sync your latest changes — will retry.');
@@ -981,78 +939,146 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (syncStatus.value != null) {
           syncStatus.value = SettingsSyncStatus.queued;
         }
+      } else if (netOffline.value) {
+        netOffline.value = false;
       }
-      // Caches untouched — the next persist retries these exact sections.
+    }
+    return ok;
+  }
+
+  void _persistFamilyMeta(Family f, List<Future<void>> acks) {
+    final local = _metaOf(f);
+    final base = _metaBase[f.id];
+    if (base != null && jsonEquals(base, local)) return;
+    final ref = _familyDocRef(f.id);
+    final Future<void> write;
+    if (base == null) {
+      write = ref.set(familyMetaDoc(f), SetOptions(merge: true));
+    } else {
+      write = ref.update({
+        for (final c in recordPatch(base, local))
+          FieldPath(c.path): c.delete ? FieldValue.delete() : c.value,
+        'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+    _metaBase[f.id] = local;
+    acks.add(
+      write.catchError((Object e) {
+        debugPrint('[cloud] meta write failed for ${f.id}: $e');
+        if (jsonEquals(_metaBase[f.id], local)) {
+          if (base == null) {
+            _metaBase.remove(f.id);
+          } else {
+            _metaBase[f.id] = base;
+          }
+        }
+        throw e;
+      }),
+    );
+  }
+
+  void _persistFamilyRecords(
+    String fid,
+    Workspace ws,
+    List<Future<void>> acks,
+  ) {
+    final base = _cloudBase[fid];
+    // Nothing of this family has loaded: any write would be blind.
+    if (base == null) return;
+    final loaded = _cloudLoaded[fid] ?? const <String>{};
+    final view = _serverView(fid);
+    final local = normalizedRecords(ws);
+    local.addAll(orphanListItems(view, local));
+    final legacyPending = _hasLegacyData(fid);
+    // Safety net: a placeholder `Workspace.empty()` (a family that hasn't
+    // finished loading) must never be written over real data.
+    if (recordsAreEmptyPlaceholder(local) &&
+        (!kRecordCollections.every(loaded.contains) ||
+            legacyPending ||
+            base.keys.any((k) => k != recordKey(kWorkspaceCol, 'settings')))) {
+      debugPrint('[cloud] SKIPPED persist for $fid: workspace not loaded');
       return;
     }
-    if (mounted && netOffline.value) netOffline.value = false;
-    for (final apply in staged) {
-      apply();
+    final plan = planRecordWrites(base, local);
+    final legacyIds = _legacyDocs[fid]?.keys.toSet() ?? const <String>{};
+    bool blocked(String key) {
+      final (col, id) = splitRecordKey(key);
+      return col == kWorkspaceCol && legacyIds.contains(id);
     }
-  }
-
-  /// Persists both the workspace section docs and the per-event `events`
-  /// subcollection for [f]. Every persist entry point goes through here so
-  /// events and sections always ride the same debounced write.
-  Future<void> _persistFamily(Family f, Workspace ws) async {
-    await _persistFamilySections(f, ws);
-    await _persistFamilyEvents(f, ws);
-  }
-
-  /// Writes [f]'s calendar events as individual docs under
-  /// `families/{fid}/events/{eventId}` — the per-document model that stops two
-  /// members editing DIFFERENT events from overwriting each other (unlike the
-  /// old whole-array `events_<year>` section doc). Only events whose digest
-  /// changed are written; events removed locally are deleted.
-  ///
-  /// Like [_persistFamilySections], digest-cache mutations are staged and only
-  /// applied after the commit succeeds, so a failed commit retries next time.
-  Future<void> _persistFamilyEvents(Family f, Workspace ws) async {
-    final digests = _eventDigests.putIfAbsent(f.id, () => {});
-    final diff = diffEventDocs(ws.events, digests);
-
-    // Unloaded-wipe guard: never delete server event docs for a family whose
-    // events haven't loaded on this device (an empty/unloaded workspace would
-    // otherwise wipe every event). Writes are always safe — they only add or
-    // update, never destroy — so a first-time upload still works.
-    final deletes = _eventsLoaded.contains(f.id)
-        ? diff.deletes
-        : const <String>[];
-    if (diff.writes.isEmpty && deletes.isEmpty) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
-    final batch = FirebaseFirestore.instance.batch();
-    final staged = <void Function()>[];
-    for (final e in diff.writes) {
-      batch.set(_eventsCol(f.id).doc(e.id), {
-        ...e.toJson(),
-        'updatedAtMillis': now,
+    final ops = <void Function(WriteBatch)>[];
+    final rollbacks = <void Function()>[];
+    plan.creates.forEach((key, rec) {
+      // Records still held by legacy docs are created by the migration.
+      if (legacyPending && view.containsKey(key)) return;
+      // Container docs (settings, months, list/card meta) are placeholders
+      // until the workspace collection has loaded — never write those.
+      if (splitRecordKey(key).$1 == kWorkspaceCol &&
+          !loaded.contains(kWorkspaceCol)) {
+        return;
+      }
+      // Merge-safe even when the doc exists but hasn't reached this device
+      // (see createPayload), so this never waits for the collection to load
+      // — offline edits enter the SDK's durable queue right away.
+      final body = _createBody(fid, key, rec, now);
+      ops.add(
+        (b) => b.set(_recordRef(fid, key), body, SetOptions(merge: true)),
+      );
+      base[key] = rec;
+      // By value: the local echo may already have replaced the object.
+      rollbacks.add(() {
+        if (jsonEquals(base[key], rec)) base.remove(key);
       });
-      final digest = eventDocDigest(e);
-      staged.add(() => digests[e.id] = digest);
+    });
+    for (final key in plan.deletes) {
+      if (blocked(key)) continue;
+      ops.add((b) => b.delete(_recordRef(fid, key)));
+      final prev = base.remove(key)!;
+      rollbacks.add(() => base.putIfAbsent(key, () => prev));
     }
-    for (final id in deletes) {
-      batch.delete(_eventsCol(f.id).doc(id));
-      staged.add(() => digests.remove(id));
+    if (ops.isNotEmpty) {
+      acks.add(
+        _commitInChunks(ops).catchError((Object e) {
+          debugPrint('[cloud] record commit failed for $fid: $e');
+          for (final r in rollbacks) {
+            r();
+          }
+          throw e;
+        }),
+      );
     }
-    try {
-      await batch.commit();
-    } catch (e) {
-      debugPrint('[cloud] event persist commit failed for ${f.id}: $e');
-      if (mounted && !netOffline.value) {
-        netOffline.value = true;
-        showError('Could not sync your latest changes — will retry.');
-      }
-      if (mounted && syncStatus.value != null) {
-        syncStatus.value = SettingsSyncStatus.queued;
-      }
-      // Caches untouched — the next persist retries these exact events.
-      return;
-    }
-    if (mounted && netOffline.value) netOffline.value = false;
-    for (final apply in staged) {
-      apply();
-    }
+    plan.updates.forEach((key, patch) {
+      if (blocked(key)) return;
+      final prev = base[key]!;
+      final rec = local[key]!;
+      base[key] = rec;
+      final ref = _recordRef(fid, key);
+      acks.add(
+        ref
+            .update({
+              for (final c in patch)
+                FieldPath(c.path): c.delete ? FieldValue.delete() : c.value,
+              'updatedAtMillis': now,
+            })
+            .catchError((Object e) {
+              // Deleted by another member meanwhile: our edit recreates it.
+              if (e is FirebaseException && e.code == 'not-found') {
+                return ref.set(
+                  _createBody(fid, key, rec, now),
+                  SetOptions(merge: true),
+                );
+              }
+              throw e;
+            })
+            .catchError((Object e) {
+              debugPrint('[cloud] update of $key failed for $fid: $e');
+              if (jsonEquals(base[key], rec)) base[key] = prev;
+              throw e;
+            }),
+      );
+    });
   }
 
   Future<void> _writeUserDoc(String meUid) async {
@@ -1104,6 +1130,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _promoteLocalFamiliesForCloud(String meUid) {
     final localId = _localSelfUidCache;
     for (final f in families) {
+      // A family never read from the cloud is local-only: everything in it
+      // is new to the server.
+      if (!_metaBase.containsKey(f.id)) _markFreshCloudFamily(f.id);
       f.ownerUid ??= meUid;
       if (f.username.trim().isEmpty) f.username = familySlug(f.name);
       _migrateLegacyMeIds(f, meUid);
@@ -1150,11 +1179,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
   }
 
-  Future<void> _persistAllFamilies(String meUid) async {
-    await Future.wait([
+  /// Completes with whether every family's writes were acknowledged.
+  Future<bool> _persistAllFamilies(String meUid) async {
+    final results = await Future.wait([
       for (final f in families)
         _persistFamily(f, workspaces[f.id] ?? Workspace.empty()),
     ]);
+    return !results.contains(false);
   }
 
   // ----------------------------------------------------- create / join
@@ -1219,7 +1250,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         await _familyHandleRef(slug)
             .set({'familyId': fid, 'ownerUid': meUid, 'joinSalt': joinSalt})
             .timeout(kCloudOpTimeout);
-        await _persistFamily(fam, ws);
+        _metaBase[fid] = _metaOf(fam);
+        _markFreshCloudFamily(fid);
+        if (!await _persistFamily(fam, ws)) {
+          throw StateError('initial records write rejected');
+        }
       } catch (e) {
         // Roll back both docs so we leave neither an unjoinable orphan family
         // (no resolvable handle) nor a dangling handle pointing at nothing
@@ -1293,7 +1328,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           // — otherwise this path adopted an empty workspace, and an edit in
           // the following seconds could persist that emptiness over the
           // family's real shared data.
-          await _fetchAllSections([fid]);
+          await _fetchAllRecords([fid]);
           _adoptJoinedFamily(fid, mineData, meUid);
           await _recordMembership(meUid);
           await bindCloudSync(meUid);
@@ -1363,7 +1398,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
       final data = snap.data();
       if (data == null) return 'Could not join family right now';
-      await _fetchAllSections([fid]);
+      await _fetchAllRecords([fid]);
       _adoptJoinedFamily(fid, data, meUid, selfRow: me);
       // Durably record membership before returning so a relaunch finds this
       // family rather than the onboarding gate (issue #128).
@@ -1396,10 +1431,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (selfRow != null && !fam.members.any((m) => m.uid == meUid)) {
       fam.members = [...fam.members, selfRow];
     }
-    final ws =
-        workspaceFromSections(_wsSectionCache[fid] ?? const {}) ??
-        workspaceFromDoc(data);
+    _metaBase[fid] = _metaFromDoc(fid, data);
+    final blob = data['workspace'];
+    if (blob is Map) {
+      _legacyBlob[fid] = Map<String, dynamic>.from(blob);
+    } else {
+      _legacyBlob.remove(fid);
+    }
+    final ws = _workspaceFromCloud(fid);
     workspaces[fid] = ws;
+    unawaited(_migrateLegacyData(fid));
     final alreadyLocal = families.any((f) => f.id == fid);
     update(() {
       families = alreadyLocal
@@ -1418,26 +1459,23 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// without this the sections would linger as unreachable orphans.
   Future<void> _deleteFamilyDocs(String fid) async {
     try {
-      final sections = await _workspaceCol(fid).get().timeout(kCloudOpTimeout);
-      final events = await _eventsCol(fid).get().timeout(kCloudOpTimeout);
-      final batch = FirebaseFirestore.instance.batch();
-      for (final d in sections.docs) {
-        batch.delete(d.reference);
-      }
-      for (final d in events.docs) {
-        batch.delete(d.reference);
-      }
-      await batch.commit();
+      final snaps = await Future.wait([
+        for (final col in kRecordCollections)
+          _recordCol(fid, col).get().timeout(kCloudOpTimeout),
+      ]);
+      await _commitInChunks([
+        for (final snap in snaps)
+          for (final d in snap.docs) (b) => b.delete(d.reference),
+      ]);
     } catch (e) {
-      debugPrint('[cloud] section cleanup failed for $fid: $e');
+      debugPrint('[cloud] record cleanup failed for $fid: $e');
     }
     await _familyDocRef(fid).delete();
-    _wsSectionCache.remove(fid);
-    _wsSectionDigests.remove(fid);
-    _eventDigests.remove(fid);
-    _eventsLoaded.remove(fid);
-    _eventsMigrated.remove(fid);
-    _loadedEvents.remove(fid);
+    _cloudBase.remove(fid);
+    _cloudLoaded.remove(fid);
+    _legacyDocs.remove(fid);
+    _legacyBlob.remove(fid);
+    _metaBase.remove(fid);
   }
 
   /// Returns null on success, or a user-facing error message. The caller has
@@ -1485,7 +1523,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
         await _deleteFamilyDocs(fam.id);
       } else {
-        await _persistFamily(fam, workspaces[fam.id] ?? Workspace.empty());
+        final ok = await _persistFamily(
+          fam,
+          workspaces[fam.id] ?? Workspace.empty(),
+        );
+        if (!ok) throw StateError('leave write rejected');
       }
       await _recordMembership(meUid);
       return null;
