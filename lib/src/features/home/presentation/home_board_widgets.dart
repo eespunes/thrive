@@ -1648,7 +1648,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
         go('stats');
       case 'open_flow':
         goTab('finance');
-        go('flow');
+        go('calendar');
     }
   }
 

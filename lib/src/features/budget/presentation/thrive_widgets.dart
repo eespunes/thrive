@@ -678,7 +678,6 @@ class _SwipeRow extends StatefulWidget {
     required this.onDelete,
     required this.open,
     required this.onOpenChanged,
-    this.topBorder = false,
     this.borderRadius = 0,
   }) : super(key: key);
 
@@ -686,7 +685,6 @@ class _SwipeRow extends StatefulWidget {
   final VoidCallback onDelete;
   final bool open;
   final ValueChanged<bool> onOpenChanged;
-  final bool topBorder;
 
   /// Matches [child]'s own corner radius so the sliding red "Delete" panel
   /// stays clipped to the same rounded shape — otherwise it either peeks
@@ -734,64 +732,57 @@ class _SwipeRowState extends State<_SwipeRow>
     final reveal = widget.open
         ? 1.0
         : (_dx.abs() / _actionWidth).clamp(0.0, 1.0);
-    return Container(
-      decoration: widget.topBorder
-          ? const BoxDecoration(
-              border: Border(top: BorderSide(color: B.faint)),
-            )
-          : null,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              width: _actionWidth,
-              child: IgnorePointer(
-                ignoring: !showDeleteAction,
-                child: Opacity(
-                  opacity: reveal,
-                  child: GestureDetector(
-                    key: showDeleteAction ? deleteKey : null,
-                    onTap: widget.onDelete,
-                    child: Container(
-                      color: B.red,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ic('trash', size: 16, sw: 2.2, color: Colors.white),
-                          const SizedBox(height: 3),
-                          const Text(
-                            'Delete',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            width: _actionWidth,
+            child: IgnorePointer(
+              ignoring: !showDeleteAction,
+              child: Opacity(
+                opacity: reveal,
+                child: GestureDetector(
+                  key: showDeleteAction ? deleteKey : null,
+                  onTap: widget.onDelete,
+                  child: Container(
+                    color: B.red,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ic('trash', size: 16, sw: 2.2, color: Colors.white),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-            GestureDetector(
-              onHorizontalDragStart: (_) {
-                if (_dx == 0) setState(() => _dx = -1);
-              },
-              onHorizontalDragUpdate: (d) => _onMove(d.primaryDelta ?? 0),
-              onHorizontalDragEnd: _onEnd,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 1),
-                transform: Matrix4.translationValues(_dx, 0, 0),
-                child: widget.child,
-              ),
             ),
-          ],
-        ),
+          GestureDetector(
+            onHorizontalDragStart: (_) {
+              if (_dx == 0) setState(() => _dx = -1);
+            },
+            onHorizontalDragUpdate: (d) => _onMove(d.primaryDelta ?? 0),
+            onHorizontalDragEnd: _onEnd,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 1),
+              transform: Matrix4.translationValues(_dx, 0, 0),
+              child: widget.child,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -304,7 +304,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   int year = 2026;
   int monthIdx = 5;
   String screen =
-      'overview'; // overview | flow | stats — Finance tab's own sub-view
+      'overview'; // overview | calendar | list | stats — Finance tab's sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
   String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
@@ -1006,9 +1006,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       tab = 'more';
       return;
     }
-    screen = const {'overview', 'stats', 'flow'}.contains(legacyScreen)
-        ? legacyScreen
-        : 'overview';
+    screen = switch (legacyScreen) {
+      'overview' || 'stats' || 'calendar' || 'list' => legacyScreen,
+      'flow' => 'calendar',
+      _ => 'overview',
+    };
     if (rawTab == null) {
       tab = 'finance';
       return;
@@ -2013,11 +2015,39 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   Widget _buildBody() {
     if (tab != 'finance') return _renderTab(tab);
+    return _buildFinance();
+  }
+
+  Widget _buildFinance() {
+    final height = _financeHeaderHeight();
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _FinanceHeaderDelegate(
+            height: height,
+            child: _buildFinanceStickyHeader(height),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+            child: _buildFinanceScreenBody(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinanceScreenBody() {
     switch (screen) {
       case 'stats':
         return _buildStats();
-      case 'flow':
+      case 'calendar':
         return _buildFlow();
+      case 'list':
+        return _buildListTab();
       default:
         return _buildOverview();
     }
@@ -2028,33 +2058,16 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // The More hub owns its own gradient hero (avatar · name · family pills),
     // per `Settings v2.dc.html`: the hero sits at the very top of the screen,
     // so the shared tab header is suppressed here to avoid a double header.
-    if (tab == 'more') return const SizedBox.shrink();
+    if (tab == 'more' || tab == 'finance') return const SizedBox.shrink();
     String title = 'Thrive';
     String subtitle = 'Loading…';
     if (ready) {
-      if (tab == 'finance') {
-        final titles = <String, List<String>>{
-          'overview': ['Overview', '${kMonthsEn[monthIdx]} $year'],
-          'flow': ['Money calendar', '${kMonthsEn[monthIdx]} $year'],
-          'stats': ['Statistics', _statsPeriod().label],
-        };
-        final t = titles[screen] ?? titles['overview']!;
-        title = t[0];
-        subtitle = t[1];
-      } else {
-        final meta = _tabMeta(tab);
-        title = meta.$1;
-        subtitle = meta.$2;
-      }
+      final meta = _tabMeta(tab);
+      title = meta.$1;
+      subtitle = meta.$2;
     }
-    final subHeader = ready
-        ? (tab == 'finance' && screen == 'stats'
-              ? _buildStatsModeSwitcher()
-              : tab == 'finance' && screen == 'flow'
-              ? _buildFlowSubHeader()
-              : _tabSubHeader(tab))
-        : null;
-    final dateInHeader = tab == 'calendar' || tab == 'finance';
+    final subHeader = ready ? _tabSubHeader(tab) : null;
+    final dateInHeader = tab == 'calendar';
     final isCalendar = ready && tab == 'calendar';
     final calendarMonthIsPast =
         isCalendar &&
@@ -2172,82 +2185,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              if (tab == 'finance') _buildFinanceHeaderActions(),
               if (tab == 'calendar') _calHeaderActions(),
             ],
           ),
           if (subHeader != null) ...[const SizedBox(height: 13), subHeader],
         ],
       ),
-    );
-  }
-
-  Widget _buildSwitcher() {
-    Widget seg(String k, String icon) {
-      final active = screen == k;
-      return GestureDetector(
-        key: ValueKey('tab-$k'),
-        onTap: () => go(k),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.only(left: 8),
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: active ? B.soft : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: active ? B.primary : B.line),
-          ),
-          child: Center(
-            child: ic(
-              icon,
-              size: 18,
-              sw: 2.1,
-              color: active ? B.deep : B.soft2,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        seg('overview', 'grid'),
-        seg('flow', 'cal'),
-        seg('stats', 'chart'),
-      ],
-    );
-  }
-
-  Widget _buildFinanceHeaderActions() {
-    final closed = isClosed();
-    final lockButton = GestureDetector(
-      key: const ValueKey('lock-btn'),
-      onTap: () => closed ? reopenMonth() : openCloseConfirm(),
-      child: Container(
-        margin: const EdgeInsets.only(left: 8),
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: closed ? B.ink : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: closed ? B.ink : B.line),
-        ),
-        child: Center(
-          child: ic(
-            closed ? 'lock' : 'unlock',
-            size: 18,
-            sw: 2.1,
-            color: closed ? Colors.white : B.soft2,
-          ),
-        ),
-      ),
-    );
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [_buildSwitcher(), lockButton],
     );
   }
 
@@ -2306,6 +2249,351 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       ),
     );
   }
+
+  double _financeHeaderHeight() => screen == 'overview' ? 320 : 184;
+
+  ({String title, String subtitle}) _financeHeadMeta() {
+    final monthYear = '${kMonthsEn[monthIdx]} $year';
+    final familyName = curFamily()?.name.trim();
+    return switch (screen) {
+      'calendar' => (
+        title: 'Money calendar',
+        subtitle: '$monthYear · day by day',
+      ),
+      'list' => (
+        title: 'All items',
+        subtitle: '$monthYear · by date',
+      ),
+      'stats' => (
+        title: 'Statistics',
+        subtitle: switch (statsMode) {
+          'year' => 'Full year $year',
+          'all' => 'All time',
+          _ => 'Month view',
+        },
+      ),
+      _ => (
+        title: 'Overview',
+        subtitle: familyName?.isNotEmpty == true ? familyName! : 'Your family',
+      ),
+    };
+  }
+
+  Widget _buildFinanceStickyHeader(double height) {
+    final meta = _financeHeadMeta();
+    final closed = isClosed();
+    const tabBarHeight = 54.0;
+    final cutHeight = math.max(0.0, height - (tabBarHeight / 2));
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned.fill(child: Container(color: B.page)),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: cutHeight,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(gradient: B.grad),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              meta.title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -.4,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              meta.subtitle,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xd9ffffff),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      key: const ValueKey('month-chip'),
+                      onTap: openMonthPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: .2),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${kMonthsEn[monthIdx]} $year',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            ic(
+                              'cdown',
+                              size: 11,
+                              sw: 2.6,
+                              color: Colors.white,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      key: const ValueKey('lock-btn'),
+                      onTap: () => closed ? reopenMonth() : openCloseConfirm(),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: closed
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: .2),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Center(
+                          child: ic(
+                            closed ? 'lock' : 'unlock',
+                            size: 15,
+                            sw: 2.3,
+                            color: closed ? B.ink : Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (screen == 'overview') ...[
+                  const SizedBox(height: 18),
+                  _buildFinanceHero(),
+                ] else
+                  const SizedBox(height: 14),
+                const Spacer(),
+                _buildFinanceTabs(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinanceHero() {
+    final c = compute(monthIdx);
+    Widget tile(
+      String label,
+      String value, {
+      VoidCallback? onTap,
+      bool clickable = false,
+    }) {
+      final child = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .16),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .4,
+                      color: Color(0xe6ffffff),
+                    ),
+                  ),
+                ),
+                if (clickable)
+                  ic('cright', size: 12, sw: 2.4, color: Colors.white),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      );
+      if (onTap == null) return Expanded(child: child);
+      return Expanded(child: GestureDetector(onTap: onTap, child: child));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'SAFE TO SPEND',
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .6,
+            color: Color(0xe6ffffff),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          eur(c.balance, cents: false),
+          style: const TextStyle(
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -1,
+            color: Colors.white,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 2),
+        const Text(
+          'after every planned bill this month',
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            color: Color(0xe6ffffff),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            tile(
+              'Income received',
+              eur(c.realIncome, cents: false),
+              onTap: openIncomeSheet,
+              clickable: true,
+            ),
+            const SizedBox(width: 8),
+            tile('Planned spend', eur(c.totalBudget, cents: false)),
+            const SizedBox(width: 8),
+            tile(
+              'Still open',
+              eur(c.stillToPay, cents: false),
+              onTap: openAccountsSheet,
+              clickable: true,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFinanceTabs() {
+    Widget tabBtn(String key, String label) {
+      final active = screen == key;
+      return Expanded(
+        child: GestureDetector(
+          key: ValueKey('tab-$key'),
+          onTap: () => go(key),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: active ? B.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: active ? Colors.white : B.soft2,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .1),
+            blurRadius: 24,
+            spreadRadius: -18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(5),
+      child: Row(
+        children: [
+          tabBtn('overview', 'Overview'),
+          const SizedBox(width: 4),
+          tabBtn('calendar', 'Calendar'),
+          const SizedBox(width: 4),
+          tabBtn('list', 'List'),
+          const SizedBox(width: 4),
+          tabBtn('stats', 'Stats'),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinanceHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _FinanceHeaderDelegate({required this.height, required this.child});
+
+  final double height;
+  final Widget child;
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => child;
+
+  @override
+  bool shouldRebuild(covariant _FinanceHeaderDelegate oldDelegate) =>
+      height != oldDelegate.height || child != oldDelegate.child;
 }
 
 // ====================================================== compute records
@@ -2373,6 +2661,12 @@ class _BlockCompute {
   final double total, paid;
   final double? cap;
   final int count;
+
+  double get open => math.max(0, total - paid).toDouble();
+  bool get settled => open <= 0.0001;
+  bool get overCap => cap != null && total > cap!;
+  double get capFraction =>
+      cap == null || cap == 0 ? 0 : (total / cap!).clamp(0.0, 1.4);
 }
 
 class _RowCompute {

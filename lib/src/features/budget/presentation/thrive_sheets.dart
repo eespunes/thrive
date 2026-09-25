@@ -34,6 +34,7 @@ extension _ThriveSheets on _ThriveHomeState {
     _showSheet((ctx) => _CloseConfirmSheet(state: this));
   }
 
+  // ignore: unused_element
   void openAccountPicker(
     String kind,
     String id,
@@ -52,11 +53,24 @@ extension _ThriveSheets on _ThriveHomeState {
     );
   }
 
+  // ignore: unused_element
   void openCapSheet(String cat, double? value) {
     _showSheet(
       monthScoped: true,
       (ctx) => _CapSheet(state: this, cat: cat, value: value),
     );
+  }
+
+  void openEnvelopeSheet(String catKey) {
+    _showSheet((ctx) => _EnvelopeDetailSheet(state: this, catKey: catKey));
+  }
+
+  void openIncomeSheet() {
+    _showSheet((ctx) => _IncomeDetailSheet(state: this));
+  }
+
+  void openAccountsSheet() {
+    _showSheet((ctx) => _AccountsDetailSheet(state: this));
   }
 
   /// If [current] is the series' only real anchor (not generated, not an
@@ -653,6 +667,472 @@ Widget _sheetHeadWithTick(
   );
 }
 
+class _FinanceSheetFrame extends StatelessWidget {
+  const _FinanceSheetFrame({
+    required this.child,
+    this.leading,
+    this.title,
+    this.subtitle,
+    this.headerContent,
+    this.bodyPadding = const EdgeInsets.fromLTRB(16, 14, 16, 0),
+    this.showDivider = true,
+  });
+
+  final Widget child;
+  final Widget? leading;
+  final String? title;
+  final String? subtitle;
+  final Widget? headerContent;
+  final EdgeInsets bodyPadding;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final header =
+        headerContent ??
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (title != null)
+              Text(
+                title!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  color: B.ink,
+                ),
+              ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: B.muted,
+                ),
+              ),
+            ],
+          ],
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 13),
+          child: Row(
+            children: [
+              if (leading != null) ...[leading!, const SizedBox(width: 11)],
+              Expanded(child: header),
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: B.line),
+                  ),
+                  child: Center(
+                    child: ic('x', size: 15, sw: 2.4, color: B.soft2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDivider) const Divider(height: 1, thickness: 1, color: B.faint),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: bodyPadding,
+            child: child,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EnvelopeDetailSheet extends StatefulWidget {
+  const _EnvelopeDetailSheet({required this.state, required this.catKey});
+
+  final _ThriveHomeState state;
+  final String catKey;
+
+  @override
+  State<_EnvelopeDetailSheet> createState() => _EnvelopeDetailSheetState();
+}
+
+class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final compute = widget.state.compute(widget.state.monthIdx);
+    final block = compute.expenseBlocks.firstWhere(
+      (b) => b.key == widget.catKey,
+      orElse: () => compute.expenseBlocks.first,
+    );
+    final locked = compute.closed;
+    final delta = widget.state._envelopeDelta(block);
+    final barColor = widget.state._envelopeStateColor(block);
+    final fraction = block.cap == null || block.cap == 0
+        ? 0.0
+        : (block.total / block.cap!).clamp(0.0, 1.0).toDouble();
+    final openLabel = block.open > 0
+        ? '${eur(block.open, cents: false)} still open'
+        : 'all paid';
+    return _FinanceSheetFrame(
+      leading: widget.state._categoryGlyph(block, size: 38, radius: 12),
+      title: block.title,
+      subtitle:
+          '${block.count} item${block.count == 1 ? '' : 's'} · $openLabel',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Text(
+                  eur(block.total, cents: false),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -.8,
+                    color: block.overCap ? B.red : B.ink,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                delta.$1,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: delta.$2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          widget.state._bar(fraction, barColor, height: 8),
+          const SizedBox(height: 6),
+          Text(
+            block.cap != null && block.cap! > 0
+                ? '${eur(block.paid, cents: false)} paid of ${eur(block.total, cents: false)} / limit ${eur(block.cap!, cents: false)}'
+                : '${eur(block.paid, cents: false)} paid of ${eur(block.total, cents: false)}',
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: B.muted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (int i = 0; i < block.items.length; i++) ...[
+            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            _FinanceToggleRow(
+              label: block.items[i].item.label.trim().isNotEmpty
+                  ? block.items[i].item.label.trim()
+                  : block.items[i].item.payee.trim(),
+              day:
+                  '${block.items[i].item.day ?? dayNumFromMarker(block.items[i].item.marker) ?? 1} ${kMonthsEn[widget.state.monthIdx]}',
+              amount: eur(block.items[i].item.amount),
+              trailing: widget.state._statusPill(
+                block.items[i].item.paid,
+                block.items[i].item.paid ? 'Paid' : 'Open',
+                onTap: locked
+                    ? null
+                    : () {
+                        widget.state.togglePaid(block.key, block.items[i].item.id);
+                        setState(() {});
+                      },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _IncomeDetailSheet extends StatefulWidget {
+  const _IncomeDetailSheet({required this.state});
+
+  final _ThriveHomeState state;
+
+  @override
+  State<_IncomeDetailSheet> createState() => _IncomeDetailSheetState();
+}
+
+class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final compute = widget.state.compute(widget.state.monthIdx);
+    final locked = compute.closed;
+    final rows = [
+      for (final block in compute.incomeBlocks)
+        for (final row in block.items)
+          (block: block, row: row),
+    ];
+    final expected = compute.expIncome;
+    final received = compute.realIncome;
+    final remaining = math.max(0, expected - received);
+    return _FinanceSheetFrame(
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: B.greenSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(child: ic('trend', size: 18, sw: 2, color: B.primary)),
+      ),
+      title: 'Income',
+      subtitle:
+          '${rows.length} source${rows.length == 1 ? '' : 's'} · ${eur(remaining, cents: false)} still expected',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            eur(received, cents: false),
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.8,
+              color: B.greenText,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 10),
+          widget.state._bar(
+            expected <= 0 ? 0 : received / expected,
+            B.green,
+            height: 8,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${eur(received, cents: false)} received of ${eur(expected, cents: false)}',
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: B.muted,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            _FinanceToggleRow(
+              label: rows[i].row.item.label.trim().isNotEmpty
+                  ? rows[i].row.item.label.trim()
+                  : rows[i].row.item.payee.trim(),
+              day:
+                  '${rows[i].row.item.day ?? dayNumFromMarker(rows[i].row.item.marker) ?? 1} ${kMonthsEn[widget.state.monthIdx]}',
+              amount: eur(rows[i].row.item.amount),
+              trailing: widget.state._statusPill(
+                rows[i].row.item.paid,
+                rows[i].row.item.paid ? 'In' : 'Pending',
+                onTap: locked
+                    ? null
+                    : () {
+                        widget.state.toggleReceived(rows[i].row.item.id);
+                        setState(() {});
+                      },
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountsDetailSheet extends StatelessWidget {
+  const _AccountsDetailSheet({required this.state});
+
+  final _ThriveHomeState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final compute = state.compute(state.monthIdx);
+    final max = math.max(
+      1.0,
+      compute.accounts.fold<double>(
+        0,
+        (prev, acc) => math.max(prev, compute.acctTotals[acc.key] ?? 0),
+      ),
+    );
+    return _FinanceSheetFrame(
+      headerContent: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'STILL TO PAY FROM',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .5,
+              color: B.muted,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            eur(compute.stillToPay, cents: false),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.6,
+              color: B.ink,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < compute.accounts.length; i++) ...[
+            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            Builder(
+              builder: (context) {
+                final acc = compute.accounts[i];
+                final amount = compute.acctTotals[acc.key] ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: acc.color,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: glyphTile(
+                          size: 38,
+                          radius: 12,
+                          picture: acc.picture,
+                          emoji: acc.emoji,
+                          emojiSize: 18,
+                          fallback: Text(
+                            acc.initials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 11),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              acc.name,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: B.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            state._bar(
+                              amount / max,
+                              acc.color,
+                              height: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 11),
+                      Text(
+                        eur(amount),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: amount > 0 ? B.ink : B.muted,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FinanceToggleRow extends StatelessWidget {
+  const _FinanceToggleRow({
+    required this.label,
+    required this.day,
+    required this.amount,
+    required this.trailing,
+  });
+
+  final String label;
+  final String day;
+  final String amount;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: B.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  day,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: B.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            amount,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: B.ink,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 10),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
 Widget _sheetField(String label, Widget child) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 13),
@@ -979,100 +1459,86 @@ class _CloseConfirmSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = state.compute(state.monthIdx);
-    Widget stat(String label, String val, Color color) => Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+    final monthYear = '${kMonthsEn[state.monthIdx]} ${state.year}';
+    return _FinanceSheetFrame(
+      leading: Container(
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
-          color: B.faint,
-          borderRadius: BorderRadius.circular(12),
+          color: B.ink,
+          borderRadius: BorderRadius.circular(11),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                color: B.muted,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              val,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
-            ),
-          ],
-        ),
+        child: Center(child: ic('lock', size: 16, sw: 2.2, color: Colors.white)),
       ),
-    );
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _sheetHead(
-          context,
-          'Close this month?',
-          '${kMonthsEn[state.monthIdx]} ${state.year}',
-        ),
-        const Text(
-          'Closing locks every item, toggle and limit for this month — nothing can be added, edited or deleted until you reopen it. A snapshot of the current blocks is kept, so deleting or editing a block later won\u2019t affect this closed month.',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: B.soft2,
-            height: 1.55,
+      title: 'Close $monthYear?',
+      showDivider: false,
+      bodyPadding: const EdgeInsets.fromLTRB(18, 16, 18, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Closing locks every item, limit and toggle for this month. You can reopen it later from the same button.',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: B.soft2,
+              height: 1.55,
+            ),
           ),
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            stat('Balance', eur(c.balance), c.balance >= 0 ? B.green : B.red),
-            const SizedBox(width: 9),
-            stat(
-              'Still to pay',
-              eur(c.stillToPay),
-              c.stillToPay > 0 ? B.amberText : B.greenText,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        GestureDetector(
-          onTap: () {
-            Navigator.of(context).pop();
-            state.closeMonth();
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            decoration: BoxDecoration(
-              color: B.ink,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ic('lock', size: 16, sw: 2.4, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text(
-                  'Close month',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(13),
+                      border: Border.all(color: B.line),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Keep it open',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.text,
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    state.closeMonth();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: B.ink,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Close month',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

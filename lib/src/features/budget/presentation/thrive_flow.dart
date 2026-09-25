@@ -305,9 +305,10 @@ extension _ThriveFlow on _ThriveHomeState {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: () => update(() => swipedId = null),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(14, 4, 14, 28),
+      child: Column(
         children: [
+          _buildFlowSubHeader(),
+          const SizedBox(height: 12),
           if (locked) _closedBanner(),
           _flowSummary(f),
           ?_flowAlert(f, locked),
@@ -798,25 +799,9 @@ extension _ThriveFlow on _ThriveHomeState {
     }
     final past = _flowMonthIsPast();
 
-    Widget bar(double v, Color col) {
-      final frac = v <= 0 ? 0.0 : math.max(0.16, (v / maxFlow)).clamp(0.0, 1.0);
-      return SizedBox(
-        height: 3,
-        child: v <= 0
-            ? null
-            : Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: frac,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: col,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
-      );
+    String moneyLine(double amount, {required bool income}) {
+      if (amount <= 0) return '';
+      return '${income ? '+' : '−'}${eur(amount, cents: false)}';
     }
 
     final cells = <Widget>[
@@ -828,16 +813,26 @@ extension _ThriveFlow on _ThriveHomeState {
             final overdue =
                 d.outRows.any((r) => !r.done) &&
                 (past || (f.today != null && d.day <= f.today!));
+            final hasIn = d.inSum > 0;
+            final hasOut = d.outSum > 0;
+            final outAlpha = hasOut
+                ? (0.08 + (d.outSum / maxFlow).clamp(0.0, 1.0) * 0.24)
+                : 0.0;
+            final bgColor = isToday
+                ? B.soft
+                : hasOut
+                ? B.primary.withValues(alpha: outAlpha)
+                : hasIn
+                ? B.greenSoft
+                : Colors.transparent;
             return GestureDetector(
               key: ValueKey('flow-day-${d.day}'),
               onTap: () => openFlowDaySheet(d.day),
               child: Container(
-                height: 54,
-                padding: const EdgeInsets.fromLTRB(5, 6, 5, 7),
+                height: 60,
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 7),
                 decoration: BoxDecoration(
-                  color: isToday
-                      ? B.soft
-                      : (d.net != 0 ? B.faint : Colors.transparent),
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(
                     color: isToday
@@ -876,10 +871,31 @@ extension _ThriveFlow on _ThriveHomeState {
                     ),
                     const Spacer(),
                     Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        bar(d.inSum, B.green),
-                        const SizedBox(height: 3),
-                        bar(d.outSum, B.red),
+                        Text(
+                          moneyLine(d.inSum, income: true),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 7.7,
+                            fontWeight: FontWeight.w800,
+                            height: 1.05,
+                            color: hasIn ? B.greenText : Colors.transparent,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          moneyLine(d.outSum, income: false),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 7.7,
+                            fontWeight: FontWeight.w800,
+                            height: 1.05,
+                            color: hasOut ? B.deep : Colors.transparent,
+                          ),
+                        ),
                       ],
                     ),
                   ],
