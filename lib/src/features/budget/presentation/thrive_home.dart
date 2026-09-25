@@ -2305,6 +2305,28 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    GestureDetector(
+                      key: const ValueKey('profile-avatar'),
+                      onTap: user != null ? openProfileScreen : null,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        margin: const EdgeInsets.only(right: 10, top: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(11),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: .18),
+                              blurRadius: 14,
+                              spreadRadius: -3,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: _headerAvatar(),
+                      ),
+                    ),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 2),
