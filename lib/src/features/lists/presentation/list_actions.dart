@@ -287,6 +287,7 @@ extension _ThriveListActions on _ThriveHomeState {
     final idx = l.tasks.indexWhere((t) => t.id == taskId);
     if (idx < 0) return;
     final removed = l.tasks[idx];
+    _markListItemDeleted('task', listId, taskId);
     mutate(() => l.tasks.removeAt(idx));
     flashUndo('“${removed.title}” crossed off', () {
       mutate(() {
@@ -297,6 +298,7 @@ extension _ThriveListActions on _ThriveHomeState {
   }
 
   void deleteTaskList(String listId) {
+    _markListDeleted('task', listId);
     mutate(() {
       taskLists.removeWhere((l) => l.id == listId);
     }, () => flash('Note unpinned'));
@@ -407,6 +409,7 @@ extension _ThriveListActions on _ThriveHomeState {
     final idx = l.items.indexWhere((i) => i.id == itemId);
     if (idx < 0) return;
     final removed = l.items[idx];
+    _markListItemDeleted('shop', listId, itemId);
     mutate(() => l.items.removeAt(idx));
     flashUndo('“${removed.name}” crossed off', () {
       mutate(() {
@@ -417,6 +420,7 @@ extension _ThriveListActions on _ThriveHomeState {
   }
 
   void deleteShopList(String listId) {
+    _markListDeleted('shop', listId);
     mutate(() {
       shoppingLists.removeWhere((l) => l.id == listId);
     }, () => flash('Note unpinned'));

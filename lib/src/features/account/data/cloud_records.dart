@@ -574,7 +574,53 @@ Records orphanListItems(Records view, Records local) => {
 };
 
 String _listKeyOf(Map<String, dynamic> item) =>
-    recordKey(kWorkspaceCol, 'list_${item['_kind']}_${item['_list']}');
+    listMetaKey('${item['_kind']}', '${item['_list']}');
+
+/// Record key of a list's container doc ([kind] is `task` or `shop`).
+String listMetaKey(String kind, String listId) =>
+    recordKey(kWorkspaceCol, 'list_${kind}_$listId');
+
+/// Record key of one list line (as built by [workspaceRecords]).
+String listItemKey(String kind, String listId, String itemId) =>
+    recordKey(kListItemsCol, safeDocId('${kind}_${listId}_$itemId'));
+
+/// Lists and their lines are only ever deleted from the server when the user
+/// explicitly removed them on this device (see [unintendedListDeletes]).
+bool isGuardedListRecord(String key) {
+  final (col, id) = splitRecordKey(key);
+  return col == kListItemsCol ||
+      (col == kWorkspaceCol && id.startsWith('list_'));
+}
+
+/// The subset of [deletes] (keys in [base]) that would remove a list or a
+/// list line the user never deleted: a guarded record whose key — or, for a
+/// line, whose list — isn't in [intents]. A list vanishing from the
+/// in-memory workspace for any other reason (a stale copy, a reverted write,
+/// a rebase gone wrong) must never wipe it for the whole family; callers
+/// skip these deletes and restore the records locally instead.
+Records unintendedListDeletes(
+  Records base,
+  Iterable<String> deletes,
+  Set<String> intents,
+) {
+  bool intended(String key) {
+    var k = key;
+    while (k.endsWith('~')) {
+      k = k.substring(0, k.length - 1);
+    }
+    if (intents.contains(key) || intents.contains(k)) return true;
+    final rec = base[key];
+    return splitRecordKey(key).$1 == kListItemsCol &&
+        rec != null &&
+        intents.contains(_listKeyOf(rec));
+  }
+
+  return {
+    for (final k in deletes)
+      if (isGuardedListRecord(k) && base[k] != null && !intended(k))
+        k: base[k]!,
+  };
+}
 
 /// Fields that identify where a record lives; always written on create.
 const Set<String> _kIdentityKeys = {

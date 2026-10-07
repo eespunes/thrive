@@ -495,4 +495,59 @@ void main() {
       );
     });
   });
+
+  group('unintendedListDeletes', () {
+    Workspace shopWs(List<String> items) => Workspace.empty()
+      ..shoppingLists = [
+        ShoppingList(
+          id: 'L',
+          name: 'Groceries',
+          items: [for (final i in items) ShopItem(id: i, name: i)],
+        ),
+      ];
+
+    test('a list vanishing locally is never deleted from the server', () {
+      final base = normalizedRecords(shopWs(['a', 'b', 'c']));
+      final local = normalizedRecords(Workspace.empty());
+      local.addAll(orphanListItems(base, local));
+      final plan = planRecordWrites(base, local);
+      expect(plan.deletes, contains(listMetaKey('shop', 'L')));
+      final lost = unintendedListDeletes(base, plan.deletes, {});
+      expect(lost.keys, containsAll(plan.deletes.where(isGuardedListRecord)));
+      expect(lost, hasLength(4));
+      // Restoring them brings the whole list back.
+      final healed = workspaceFromRecords({...local, ...lost});
+      expect(healed.shoppingLists.single.items.map((i) => i.id), [
+        'a',
+        'b',
+        'c',
+      ]);
+    });
+
+    test('an unpinned list and all its lines may be deleted', () {
+      final base = normalizedRecords(shopWs(['a', 'b']));
+      final local = normalizedRecords(Workspace.empty());
+      final plan = planRecordWrites(base, local);
+      final lost = unintendedListDeletes(base, plan.deletes, {
+        listMetaKey('shop', 'L'),
+      });
+      expect(lost, isEmpty);
+    });
+
+    test('only the crossed-off line may be deleted', () {
+      final base = normalizedRecords(shopWs(['a', 'b', 'c']));
+      final local = normalizedRecords(shopWs(['c']));
+      final plan = planRecordWrites(base, local);
+      final lost = unintendedListDeletes(base, plan.deletes, {
+        listItemKey('shop', 'L', 'a'),
+      });
+      expect(lost.keys, [listItemKey('shop', 'L', 'b')]);
+    });
+
+    test('non-list records are not guarded', () {
+      expect(isGuardedListRecord(recordKey(kEventsCol, 'e1')), isFalse);
+      expect(isGuardedListRecord(recordKey(kWorkspaceCol, 'card_x')), isFalse);
+      expect(isGuardedListRecord(listMetaKey('task', 'T')), isTrue);
+    });
+  });
 }

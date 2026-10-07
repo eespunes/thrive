@@ -447,7 +447,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final local = normalizedRecords(localWs);
       local.addAll(orphanListItems(before, local));
       final oldBase = {...before};
+      final inflight = _inflightCreates[fid] ?? const <String, int>{};
+      final keep = <String>{};
       for (final k in changed) {
+        // Our own unacknowledged create vanishing from the cache is the SDK
+        // reverting a failed write, not a delete: keep the local copy (the
+        // rollback makes the next persist retry it).
+        if (inflight.containsKey(k) &&
+            !after.containsKey(k) &&
+            local.containsKey(k)) {
+          keep.add(k);
+          continue;
+        }
         // A record this device never saw from the server (a placeholder
         // month, a doc another member created with the same id): rebase it
         // against the model defaults, so only fields we really edited win.
@@ -465,6 +476,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         local: local,
         changed: changed,
       );
+      for (final k in keep) {
+        merged[k] = local[k]!;
+      }
       if (changed.every((k) => jsonEquals(merged[k], local[k]))) return;
       next = workspaceFromRecords(merged);
     }
@@ -1010,12 +1024,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final now = DateTime.now().millisecondsSinceEpoch;
     final ops = <void Function(WriteBatch)>[];
     final rollbacks = <void Function()>[];
+    final created = <String>[];
     plan.creates.forEach((key, rec) {
       // Records still held by legacy docs are created by the migration.
       if (legacyPending && view.containsKey(key)) return;
-      // Container docs (settings, months, list/card meta) are placeholders
-      // until the workspace collection has loaded — never write those.
-      if (splitRecordKey(key).$1 == kWorkspaceCol &&
+      // Container docs (settings, months, card meta) are placeholders until
+      // the workspace collection has loaded — never write those. A list is
+      // only ever in memory because a member pinned it, so it's written
+      // right away: its lines are, and a list doc that never reached the
+      // durable write queue is lost on the next restart.
+      final (col, id) = splitRecordKey(key);
+      if (col == kWorkspaceCol &&
+          !id.startsWith('list_') &&
           !loaded.contains(kWorkspaceCol)) {
         return;
       }
@@ -1027,26 +1047,57 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         (b) => b.set(_recordRef(fid, key), body, SetOptions(merge: true)),
       );
       base[key] = rec;
+      created.add(key);
       // By value: the local echo may already have replaced the object.
       rollbacks.add(() {
         if (jsonEquals(base[key], rec)) base.remove(key);
       });
     });
+    final intents = _listDeleteIntents[fid] ?? <String>{};
+    // Undone (the record is back) — no longer a delete.
+    intents.removeWhere(local.containsKey);
+    final unintended = unintendedListDeletes(base, plan.deletes, intents);
     for (final key in plan.deletes) {
-      if (blocked(key)) continue;
+      if (blocked(key) || unintended.containsKey(key)) continue;
       ops.add((b) => b.delete(_recordRef(fid, key)));
       final prev = base.remove(key)!;
-      rollbacks.add(() => base.putIfAbsent(key, () => prev));
+      final intent = intents.remove(key);
+      rollbacks.add(() {
+        base.putIfAbsent(key, () => prev);
+        if (intent) intents.add(key);
+      });
     }
+    // Spent (or moot: never reached the server) intents.
+    intents.removeWhere((k) => !base.containsKey(k));
+    if (unintended.isNotEmpty) _restoreListRecords(fid, local, unintended);
     if (ops.isNotEmpty) {
-      acks.add(
-        _commitInChunks(ops).catchError((Object e) {
-          debugPrint('[cloud] record commit failed for $fid: $e');
-          for (final r in rollbacks) {
-            r();
+      final inflight = _inflightCreates.putIfAbsent(fid, () => {});
+      for (final k in created) {
+        inflight[k] = (inflight[k] ?? 0) + 1;
+      }
+      void settle() {
+        for (final k in created) {
+          final n = (inflight[k] ?? 1) - 1;
+          if (n <= 0) {
+            inflight.remove(k);
+          } else {
+            inflight[k] = n;
           }
-          throw e;
-        }),
+        }
+      }
+
+      acks.add(
+        _commitInChunks(ops).then(
+          (_) => settle(),
+          onError: (Object e) {
+            debugPrint('[cloud] record commit failed for $fid: $e');
+            for (final r in rollbacks) {
+              r();
+            }
+            settle();
+            throw e;
+          },
+        ),
       );
     }
     plan.updates.forEach((key, patch) {
@@ -1079,6 +1130,39 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             }),
       );
     });
+  }
+
+  /// Puts list records the in-memory workspace lost — without the user
+  /// deleting them — back into [fid]'s workspace, so the device shows (and
+  /// keeps) what the server still holds instead of wiping it.
+  void _restoreListRecords(String fid, Records local, Records lost) {
+    debugPrint(
+      '[cloud] kept ${lost.length} list record(s) for $fid that vanished '
+      'locally without being deleted: ${lost.keys.take(5).join(', ')}',
+    );
+    final current = workspaces[fid];
+    final next = workspaceFromRecords({...local, ...lost});
+    mergeCardPhotos(next.cards, current?.cards ?? const []);
+    workspaces[fid] = next;
+    if (fid == familyId) _adoptActiveWorkspace();
+    if (mounted) update(() {});
+  }
+
+  /// Records that the user deliberately unpinned list [listId] ([kind]
+  /// `task`/`shop`) in the active family: its doc and lines may be deleted
+  /// from the server on the next persist.
+  void _markListDeleted(String kind, String listId) {
+    _listDeleteIntents
+        .putIfAbsent(familyId, () => {})
+        .add(listMetaKey(kind, listId));
+  }
+
+  /// Records that the user deliberately crossed off line [itemId] of list
+  /// [listId] in the active family.
+  void _markListItemDeleted(String kind, String listId, String itemId) {
+    _listDeleteIntents
+        .putIfAbsent(familyId, () => {})
+        .add(listItemKey(kind, listId, itemId));
   }
 
   Future<void> _writeUserDoc(String meUid) async {

@@ -515,6 +515,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Families whose legacy docs are being migrated right now.
   final Set<String> _legacyMigrating = {};
 
+  /// Per-family list record keys the user explicitly deleted on this device
+  /// (unpinned a note, crossed off a line) and not yet deleted on the server.
+  /// Only these list records may be deleted from the server — see
+  /// `unintendedListDeletes`.
+  final Map<String, Set<String>> _listDeleteIntents = {};
+
+  /// Per-family record keys this device has created on the server whose
+  /// write isn't acknowledged yet. The SDK reverting such a write (e.g. a
+  /// rejected batch) must not wipe the local copy.
+  final Map<String, Map<String, int>> _inflightCreates = {};
+
   /// Trailing-debounce timer for [_persist]: serializing and uploading state
   /// on EVERY tap caused main-thread jank and a network write per keystroke.
   /// Edits are coalesced for [_persistDebounce] and flushed early when the
