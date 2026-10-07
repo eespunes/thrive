@@ -710,12 +710,17 @@ class _KitchenScheduleRow extends StatelessWidget {
     final ev = occurrence.ev;
     final category = state.catById(ev.category);
     final color = state.evColor(ev);
-    final time = ev.allDay || ev.start.isEmpty ? 'All day' : ev.start;
+    final allDay = ev.allDay || ev.start.isEmpty;
+    final time = allDay ? 'All day' : ev.start;
+    // All-day items are a solid block of their colour, not tint + rule.
+    final ink = allDay ? contrastOn(color) : B.ink;
     return Container(
       key: ValueKey('kitchen-schedule-row-${ev.id}-${occurrence.date}'),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .1),
-        border: Border(left: BorderSide(color: color, width: 3)),
+        color: allDay ? color : color.withValues(alpha: .1),
+        border: allDay
+            ? null
+            : Border(left: BorderSide(color: color, width: 3)),
         borderRadius: BorderRadius.circular(9),
       ),
       padding: const EdgeInsets.fromLTRB(7, 6, 7, 6),
@@ -744,10 +749,10 @@ class _KitchenScheduleRow extends StatelessWidget {
               ev.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: ink,
               ),
             ),
           ),
@@ -761,7 +766,11 @@ class _KitchenScheduleRow extends StatelessWidget {
             Padding(
               key: ValueKey('kitchen-schedule-category-${ev.id}'),
               padding: const EdgeInsets.only(left: 4),
-              child: categoryGlyph(category, size: 14, iconColor: color),
+              child: categoryGlyph(
+                category,
+                size: 14,
+                iconColor: allDay ? ink : color,
+              ),
             ),
         ],
       ),

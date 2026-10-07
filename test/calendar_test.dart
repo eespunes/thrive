@@ -621,8 +621,8 @@ void main() {
         .whereType<BoxDecoration>()
         .first;
 
-    expect(cellDecoration(previousMonthDay).color, const Color(0xfff7f9fb));
-    expect(cellDecoration(selectedMonthDay).color, const Color(0xffd7efeb));
+    expect(cellDecoration(previousMonthDay).color, const Color(0xffe9ecf1));
+    expect(cellDecoration(selectedMonthDay).color, const Color(0xfff0faf8));
   });
 
   testWidgets('month view fades event bars outside the selected month', (
@@ -682,8 +682,8 @@ void main() {
         .first
         .opacity;
 
-    // Ghost days drop to 30%, the selected month's stay solid (#340).
-    expect(barOpacity(fadedBar), .3);
+    // Ghost days drop to 40%, the selected month's stay solid.
+    expect(barOpacity(fadedBar), .4);
     expect(barOpacity(normalBar), 1);
   });
 
@@ -712,11 +712,11 @@ void main() {
     );
     final headerBorder =
         (headerCell.decoration! as BoxDecoration).border! as Border;
-    expect(headerBorder.left.color, const Color(0xffd5dce8));
+    expect(headerBorder.left, BorderSide.none);
     expect(headerBorder.bottom.color, const Color(0xffd5dce8));
   });
 
-  testWidgets('month view highlights today with a cell border', (tester) async {
+  testWidgets('month view highlights today with a teal tint', (tester) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
@@ -729,8 +729,7 @@ void main() {
         )
         .first;
     final decoration = todayCell.decoration! as BoxDecoration;
-    expect((decoration.border! as Border).top.color, B.primary);
-    expect(decoration.color, const Color(0xffd7efeb));
+    expect(decoration.color, const Color(0xfff0faf8));
   });
 
   testWidgets('month view scrolls horizontally between months', (tester) async {
@@ -2877,13 +2876,12 @@ void main() {
         find.descendant(of: bar, matching: find.text('▢ Take out bins')),
         findsOneWidget,
       );
-      // A to-do bar is white with a dotted outline in the resolved event
-      // colour — here the assignee's, since no category is set (§3a).
+      // A to-do bar is a soft tint of the resolved event colour — here the
+      // assignee's, since no category is set.
       final barBox = tester.widget<Container>(bar);
-      expect((barBox.decoration! as BoxDecoration).color, Colors.white);
       expect(
-        barBox.foregroundDecoration.runtimeType.toString(),
-        contains('Dotted'),
+        (barBox.decoration! as BoxDecoration).color,
+        const Color(0xff1684b4).withValues(alpha: .13),
       );
       expect(
         tester
@@ -3267,7 +3265,7 @@ void main() {
         await goToCalendar(tester);
 
         // An all-day event of ANY layer paints as the cell's bottom banner
-        // — tinted in its own colour with a rule on top, never a dotted
+        // — a solid block of its own colour, never a dotted
         // content-only outline (§3a).
         final banner = find.byWidgetPredicate(
           (widget) =>
@@ -3280,7 +3278,8 @@ void main() {
         final decoration =
             tester.widget<Container>(banner).decoration! as BoxDecoration;
         expect(tester.widget<Container>(banner).foregroundDecoration, isNull);
-        expect((decoration.border! as Border).top.color, kCatColors[2]);
+        expect(decoration.color, kCatColors[2]);
+        expect(decoration.border, isNull);
       },
     );
 
