@@ -219,6 +219,9 @@ class ThriveDebugController {
   String get familyId => _s.familyId;
   String get myId => _s.myId;
   List<CalendarEvent> get events => _s.events;
+  List<CalendarEvent> get deletedEvents => _s._activeWs.deletedEvents;
+  void deleteEvent(String id, String scope, [String? date]) =>
+      _s.deleteEvent(id, scope, date);
   List<TaskList> get taskLists => _s.taskLists;
   List<ShoppingList> get shoppingLists => _s.shoppingLists;
   List<CalendarLayerDef> get calendarLayers => _s.calendarLayers;
@@ -515,11 +518,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Families whose legacy docs are being migrated right now.
   final Set<String> _legacyMigrating = {};
 
-  /// Per-family list record keys the user explicitly deleted on this device
-  /// (unpinned a note, crossed off a line) and not yet deleted on the server.
-  /// Only these list records may be deleted from the server — see
-  /// `unintendedListDeletes`.
-  final Map<String, Set<String>> _listDeleteIntents = {};
+  /// Per-family guarded record keys this device explicitly deleted and not
+  /// yet deleted on the server: lists/lines the user unpinned or crossed off,
+  /// and events whose deletion every member acknowledged. Only these lists,
+  /// lines and events may be deleted from the server — see
+  /// `unintendedDeletes`.
+  final Map<String, Set<String>> _deleteIntents = {};
 
   /// Per-family record keys this device has created on the server whose
   /// write isn't acknowledged yet. The SDK reverting such a write (e.g. a

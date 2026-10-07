@@ -164,8 +164,10 @@ Records workspaceRecords(Workspace ws) {
       '_key': e.key,
     };
   }
-  for (final e in ws.events) {
-    out[recordKey(kEventsCol, safeDocId(e.id))] = e.toJson();
+  // Tombstones are event docs too (with a `deletion` marker); a live event
+  // wins should an id ever be in both lists.
+  for (final e in [...ws.deletedEvents, ...ws.events]) {
+    out[eventRecordKey(e.id)] = e.toJson();
   }
   return out;
 }
@@ -584,21 +586,28 @@ String listMetaKey(String kind, String listId) =>
 String listItemKey(String kind, String listId, String itemId) =>
     recordKey(kListItemsCol, safeDocId('${kind}_${listId}_$itemId'));
 
-/// Lists and their lines are only ever deleted from the server when the user
-/// explicitly removed them on this device (see [unintendedListDeletes]).
-bool isGuardedListRecord(String key) {
+/// Record key of calendar event [eventId] (as built by [workspaceRecords]).
+String eventRecordKey(String eventId) =>
+    recordKey(kEventsCol, safeDocId(eventId));
+
+/// Lists, their lines and calendar events are only ever deleted from the
+/// server when this device explicitly asked for it (see [unintendedDeletes]):
+/// the user unpinned the note / crossed off the line, or every member
+/// acknowledged an event's deletion ([planEventTombstones]).
+bool isGuardedRecord(String key) {
   final (col, id) = splitRecordKey(key);
   return col == kListItemsCol ||
+      col == kEventsCol ||
       (col == kWorkspaceCol && id.startsWith('list_'));
 }
 
-/// The subset of [deletes] (keys in [base]) that would remove a list or a
-/// list line the user never deleted: a guarded record whose key — or, for a
-/// line, whose list — isn't in [intents]. A list vanishing from the
-/// in-memory workspace for any other reason (a stale copy, a reverted write,
-/// a rebase gone wrong) must never wipe it for the whole family; callers
-/// skip these deletes and restore the records locally instead.
-Records unintendedListDeletes(
+/// The subset of [deletes] (keys in [base]) that would remove a guarded
+/// record ([isGuardedRecord]) nobody deleted: one whose key — or, for a list
+/// line, whose list — isn't in [intents]. A list or an event vanishing from
+/// the in-memory workspace for any other reason (a stale copy, a reverted
+/// write, a rebase gone wrong) must never wipe it for the whole family;
+/// callers skip these deletes and restore the records locally instead.
+Records unintendedDeletes(
   Records base,
   Iterable<String> deletes,
   Set<String> intents,
@@ -617,8 +626,7 @@ Records unintendedListDeletes(
 
   return {
     for (final k in deletes)
-      if (isGuardedListRecord(k) && base[k] != null && !intended(k))
-        k: base[k]!,
+      if (isGuardedRecord(k) && base[k] != null && !intended(k)) k: base[k]!,
   };
 }
 

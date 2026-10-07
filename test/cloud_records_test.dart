@@ -1,4 +1,5 @@
 import 'package:family_money_management_app/main.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // The pure record layer behind the Firestore sync
@@ -496,7 +497,7 @@ void main() {
     });
   });
 
-  group('unintendedListDeletes', () {
+  group('unintendedDeletes', () {
     Workspace shopWs(List<String> items) => Workspace.empty()
       ..shoppingLists = [
         ShoppingList(
@@ -512,8 +513,8 @@ void main() {
       local.addAll(orphanListItems(base, local));
       final plan = planRecordWrites(base, local);
       expect(plan.deletes, contains(listMetaKey('shop', 'L')));
-      final lost = unintendedListDeletes(base, plan.deletes, {});
-      expect(lost.keys, containsAll(plan.deletes.where(isGuardedListRecord)));
+      final lost = unintendedDeletes(base, plan.deletes, {});
+      expect(lost.keys, containsAll(plan.deletes.where(isGuardedRecord)));
       expect(lost, hasLength(4));
       // Restoring them brings the whole list back.
       final healed = workspaceFromRecords({...local, ...lost});
@@ -528,7 +529,7 @@ void main() {
       final base = normalizedRecords(shopWs(['a', 'b']));
       final local = normalizedRecords(Workspace.empty());
       final plan = planRecordWrites(base, local);
-      final lost = unintendedListDeletes(base, plan.deletes, {
+      final lost = unintendedDeletes(base, plan.deletes, {
         listMetaKey('shop', 'L'),
       });
       expect(lost, isEmpty);
@@ -538,16 +539,147 @@ void main() {
       final base = normalizedRecords(shopWs(['a', 'b', 'c']));
       final local = normalizedRecords(shopWs(['c']));
       final plan = planRecordWrites(base, local);
-      final lost = unintendedListDeletes(base, plan.deletes, {
+      final lost = unintendedDeletes(base, plan.deletes, {
         listItemKey('shop', 'L', 'a'),
       });
       expect(lost.keys, [listItemKey('shop', 'L', 'b')]);
     });
 
-    test('non-list records are not guarded', () {
-      expect(isGuardedListRecord(recordKey(kEventsCol, 'e1')), isFalse);
-      expect(isGuardedListRecord(recordKey(kWorkspaceCol, 'card_x')), isFalse);
-      expect(isGuardedListRecord(listMetaKey('task', 'T')), isTrue);
+    test('only lists, lines and events are guarded', () {
+      expect(isGuardedRecord(eventRecordKey('e1')), isTrue);
+      expect(isGuardedRecord(recordKey(kWorkspaceCol, 'card_x')), isFalse);
+      expect(isGuardedRecord(recordKey(kBudgetItemsCol, 'x')), isFalse);
+      expect(isGuardedRecord(listMetaKey('task', 'T')), isTrue);
+    });
+  });
+
+  group('event deletion', () {
+    CalendarEvent ev(String id, {EventDeletion? deletion}) => CalendarEvent(
+      id: id,
+      title: 'Event $id',
+      date: '2026-10-07',
+      color: const Color(0xff1684B4),
+      deletion: deletion,
+    );
+
+    Workspace calWs(List<CalendarEvent> live, [List<CalendarEvent>? dead]) =>
+        Workspace.empty()
+          ..events = live
+          ..deletedEvents = dead ?? [];
+
+    test('an event vanishing locally is never deleted from the server', () {
+      final base = normalizedRecords(calWs([ev('a'), ev('b')]));
+      final local = normalizedRecords(calWs([ev('b')]));
+      final plan = planRecordWrites(base, local);
+      expect(plan.deletes, [eventRecordKey('a')]);
+      final lost = unintendedDeletes(base, plan.deletes, {});
+      expect(lost.keys, [eventRecordKey('a')]);
+      final healed = workspaceFromRecords({...local, ...lost});
+      expect(healed.events.map((e) => e.id), ['a', 'b']);
+    });
+
+    test('a purged event may be deleted from the server', () {
+      final base = normalizedRecords(calWs([ev('b')], [ev('a')]));
+      final local = normalizedRecords(calWs([ev('b')]));
+      final plan = planRecordWrites(base, local);
+      expect(unintendedDeletes(base, plan.deletes, {eventRecordKey('a')}), {});
+    });
+
+    test('deleting an event is a field update, not a delete', () {
+      final base = normalizedRecords(calWs([ev('a')]));
+      final dead = ev(
+        'a',
+        deletion: EventDeletion(by: 'A', at: 1, acks: {'A': 1}),
+      );
+      final local = normalizedRecords(calWs([], [dead]));
+      final plan = planRecordWrites(base, local);
+      expect(plan.deletes, isEmpty);
+      expect(plan.creates, isEmpty);
+      final patch = plan.updates[eventRecordKey('a')]!;
+      expect(patch.single.path, ['deletion']);
+    });
+
+    test('each member\'s ack is its own field write', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final base = normalizedRecords(calWs([], [ev('a', deletion: d)]));
+      final acked = EventDeletion(by: 'A', at: 1, acks: {'A': 1, 'B': 2});
+      final local = normalizedRecords(calWs([], [ev('a', deletion: acked)]));
+      final patch = planRecordWrites(base, local).updates[eventRecordKey('a')]!;
+      expect(patch.single.path, ['deletion', 'acks', 'B']);
+      expect(patch.single.value, 2);
+    });
+
+    test('tombstones round-trip records and stay out of events', () {
+      final d = EventDeletion(by: 'A', at: 5, acks: {'A': 5});
+      final ws = calWs([ev('live')], [ev('dead', deletion: d)]);
+      final back = workspaceFromRecords(normalizedRecords(ws));
+      expect(back.events.map((e) => e.id), ['live']);
+      expect(back.deletedEvents.single.id, 'dead');
+      expect(back.deletedEvents.single.deletion!.acks, {'A': 5});
+      expect(back.deletedEvents.single.deletion!.by, 'A');
+    });
+
+    test('tombstones survive local section storage', () {
+      final d = EventDeletion(by: 'A', at: 5, acks: {'A': 5});
+      final ws = calWs([ev('live')], [ev('dead', deletion: d)]);
+      final back = workspaceFromSections(workspaceSections(ws))!;
+      expect(back.events.map((e) => e.id), ['live']);
+      expect(back.deletedEvents.map((e) => e.id), ['dead']);
+      final viaJson = Workspace.fromJson(ws.toJson());
+      expect(viaJson.events.map((e) => e.id), ['live']);
+      expect(viaJson.deletedEvents.map((e) => e.id), ['dead']);
+    });
+
+    test('a member acks; the event is purged only once all have', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      // B opens the app: B acks, but C hasn't seen it yet.
+      var plan = planEventTombstones(dead, me: 'B', members: ['A', 'B', 'C']);
+      expect(plan.ack, ['x']);
+      expect(plan.purge, isEmpty);
+      d.acks['B'] = 2;
+      // Nothing more for B to do until C acks.
+      plan = planEventTombstones(dead, me: 'B', members: ['A', 'B', 'C']);
+      expect(plan.ack, isEmpty);
+      expect(plan.purge, isEmpty);
+      // C is the last member: acks and purges.
+      plan = planEventTombstones(dead, me: 'C', members: ['A', 'B', 'C']);
+      expect(plan.ack, ['x']);
+      expect(plan.purge, ['x']);
+    });
+
+    test('a single member (or local mode) purges right away', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      expect(planEventTombstones(dead, me: 'A', members: ['A']).purge, ['x']);
+      expect(planEventTombstones(dead, me: 'A', members: []).purge, ['x']);
+    });
+
+    test('a member who left no longer holds up the purge', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      expect(
+        planEventTombstones(dead, me: 'A', members: ['A', 'B']).purge,
+        isEmpty,
+      );
+      expect(planEventTombstones(dead, me: 'A', members: ['A']).purge, ['x']);
+    });
+
+    test('a deletion arriving from the server rebases onto a local edit', () {
+      final base = normalizedRecords(calWs([ev('a')]));
+      final edited = ev('a')..title = 'Renamed';
+      final local = normalizedRecords(calWs([edited]));
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final server = normalizedRecords(calWs([], [ev('a', deletion: d)]));
+      final merged = rebaseRecords(
+        oldBase: base,
+        newBase: server,
+        local: local,
+        changed: [eventRecordKey('a')],
+      );
+      final ws = workspaceFromRecords(merged);
+      expect(ws.events, isEmpty);
+      expect(ws.deletedEvents.single.title, 'Renamed');
     });
   });
 }

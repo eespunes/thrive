@@ -841,6 +841,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
               fid,
               () => _ingestRecordSnapshot(fid, col, snap, full: full),
             );
+            // A member's deletion (or another member's ack) may have just
+            // arrived: acknowledge it / finish it.
+            if (col == kEventsCol) _reconcileEventDeletions(fid);
             unawaited(_migrateLegacyData(fid));
           }, onError: (Object e) => _onFamilyStreamError(fid, col, e)),
         );
@@ -900,6 +903,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           update(() {});
           _rescheduleReminders();
         }
+        // Membership changes who still has to acknowledge a deletion.
+        _reconcileEventDeletions(fid);
       }, onError: (Object e) => _onFamilyStreamError(fid, 'family', e));
     } catch (e) {
       debugPrint('[cloud] family stream failed: $e');
@@ -1053,10 +1058,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (jsonEquals(base[key], rec)) base.remove(key);
       });
     });
-    final intents = _listDeleteIntents[fid] ?? <String>{};
+    final intents = _deleteIntents[fid] ?? <String>{};
     // Undone (the record is back) — no longer a delete.
     intents.removeWhere(local.containsKey);
-    final unintended = unintendedListDeletes(base, plan.deletes, intents);
+    final unintended = unintendedDeletes(base, plan.deletes, intents);
     for (final key in plan.deletes) {
       if (blocked(key) || unintended.containsKey(key)) continue;
       ops.add((b) => b.delete(_recordRef(fid, key)));
@@ -1069,7 +1074,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
     // Spent (or moot: never reached the server) intents.
     intents.removeWhere((k) => !base.containsKey(k));
-    if (unintended.isNotEmpty) _restoreListRecords(fid, local, unintended);
+    if (unintended.isNotEmpty) _restoreGuardedRecords(fid, local, unintended);
     if (ops.isNotEmpty) {
       final inflight = _inflightCreates.putIfAbsent(fid, () => {});
       for (final k in created) {
@@ -1132,12 +1137,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     });
   }
 
-  /// Puts list records the in-memory workspace lost — without the user
-  /// deleting them — back into [fid]'s workspace, so the device shows (and
-  /// keeps) what the server still holds instead of wiping it.
-  void _restoreListRecords(String fid, Records local, Records lost) {
+  /// Puts list / event records the in-memory workspace lost — without the
+  /// user deleting them — back into [fid]'s workspace, so the device shows
+  /// (and keeps) what the server still holds instead of wiping it.
+  void _restoreGuardedRecords(String fid, Records local, Records lost) {
     debugPrint(
-      '[cloud] kept ${lost.length} list record(s) for $fid that vanished '
+      '[cloud] kept ${lost.length} record(s) for $fid that vanished '
       'locally without being deleted: ${lost.keys.take(5).join(', ')}',
     );
     final current = workspaces[fid];
@@ -1152,7 +1157,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `task`/`shop`) in the active family: its doc and lines may be deleted
   /// from the server on the next persist.
   void _markListDeleted(String kind, String listId) {
-    _listDeleteIntents
+    _deleteIntents
         .putIfAbsent(familyId, () => {})
         .add(listMetaKey(kind, listId));
   }
@@ -1160,9 +1165,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Records that the user deliberately crossed off line [itemId] of list
   /// [listId] in the active family.
   void _markListItemDeleted(String kind, String listId, String itemId) {
-    _listDeleteIntents
+    _deleteIntents
         .putIfAbsent(familyId, () => {})
         .add(listItemKey(kind, listId, itemId));
+  }
+
+  /// Records that every member acknowledged the deletion of event [eventId]
+  /// in family [fid]: its doc may now be deleted from the server.
+  void _markEventPurged(String fid, String eventId) {
+    _deleteIntents.putIfAbsent(fid, () => {}).add(eventRecordKey(eventId));
   }
 
   Future<void> _writeUserDoc(String meUid) async {

@@ -1258,23 +1258,68 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         updated = ev;
       } else if (scope == 'future' && ev.recur != 'none' && date != null) {
         if (date == ev.date) {
-          events.removeWhere((x) => x.id == id);
+          _tombstoneEvent(ev);
           removedSeries = true;
         } else {
           ev.endDate = _addDaysIso(date, -1);
           updated = ev;
         }
       } else {
-        events.removeWhere((x) => x.id == id);
+        _tombstoneEvent(ev);
         removedSeries = true;
       }
     }, () => flash('Event deleted'));
     if (removedSeries) {
       NotificationService.instance.cancelEventReminder(id);
+      _reconcileEventDeletions(familyId);
     } else if (updated != null) {
       NotificationService.instance.scheduleEventReminder(updated!);
     }
     if (changed) _syncDeviceCalendar();
+  }
+
+  /// The ONLY way an event leaves the calendar: an explicit delete by this
+  /// user. [ev] becomes a tombstone (hidden everywhere, acknowledged by this
+  /// user) that every other member's device acknowledges in turn; its data
+  /// is removed for good once all have — see [_reconcileEventDeletions].
+  void _tombstoneEvent(CalendarEvent ev) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final me = myId;
+    events.removeWhere((x) => x.id == ev.id);
+    _activeWs.deletedEvents
+      ..removeWhere((x) => x.id == ev.id)
+      ..add(ev..deletion = EventDeletion(by: me, at: now, acks: {me: now}));
+  }
+
+  /// Acknowledges, on behalf of this user, every event deletion in family
+  /// [fid] it hasn't seen yet, and purges the tombstones every signed-in
+  /// member has acknowledged (deleting their data from the server on the
+  /// next persist). Runs whenever deletions or membership may have changed:
+  /// a local delete, and every live event / family snapshot (which includes
+  /// the first one after opening the app).
+  void _reconcileEventDeletions(String fid) {
+    if (fid != familyId || !mounted) return;
+    final ws = workspaces[fid];
+    if (ws == null || ws.deletedEvents.isEmpty) return;
+    final me = myId;
+    final plan = planEventTombstones(
+      ws.deletedEvents,
+      me: me,
+      members: curFamily()?.memberUids ?? const <String>[],
+    );
+    if (plan.ack.isEmpty && plan.purge.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final ack = plan.ack.toSet(), purge = plan.purge.toSet();
+    update(() {
+      for (final e in ws.deletedEvents) {
+        if (ack.contains(e.id)) e.deletion?.acks[me] = now;
+      }
+      ws.deletedEvents.removeWhere((e) => purge.contains(e.id));
+    });
+    for (final id in purge) {
+      _markEventPurged(fid, id);
+    }
+    _schedulePersist();
   }
 
   // ---------------------------------------------------------- categories
