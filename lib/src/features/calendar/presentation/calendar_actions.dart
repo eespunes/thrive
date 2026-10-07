@@ -1069,6 +1069,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }) {
     final wasEditing = id != null;
     final existing = id == null ? null : eventById(id);
+    // Another member deleted it while it was being edited: the deletion wins.
+    if (wasEditing && existing == null) {
+      flash('This event was deleted');
+      return;
+    }
     CalendarEvent? saved;
     mutate(() {
       final effectiveColor = catById(category)?.color ?? color;
@@ -1185,6 +1190,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required String occurrenceDate,
     required CalendarEvent edited,
   }) {
+    // Another member deleted it while it was being edited: the deletion wins.
+    if (eventById(id) == null) {
+      flash('This event was deleted');
+      return;
+    }
     var changed = false;
     CalendarEvent? rescheduleOriginal;
     CalendarEvent? rescheduleNew;
@@ -1285,6 +1295,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   void _tombstoneEvent(CalendarEvent ev) {
     final now = DateTime.now().millisecondsSinceEpoch;
     final me = myId;
+    _deletedEventIds.putIfAbsent(familyId, () => {}).add(ev.id);
     events.removeWhere((x) => x.id == ev.id);
     _activeWs.deletedEvents
       ..removeWhere((x) => x.id == ev.id)
@@ -1296,21 +1307,33 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// member has acknowledged (deleting their data from the server on the
   /// next persist). Runs whenever deletions or membership may have changed:
   /// a local delete, and every live event / family snapshot (which includes
-  /// the first one after opening the app).
+  /// the first one after opening the app). A deletion always wins over an
+  /// edit made meanwhile: any live copy of a deleted event is dropped.
   void _reconcileEventDeletions(String fid) {
     if (fid != familyId || !mounted) return;
     final ws = workspaces[fid];
-    if (ws == null || ws.deletedEvents.isEmpty) return;
+    if (ws == null) return;
+    final deleted = _deletedEventIds.putIfAbsent(fid, () => {})
+      ..addAll(ws.deletedEvents.map((e) => e.id));
+    if (deleted.isEmpty) return;
+    final revived = [
+      for (final e in ws.events)
+        if (deleted.contains(e.id)) e.id,
+    ];
     final me = myId;
     final plan = planEventTombstones(
       ws.deletedEvents,
       me: me,
       members: curFamily()?.memberUids ?? const <String>[],
     );
-    if (plan.ack.isEmpty && plan.purge.isEmpty) return;
+    if (revived.isEmpty && plan.ack.isEmpty && plan.purge.isEmpty) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final ack = plan.ack.toSet(), purge = plan.purge.toSet();
+    for (final id in revived) {
+      NotificationService.instance.cancelEventReminder(id);
+    }
     update(() {
+      ws.events.removeWhere((e) => deleted.contains(e.id));
       for (final e in ws.deletedEvents) {
         if (ack.contains(e.id)) e.deletion?.acks[me] = now;
       }
@@ -1319,6 +1342,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     for (final id in purge) {
       _markEventPurged(fid, id);
     }
+    if (revived.isNotEmpty) _syncDeviceCalendar();
     _schedulePersist();
   }
 

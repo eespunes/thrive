@@ -525,6 +525,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// `unintendedDeletes`.
   final Map<String, Set<String>> _deleteIntents = {};
 
+  /// Per-family ids of events a member deleted that this device has seen
+  /// (still a tombstone, or already purged). A deletion always wins: an edit
+  /// made meanwhile never brings one of these back — see
+  /// `_reconcileEventDeletions`.
+  final Map<String, Set<String>> _deletedEventIds = {};
+
   /// Per-family record keys this device has created on the server whose
   /// write isn't acknowledged yet. The SDK reverting such a write (e.g. a
   /// rejected batch) must not wipe the local copy.

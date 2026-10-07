@@ -50,4 +50,37 @@ void main() {
     expect(thriveDebug.events.any((e) => e.id == ev.id), isTrue);
     expect(thriveDebug.deletedEvents, isEmpty);
   });
+
+  for (final recur in ['none', 'weekly']) {
+    testWidgets('saving an event another member deleted meanwhile (recur: '
+        '$recur) keeps it deleted', (tester) async {
+      await pumpApp(tester, landOnDefaultTab: true);
+      final ev = _add('edited', recur: recur);
+      ev.date = todayIso();
+      await tester.pumpAndSettle();
+      thriveDebug.openEvent(ev, todayIso());
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Renamed');
+      await tester.pump();
+
+      // Another member's deletion lands while the editor is open.
+      thriveDebug.mutateState(() {
+        thriveDebug.events.removeWhere((e) => e.id == ev.id);
+        thriveDebug.deletedEvents.add(
+          ev..deletion = EventDeletion(by: 'B', at: 1, acks: {'B': 1}),
+        );
+      });
+      await tester.pump();
+
+      await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
+      await tester.pumpAndSettle();
+      if (recur != 'none') {
+        await tester.tap(find.byKey(const ValueKey('recur-edit-all')));
+        await tester.pumpAndSettle();
+      }
+
+      expect(thriveDebug.events.where((e) => e.id == ev.id), isEmpty);
+      expect(thriveDebug.events.where((e) => e.title == 'Renamed'), isEmpty);
+    });
+  }
 }

@@ -630,6 +630,17 @@ void main() {
       expect(viaJson.deletedEvents.map((e) => e.id), ['dead']);
     });
 
+    test('a deletion wins over a copy edited meanwhile', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final edited = ev('a')..title = 'Renamed';
+      final ws = calWs([edited], [ev('a', deletion: d)]);
+      final rec = normalizedRecords(ws)[eventRecordKey('a')]!;
+      expect(rec['deletion'], isNotNull);
+      final back = Workspace.fromJson(ws.toJson());
+      expect(back.events, isEmpty);
+      expect(back.deletedEvents.single.id, 'a');
+    });
+
     test('a member acks; the event is purged only once all have', () {
       final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
       final dead = [ev('x', deletion: d)];

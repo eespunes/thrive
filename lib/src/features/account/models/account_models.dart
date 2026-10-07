@@ -398,6 +398,9 @@ class Workspace {
       final ev = CalendarEvent.fromJson(Map<String, dynamic>.from(e as Map));
       (ev.deletion == null ? events : deletedEvents).add(ev);
     }
+    // A deletion wins over any copy of the event edited meanwhile.
+    final deletedIds = {for (final e in deletedEvents) e.id};
+    events.removeWhere((e) => deletedIds.contains(e.id));
     final eventCategories = <EventCategory>[
       for (final c in (j['eventCategories'] as List? ?? []))
         EventCategory.fromJson(Map<String, dynamic>.from(c as Map)),

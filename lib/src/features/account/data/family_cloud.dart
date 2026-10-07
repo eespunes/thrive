@@ -1044,6 +1044,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           !loaded.contains(kWorkspaceCol)) {
         return;
       }
+      // A deleted event never comes back, even from a copy edited meanwhile.
+      if (col == kEventsCol &&
+          rec['deletion'] == null &&
+          (_deletedEventIds[fid]?.contains('${rec['id']}') ?? false)) {
+        return;
+      }
       // Merge-safe even when the doc exists but hasn't reached this device
       // (see createPayload), so this never waits for the collection to load
       // — offline edits enter the SDK's durable queue right away.
@@ -1119,8 +1125,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
               'updatedAtMillis': now,
             })
             .catchError((Object e) {
-              // Deleted by another member meanwhile: our edit recreates it.
               if (e is FirebaseException && e.code == 'not-found') {
+                // A deleted event stays deleted, even if we edited it.
+                if (splitRecordKey(key).$1 == kEventsCol) {
+                  _deletedEventIds
+                      .putIfAbsent(fid, () => {})
+                      .add('${rec['id']}');
+                  return null;
+                }
+                // Deleted by another member meanwhile: our edit recreates it.
                 return ref.set(
                   _createBody(fid, key, rec, now),
                   SetOptions(merge: true),

@@ -164,9 +164,9 @@ Records workspaceRecords(Workspace ws) {
       '_key': e.key,
     };
   }
-  // Tombstones are event docs too (with a `deletion` marker); a live event
-  // wins should an id ever be in both lists.
-  for (final e in [...ws.deletedEvents, ...ws.events]) {
+  // Tombstones are event docs too (with a `deletion` marker). A deletion
+  // wins should an id ever be in both lists (edited while being deleted).
+  for (final e in [...ws.events, ...ws.deletedEvents]) {
     out[eventRecordKey(e.id)] = e.toJson();
   }
   return out;
