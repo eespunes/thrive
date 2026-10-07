@@ -104,6 +104,8 @@ extension _ThriveListScreens on _ThriveHomeState {
   Widget _buildListsHub() {
     ensureListPrefs();
     final filterMe = taskFilter == 'me';
+    final taskLists = visibleTaskLists;
+    final shoppingLists = visibleShoppingLists;
 
     if (taskLists.isEmpty && shoppingLists.isEmpty) {
       return _emptyState(

@@ -116,7 +116,14 @@ Records workspaceRecords(Workspace ws) {
       }
     }
   }
-  void listItems(String kind, String listId, List<Map<String, dynamic>> xs) {
+  // `_listOwner` (the list's creator) lets the rules hand a child user
+  // exactly the items on their own lists.
+  void listItems(
+    String kind,
+    String listId,
+    String? owner,
+    List<Map<String, dynamic>> xs,
+  ) {
     for (final (i, x) in xs.indexed) {
       var id = safeDocId('${kind}_${listId}_${x['id']}');
       while (out.containsKey(recordKey(kListItemsCol, id))) {
@@ -126,6 +133,7 @@ Records workspaceRecords(Workspace ws) {
         ...x,
         '_kind': kind,
         '_list': listId,
+        '_listOwner': ?owner,
         '_order': i,
       };
     }
@@ -136,14 +144,16 @@ Records workspaceRecords(Workspace ws) {
       ...l.toJson()..remove('tasks'),
       '_order': i,
     };
-    listItems('task', l.id, [for (final t in l.tasks) t.toJson()]);
+    listItems('task', l.id, l.createdBy, [for (final t in l.tasks) t.toJson()]);
   }
   for (final (i, l) in ws.shoppingLists.indexed) {
     out[recordKey(kWorkspaceCol, 'list_shop_${l.id}')] = {
       ...l.toJson()..remove('items'),
       '_order': i,
     };
-    listItems('shop', l.id, [for (final it in l.items) it.toJson()]);
+    listItems('shop', l.id, l.createdBy, [
+      for (final it in l.items) it.toJson(),
+    ]);
   }
   // Card photos are local-only (issue #234) and never synced.
   for (final (i, c) in ws.cards.indexed) {
@@ -208,6 +218,7 @@ Map<String, dynamic>? normalizeRecord(String key, Map raw) {
             : ShopItem.fromJson(j).toJson()),
         '_kind': kind,
         '_list': list,
+        '_listOwner': ?j['_listOwner']?.toString(),
         '_order': _int(j['_order']) ?? 0,
       };
     case kWeeklyCol:

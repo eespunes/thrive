@@ -240,19 +240,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         // The kitchen wall is a full-screen route, not a `calView` — the
         // chef button is greyed while the wall is switched off, and tapping
         // it then re-enables it (as the old picker sheet row did).
-        squareBtn(
-          key: const ValueKey('cal-view-kitchen'),
-          active: false,
-          dimmed: !kitchenEnabled,
-          onTap: () {
-            if (kitchenEnabled) {
-              openKitchenDashboard();
-            } else {
-              toggleKitchenEnabled();
-            }
-          },
-          child: ic('display', size: 16, sw: 2.2, color: B.soft2),
-        ),
+        if (!isChildUser)
+          squareBtn(
+            key: const ValueKey('cal-view-kitchen'),
+            active: false,
+            dimmed: !kitchenEnabled,
+            onTap: () {
+              if (kitchenEnabled) {
+                openKitchenDashboard();
+              } else {
+                toggleKitchenEnabled();
+              }
+            },
+            child: ic('display', size: 16, sw: 2.2, color: B.soft2),
+          ),
         squareBtn(
           key: const ValueKey('cal-header-filter'),
           active: false,

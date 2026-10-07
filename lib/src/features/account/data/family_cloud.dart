@@ -239,6 +239,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
+        _noteKidStatuses(docs);
         await _fetchAllRecords([
           for (final d in docs) d.key,
         ], source: Source.cache);
@@ -269,6 +270,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
+        _noteKidStatuses(docs);
         await _fetchAllRecords([for (final d in docs) d.key]);
         _applyFamilyDocs(meUid, docs, userData);
         if (families.isNotEmpty) {
@@ -312,6 +314,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       for (final (i, s) in snaps.indexed)
         if (s.data() != null) MapEntry(ids[i], s.data()!),
     ];
+    _noteKidStatuses(docs);
     await _fetchAllRecords([for (final d in docs) d.key]);
     _applyFamilyDocs(meUid, docs, userData);
   }
@@ -324,7 +327,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     Source source = Source.serverAndCache,
   }) async {
     await Future.wait([
-      for (final fid in fids)
+      for (final fid in fids.where(_isKidFamily)) _fetchKidRecords(fid, source),
+      for (final fid in fids.where((f) => !_isKidFamily(f)))
         for (final col in kRecordCollections)
           _recordCol(fid, col)
               .get(GetOptions(source: source))
@@ -519,6 +523,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// once all collections are loaded, so nothing already migrated (by
   /// another member) is overwritten. Idempotent; retried on failure.
   Future<void> _migrateLegacyData(String fid) async {
+    // A kid can't read (or rewrite) most of the family's data.
+    if (_isKidFamily(fid)) return;
     if (!_hasLegacyData(fid)) return;
     final loaded = _cloudLoaded[fid] ?? const <String>{};
     if (!kRecordCollections.every(loaded.contains)) return;
@@ -802,8 +808,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// least surfaced instead of dying unnoticed.
   void _onFamilyStreamError(String fid, String label, Object e) {
     if (e is FirebaseException && e.code == 'permission-denied') {
-      debugPrint('[cloud] $label stream denied for $fid — dropping family');
-      _dropFamilyLocally(fid);
+      // Possibly a kid restriction rather than a removal — re-check first.
+      debugPrint('[cloud] $label stream denied for $fid — re-checking access');
+      unawaited(_recheckAccessAfterDenied(fid));
       return;
     }
     debugPrint('[cloud] $label stream failed for $fid: $e');
@@ -831,7 +838,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // workspace always converges on what Firestore holds. Only the docs
       // that changed are applied (docChanges), and they are rebased onto
       // this device's pending edits instead of overwriting them.
+      if (_isKidFamily(fid)) _bindKidRecordListeners(fid);
       for (final col in kRecordCollections) {
+        if (_isKidFamily(fid)) break;
         var first = true;
         _recordSubs.add(
           _recordCol(fid, col).snapshots().listen((snap) {
@@ -855,6 +864,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final uids = data['memberUids'];
         if (uids is! List || !uids.contains(meUid)) {
           _dropFamilyLocally(fid);
+          return;
+        }
+        // The owner made this login a kid (or lifted it): kid and full
+        // members load through different queries, so reload.
+        if (_noteKidStatus(fid, data)) {
+          _metaBase[fid] = _metaFromDoc(fid, data);
+          _reloadFamilyAccess(fid);
           return;
         }
         final rawBlob = data['workspace'];
@@ -961,6 +977,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   void _persistFamilyMeta(Family f, List<Future<void>> acks) {
+    // Only the owner publishes which logins are kids (the rules reject the
+    // field from anyone else), derived from the kid profiles' emails.
+    if (f.ownerUid != null && f.ownerUid == _firebaseUid()) {
+      f.kidEmails = deriveKidEmails(f.members);
+    }
     final local = _metaOf(f);
     final base = _metaBase[f.id];
     if (base != null && jsonEquals(base, local)) return;
@@ -1004,6 +1025,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final view = _serverView(fid);
     final local = normalizedRecords(ws);
     local.addAll(orphanListItems(view, local));
+    _scopeKidWrites(fid, base, local);
     final legacyPending = _hasLegacyData(fid);
     // Safety net: a placeholder `Workspace.empty()` (a family that hasn't
     // finished loading) must never be written over real data.
@@ -1412,6 +1434,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           // — otherwise this path adopted an empty workspace, and an edit in
           // the following seconds could persist that emptiness over the
           // family's real shared data.
+          _noteKidStatus(fid, mineData);
           await _fetchAllRecords([fid]);
           _adoptJoinedFamily(fid, mineData, meUid);
           await _recordMembership(meUid);
@@ -1439,7 +1462,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // members array (a joiner could otherwise append themselves with an
       // impersonated identity or a fake 'owner' role before anyone knew them).
       final joinProof = joinProofFor(password, slug, handle);
-      final me = FamilyMember(
+      var me = FamilyMember(
         id: meUid,
         name: user?.name ?? '',
         email: user?.email ?? '',
@@ -1466,22 +1489,51 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         return 'Could not join family right now';
       }
 
-      // We are now a member: append our display row to `members` and drop the
-      // transient `joinProof` so it isn't left lingering on the shared doc
-      // (best-effort: it is only ever readable by members anyway, and
-      // `dedupeMembers` repairs a missed row on next load).
-      unawaited(
-        _familyDocRef(fid)
-            .update({
-              'members': FieldValue.arrayUnion([me.toJson()]),
-              'joinProof': FieldValue.delete(),
-            })
-            .catchError((_) {}),
-      );
-
-      final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
-      final data = snap.data();
+      // We are now a member. If an owner set up a kid profile with our email,
+      // we take that row over (converting the child profile into a user that
+      // keeps its kid role, id and everything assigned to it) instead of
+      // appending a new one.
+      var snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
+      var data = snap.data();
       if (data == null) return 'Could not join family right now';
+      final existing = [
+        for (final m in (data['members'] as List? ?? const []))
+          if (m is Map) FamilyMember.fromJson(Map<String, dynamic>.from(m)),
+      ];
+      final kidRow = claimableKidRow(existing, user?.email ?? '');
+      if (kidRow != null) {
+        kidRow
+          ..uid = meUid
+          ..status = 'active';
+        me = kidRow;
+        try {
+          await _familyDocRef(fid)
+              .update({
+                'members': [for (final m in existing) m.toJson()],
+                'joinProof': FieldValue.delete(),
+              })
+              .timeout(kCloudOpTimeout);
+          snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
+          data = snap.data() ?? data;
+        } catch (e) {
+          debugPrint('[cloud] joinFamily kid claim failed: $e');
+          return 'Could not join family right now';
+        }
+      } else {
+        // Append our display row to `members` and drop the transient
+        // `joinProof` so it isn't left lingering on the shared doc
+        // (best-effort: it is only ever readable by members anyway, and
+        // `dedupeMembers` repairs a missed row on next load).
+        unawaited(
+          _familyDocRef(fid)
+              .update({
+                'members': FieldValue.arrayUnion([me.toJson()]),
+                'joinProof': FieldValue.delete(),
+              })
+              .catchError((_) {}),
+        );
+      }
+      _noteKidStatus(fid, data);
       await _fetchAllRecords([fid]);
       _adoptJoinedFamily(fid, data, meUid, selfRow: me);
       // Durably record membership before returning so a relaunch finds this
@@ -1843,18 +1895,24 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     // [selfUid], preventing a collision with our own (already-distinct,
     // uid-based) row added below.
     _migrateLegacyMeIdsInList(fetchedMembers, selfUid, false);
-    final me = FamilyMember(
-      id: selfUid,
-      name: user?.name ?? '',
-      email: user?.email ?? '',
-      initials: user?.initials ?? '?',
-      color: kMemberColors[families.length % kMemberColors.length],
-      uid: selfUid,
-      photo: user?.photo,
-      role: 'member',
-      status: 'active',
-    );
-    final members = dedupeMembers([...fetchedMembers, me]);
+    final kidRow = claimableKidRow(fetchedMembers, user?.email ?? '');
+    kidRow
+      ?..uid = selfUid
+      ..status = 'active';
+    final me =
+        kidRow ??
+        FamilyMember(
+          id: selfUid,
+          name: user?.name ?? '',
+          email: user?.email ?? '',
+          initials: user?.initials ?? '?',
+          color: kMemberColors[families.length % kMemberColors.length],
+          uid: selfUid,
+          photo: user?.photo,
+          role: 'member',
+          status: 'active',
+        );
+    final members = dedupeMembers([...fetchedMembers, if (kidRow == null) me]);
     final fam = Family(
       id: id,
       name: (map['name'] ?? 'Family').toString(),

@@ -71,6 +71,7 @@ class TaskList {
     required this.color,
     this.emoji,
     this.picture,
+    this.createdBy,
     List<ListTask>? tasks,
   }) : tasks = tasks ?? <ListTask>[];
 
@@ -84,6 +85,10 @@ class TaskList {
   /// Optional base64 picture shown instead of the emoji/icon.
   String? picture;
 
+  /// Family member id (or uid) who created the list. Child users only see
+  /// lists they created; `null` on lists from before this was tracked.
+  String? createdBy;
+
   List<ListTask> tasks;
 
   Map<String, dynamic> toJson() => {
@@ -92,6 +97,7 @@ class TaskList {
     'color': color.toARGB32(),
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
+    if (createdBy != null) 'createdBy': createdBy,
     'tasks': tasks.map((t) => t.toJson()).toList(),
   };
 
@@ -103,6 +109,7 @@ class TaskList {
     picture: (j['picture'] as String?)?.isNotEmpty == true
         ? j['picture']
         : null,
+    createdBy: j['createdBy']?.toString(),
     tasks: [
       for (final t in (j['tasks'] as List? ?? []))
         ListTask.fromJson(Map<String, dynamic>.from(t as Map)),
@@ -154,6 +161,7 @@ class ShoppingList {
     this.color,
     this.emoji,
     this.picture,
+    this.createdBy,
     List<ShopItem>? items,
   }) : items = items ?? <ShopItem>[];
 
@@ -170,6 +178,10 @@ class ShoppingList {
   /// Optional base64 picture shown instead of the emoji/icon.
   String? picture;
 
+  /// Family member id (or uid) who created the list — see
+  /// [TaskList.createdBy].
+  String? createdBy;
+
   List<ShopItem> items;
 
   Map<String, dynamic> toJson() => {
@@ -178,6 +190,7 @@ class ShoppingList {
     if (color != null) 'color': color!.toARGB32(),
     if (emoji != null) 'emoji': emoji,
     if (picture != null) 'picture': picture,
+    if (createdBy != null) 'createdBy': createdBy,
     'items': items.map((i) => i.toJson()).toList(),
   };
 
@@ -191,6 +204,7 @@ class ShoppingList {
     picture: (j['picture'] as String?)?.isNotEmpty == true
         ? j['picture']
         : null,
+    createdBy: j['createdBy']?.toString(),
     items: [
       for (final i in (j['items'] as List? ?? []))
         ShopItem.fromJson(Map<String, dynamic>.from(i as Map)),

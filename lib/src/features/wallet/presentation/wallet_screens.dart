@@ -7,7 +7,12 @@ part of 'package:family_money_management_app/main.dart';
 extension _ThriveWallet on _ThriveHomeState {
   /// Opens the wallet sheet. (Kept under the historical name — every entry
   /// point routes through here.)
-  void openWalletScreen() => _showSheet((ctx) => _WalletSheet(state: this));
+  void openWalletScreen() {
+    if (childBlocked('Discount cards aren’t available on a kid profile')) {
+      return;
+    }
+    _showSheet((ctx) => _WalletSheet(state: this));
+  }
 
   /// Opens a card's face sheet. With [payCat]/[payItemId] it opens in
   /// "paying" mode: the primary action marks that expense item paid with

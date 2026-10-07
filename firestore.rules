@@ -136,11 +136,50 @@ service cloud.firestore {
       // Only the owner may delete the family.
       allow delete: if isOwner();
 
+      function familyData() {
+        return get(/databases/$(database)/documents/families/$(familyId)).data;
+      }
+
       function isFamilyMember() {
         return request.auth != null
-          && request.auth.uid in
-               get(/databases/$(database)/documents/families/$(familyId))
-                 .data.memberUids;
+          && request.auth.uid in familyData().memberUids;
+      }
+
+      // Child users (kid profiles with their own login). The owner keeps
+      // `kidEmails` on the family doc — `{ <lowercased email>: <memberId> }`
+      // — and it is NOT a member-safe key, so only the owner can change it:
+      // a kid can never take themselves off it. A signed-in member whose
+      // token email is listed is a kid and only reaches their own world:
+      // events they attend or created, lists they created (+ their items),
+      // read-only settings and meal plan. Never budgets or discount cards.
+      function myEmail() {
+        return request.auth.token.get('email', '') is string
+          ? request.auth.token.get('email', '').lower()
+          : '';
+      }
+      function kidEmails() {
+        return familyData().get('kidEmails', {});
+      }
+      function isKid() {
+        return myEmail() != '' && myEmail() in kidEmails();
+      }
+      function kidMemberId() {
+        return kidEmails()[myEmail()];
+      }
+      // Ids a kid's own data can be tagged with: their uid (what the app
+      // writes as `createdBy`) and their kid member id (event attendees).
+      function isKidOwnId(v) {
+        return v == request.auth.uid || v == kidMemberId();
+      }
+      function kidOwnsEvent(d) {
+        return isKidOwnId(d.get('createdBy', ''))
+          || kidMemberId() in d.get('attendees', []);
+      }
+      function isFullMember() {
+        return isFamilyMember() && !isKid();
+      }
+      function isKidMember() {
+        return isFamilyMember() && isKid();
       }
 
       // Workspace container docs: `settings`, one per budget month
@@ -155,32 +194,73 @@ service cloud.firestore {
       // stops an outdated app version — which re-uploads whole arrays from its
       // possibly stale copy — from reverting other members' edits. Deleting
       // such legacy arrays (the one-time migration) stays allowed.
+      //
+      // A kid reads `settings` (layers, categories) and the lists they
+      // created — via a `createdBy == <uid>` query — and writes only their
+      // own lists. No budget months, cards or imported calendars.
       match /workspace/{section} {
-        allow read, delete: if isFamilyMember();
-        allow create, update: if isFamilyMember()
-          && !request.resource.data.keys().hasAny([
+        function noLegacyArrays() {
+          return !request.resource.data.keys().hasAny([
                'blocks', 'income', 'tasks', 'items', 'months', 'cards',
                'taskLists', 'shoppingLists', 'weeklyPlan', 'events']);
+        }
+        function isListDoc() {
+          return section.matches('list_(task|shop)_.+');
+        }
+        allow read: if isFullMember()
+          || (isKidMember()
+              && (section == 'settings'
+                  || resource.data.get('createdBy', '') == request.auth.uid));
+        allow delete: if isFullMember()
+          || (isKidMember() && isListDoc()
+              && resource.data.get('createdBy', '') == request.auth.uid);
+        allow create: if noLegacyArrays()
+          && (isFullMember()
+              || (isKidMember() && isListDoc()
+                  && request.resource.data.get('createdBy', '')
+                       == request.auth.uid));
+        allow update: if noLegacyArrays()
+          && (isFullMember()
+              || (isKidMember() && isListDoc()
+                  && resource.data.get('createdBy', '') == request.auth.uid
+                  && request.resource.data.get('createdBy', '')
+                       == request.auth.uid));
       }
 
-      // One doc per budget item: `<year>_<month>_<itemId>`.
+      // One doc per budget item: `<year>_<month>_<itemId>`. Never for kids.
       match /budgetItems/{itemId} {
-        allow read, write: if isFamilyMember();
+        allow read, write: if isFullMember();
       }
 
       // One doc per task / shopping item: `<task|shop>_<listId>_<itemId>`.
+      // Items carry `_listOwner` (their list's creator), so a kid can query
+      // and edit exactly the items on their own lists.
       match /listItems/{itemId} {
-        allow read, write: if isFamilyMember();
+        allow read, write: if isFullMember();
+        allow read, delete: if isKidMember()
+          && resource.data.get('_listOwner', '') == request.auth.uid;
+        allow create: if isKidMember()
+          && request.resource.data.get('_listOwner', '') == request.auth.uid;
+        allow update: if isKidMember()
+          && resource.data.get('_listOwner', '') == request.auth.uid
+          && request.resource.data.get('_listOwner', '') == request.auth.uid;
       }
 
-      // One doc per weekly-plan day.
+      // One doc per weekly-plan day. Read-only for kids.
       match /weekly/{day} {
-        allow read, write: if isFamilyMember();
+        allow read: if isFamilyMember();
+        allow write: if isFullMember();
       }
 
-      // One doc per calendar event (id = event id).
+      // One doc per calendar event (id = event id). A kid only reads and
+      // edits events they attend or created, and can't hand one off.
       match /events/{eventId} {
-        allow read, write: if isFamilyMember();
+        allow read, write: if isFullMember();
+        allow read, delete: if isKidMember() && kidOwnsEvent(resource.data);
+        allow create: if isKidMember() && kidOwnsEvent(request.resource.data);
+        allow update: if isKidMember()
+          && kidOwnsEvent(resource.data)
+          && kidOwnsEvent(request.resource.data);
       }
     }
 

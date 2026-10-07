@@ -98,7 +98,9 @@ class _MemberColoursScreen extends StatelessWidget {
                   sub: m.role == 'owner'
                       ? 'Owner'
                       : (m.role == 'kid'
-                            ? 'Kid'
+                            ? (m.uid != null && m.uid!.isNotEmpty
+                                  ? 'Kid · own login'
+                                  : 'Kid')
                             : (m.uid == null && m.email.isEmpty
                                   ? 'No login — managed by anyone'
                                   : 'Member')),
@@ -165,6 +167,40 @@ class _MemberStudioState extends State<_MemberStudio> {
     super.dispose();
   }
 
+  /// Converting a kid profile into a child user: the kid signs in with the
+  /// email set here and joins the family, which claims this row (keeping
+  /// its kid role and everything assigned to it).
+  Widget _kidLoginCard() {
+    final m = _member;
+    final hasLogin = m?.uid != null && m!.uid!.isNotEmpty;
+    final handle = s.curFamily()?.username ?? '';
+    const style = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      color: Color(0xff5b6678),
+      height: 1.35,
+    );
+    return studioCard(
+      title: 'Own login',
+      children: [
+        Text(
+          key: const ValueKey('member-kid-login'),
+          hasLogin
+              ? 'Signed in with their own account. They only see their own '
+                    'events and lists and a read-only meal plan — no money, '
+                    'discount cards or kitchen wall.'
+              : 'To give them their own login, add their email above and '
+                    'save. Then they sign up with that email and join '
+                    '${handle.isEmpty ? 'this family' : '@$handle'} with the '
+                    'family password — they become a child user who only '
+                    'sees their own events and lists and a read-only meal '
+                    'plan.',
+          style: style,
+        ),
+      ],
+    );
+  }
+
   void _save() {
     s.saveMemberStudio(
       widget.memberId,
@@ -226,6 +262,7 @@ class _MemberStudioState extends State<_MemberStudio> {
             value: _kid,
             onChanged: () => setState(() => _kid = !_kid),
           ),
+        if (_canToggleKid && _kid) _kidLoginCard(),
         _ColorPickerPanel(
           selected: _color,
           onChanged: (c) => setState(() => _color = c),

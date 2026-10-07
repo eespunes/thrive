@@ -143,6 +143,7 @@ extension _ThriveListActions on _ThriveHomeState {
           color: color,
           emoji: emoji,
           picture: picture,
+          createdBy: myId,
         ),
       );
     }, () => flash('Pinned — the whole family sees it'));
@@ -327,6 +328,7 @@ extension _ThriveListActions on _ThriveHomeState {
           color: color,
           emoji: emoji,
           picture: picture,
+          createdBy: myId,
         ),
       );
     }, () => flash('Pinned — the whole family sees it'));

@@ -255,6 +255,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     String label,
     String? current,
   ) {
+    if (childBlocked(kChildMealPlanReadOnly)) return;
     _showSheet(
       (ctx) => _MealEditSheet(
         state: this,
@@ -267,6 +268,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
   }
 
   void openNoteSheet(String dateIso, String? current) {
+    if (childBlocked(kChildMealPlanReadOnly)) return;
     _showSheet(
       (ctx) =>
           _DayNoteSheet(state: this, dateIso: dateIso, initial: current ?? ''),

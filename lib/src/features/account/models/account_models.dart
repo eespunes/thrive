@@ -194,7 +194,9 @@ class Family {
     this.picture,
     this.ownerUid,
     List<String>? memberUids,
-  }) : memberUids = memberUids ?? <String>[];
+    Map<String, String>? kidEmails,
+  }) : memberUids = memberUids ?? <String>[],
+       kidEmails = kidEmails ?? <String, String>{};
 
   String id;
   String name;
@@ -213,6 +215,11 @@ class Family {
   /// field Firestore security rules check for membership.
   List<String> memberUids;
 
+  /// Child users the security rules restrict: lowercased login email → kid
+  /// member id. Owner-managed (see [deriveKidEmails]); Firestore rules only
+  /// let the owner change it.
+  Map<String, String> kidEmails;
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -220,6 +227,7 @@ class Family {
     if (picture != null) 'picture': picture,
     if (ownerUid != null) 'ownerUid': ownerUid,
     'memberUids': memberUids,
+    if (kidEmails.isNotEmpty) 'kidEmails': kidEmails,
     'members': members.map((m) => m.toJson()).toList(),
   };
 
@@ -232,12 +240,25 @@ class Family {
     memberUids: [
       for (final u in (j['memberUids'] as List? ?? [])) u.toString(),
     ],
+    kidEmails: {
+      if (j['kidEmails'] is Map)
+        for (final e in (j['kidEmails'] as Map).entries)
+          e.key.toString(): e.value.toString(),
+    },
     members: [
       for (final m in (j['members'] as List? ?? []))
         FamilyMember.fromJson(Map<String, dynamic>.from(m as Map)),
     ],
   );
 }
+
+/// The `kidEmails` map the owner publishes for [members]: every kid profile
+/// with an email, so the rules can restrict that login once it joins.
+Map<String, String> deriveKidEmails(List<FamilyMember> members) => {
+  for (final m in members)
+    if (m.role == 'kid' && m.email.trim().isNotEmpty)
+      m.email.trim().toLowerCase(): m.id,
+};
 
 /// Per-family budget workspace: its own accounts, blocks and month data.
 /// Switching family swaps the whole workspace, mirroring the design.

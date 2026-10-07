@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -12,6 +13,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, query, where, getDocs,
 } from 'firebase/firestore';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -331,6 +333,113 @@ describe('per-item collections', () => {
       await assertSucceeds(deleteDoc(doc(db(MEMBER), 'families', FAM, col, id)));
     });
   }
+});
+
+describe('child users (kidEmails)', () => {
+  const KID = 'kid-uid';
+  const KID_EMAIL = 'nora@example.com';
+  const KID_MEMBER = 'm-kid';
+  const kidDb = () => env
+    .authenticatedContext(KID, { email: 'Nora@Example.com' })
+    .firestore();
+  const sub = (d, col, id) => doc(d, 'families', FAM, col, id);
+  const put = (col, id, data) => env.withSecurityRulesDisabled(
+    (ctx) => setDoc(doc(ctx.firestore(), 'families', FAM, col, id), data));
+
+  beforeEach(async () => {
+    await seed({
+      ...baseFamily,
+      memberUids: [OWNER, MEMBER, KID],
+      kidEmails: { [KID_EMAIL]: KID_MEMBER },
+    });
+    await put('workspace', 'settings', { calendarLayers: [] });
+    await put('workspace', 'budget_2026_Mei', { caps: {} });
+    await put('workspace', 'card_c1', { name: 'Club card' });
+    await put('workspace', 'list_task_mine', { name: 'Homework', createdBy: KID });
+    await put('workspace', 'list_task_other', { name: 'Chores', createdBy: MEMBER });
+    await put('listItems', 'task_mine_t1', { title: 'Maths', _list: 'mine', _listOwner: KID });
+    await put('listItems', 'task_other_t1', { title: 'Dishes', _list: 'other', _listOwner: MEMBER });
+    await put('budgetItems', '2026_Mei_a', { label: 'Rent' });
+    await put('weekly', '2026-05-04', { dinner: 'Soup' });
+    await put('events', 'ev-attend', { title: 'Football', attendees: [KID_MEMBER] });
+    await put('events', 'ev-own', { title: 'Party', attendees: [], createdBy: KID });
+    await put('events', 'ev-other', { title: 'Parents evening', attendees: [MEMBER], createdBy: MEMBER });
+  });
+
+  it('a kid never reads budgets, cards or other people\'s data', async () => {
+    const d = kidDb();
+    await assertFails(getDoc(sub(d, 'budgetItems', '2026_Mei_a')));
+    await assertFails(getDocs(collection(d, 'families', FAM, 'budgetItems')));
+    await assertFails(getDoc(sub(d, 'workspace', 'budget_2026_Mei')));
+    await assertFails(getDoc(sub(d, 'workspace', 'card_c1')));
+    await assertFails(getDoc(sub(d, 'workspace', 'list_task_other')));
+    await assertFails(getDoc(sub(d, 'listItems', 'task_other_t1')));
+    await assertFails(getDoc(sub(d, 'events', 'ev-other')));
+    await assertFails(getDocs(collection(d, 'families', FAM, 'events')));
+    await assertFails(getDocs(collection(d, 'families', FAM, 'workspace')));
+  });
+
+  it('a kid reads their own world through scoped queries', async () => {
+    const d = kidDb();
+    const col = (c) => collection(d, 'families', FAM, c);
+    await assertSucceeds(getDoc(sub(d, 'workspace', 'settings')));
+    const lists = await assertSucceeds(
+      getDocs(query(col('workspace'), where('createdBy', '==', KID))));
+    assert.deepEqual(lists.docs.map((x) => x.id), ['list_task_mine']);
+    const items = await assertSucceeds(
+      getDocs(query(col('listItems'), where('_listOwner', '==', KID))));
+    assert.deepEqual(items.docs.map((x) => x.id), ['task_mine_t1']);
+    const attending = await assertSucceeds(getDocs(query(col('events'),
+      where('attendees', 'array-contains', KID_MEMBER))));
+    assert.deepEqual(attending.docs.map((x) => x.id), ['ev-attend']);
+    const created = await assertSucceeds(
+      getDocs(query(col('events'), where('createdBy', '==', KID))));
+    assert.deepEqual(created.docs.map((x) => x.id), ['ev-own']);
+    await assertSucceeds(getDocs(col('weekly')));
+  });
+
+  it('a kid writes only their own events, lists and items', async () => {
+    const d = kidDb();
+    await assertSucceeds(setDoc(sub(d, 'events', 'ev-new'),
+      { title: 'Swim', attendees: [KID_MEMBER], createdBy: KID }));
+    await assertSucceeds(updateDoc(sub(d, 'events', 'ev-attend'), { done: true }));
+    await assertFails(updateDoc(sub(d, 'events', 'ev-other'), { title: 'x' }));
+    await assertFails(updateDoc(sub(d, 'events', 'ev-attend'),
+      { attendees: [MEMBER] }));
+    await assertFails(deleteDoc(sub(d, 'events', 'ev-other')));
+
+    await assertSucceeds(setDoc(sub(d, 'workspace', 'list_shop_new'),
+      { name: 'Wishlist', createdBy: KID }));
+    await assertFails(setDoc(sub(d, 'workspace', 'list_shop_x'),
+      { name: 'Sneaky', createdBy: MEMBER }));
+    await assertFails(updateDoc(sub(d, 'workspace', 'list_task_other'),
+      { name: 'Mine now', createdBy: KID }));
+    await assertFails(updateDoc(sub(d, 'workspace', 'settings'), { x: 1 }));
+    await assertFails(setDoc(sub(d, 'workspace', 'card_c2'),
+      { name: 'Card', createdBy: KID }));
+
+    await assertSucceeds(setDoc(sub(d, 'listItems', 'task_mine_t2'),
+      { title: 'Reading', _list: 'mine', _listOwner: KID }));
+    await assertFails(setDoc(sub(d, 'listItems', 'task_other_t2'),
+      { title: 'x', _list: 'other', _listOwner: MEMBER }));
+
+    await assertFails(setDoc(sub(d, 'weekly', '2026-05-04'), { dinner: 'Cake' }));
+    await assertFails(setDoc(sub(d, 'budgetItems', '2026_Mei_b'), { label: 'x' }));
+  });
+
+  it('only the owner manages kidEmails', async () => {
+    await assertFails(updateDoc(famRef(kidDb()), { kidEmails: {} }));
+    await assertFails(updateDoc(famRef(db(MEMBER)), { kidEmails: {} }));
+    await assertSucceeds(updateDoc(famRef(db(OWNER)), { kidEmails: {} }));
+  });
+
+  it('full members are unaffected by kidEmails', async () => {
+    const d = db(MEMBER);
+    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'budgetItems')));
+    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'events')));
+    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'workspace')));
+    await assertSucceeds(setDoc(sub(d, 'weekly', '2026-05-04'), { dinner: 'x' }));
+  });
 });
 
 describe('family_handles', () => {

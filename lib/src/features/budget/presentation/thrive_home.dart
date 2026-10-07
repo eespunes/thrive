@@ -252,6 +252,14 @@ class ThriveDebugController {
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
   List<BoardEntry> effectiveHomeBoard() => _s.effectiveHomeBoard();
   bool amIKidProfile() => _s.amIKidProfile();
+  bool get isChildUser => _s.isChildUser;
+  List<TaskList> get visibleTaskLists => _s.visibleTaskLists;
+  List<ShoppingList> get visibleShoppingLists => _s.visibleShoppingLists;
+  List<CalendarOccurrence> eventOccurrences(String from, String to) =>
+      _s.eventOccurrences(from, to);
+  void setMeal(String dateIso, String slot, String value) =>
+      _s.setMeal(dateIso, slot, value);
+  void saveTaskList(String name, Color color) => _s.saveTaskList(name, color);
   List<HomeWidgetDef> offeredHomeWidgets() => _s.offeredHomeWidgets();
   void addHomeWidget(String id) => _s.addHomeWidget(id);
   void removeHomeWidget(int i) => _s.removeHomeWidget(i);
@@ -477,9 +485,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
 
-  /// One realtime listener per record collection of the active family.
-  final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
-  _recordSubs = [];
+  /// The active family's record listeners: one per collection, or the
+  /// kid-scoped queries (plus the settings doc) for a child user.
+  final List<StreamSubscription<Object?>> _recordSubs = [];
+
+  /// Families whose access is being re-checked after a permission-denied
+  /// stream error (a kid restriction rather than a removal).
+  final Set<String> _accessRechecks = {};
   bool _applyingCloudSnapshot = false;
 
   /// The family id the Firestore family/workspace streams are currently bound
@@ -500,6 +512,15 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// or a non-empty cache read). New docs are only created in a known
   /// collection, so an unloaded one can't be overwritten blind.
   final Map<String, Set<String>> _cloudLoaded = {};
+
+  /// Families where the signed-in login is a child user per the family doc's
+  /// `kidEmails` (what the security rules enforce): family id → kid member
+  /// id. Those families load through kid-scoped queries only.
+  final Map<String, String> _kidMemberIdByFid = {};
+
+  /// Kid-scoped loading: family → collection → query tag → doc ids that tag
+  /// currently delivers. A doc leaves the base only when no tag holds it.
+  final Map<String, Map<String, Map<String, Set<String>>>> _scopedIds = {};
 
   /// Per-family pre-record workspace docs still on the server (whole-array
   /// `budget_*`/`lists`/`cards`/`weekly`/`events*` docs, or current ids still
@@ -2047,6 +2068,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   Widget _buildBody() {
+    // A child user never renders finance, e.g. from a restored tab.
+    if (isChildUser && !kChildAllowedTabs.contains(tab)) {
+      return _renderTab('home');
+    }
     if (tab != 'finance') return _renderTab(tab);
     return _buildFinance();
   }

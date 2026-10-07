@@ -27,8 +27,11 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 ],
                 _hubPlanningCard(),
                 const SizedBox(height: 10),
-                _hubMoneyCard(),
-                const SizedBox(height: 10),
+                // Kid profiles never see money or discount cards.
+                if (!isChildUser) ...[
+                  _hubMoneyCard(),
+                  const SizedBox(height: 10),
+                ],
                 _hubFamilyCard(),
                 const SizedBox(height: 10),
                 _hubAccountCard(),
@@ -106,16 +109,20 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     final layersOn = calendarLayers
         .where((l) => layerFilter.contains(l.id))
         .length;
+    final child = isChildUser;
     return _hubCard(
       id: 'planning',
       icon: 'moon',
       title: 'Planning',
-      summary:
-          '$layersOn of ${calendarLayers.length} layers on · '
-          'wall ${kitchenEnabled ? 'on' : 'off'}',
-      hint: kitchenEnabled
-          ? 'Per-member: photo tile toggle + reward stars (0–5).'
-          : null,
+      summary: child
+          ? '$layersOn of ${calendarLayers.length} layers on'
+          : '$layersOn of ${calendarLayers.length} layers on · '
+                'wall ${kitchenEnabled ? 'on' : 'off'}',
+      hint: child
+          ? 'The meal plan is read-only on a kid profile.'
+          : (kitchenEnabled
+                ? 'Per-member: photo tile toggle + reward stars (0–5).'
+                : null),
       rows: [
         _hubRow(
           key: 'more-weekly',
@@ -123,29 +130,31 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           val: '$planned of 7 planned',
           onTap: openWeeklyPlanScreen,
         ),
-        _hubRow(
-          key: 'more-calmanage',
-          label: 'Categories',
-          val: '$catCount badge${catCount == 1 ? '' : 's'}',
-          onTap: openCategoriesScreen,
-        ),
-        _hubRow(
-          key: 'more-memcolors',
-          label: 'Member colours',
-          sub: 'Each person’s identity colour',
-          val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
-          onTap: openMemberColoursScreen,
-        ),
-        _hubRow(
-          key: 'more-calimports',
-          label: 'Imported calendars',
-          val: impCount == 0
-              ? 'None yet'
-              : (failing > 0 ? '$failing failing' : 'All synced'),
-          warnVal: failing > 0,
-          goodVal: impCount > 0 && failing == 0,
-          onTap: openImportedCalendarsScreen,
-        ),
+        if (!child) ...[
+          _hubRow(
+            key: 'more-calmanage',
+            label: 'Categories',
+            val: '$catCount badge${catCount == 1 ? '' : 's'}',
+            onTap: openCategoriesScreen,
+          ),
+          _hubRow(
+            key: 'more-memcolors',
+            label: 'Member colours',
+            sub: 'Each person’s identity colour',
+            val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
+            onTap: openMemberColoursScreen,
+          ),
+          _hubRow(
+            key: 'more-calimports',
+            label: 'Imported calendars',
+            val: impCount == 0
+                ? 'None yet'
+                : (failing > 0 ? '$failing failing' : 'All synced'),
+            warnVal: failing > 0,
+            goodVal: impCount > 0 && failing == 0,
+            onTap: openImportedCalendarsScreen,
+          ),
+        ],
         _hubRow(
           key: 'more-callayers',
           label: 'Calendar layers',
@@ -153,14 +162,15 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           val: '$layersOn of ${calendarLayers.length} on',
           onTap: openCalendarLayersScreen,
         ),
-        _hubRow(
-          key: 'more-kitchen-settings',
-          label: 'Kitchen wall',
-          sub: 'The shared tablet screen',
-          val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
-          warnVal: !kitchenEnabled,
-          onTap: openKitchenWallScreen,
-        ),
+        if (!child)
+          _hubRow(
+            key: 'more-kitchen-settings',
+            label: 'Kitchen wall',
+            sub: 'The shared tablet screen',
+            val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
+            warnVal: !kitchenEnabled,
+            onTap: openKitchenWallScreen,
+          ),
       ],
     );
   }

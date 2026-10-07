@@ -19,6 +19,10 @@ const Set<String> kValidTabs = {
 extension _ThriveAppShell on _ThriveHomeState {
   /// Switches the active top-level tab. Mirrors `goTab()` in the design.
   void goTab(String t) {
+    if (isChildUser && !kChildAllowedTabs.contains(t)) {
+      flash('Not available on a kid profile');
+      return;
+    }
     update(() {
       tab = t;
       swipedId = null;
@@ -219,7 +223,7 @@ extension _ThriveAppShell on _ThriveHomeState {
         final mine = taskFilter == 'me';
         var notes = 0;
         var open = 0;
-        for (final l in taskLists) {
+        for (final l in visibleTaskLists) {
           final n = l.tasks
               .where(
                 (t) =>
@@ -231,7 +235,7 @@ extension _ThriveAppShell on _ThriveHomeState {
           open += n;
         }
         if (!mine) {
-          for (final l in shoppingLists) {
+          for (final l in visibleShoppingLists) {
             notes++;
             open += l.items.where((i) => !i.checked).length;
           }
