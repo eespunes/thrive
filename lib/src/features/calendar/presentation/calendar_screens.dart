@@ -400,22 +400,17 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         bottom: const BorderSide(
                           color: _calendarHeaderBorderColor,
                         ),
-                        left: dayIndex == 0
-                            ? BorderSide.none
-                            : const BorderSide(
-                                color: _calendarHeaderBorderColor,
-                              ),
                       ),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      padding: const EdgeInsets.fromLTRB(0, 7, 0, 6),
                       child: Text(
                         kWeekdayLetters[dayIndex],
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: B.soft2,
+                          color: dayIndex >= 5 ? B.muted : B.soft2,
                         ),
                       ),
                     ),
@@ -554,19 +549,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       children: [
         for (var wi = 0; wi < weeks.length; wi++)
           Expanded(
-            child: Row(
-              children: [
-                for (final iso in weeks[wi])
-                  Expanded(
-                    child: _calMonthCell(
-                      iso,
-                      curMonth: curMonth,
-                      today: today,
-                      holiday: holidays.contains(iso),
-                      occ: byDay[iso] ?? const <CalendarOccurrence>[],
-                    ),
-                  ),
-              ],
+            child: ColoredBox(
+              color: _kMonthGridLine,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: wi == weeks.length - 1 ? 1 : 0,
+                ),
+                child: _calMonthWeekRow(
+                  weeks[wi],
+                  curMonth: curMonth,
+                  today: today,
+                  holidays: holidays,
+                  byDay: byDay,
+                ),
+              ),
             ),
           ),
         // Month travel is swipe-only — there are deliberately no ‹ › arrows
@@ -588,20 +584,48 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
+  static const Color _kMonthGridLine = Color(0xffeef1f5);
+
+  Widget _calMonthWeekRow(
+    List<String> week, {
+    required int curMonth,
+    required String today,
+    required Set<String> holidays,
+    required Map<String, List<CalendarOccurrence>> byDay,
+  }) {
+    return Row(
+      children: [
+        for (var i = 0; i < week.length; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 1, top: 1),
+              child: _calMonthCell(
+                week[i],
+                curMonth: curMonth,
+                today: today,
+                holiday: holidays.contains(week[i]),
+                occ: byDay[week[i]] ?? const <CalendarOccurrence>[],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   // Measured heights of the pieces a month cell stacks. Each is the widget's
   // own laid-out height (text line + padding + margin), rounded UP where the
   // variants differ, so the fill maths can only ever under-fill — never
   // overflow the cell.
-  static const double _kMonthDayNumberH = 24; // 19 dot + 3/2 padding
-  static const double _kMonthBarH = 15.2; // 9.2 line + 4 padding + 2 margin
-  static const double _kMonthMoreH = 11; // the "+N more" line
+  static const double _kMonthDayNumberH = 26; // 20 dot + 4 top pad + 2 gap
+  static const double _kMonthBarH = 15; // 13 bar + 2 margin
+  static const double _kMonthMoreH = 12; // the "+N" line
 
   /// The laid-out height of [o]'s banner — the three variants pad differently.
   double _monthBannerHeight(CalendarOccurrence o, String iso) {
     final a = _evAnatomy(o, iso);
     if (a.kind == CalEventKind.birthday) return 15.2; // 9.2 + 2 pad + 4 margin
     if (a.multiDay) return 17.2; // 9.2 + 4 pad + 4 margin
-    return 18.2; // 9.2 + 5 pad + 2 top rule + 2 margin
+    return 19.2; // 9.2 + 6 pad + 4 margin
   }
 
   /// One month day cell: tinted background, the day number, up to two
@@ -616,11 +640,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final d = _parseIso(iso);
     final ghost = d.month != curMonth;
     final isToday = iso == today;
-    final past = !isToday && iso.compareTo(today) < 0;
     // A day off is a day off: a holidays feed's days wear the same warm tint
     // as Saturday and Sunday (#: holidays calendar).
     final weekend = d.weekday >= 6 || holiday;
-    final fade = ghost ? .3 : (past ? _calendarFadedOpacity : 1.0);
+    final fade = ghost ? .4 : 1.0;
 
     // A to-do is always a bar, never a banner — its dotted outline and ▢ are
     // the point, and app to-dos are all-day by nature (design §3a).
@@ -637,23 +660,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     ];
 
     final bg = ghost
-        ? const Color(0xfff7f9fb)
-        : past
-        ? const Color(0xffe9edf1)
+        ? const Color(0xffe9ecf1)
         : isToday
-        ? const Color(0xffd7efeb)
+        ? const Color(0xfff0faf8)
         : weekend
-        ? const Color(0xfffaf0d6)
-        : const Color(0xffe7f5f3);
-    final border = isToday
-        ? B.primary
-        : ghost
-        ? const Color(0xffeef1f5)
-        : past
-        ? const Color(0xffdfe3e8)
-        : weekend
-        ? const Color(0xffefe3c2)
-        : const Color(0xffcfe8e4);
+        ? const Color(0xfffafbfc)
+        : Colors.white;
 
     return GestureDetector(
       key: ValueKey('cal-day-bg-$iso'),
@@ -665,85 +677,72 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         setCalSel(iso);
         openDayDetail(iso);
       },
-      child: Opacity(
-        opacity: ghost ? .75 : 1,
-        child: Container(
-          margin: const EdgeInsets.all(1.5),
-          decoration: BoxDecoration(
-            color: bg,
-            border: Border.all(color: border, width: isToday ? 1.5 : 1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          clipBehavior: Clip.antiAlias,
-          // How many bars fit isn't a fixed number: a tall phone's cell holds
-          // more rows than a short one's, so the cell measures itself and
-          // fills the space it actually has (never past it — an overflowing
-          // Column would throw).
-          child: LayoutBuilder(
-            builder: (context, c) {
-              final room =
-                  c.maxHeight -
-                  _kMonthDayNumberH -
-                  (banner == null ? 0 : _monthBannerHeight(banner, iso));
-              int fits(double reserve) {
-                final usable = room - reserve;
-                if (usable < _kMonthBarH) return 0;
-                return (usable / _kMonthBarH).floor();
-              }
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(3, 4, 3, 0),
+        decoration: BoxDecoration(color: bg),
+        clipBehavior: Clip.antiAlias,
+        // How many bars fit isn't a fixed number: a tall phone's cell holds
+        // more rows than a short one's, so the cell measures itself and
+        // fills the space it actually has (never past it — an overflowing
+        // Column would throw).
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final room =
+                c.maxHeight -
+                _kMonthDayNumberH -
+                (banner == null ? 0 : _monthBannerHeight(banner, iso));
+            int fits(double reserve) {
+              final usable = room - reserve;
+              if (usable < _kMonthBarH) return 0;
+              return (usable / _kMonthBarH).floor();
+            }
 
-              final hiddenBanners = banners.length - (banner == null ? 0 : 1);
-              var shownBars = bars.take(fits(0)).toList();
-              var more = hiddenBanners + bars.length - shownBars.length;
-              // Only give up a row to "+N more" when something is actually
-              // hidden — and re-measure, since that row may cost a bar.
-              if (more > 0) {
-                shownBars = bars.take(fits(_kMonthMoreH)).toList();
-                more = hiddenBanners + bars.length - shownBars.length;
-              }
-              // `bars` is already in start-time order (_compareMonthCell). When
-              // they don't all fit, today's cell sheds the ones whose hour has
-              // already gone before it sheds what's still coming — a 09:00
-              // that's over is worth less than an 18:00 that isn't.
-              if (isToday && shownBars.length < bars.length) {
-                shownBars = _monthBarsPreferUpcoming(
-                  bars,
-                  shownBars.length,
-                ).take(shownBars.length).toList();
-              }
+            final hiddenBanners = banners.length - (banner == null ? 0 : 1);
+            var shownBars = bars.take(fits(0)).toList();
+            var more = hiddenBanners + bars.length - shownBars.length;
+            // Only give up a row to "+N more" when something is actually
+            // hidden — and re-measure, since that row may cost a bar.
+            if (more > 0) {
+              shownBars = bars.take(fits(_kMonthMoreH)).toList();
+              more = hiddenBanners + bars.length - shownBars.length;
+            }
+            // `bars` is already in start-time order (_compareMonthCell). When
+            // they don't all fit, today's cell sheds the ones whose hour has
+            // already gone before it sheds what's still coming — a 09:00
+            // that's over is worth less than an 18:00 that isn't.
+            if (isToday && shownBars.length < bars.length) {
+              shownBars = _monthBarsPreferUpcoming(
+                bars,
+                shownBars.length,
+              ).take(shownBars.length).toList();
+            }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _calDayNumber(
-                    iso,
-                    d.day,
-                    isToday: isToday,
-                    ghost: ghost,
-                    past: past,
-                  ),
-                  if (banner != null)
-                    Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
-                  for (final o in shownBars)
-                    Opacity(opacity: fade, child: _calMonthBar(o, iso)),
-                  if (more > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 3),
-                      child: Text(
-                        '+$more more',
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                        style: const TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: B.muted,
-                        ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _calDayNumber(iso, d.day, isToday: isToday, ghost: ghost),
+                if (banner != null)
+                  Opacity(opacity: fade, child: _calMonthBanner(banner, iso)),
+                for (final o in shownBars)
+                  Opacity(opacity: fade, child: _calMonthBar(o, iso)),
+                if (more > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Text(
+                      '+$more',
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: const TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        color: B.muted,
                       ),
                     ),
-                  const Spacer(),
-                ],
-              );
-            },
-          ),
+                  ),
+                const Spacer(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -754,15 +753,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     int day, {
     required bool isToday,
     required bool ghost,
-    required bool past,
   }) {
     return Container(
       key: ValueKey('cal-day-$iso'),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.only(top: 3, bottom: 2),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.only(bottom: 2),
       child: Container(
-        width: 19,
-        height: 19,
+        width: 20,
+        height: 20,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: isToday ? B.primary : Colors.transparent,
@@ -776,10 +774,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             color: isToday
                 ? Colors.white
                 : ghost
-                ? const Color(0xffc3ccd6)
-                : past
-                ? const Color(0xffb3bcc9)
-                : B.text,
+                ? const Color(0xffa3adbb)
+                : B.ink,
           ),
         ),
       ),
@@ -790,26 +786,19 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   Widget _calMonthBar(CalendarOccurrence o, String iso) {
     final a = _evAnatomy(o, iso);
     final isTodo = a.kind == CalEventKind.todo;
-    final isImported = a.kind == CalEventKind.imported;
     // Imported bars are no longer a fixed dark grey, so the ink has to follow
     // whatever the category colour is rather than assuming white reads on it.
     final ink = isTodo ? a.color : contrastOn(a.color);
     return Container(
       key: ValueKey('cal-bar-${o.ev.id}-$iso'),
-      margin: const EdgeInsets.fromLTRB(2, 0, 2, 2),
-      padding: EdgeInsets.symmetric(horizontal: 3, vertical: isTodo ? 1 : 2),
+      height: 13,
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      alignment: Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: isTodo
-            ? Colors.white
-            : isImported
-            ? null
-            : a.color,
-        gradient: isImported ? importedStripes(a.color) : null,
+        color: isTodo ? a.color.withValues(alpha: .13) : a.color,
         borderRadius: BorderRadius.circular(4),
       ),
-      foregroundDecoration: isTodo
-          ? _DottedBoxDecoration(color: a.color, radius: 4, width: 1.5)
-          : null,
       // A categorised event leads with its category's glyph — the one mark on
       // the bar that says what the event IS. It replaces the ↻ that used to
       // prefix every single recurring occurrence.
@@ -824,7 +813,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   /// The cell's bottom banner: a birthday ribbon, a continuous multi-day
   /// ribbon (rounded only at the real run ends, flush mid-run so adjacent
-  /// cells touch), or an all-day strip with a top rule in its colour.
+  /// cells touch), or a solid all-day strip in its colour.
   Widget _calMonthBanner(CalendarOccurrence o, String iso) {
     final a = _evAnatomy(o, iso);
     if (a.kind == CalEventKind.birthday) {
@@ -876,16 +865,16 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     }
     return Container(
       key: ValueKey('cal-banner-${o.ev.id}-$iso'),
-      margin: const EdgeInsets.only(top: 2),
-      padding: const EdgeInsets.fromLTRB(3, 2, 3, 3),
+      margin: const EdgeInsets.only(top: 2, bottom: 2),
+      padding: const EdgeInsets.fromLTRB(3, 3, 3, 3),
       decoration: BoxDecoration(
-        color: a.color.withValues(alpha: .15),
-        border: Border(top: BorderSide(color: a.color, width: 2)),
+        color: a.color,
+        borderRadius: BorderRadius.circular(4),
       ),
       child: _monthLabel(
         a.barTitle,
         category: a.category,
-        ink: a.color,
+        ink: contrastOn(a.color),
         strike: a.done,
       ),
     );
@@ -930,9 +919,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   // ------------------------------------------------------------- agenda
-  /// Agenda mode (design §2a): a week strip clamped to the shown month,
+  /// Agenda mode (design §2a): a Mon-Sun week strip,
   /// then the selected day's events grouped under fixed-order section
-  /// headers. Horizontal swipe changes the MONTH, not the week.
+  /// headers. Swiping the strip moves week by week.
   Widget _calAgenda() {
     final today = todayIso();
     final dayOcc = eventOccurrences(agendaDay, agendaDay)
@@ -1009,14 +998,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return a.ev.title.compareTo(b.ev.title);
   }
 
-  /// Mon-Sun day-picker strip for the week containing [agendaDay],
-  /// **clamped to that day's month** — days belonging to a neighbouring
-  /// month render as empty slots rather than travelling by week. A single
+  /// Mon-Sun day-picker strip for the week containing [agendaDay]. A single
   /// teal dot marks a day with any event under the current filters.
-  /// Swiping the strip pages by MONTH (design §2a).
+  /// Swiping the strip pages week by week, keeping the selected weekday.
   Widget _weekStripPager() {
     return SizedBox(
-      height: 78,
+      height: 96,
       child: PageView.builder(
         key: const ValueKey('cal-week-pager'),
         controller: calWeekPageController,
@@ -1025,12 +1012,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         onPageChanged: (page) {
           final offset = page - _calendarPageCenter;
           if (offset == 0) return;
-          final nextAnchor = _addMonthsIso(agendaDay, offset);
+          final landing = _addDaysIso(agendaDay, offset * 7);
           if (calWeekPageController.hasClients) {
             calWeekPageController.jumpToPage(_calendarPageCenter);
           }
           update(() {
-            final landing = _calLandingDay(nextAnchor);
             calAnchor = landing;
             agendaDay = landing;
             calSel = landing;
@@ -1038,38 +1024,51 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         },
         itemBuilder: (context, index) {
           final offset = index - _calendarPageCenter;
-          final day = offset == 0
-              ? agendaDay
-              : _calLandingDay(_addMonthsIso(agendaDay, offset));
-          return _weekStrip(_startOfWeekIso(day), day);
+          final day = _addDaysIso(agendaDay, offset * 7);
+          return _weekStrip(_startOfWeekIso(day));
         },
       ),
     );
   }
 
-  Widget _weekStrip(String weekStart, String anchorDay) {
+  /// "Week 41 · Oct 5–11" (or "Sep 28 – Oct 4" across months).
+  String _weekStripLabel(String weekStart) {
+    final a = _parseIso(weekStart);
+    final b = _parseIso(_addDaysIso(weekStart, 6));
+    final range = a.month == b.month
+        ? '${kMonthsShort[a.month - 1]} ${a.day}–${b.day}'
+        : '${kMonthsShort[a.month - 1]} ${a.day} – '
+              '${kMonthsShort[b.month - 1]} ${b.day}';
+    return '${_weekNumberLabelIso(weekStart)} · $range';
+  }
+
+  Widget _weekStrip(String weekStart) {
     final today = todayIso();
-    final month = _parseIso(anchorDay).month;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+      child: Column(
         children: [
-          for (var i = 0; i < 7; i++) ...[
-            if (i != 0) const SizedBox(width: 6),
-            Expanded(
-              child: Builder(
-                builder: (_) {
-                  final iso = _addDaysIso(weekStart, i);
-                  // Clamped: the strip never shows a neighbouring month's
-                  // days, so swiping can only mean "change month".
-                  if (_parseIso(iso).month != month) {
-                    return const SizedBox(height: 60);
-                  }
-                  return _weekStripCell(iso, i, today);
-                },
-              ),
+          Text(
+            _weekStripLabel(weekStart).toUpperCase(),
+            key: ValueKey('cal-week-label-$weekStart'),
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .6,
+              color: B.soft2,
             ),
-          ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              for (var i = 0; i < 7; i++) ...[
+                if (i != 0) const SizedBox(width: 6),
+                Expanded(
+                  child: _weekStripCell(_addDaysIso(weekStart, i), i, today),
+                ),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -1078,14 +1077,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   Widget _weekStripCell(String iso, int weekdayIdx, String today) {
     final selected = iso == agendaDay;
     final isToday = iso == today;
-    final past = iso.compareTo(today) < 0;
     final d = _parseIso(iso);
     final hasEvents = eventOccurrences(iso, iso).isNotEmpty;
-    final ink = selected
-        ? B.deep
-        : past
-        ? const Color(0xffb3bcc9)
-        : B.text;
+    final ink = selected ? B.deep : B.text;
     return GestureDetector(
       key: ValueKey('cal-week-strip-$iso'),
       onTap: () => update(() {
@@ -1490,7 +1484,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         );
       case CalEventKind.imported:
         return BoxDecoration(
-          gradient: importedStripes(a.color),
+          color: a.color,
           borderRadius: BorderRadius.circular(radius),
         );
       case CalEventKind.appointment:
@@ -1545,7 +1539,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         }
 
         return Opacity(
-          opacity: (a.done || a.past) ? _calendarFadedOpacity : 1,
+          opacity: a.done ? _calendarFadedOpacity : 1,
           child: GestureDetector(
             key: ValueKey('$rowKeyPrefix-${ev.id}-${o.date}'),
             onTap: openTap,
@@ -1637,7 +1631,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       _ => Colors.white.withValues(alpha: .25),
     };
     return Opacity(
-      opacity: (a.done || a.past) ? _calendarFadedOpacity : 1,
+      opacity: a.done ? _calendarFadedOpacity : 1,
       child: GestureDetector(
         key: ValueKey('$keyPrefix-${o.ev.id}-${o.date}'),
         onTap: onTap,

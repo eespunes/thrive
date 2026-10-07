@@ -180,63 +180,57 @@ void main() {
       final surface = tester.widget<Container>(
         find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
       );
-      expect((surface.decoration! as BoxDecoration).gradient, isNotNull);
+      expect((surface.decoration! as BoxDecoration).gradient, isNull);
     });
 
-    testWidgets('an imported feed is striped in its assigned category colour', (
-      tester,
-    ) async {
-      final today = todayIso();
-      const catColor = Color(0xff8b5cf6);
-      await pumpApp(
-        tester,
-        prefs: _prefs(
-          categories: [
-            EventCategory(
-              id: 'civic',
-              name: 'Civic',
-              color: catColor,
-              icon: 'home',
-            ),
-          ],
-          imported: [
-            ImportedCalendar(
-              id: 'feed',
-              name: 'Gemeente',
-              provider: 'ics',
-              color: const Color(0xff475569),
-              category: 'civic',
-              events: [
-                ImportedCalendarEvent(
-                  id: 'w1',
-                  title: 'Waste pickup',
-                  date: today,
-                  start: '07:30',
-                ),
-              ],
-            ),
-          ],
-        ),
-        landOnDefaultTab: true,
-      );
-      await _goToCalendar(tester);
-      await _setView(tester, 'agenda');
+    testWidgets(
+      'an imported feed is filled with its assigned category colour',
+      (tester) async {
+        final today = todayIso();
+        const catColor = Color(0xff8b5cf6);
+        await pumpApp(
+          tester,
+          prefs: _prefs(
+            categories: [
+              EventCategory(
+                id: 'civic',
+                name: 'Civic',
+                color: catColor,
+                icon: 'home',
+              ),
+            ],
+            imported: [
+              ImportedCalendar(
+                id: 'feed',
+                name: 'Gemeente',
+                provider: 'ics',
+                color: const Color(0xff475569),
+                category: 'civic',
+                events: [
+                  ImportedCalendarEvent(
+                    id: 'w1',
+                    title: 'Waste pickup',
+                    date: today,
+                    start: '07:30',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          landOnDefaultTab: true,
+        );
+        await _goToCalendar(tester);
+        await _setView(tester, 'agenda');
 
-      final surface = tester.widget<Container>(
-        find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
-      );
-      final gradient =
-          (surface.decoration! as BoxDecoration).gradient! as ImportedStripes;
-      // Still striped — read-only is the pattern, not a grey — but the stripes
-      // are the category's colour, not the old slate.
-      expect(gradient.base, catColor);
-      expect(gradient.colors.first, catColor);
-      expect(gradient.colors.toSet().length, 2);
-      expect(gradient.colors, isNot(contains(const Color(0xff5d6b7e))));
-      // A real repeating hatch, not one diagonal split of the box.
-      final shader = gradient.createShader(const Rect.fromLTWH(0, 0, 300, 56));
-      expect(shader, isNotNull);
-    });
+        final surface = tester.widget<Container>(
+          find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
+        );
+        final deco = surface.decoration! as BoxDecoration;
+        // Plain fill in the category's colour — no stripes.
+        expect(deco.gradient, isNull);
+        expect(deco.color, catColor);
+      },
+    );
 
     testWidgets('a to-do is a white dotted card with a real checkbox, and a '
         'multi-day run says which day it is', (tester) async {
@@ -366,7 +360,7 @@ void main() {
       await setScreenHeight(tester, 640);
       final short = barsOnToday();
       expect(short, lessThan(tall));
-      expect(find.textContaining('more'), findsWidgets);
+      expect(find.textContaining(RegExp(r'^\+\d+$')), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 
@@ -492,13 +486,13 @@ void main() {
         );
         await _goToCalendar(tester);
         // Small enough that only two of the three bars fit.
-        await setScreenHeight(tester, 630);
+        await setScreenHeight(tester, 645);
 
         // 09:00 and 10:00 are over at 12:30, so the slots go to the still
         // upcoming 18:00 and then the most recent past one.
         expect(find.byKey(ValueKey('cal-bar-t3-$today')), findsOneWidget);
         expect(find.byKey(ValueKey('cal-bar-t1-$today')), findsNothing);
-        expect(find.text('+1 more'), findsOneWidget);
+        expect(find.text('+1'), findsOneWidget);
       },
     );
   });
@@ -815,6 +809,41 @@ void main() {
   });
 
   // -------------------------------------------------------- #349 filters
+  testWidgets('swiping the agenda week strip moves week by week', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);
+    await _goToCalendar(tester);
+    await _setView(tester, 'agenda');
+
+    final today = todayIso();
+    final d = DateTime.parse('${today}T00:00:00Z');
+    String shift(int days) {
+      final x = d.add(Duration(days: days));
+      return _isoOfForTest(x.year, x.month, x.day);
+    }
+
+    final monday = shift(-(d.weekday - 1));
+    final label = find.byKey(ValueKey('cal-week-label-$monday'));
+    expect(label, findsOneWidget);
+    expect(
+      tester.widget<Text>(label).data,
+      startsWith(weekNumberLabelForTest(today).toUpperCase()),
+    );
+
+    final pager = find.byKey(const ValueKey('cal-week-pager'));
+    await tester.fling(pager, const Offset(-400, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('cal-week-strip-${shift(7)}')), findsOneWidget);
+    expect(find.byKey(ValueKey('cal-week-strip-$today')), findsNothing);
+
+    await tester.fling(pager, const Offset(400, 0), 1000);
+    await tester.pumpAndSettle();
+    await tester.fling(pager, const Offset(400, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('cal-week-strip-${shift(-7)}')), findsOneWidget);
+  });
+
   group('filters', () {
     testWidgets('member and category filters persist per user', (tester) async {
       await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);

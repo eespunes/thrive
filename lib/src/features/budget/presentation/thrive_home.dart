@@ -2512,7 +2512,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 2),
         Text(
-          eur(c.balance, cents: false),
+          eur(c.expectedBalance, cents: false),
           style: const TextStyle(
             fontSize: 34,
             fontWeight: FontWeight.w800,
@@ -2534,8 +2534,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         Row(
           children: [
             tile(
-              'Income received',
-              eur(c.realIncome, cents: false),
+              'Expected income',
+              eur(c.expIncome, cents: false),
               onTap: openIncomeSheet,
               clickable: true,
             ),

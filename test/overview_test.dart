@@ -16,7 +16,7 @@ void main() {
     await pumpApp(tester);
     expect(find.text('Overview'), findsWidgets);
     expect(find.text('SAFE TO SPEND'), findsOneWidget);
-    expect(find.text('INCOME RECEIVED'), findsOneWidget);
+    expect(find.text('EXPECTED INCOME'), findsOneWidget);
     expect(find.text('PLANNED SPEND'), findsOneWidget);
     expect(find.text('STILL OPEN'), findsOneWidget);
     expect(find.byKey(const ValueKey('envelope-home')), findsOneWidget);
@@ -74,7 +74,7 @@ void main() {
   testWidgets('income sheet toggles a source in place', (tester) async {
     await pumpApp(tester);
 
-    await tester.tap(find.text('INCOME RECEIVED'));
+    await tester.tap(find.text('EXPECTED INCOME'));
     await tester.pumpAndSettle();
     expect(find.text('Income'), findsWidgets);
     final tappedLabel = find.text('Pending').evaluate().isNotEmpty
