@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +79,40 @@ void main() {
       ),
     );
     expect(fabPositioned.bottom, 140);
+  });
+
+  testWidgets('More hub hero shows the profile picture, not initials', (
+    tester,
+  ) async {
+    const photoUrl = 'https://example.com/eva.png';
+    await pumpApp(
+      tester,
+      landOnDefaultTab: true,
+      prefs: {
+        'flutter.thrive.user': json.encode({
+          'name': 'Eva Janssen',
+          'email': 'eva.janssen@gmail.com',
+          'initials': 'EJ',
+          'provider': 'google',
+          'photo': photoUrl,
+        }),
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
+    final hero = find.byKey(const ValueKey('more-profile'));
+    final images = tester.widgetList<Image>(
+      find.descendant(of: hero, matching: find.byType(Image)),
+    );
+    expect(
+      images.any(
+        (i) =>
+            i.image is NetworkImage &&
+            (i.image as NetworkImage).url == photoUrl,
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('More hub: hero, expanding cards and their rows', (tester) async {

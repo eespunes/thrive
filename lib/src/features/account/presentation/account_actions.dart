@@ -54,7 +54,18 @@ extension _ThriveAccountActions on _ThriveHomeState {
     double opacity = 1,
   }) {
     Widget child;
-    if (photo != null && photo.isNotEmpty) {
+    if (photo != null && photo.isNotEmpty && _isUrl(photo)) {
+      // Auth providers (e.g. Google) hand us a remote photoURL, not base64.
+      child = Image.network(
+        photo,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) =>
+            _initialsTile(initials, color, size, fs, emoji: emoji),
+      );
+    } else if (photo != null && photo.isNotEmpty) {
       try {
         child = Image.memory(
           base64Decode(photo),
@@ -77,6 +88,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
       ),
     );
   }
+
+  bool _isUrl(String s) => s.startsWith('http://') || s.startsWith('https://');
 
   Widget _initialsTile(
     String initials,
