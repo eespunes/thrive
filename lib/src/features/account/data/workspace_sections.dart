@@ -68,7 +68,10 @@ Map<String, Map<String, dynamic>> workspaceSections(
   // above and _persistFamilyEvents). Legacy cloud events_*/events docs are read
   // once by [workspaceFromSections] to seed the per-event migration.
   if (includeEvents)
-    for (final entry in eventsByYear(ws.events).entries)
+    for (final entry in eventsByYear([
+      ...ws.events,
+      ...ws.deletedEvents,
+    ]).entries)
       'events_${entry.key}': {
         'events': entry.value.map((e) => e.toJson()).toList(),
       },

@@ -1,4 +1,5 @@
 import 'package:family_money_management_app/main.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // The pure record layer behind the Firestore sync
@@ -496,7 +497,7 @@ void main() {
     });
   });
 
-  group('unintendedListDeletes', () {
+  group('unintendedDeletes', () {
     Workspace shopWs(List<String> items) => Workspace.empty()
       ..shoppingLists = [
         ShoppingList(
@@ -512,8 +513,8 @@ void main() {
       local.addAll(orphanListItems(base, local));
       final plan = planRecordWrites(base, local);
       expect(plan.deletes, contains(listMetaKey('shop', 'L')));
-      final lost = unintendedListDeletes(base, plan.deletes, {});
-      expect(lost.keys, containsAll(plan.deletes.where(isGuardedListRecord)));
+      final lost = unintendedDeletes(base, plan.deletes, {});
+      expect(lost.keys, containsAll(plan.deletes.where(isGuardedRecord)));
       expect(lost, hasLength(4));
       // Restoring them brings the whole list back.
       final healed = workspaceFromRecords({...local, ...lost});
@@ -528,7 +529,7 @@ void main() {
       final base = normalizedRecords(shopWs(['a', 'b']));
       final local = normalizedRecords(Workspace.empty());
       final plan = planRecordWrites(base, local);
-      final lost = unintendedListDeletes(base, plan.deletes, {
+      final lost = unintendedDeletes(base, plan.deletes, {
         listMetaKey('shop', 'L'),
       });
       expect(lost, isEmpty);
@@ -538,16 +539,311 @@ void main() {
       final base = normalizedRecords(shopWs(['a', 'b', 'c']));
       final local = normalizedRecords(shopWs(['c']));
       final plan = planRecordWrites(base, local);
-      final lost = unintendedListDeletes(base, plan.deletes, {
+      final lost = unintendedDeletes(base, plan.deletes, {
         listItemKey('shop', 'L', 'a'),
       });
       expect(lost.keys, [listItemKey('shop', 'L', 'b')]);
     });
 
-    test('non-list records are not guarded', () {
-      expect(isGuardedListRecord(recordKey(kEventsCol, 'e1')), isFalse);
-      expect(isGuardedListRecord(recordKey(kWorkspaceCol, 'card_x')), isFalse);
-      expect(isGuardedListRecord(listMetaKey('task', 'T')), isTrue);
+    test('only lists, lines and events are guarded', () {
+      expect(isGuardedRecord(eventRecordKey('e1')), isTrue);
+      expect(isGuardedRecord(recordKey(kWorkspaceCol, 'card_x')), isFalse);
+      expect(isGuardedRecord(recordKey(kBudgetItemsCol, 'x')), isFalse);
+      expect(isGuardedRecord(listMetaKey('task', 'T')), isTrue);
+    });
+  });
+
+  group('event deletion', () {
+    CalendarEvent ev(String id, {EventDeletion? deletion}) => CalendarEvent(
+      id: id,
+      title: 'Event $id',
+      date: '2026-10-07',
+      color: const Color(0xff1684B4),
+      deletion: deletion,
+    );
+
+    Workspace calWs(List<CalendarEvent> live, [List<CalendarEvent>? dead]) =>
+        Workspace.empty()
+          ..events = live
+          ..deletedEvents = dead ?? [];
+
+    test('an event vanishing locally is never deleted from the server', () {
+      final base = normalizedRecords(calWs([ev('a'), ev('b')]));
+      final local = normalizedRecords(calWs([ev('b')]));
+      final plan = planRecordWrites(base, local);
+      expect(plan.deletes, [eventRecordKey('a')]);
+      final lost = unintendedDeletes(base, plan.deletes, {});
+      expect(lost.keys, [eventRecordKey('a')]);
+      final healed = workspaceFromRecords({...local, ...lost});
+      expect(healed.events.map((e) => e.id), ['a', 'b']);
+    });
+
+    test('a purged event may be deleted from the server', () {
+      final base = normalizedRecords(calWs([ev('b')], [ev('a')]));
+      final local = normalizedRecords(calWs([ev('b')]));
+      final plan = planRecordWrites(base, local);
+      expect(unintendedDeletes(base, plan.deletes, {eventRecordKey('a')}), {});
+    });
+
+    test('deleting an event is a field update, not a delete', () {
+      final base = normalizedRecords(calWs([ev('a')]));
+      final dead = ev(
+        'a',
+        deletion: EventDeletion(by: 'A', at: 1, acks: {'A': 1}),
+      );
+      final local = normalizedRecords(calWs([], [dead]));
+      final plan = planRecordWrites(base, local);
+      expect(plan.deletes, isEmpty);
+      expect(plan.creates, isEmpty);
+      final patch = plan.updates[eventRecordKey('a')]!;
+      expect(patch.single.path, ['deletion']);
+    });
+
+    test('each member\'s ack is its own field write', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final base = normalizedRecords(calWs([], [ev('a', deletion: d)]));
+      final acked = EventDeletion(by: 'A', at: 1, acks: {'A': 1, 'B': 2});
+      final local = normalizedRecords(calWs([], [ev('a', deletion: acked)]));
+      final patch = planRecordWrites(base, local).updates[eventRecordKey('a')]!;
+      expect(patch.single.path, ['deletion', 'acks', 'B']);
+      expect(patch.single.value, 2);
+    });
+
+    test('tombstones round-trip records and stay out of events', () {
+      final d = EventDeletion(by: 'A', at: 5, acks: {'A': 5});
+      final ws = calWs([ev('live')], [ev('dead', deletion: d)]);
+      final back = workspaceFromRecords(normalizedRecords(ws));
+      expect(back.events.map((e) => e.id), ['live']);
+      expect(back.deletedEvents.single.id, 'dead');
+      expect(back.deletedEvents.single.deletion!.acks, {'A': 5});
+      expect(back.deletedEvents.single.deletion!.by, 'A');
+    });
+
+    test('tombstones survive local section storage', () {
+      final d = EventDeletion(by: 'A', at: 5, acks: {'A': 5});
+      final ws = calWs([ev('live')], [ev('dead', deletion: d)]);
+      final back = workspaceFromSections(workspaceSections(ws))!;
+      expect(back.events.map((e) => e.id), ['live']);
+      expect(back.deletedEvents.map((e) => e.id), ['dead']);
+      final viaJson = Workspace.fromJson(ws.toJson());
+      expect(viaJson.events.map((e) => e.id), ['live']);
+      expect(viaJson.deletedEvents.map((e) => e.id), ['dead']);
+    });
+
+    test('a deletion wins over a copy edited meanwhile', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final edited = ev('a')..title = 'Renamed';
+      final ws = calWs([edited], [ev('a', deletion: d)]);
+      final rec = normalizedRecords(ws)[eventRecordKey('a')]!;
+      expect(rec['deletion'], isNotNull);
+      final back = Workspace.fromJson(ws.toJson());
+      expect(back.events, isEmpty);
+      expect(back.deletedEvents.single.id, 'a');
+    });
+
+    test('a member acks; the event is purged only once all have', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      // B opens the app: B acks, but C hasn't seen it yet.
+      var plan = planEventTombstones(dead, me: 'B', members: ['A', 'B', 'C']);
+      expect(plan.ack, ['x']);
+      expect(plan.purge, isEmpty);
+      d.acks['B'] = 2;
+      // Nothing more for B to do until C acks.
+      plan = planEventTombstones(dead, me: 'B', members: ['A', 'B', 'C']);
+      expect(plan.ack, isEmpty);
+      expect(plan.purge, isEmpty);
+      // C is the last member: acks and purges.
+      plan = planEventTombstones(dead, me: 'C', members: ['A', 'B', 'C']);
+      expect(plan.ack, ['x']);
+      expect(plan.purge, ['x']);
+    });
+
+    test('a single member (or local mode) purges right away', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      expect(planEventTombstones(dead, me: 'A', members: ['A']).purge, ['x']);
+      expect(planEventTombstones(dead, me: 'A', members: []).purge, ['x']);
+    });
+
+    test('a member who left no longer holds up the purge', () {
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final dead = [ev('x', deletion: d)];
+      expect(
+        planEventTombstones(dead, me: 'A', members: ['A', 'B']).purge,
+        isEmpty,
+      );
+      expect(planEventTombstones(dead, me: 'A', members: ['A']).purge, ['x']);
+    });
+
+    test('a deletion arriving from the server rebases onto a local edit', () {
+      final base = normalizedRecords(calWs([ev('a')]));
+      final edited = ev('a')..title = 'Renamed';
+      final local = normalizedRecords(calWs([edited]));
+      final d = EventDeletion(by: 'A', at: 1, acks: {'A': 1});
+      final server = normalizedRecords(calWs([], [ev('a', deletion: d)]));
+      final merged = rebaseRecords(
+        oldBase: base,
+        newBase: server,
+        local: local,
+        changed: [eventRecordKey('a')],
+      );
+      final ws = workspaceFromRecords(merged);
+      expect(ws.events, isEmpty);
+      expect(ws.deletedEvents.single.title, 'Renamed');
+    });
+  });
+
+  group('note deletion', () {
+    Workspace shopWs(List<String> items) => Workspace.empty()
+      ..shoppingLists = [
+        ShoppingList(
+          id: 'L',
+          name: 'Groceries',
+          items: [for (final i in items) ShopItem(id: i, name: i)],
+        ),
+      ];
+    final meta = listMetaKey('shop', 'L');
+    final lineA = listItemKey('shop', 'L', 'a');
+    final lineB = listItemKey('shop', 'L', 'b');
+    Map<String, dynamic> dead(
+      Map<String, dynamic> rec,
+      Map<String, int> acks,
+    ) => {
+      ...rec,
+      'deletion': {'by': acks.keys.first, 'at': 1, 'acks': acks},
+    };
+
+    test('normalize keeps the deletion marker of a note and a line', () {
+      final base = normalizedRecords(shopWs(['a']));
+      final m = normalizeRecord(meta, dead(base[meta]!, {'u1': 1}))!;
+      final l = normalizeRecord(lineA, dead(base[lineA]!, {'u1': 1}))!;
+      expect((m['deletion'] as Map)['acks'], {'u1': 1});
+      expect((l['deletion'] as Map)['by'], 'u1');
+    });
+
+    test('deleted notes and lines are hidden and never orphans', () {
+      final base = normalizedRecords(shopWs(['a', 'b']));
+      base[lineA] = dead(base[lineA]!, {'u1': 1});
+      expect(
+        workspaceFromRecords(base).shoppingLists.single.items.map((i) => i.id),
+        ['b'],
+      );
+      base[meta] = dead(base[meta]!, {'u1': 1});
+      base[lineB] = dead(base[lineB]!, {'u1': 1});
+      expect(workspaceFromRecords(base).shoppingLists, isEmpty);
+      expect(orphanListItems(base, {}), isEmpty);
+    });
+
+    test('a delete only marks the note and its lines, acked by me', () {
+      final base = normalizedRecords(shopWs(['a', 'b']));
+      final plan = planListDeletions(
+        base: base,
+        deletes: [meta, lineA],
+        me: 'u1',
+        members: ['u1', 'u2'],
+        now: 5,
+      );
+      expect(plan.purge, isEmpty);
+      expect(plan.ack, isEmpty);
+      // lineB is cascaded: a deleted note takes all its lines with it.
+      expect(plan.tombstone.keys, unorderedEquals([meta, lineA, lineB]));
+      expect(plan.tombstone[meta]!['deletion'], {
+        'by': 'u1',
+        'at': 5,
+        'acks': {'u1': 5},
+      });
+    });
+
+    test('other members ack; the last ack purges', () {
+      final base = normalizedRecords(shopWs(['a']));
+      base[meta] = dead(base[meta]!, {'u1': 1});
+      base[lineA] = dead(base[lineA]!, {'u1': 1});
+      final u2 = planListDeletions(
+        base: base,
+        deletes: const [],
+        me: 'u2',
+        members: ['u1', 'u2', 'u3'],
+        now: 7,
+      );
+      expect(u2.purge, isEmpty);
+      expect(u2.ack.keys, unorderedEquals([meta, lineA]));
+      expect((u2.ack[meta]!['deletion'] as Map)['acks'], {'u1': 1, 'u2': 7});
+      base.addAll(u2.ack);
+      // u2 has nothing left to do.
+      final again = planListDeletions(
+        base: base,
+        deletes: const [],
+        me: 'u2',
+        members: ['u1', 'u2', 'u3'],
+        now: 8,
+      );
+      expect(again.ack, isEmpty);
+      expect(again.purge, isEmpty);
+      final u3 = planListDeletions(
+        base: base,
+        deletes: const [],
+        me: 'u3',
+        members: ['u1', 'u2', 'u3'],
+        now: 9,
+      );
+      expect(u3.ack, isEmpty);
+      expect(u3.purge, unorderedEquals([meta, lineA]));
+    });
+
+    test('a single member purges right away', () {
+      final base = normalizedRecords(shopWs(['a']));
+      final plan = planListDeletions(
+        base: base,
+        deletes: [lineA],
+        me: 'u1',
+        members: const [],
+        now: 5,
+      );
+      expect(plan.tombstone, isEmpty);
+      expect(plan.purge, [lineA]);
+    });
+
+    test('a line added to a note being deleted is deleted too', () {
+      final base = normalizedRecords(shopWs(['a', 'b']));
+      base[meta] = dead(base[meta]!, {'u1': 1});
+      base[lineA] = dead(base[lineA]!, {'u1': 1});
+      // lineB was added by u2 meanwhile.
+      final plan = planListDeletions(
+        base: base,
+        deletes: const [],
+        me: 'u2',
+        members: ['u1', 'u2'],
+        now: 5,
+      );
+      expect(plan.tombstone.keys, [lineB]);
+      expect(plan.purge, unorderedEquals([meta, lineA]));
+    });
+
+    test('a local edit of a note deleted remotely stays hidden', () {
+      final oldBase = normalizedRecords(shopWs(['a']));
+      final newBase = {
+        ...oldBase,
+        lineA: dead(oldBase[lineA]!, {'u1': 1}),
+      };
+      final edited = normalizedRecords(
+        Workspace.empty()
+          ..shoppingLists = [
+            ShoppingList(
+              id: 'L',
+              name: 'Groceries',
+              items: [ShopItem(id: 'a', name: 'Milk')],
+            ),
+          ],
+      );
+      final merged = rebaseRecords(
+        oldBase: oldBase,
+        newBase: newBase,
+        local: edited,
+        changed: [lineA],
+      );
+      expect(isListTombstone(lineA, merged[lineA]), isTrue);
+      expect(workspaceFromRecords(merged).shoppingLists.single.items, isEmpty);
     });
   });
 }

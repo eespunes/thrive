@@ -33,6 +33,7 @@ class CalendarEvent {
     this.picture,
     this.emoji,
     this.birthday = false,
+    this.deletion,
   }) : attendees = attendees ?? <String>['me'],
        recurWeekdays = recurWeekdays ?? <int>[],
        exceptions = exceptions ?? <String>[],
@@ -137,6 +138,12 @@ class CalendarEvent {
   /// (yearly + all-day) to a real flag so nothing has to guess again.
   bool birthday;
 
+  /// Set once a member deleted this event: it's then a tombstone, kept in
+  /// [Workspace.deletedEvents] (never shown) until every family member's
+  /// device has acknowledged the deletion — only then is it removed from the
+  /// server. See [planEventTombstones].
+  EventDeletion? deletion;
+
   /// Whether the occurrence on [iso] is completed. Falls back to [done] for
   /// non-recurring events so old data with only a `done` flag keeps working.
   bool isDoneOn(String iso) =>
@@ -173,6 +180,7 @@ class CalendarEvent {
     if (picture != null) 'picture': picture,
     if (emoji != null) 'emoji': emoji,
     if (birthday) 'birthday': birthday,
+    if (deletion != null) 'deletion': deletion!.toJson(),
   };
 
   factory CalendarEvent.fromJson(Map<String, dynamic> j) => CalendarEvent(
@@ -237,7 +245,77 @@ class CalendarEvent {
             j['kitchenOrigin'] != true &&
             j['recur'] == 'yearly' &&
             j['allDay'] == true),
+    deletion: j['deletion'] is Map
+        ? EventDeletion.fromJson(
+            Map<String, dynamic>.from(j['deletion'] as Map),
+          )
+        : null,
   );
+}
+
+/// A member's explicit deletion of a [CalendarEvent], and which members'
+/// devices have since acknowledged it.
+///
+/// An event is never removed from the server the moment someone deletes it:
+/// it first becomes a tombstone carrying this marker, and each member's
+/// device adds its uid to [acks] when it sees it (on open, or live). Once
+/// every member has acknowledged, the event's data is deleted for good. So
+/// an event only ever disappears because someone pressed delete — any other
+/// disappearance is treated as a sync glitch and the event is kept.
+class EventDeletion {
+  EventDeletion({required this.by, required this.at, Map<String, int>? acks})
+    : acks = acks ?? <String, int>{};
+
+  /// Uid of the member who deleted the event.
+  String by;
+
+  /// Epoch millis of the deletion.
+  int at;
+
+  /// Member uid → epoch millis that member's device acknowledged the
+  /// deletion. A map (not a list) so concurrent acks from different members
+  /// are separate field writes and never overwrite each other.
+  Map<String, int> acks;
+
+  Map<String, dynamic> toJson() => {'by': by, 'at': at, 'acks': acks};
+
+  factory EventDeletion.fromJson(Map<String, dynamic> j) => EventDeletion(
+    by: (j['by'] ?? '').toString(),
+    at: (j['at'] as num?)?.toInt() ?? 0,
+    acks: {
+      for (final e in (j['acks'] as Map? ?? const {}).entries)
+        e.key.toString(): (e.value as num?)?.toInt() ?? 0,
+    },
+  );
+}
+
+/// What this device ([me]) has to do about the event [tombstones] it holds,
+/// given the family's signed-in [members] (uids):
+/// - [ack]: tombstones [me] hasn't acknowledged yet — add [me] to their acks;
+/// - [purge]: tombstones every member has acknowledged (counting the acks
+///   this device is about to add) — their data may now be deleted.
+///
+/// With no known members (local/demo mode) [me] is the only member.
+({List<String> ack, List<String> purge}) planEventTombstones(
+  Iterable<CalendarEvent> tombstones, {
+  required String me,
+  required Iterable<String> members,
+}) {
+  final required = {...members};
+  if (required.isEmpty) required.add(me);
+  final ack = <String>[];
+  final purge = <String>[];
+  for (final e in tombstones) {
+    final d = e.deletion;
+    if (d == null) continue;
+    final acked = {...d.acks.keys};
+    if (!acked.contains(me)) {
+      ack.add(e.id);
+      acked.add(me);
+    }
+    if (required.every(acked.contains)) purge.add(e.id);
+  }
+  return (ack: ack, purge: purge);
 }
 
 /// An event category — drives colour/icon tinting across the calendar.
