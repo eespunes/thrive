@@ -130,6 +130,28 @@ firebase deploy --only firestore:rules,firestore:indexes
    for Android, DeviceCheck/App Attest for iOS). The client initializes App
    Check at startup when the platform provides it; enforcement is switched on
    per-product in the Firebase console once real traffic is attested.
+   Enforce it for **both** Cloud Firestore and Firebase Authentication (they
+   are separate toggles). The web build ships no Firebase config and always
+   runs in local/demo mode, so enforcement does not affect it.
+
+### Abuse hardening (console-only)
+
+The Android API key in `google-services.json` is public by design — this repo
+is public, so assume it has been scraped. Rotating it does nothing; restrict it
+instead (#363):
+
+1. **Google Cloud Console → APIs & Services → Credentials → Android key**:
+   restrict to Android apps `cat.eespunes.thrive` + the release (Play app
+   signing) and upload SHA-1s, and to only the APIs the app uses (Identity
+   Toolkit, Token Service, Cloud Firestore, Firebase Installations, Firebase
+   App Check, FCM).
+2. **Firebase → App Check**: enforce for Cloud Firestore and Authentication
+   once the App Check metrics show verified traffic from current releases.
+3. **Firebase → Authentication → Settings**: enable *Email enumeration
+   protection*.
+4. Delete junk accounts in Authentication → Users (a drive-by account can only
+   create its own empty `users/{uid}` doc; all family data is
+   membership-gated).
 
 ## Development
 
