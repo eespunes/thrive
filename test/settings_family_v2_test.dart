@@ -199,7 +199,7 @@ void main() {
       expect(find.byKey(const ValueKey('iv-pw-hidden')), findsNothing);
       expect(find.byKey(const ValueKey('iv-pw-known')), findsNothing);
 
-      // Reset flow enforces min 4: a short password stays disabled.
+      // Reset flow enforces min 8: a short password stays disabled.
       await tester.tap(find.byKey(const ValueKey('iv-set-pw')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const ValueKey('rp-input')), 'abc');
@@ -208,7 +208,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('rp-input')), findsOneWidget);
 
-      await tester.enterText(find.byKey(const ValueKey('rp-input')), 'kitchen');
+      await tester.enterText(
+        find.byKey(const ValueKey('rp-input')),
+        'kitchen1',
+      );
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('rp-save')));
       await tester.pumpAndSettle();
@@ -216,13 +219,13 @@ void main() {
       // Now known-this-session: masked, Reveal, Copy.
       expect(find.byKey(const ValueKey('iv-pw-known')), findsOneWidget);
       expect(find.byKey(const ValueKey('iv-pw-none')), findsNothing);
-      expect(find.text('•••••••'), findsOneWidget);
+      expect(find.text('••••••••'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('iv-reveal')));
       await tester.pumpAndSettle();
-      expect(find.text('kitchen'), findsOneWidget);
+      expect(find.text('kitchen1'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('iv-reveal')));
       await tester.pumpAndSettle();
-      expect(find.text('kitchen'), findsNothing);
+      expect(find.text('kitchen1'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('iv-copy-pw')));
       await tester.pumpAndSettle();
       expect(find.text('Password copied'), findsOneWidget);
@@ -258,7 +261,10 @@ void main() {
       // Reset makes it known-this-session.
       await tester.tap(find.byKey(const ValueKey('iv-reset-pw')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const ValueKey('rp-input')), 'newpass');
+      await tester.enterText(
+        find.byKey(const ValueKey('rp-input')),
+        'newpass1',
+      );
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('rp-save')));
       await tester.pumpAndSettle();

@@ -55,7 +55,7 @@ void main() {
       // Bad username (too short).
       await tester.enterText(find.byType(TextField).at(0), 'The Smiths');
       await tester.enterText(find.byType(TextField).at(1), 'ab');
-      await tester.enterText(find.byType(TextField).at(2), 'secret');
+      await tester.enterText(find.byType(TextField).at(2), 'secret12');
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
       expect(
@@ -69,7 +69,7 @@ void main() {
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
       expect(
-        find.text('Password must be at least 4 characters'),
+        find.text('Password must be at least 8 characters'),
         findsOneWidget,
       );
     });
@@ -78,7 +78,7 @@ void main() {
       await pumpOnboarding(tester);
       await tester.enterText(find.byType(TextField).at(0), 'The Smiths');
       await tester.enterText(find.byType(TextField).at(1), 'smith-home');
-      await tester.enterText(find.byType(TextField).at(2), 'secret');
+      await tester.enterText(find.byType(TextField).at(2), 'secret12');
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
 
@@ -247,7 +247,7 @@ void main() {
       );
       await tester.enterText(
         find.byKey(const ValueKey('nf-password')),
-        'sandy',
+        'sandy-beach',
       );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
@@ -275,7 +275,7 @@ void main() {
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
       expect(
-        find.text('Password must be at least 4 characters'),
+        find.text('Password must be at least 8 characters'),
         findsOneWidget,
       );
     });
@@ -339,7 +339,7 @@ void main() {
       );
       await tester.enterText(
         find.byKey(const ValueKey('nf-password')),
-        'sandy',
+        'sandy-beach',
       );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();
@@ -390,7 +390,7 @@ void main() {
       );
       await tester.enterText(
         find.byKey(const ValueKey('nf-password')),
-        'sandy',
+        'sandy-beach',
       );
       await tester.tap(find.text('Create family'));
       await tester.pumpAndSettle();

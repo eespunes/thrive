@@ -82,8 +82,9 @@ users can share one budget:
   section; families created before the split migrate automatically on their
   first edit.
 - `family_handles/{username}` — public handle resolver (family username →
-  `familyId`, plus the non-secret random `joinSalt`). Readable by any
-  signed-in user; writable only by the family owner, and only for a handle
+  `familyId`, plus the non-secret random `joinSalt`). Any signed-in user may
+  `get` a handle they already know, but the collection cannot be **listed**
+  (enumerated); writable only by the family owner, and only for a handle
   matching the family's own username.
 
 ### Family join security
@@ -95,6 +96,9 @@ join password is verified by the Firestore **security rules**:
   the v2 scheme: 30k-iteration SHA-256 over a random per-family salt (stored on
   the public handle doc); pre-v2 families keep working via a versioned legacy
   scheme.
+- New or reset join passwords must be at least 8 characters
+  (`kMinFamilyPasswordLength`). The salt is public, so the password length is
+  what makes guessing expensive; existing shorter passwords keep working.
 - A joining client submits `joinProof`; the rules accept the update only when
   it matches `joinHash` and the write appends **only the joiner's own uid** to
   `memberUids`.
