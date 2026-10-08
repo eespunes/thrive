@@ -521,8 +521,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Per-family guarded record keys this device explicitly deleted and not
   /// yet deleted on the server: lists/lines the user unpinned or crossed off,
   /// and events whose deletion every member acknowledged. Only these lists,
-  /// lines and events may be deleted from the server — see
-  /// `unintendedDeletes`.
+  /// lines and events may be removed from the server — see
+  /// `unintendedDeletes`. A list/line delete is only a deletion marker until
+  /// every member acknowledged it (`planListDeletions`).
   final Map<String, Set<String>> _deleteIntents = {};
 
   /// Per-family ids of events a member deleted that this device has seen

@@ -844,6 +844,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             // A member's deletion (or another member's ack) may have just
             // arrived: acknowledge it / finish it.
             if (col == kEventsCol) _reconcileEventDeletions(fid);
+            if (col == kListItemsCol || col == kWorkspaceCol) {
+              _scheduleNoteDeletionWork(fid);
+            }
             unawaited(_migrateLegacyData(fid));
           }, onError: (Object e) => _onFamilyStreamError(fid, col, e)),
         );
@@ -905,6 +908,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
         // Membership changes who still has to acknowledge a deletion.
         _reconcileEventDeletions(fid);
+        _scheduleNoteDeletionWork(fid);
       }, onError: (Object e) => _onFamilyStreamError(fid, 'family', e));
     } catch (e) {
       debugPrint('[cloud] family stream failed: $e');
@@ -1067,9 +1071,24 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final intents = _deleteIntents[fid] ?? <String>{};
     // Undone (the record is back) — no longer a delete.
     intents.removeWhere(local.containsKey);
-    final unintended = unintendedDeletes(base, plan.deletes, intents);
-    for (final key in plan.deletes) {
-      if (blocked(key) || unintended.containsKey(key)) continue;
+    // Deleted notes / lines (and lines of a deleted note) are hidden locally
+    // but stay on the server until every member acknowledged — their
+    // absence here is not a delete. planListDeletions handles them.
+    bool hiddenNote(String k) {
+      final rec = base[k];
+      if (isListTombstone(k, rec)) return true;
+      if (rec == null || splitRecordKey(k).$1 != kListItemsCol) return false;
+      final listKey = listMetaKey('${rec['_kind']}', '${rec['_list']}');
+      return isListTombstone(listKey, base[listKey]);
+    }
+
+    final deletes = [
+      for (final k in plan.deletes)
+        if (!hiddenNote(k)) k,
+    ];
+    final unintended = unintendedDeletes(base, deletes, intents);
+    final noteDeletes = <String>[];
+    void hardDelete(String key) {
       ops.add((b) => b.delete(_recordRef(fid, key)));
       final prev = base.remove(key)!;
       final intent = intents.remove(key);
@@ -1078,9 +1097,69 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (intent) intents.add(key);
       });
     }
+
+    for (final key in deletes) {
+      if (blocked(key) || unintended.containsKey(key)) continue;
+      // An unpinned note / crossed-off line is only marked deleted.
+      if (isListRecord(key)) {
+        noteDeletes.add(key);
+      } else {
+        hardDelete(key);
+      }
+    }
+    final me = myId;
+    final notes = planListDeletions(
+      base: base,
+      deletes: noteDeletes,
+      me: me,
+      members: _memberUidsOf(fid),
+      now: now,
+    );
+    notes.purge.forEach(hardDelete);
+    void markDeleted(String key, Map<String, dynamic> rec, Object field) {
+      final prev = base[key]!;
+      base[key] = rec;
+      final intent = intents.remove(key);
+      final deletion = rec['deletion'] as Map;
+      acks.add(
+        _recordRef(fid, key)
+            .update({
+              field is FieldPath ? field : FieldPath(const ['deletion']):
+                  field is FieldPath ? (deletion['acks'] as Map)[me] : deletion,
+              'updatedAtMillis': now,
+            })
+            .catchError((Object e) {
+              // Already deleted for good: nothing left to mark.
+              if (e is FirebaseException && e.code == 'not-found') return;
+              debugPrint('[cloud] deleting $key failed for $fid: $e');
+              if (jsonEquals(base[key], rec)) base[key] = prev;
+              if (intent) intents.add(key);
+              throw e;
+            }),
+      );
+    }
+
+    notes.tombstone.forEach((key, rec) => markDeleted(key, rec, 'deletion'));
+    notes.ack.forEach(
+      (key, rec) => markDeleted(key, rec, FieldPath(['deletion', 'acks', me])),
+    );
     // Spent (or moot: never reached the server) intents.
     intents.removeWhere((k) => !base.containsKey(k));
     if (unintended.isNotEmpty) _restoreGuardedRecords(fid, local, unintended);
+    // A note / line deleted by someone else stays deleted even if this device
+    // edited it meanwhile; only the deleter's own undo brings it back.
+    final settled = {...notes.tombstone.keys, ...notes.ack.keys};
+    final deletedMeanwhile = {
+      for (final key in plan.updates.keys)
+        if (settled.contains(key) ||
+            notes.purge.contains(key) ||
+            (isListTombstone(key, base[key]) &&
+                (base[key]!['deletion'] as Map)['by'] != me))
+          key,
+    };
+    if (deletedMeanwhile.isNotEmpty) {
+      _dropDeletedNotes(fid, local, deletedMeanwhile);
+    }
     if (ops.isNotEmpty) {
       final inflight = _inflightCreates.putIfAbsent(fid, () => {});
       for (final k in created) {
@@ -1112,7 +1191,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       );
     }
     plan.updates.forEach((key, patch) {
-      if (blocked(key)) return;
+      if (blocked(key) || deletedMeanwhile.contains(key)) return;
       final prev = base[key]!;
       final rec = local[key]!;
       base[key] = rec;
@@ -1126,13 +1205,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             })
             .catchError((Object e) {
               if (e is FirebaseException && e.code == 'not-found') {
-                // A deleted event stays deleted, even if we edited it.
+                // A deleted event / note / line stays deleted, even if we
+                // edited it.
                 if (splitRecordKey(key).$1 == kEventsCol) {
                   _deletedEventIds
                       .putIfAbsent(fid, () => {})
                       .add('${rec['id']}');
                   return null;
                 }
+                if (isListRecord(key)) return null;
                 // Deleted by another member meanwhile: our edit recreates it.
                 return ref.set(
                   _createBody(fid, key, rec, now),
@@ -1166,6 +1247,19 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (mounted) update(() {});
   }
 
+  /// Drops notes / lines ([keys]) another member deleted from [fid]'s
+  /// in-memory workspace ([local]), even though this device edited them.
+  void _dropDeletedNotes(String fid, Records local, Iterable<String> keys) {
+    final current = workspaces[fid];
+    final next = workspaceFromRecords(
+      {...local}..removeWhere((k, _) => keys.contains(k)),
+    );
+    mergeCardPhotos(next.cards, current?.cards ?? const []);
+    workspaces[fid] = next;
+    if (fid == familyId) _adoptActiveWorkspace();
+    if (mounted) update(() {});
+  }
+
   /// Records that the user deliberately unpinned list [listId] ([kind]
   /// `task`/`shop`) in the active family: its doc and lines may be deleted
   /// from the server on the next persist.
@@ -1181,6 +1275,33 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _deleteIntents
         .putIfAbsent(familyId, () => {})
         .add(listItemKey(kind, listId, itemId));
+  }
+
+  /// Signed-in members (uids) of family [fid].
+  List<String> _memberUidsOf(String fid) {
+    for (final f in families) {
+      if (f.id == fid) return f.memberUids;
+    }
+    return const [];
+  }
+
+  /// Schedules a persist when this device has to acknowledge (or finish) a
+  /// note / line deletion in the active family [fid].
+  void _scheduleNoteDeletionWork(String fid) {
+    final base = _cloudBase[fid];
+    if (fid != familyId || base == null || !mounted) return;
+    final work = planListDeletions(
+      base: base,
+      deletes: const [],
+      me: myId,
+      members: _memberUidsOf(fid),
+      now: 0,
+    );
+    if (work.tombstone.isNotEmpty ||
+        work.ack.isNotEmpty ||
+        work.purge.isNotEmpty) {
+      _schedulePersist();
+    }
   }
 
   /// Records that every member acknowledged the deletion of event [eventId]
