@@ -419,8 +419,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// actually changed, so our own write echoing back is a no-op.
   void _onCloudChange(String fid, void Function() mutate) {
     final hadBase = _cloudBase.containsKey(fid);
+    // A copy: [_serverView] may return the live `_cloudBase` map, which
+    // [mutate] changes in place — `before` would then equal `after` and
+    // every remote change would be ignored.
     final before = hadBase
-        ? _serverView(fid)
+        ? Map.of(_serverView(fid))
         : const <String, Map<String, dynamic>>{};
     mutate();
     final after = _serverView(fid);
