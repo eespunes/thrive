@@ -255,7 +255,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     String label,
     String? current,
   ) {
-    _showSheet(
+    openEditorSheet<void>(
       (ctx) => _MealEditSheet(
         state: this,
         dateIso: dateIso,

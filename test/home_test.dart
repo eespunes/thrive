@@ -288,7 +288,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Household');
     await tester.pump();
-    await tester.tap(find.text('Pin it to the door'));
+    await tester.tap(find.text('Create list'));
     await tester.pumpAndSettle();
     // Write the task on the note, then hand it to Eva via the avatar.
     await tester.enterText(find.byType(TextField).first, 'Take out the bins');
@@ -328,11 +328,11 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Shopping'));
+      await tester.tap(find.byKey(const ValueKey('note-kind-shopping')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).last, 'Supermarket');
       await tester.pump();
-      await tester.tap(find.text('Pin it to the door'));
+      await tester.tap(find.text('Create list'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('nav-home')));

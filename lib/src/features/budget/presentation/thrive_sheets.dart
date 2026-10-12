@@ -55,7 +55,7 @@ extension _ThriveSheets on _ThriveHomeState {
 
   // ignore: unused_element
   void openCapSheet(String cat, double? value) {
-    _showSheet(
+    openEditorSheet<void>(
       monthScoped: true,
       (ctx) => _CapSheet(state: this, cat: cat, value: value),
     );
@@ -1656,65 +1656,155 @@ class _CapSheetState extends State<_CapSheet> {
     text: widget.value != null ? _numStr(widget.value!) : '',
   );
 
+  static final _numeric = RegExp(r'^\d[\d.,\s]*$');
+  static const _quick = [250, 300, 400, 500];
+
   @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
   }
 
+  void _set(String v) {
+    _ctrl.text = v;
+    _ctrl.selection = TextSelection.collapsed(offset: v.length);
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
     final cat = s.catByKey(widget.cat)!;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    final raw = _ctrl.text.trim();
+    final valid = raw.isEmpty || _numeric.hasMatch(raw);
+    final limit = raw.isEmpty || !valid ? null : parseNum(raw);
+    final hasLimit = limit != null && limit > 0;
+    final removing = raw.isEmpty && widget.value != null;
+    final spent =
+        s
+            .compute(s.monthIdx)
+            .blocks
+            .where((b) => b.key == widget.cat)
+            .firstOrNull
+            ?.total ??
+        0;
+    final pct = hasLimit ? spent / limit : 0.0;
+    final over = hasLimit && spent > limit;
+    final tone = !hasLimit
+        ? B.placeholder
+        : over
+        ? B.red
+        : pct >= .8
+        ? B.amber
+        : B.green;
+
+    String? reason;
+    if (!valid) {
+      reason = 'Numbers only — use a comma for cents';
+    } else if (raw.isEmpty && widget.value == null) {
+      reason = 'Type a limit first';
+    }
+
+    return EditorSheet(
+      title: 'Monthly limit',
+      subtitle: '${cat.title} · ${kMonthsEn[s.monthIdx]}',
+      confirmLabel: removing ? 'Remove limit' : 'Save limit',
+      destructiveConfirm: removing,
+      blockedReason: reason,
+      summary: hasLimit
+          ? 'Caps ${cat.title} at ${eur(limit, cents: false)} in ${kMonthsEn[s.monthIdx]}'
+          : removing
+          ? 'Takes the limit off ${cat.title}'
+          : null,
+      onConfirm: () {
+        s.saveCap(widget.cat, raw);
+        Navigator.of(context).pop();
+      },
       children: [
-        _sheetHead(
-          context,
-          'Monthly limit',
-          '${cat.title} \u00b7 ${kMonthsEn[s.monthIdx]}',
+        edBigAmount(
+          key: const ValueKey('cap-amount'),
+          controller: _ctrl,
+          prefix: '€',
+          color: B.ink,
+          hint: 'No limit',
+          onChanged: (_) => setState(() {}),
+          caption: valid
+              ? 'Leave empty for no limit'
+              : 'Numbers only — use a comma for cents.',
+          captionColor: valid ? B.muted : B.red,
         ),
-        const Text(
-          'Set a spending cap for this block this month. Leave empty to remove the limit. The Overview bar turns amber near the cap and red when exceeded.',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: B.soft2,
-            height: 1.5,
+        edChipWrap([
+          for (final q in _quick)
+            edSoftChip(
+              key: ValueKey('cap-quick-$q'),
+              label: eur(q, cents: false),
+              selected: limit == q,
+              onTap: () => _set('$q'),
+            ),
+        ]),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: B.page,
+            borderRadius: BorderRadius.circular(14),
           ),
-        ),
-        const SizedBox(height: 14),
-        _sheetField(
-          'Limit (\u20ac)',
-          _sheetInput(
-            _ctrl,
-            hint: '0,00',
-            number: true,
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
-        _primaryBtn(_ctrl.text.isEmpty ? 'Remove limit' : 'Save limit', () {
-          s.saveCap(widget.cat, _ctrl.text.trim());
-          Navigator.of(context).pop();
-        }),
-        if (widget.value != null)
-          GestureDetector(
-            onTap: () {
-              s.saveCap(widget.cat, '');
-              Navigator.of(context).pop();
-            },
-            child: const Padding(
-              padding: EdgeInsets.only(top: 13, bottom: 2),
-              child: Text(
-                'Remove limit',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: B.red,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${eur(spent)} spent so far',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: B.ink,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    !hasLimit
+                        ? 'No limit'
+                        : over
+                        ? '${eur(spent - limit)} over'
+                        : '${eur(limit - spent)} left',
+                    key: const ValueKey('cap-left'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: hasLimit ? tone : B.muted,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: Container(
+                  height: 10,
+                  color: B.barTrack,
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: hasLimit ? pct.clamp(0.0, 1.0) : 0,
+                    child: Container(color: tone),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(height: 10),
+              const Text(
+                'The Overview bar turns amber near the limit and red when '
+                "it's passed.",
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: B.muted,
+                  height: 1.4,
+                ),
+              ),
+            ],
           ),
+        ),
       ],
     );
   }

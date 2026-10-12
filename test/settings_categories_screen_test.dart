@@ -32,9 +32,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('list-add-button')));
     await tester.pumpAndSettle();
     expect(find.text('Edit category'), findsOneWidget);
-    expect(find.text('Sports'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Sports'), findsOneWidget);
     expect(thriveDebug.eventCategories.length, 3);
-    await tester.tap(find.byKey(const ValueKey('studio-back')));
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('list-add-input')), findsOneWidget);
     expect(find.text('Sports'), findsOneWidget);

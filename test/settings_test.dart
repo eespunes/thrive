@@ -91,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
     // Add-then-open: the studio opens on the freshly created account.
     expect(find.text('Edit account'), findsOneWidget);
-    expect(find.text('Travel fund'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Travel fund'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('acc-short')), 'TR');
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
@@ -117,7 +117,7 @@ void main() {
         matching: find.byType(AnimatedContainer),
       ),
     );
-    expect((box.decoration as BoxDecoration?)?.color, const Color(0xffe2e8f0));
+    expect((box.decoration as BoxDecoration?)?.color, B.faint);
     await tester.enterText(find.byKey(const ValueKey('acc-short')), 'EV');
     await tester.pump(const Duration(milliseconds: 200));
     box = tester.widget<AnimatedContainer>(
@@ -126,10 +126,7 @@ void main() {
         matching: find.byType(AnimatedContainer),
       ),
     );
-    expect(
-      (box.decoration as BoxDecoration?)?.color,
-      isNot(const Color(0xffe2e8f0)),
-    );
+    expect((box.decoration as BoxDecoration?)?.color, isNot(B.faint));
   });
 
   testWidgets('add a block with this-month-only + end dates via the studio', (

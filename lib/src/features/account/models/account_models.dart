@@ -25,11 +25,11 @@ const String kUserKey = 'thrive.user';
 /// Member avatar palette, mirrored from the design's `MEMBER_COLORS`.
 const List<Color> kMemberColors = [
   B.primary,
-  Color(0xff1684B4),
-  Color(0xff7c3aed),
+  B.ocean,
+  B.violet,
   B.amber,
-  Color(0xffe11d48),
-  Color(0xff54A96A),
+  B.rose,
+  B.leaf,
 ];
 
 /// Generates a fresh id outside any class scope (so the `uid()` generator is

@@ -45,13 +45,10 @@ void main() {
     final freeHex = (freeColor.toARGB32() & 0xFFFFFF)
         .toRadixString(16)
         .padLeft(6, '0');
-    await tester.tap(find.text('RGB / Hex'));
+    final swatch = find.byKey(ValueKey('swatch-$freeHex'));
+    await tester.ensureVisible(swatch);
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('hex-color-input')),
-      freeHex,
-    );
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.tap(swatch);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
