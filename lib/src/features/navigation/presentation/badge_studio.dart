@@ -650,7 +650,7 @@ class SettingsSubScreen extends StatefulWidget {
   final String? subtitle;
 
   /// Write-status pill in the header (#283): "Saving… → Saved ✓", or
-  /// "Queued — offline" while disconnected. Null hides the slot.
+  /// "Not saved — offline" while disconnected. Null hides the slot.
   final foundation.ValueListenable<SettingsSyncStatus?>? sync;
 
   /// When it reports true, the amber offline strip renders under the header.

@@ -52,31 +52,25 @@ Future<void> _initFirebase() async {
       // has no provider configured).
       debugPrint('App Check activation failed: $e');
     }
-    // Crash-loop breaker: if the last TWO launches never finished booting,
-    // the local Firestore cache itself may be what's killing boot (see
-    // kBootFailStreakKey) — clear it before the first query touches it.
-    // Server data is unaffected; boot simply re-reads over the network.
+    // No offline data: Firestore is the only copy of family data. The disk
+    // cache is off, so every screen shows what the server holds and an edit
+    // is either saved on the server or visibly "Not saved" — never parked in
+    // a device-local queue that can be lost or replayed stale. Must be set
+    // before the first Firestore call; the cache older versions left on
+    // disk is wiped (a no-op once it's gone).
+    try {
+      final db = FirebaseFirestore.instance;
+      db.settings = const Settings(persistenceEnabled: false);
+      await db.clearPersistence();
+    } catch (e) {
+      debugPrint('[boot] could not clear the Firestore cache: $e');
+    }
+    // Retired crash-loop breaker (it existed to wipe that cache).
     try {
       final prefs = await SharedPreferences.getInstance();
-      final streak = prefs.getInt(kBootFailStreakKey) ?? 0;
-      if (streak >= 2) {
-        await FirebaseFirestore.instance.clearPersistence();
-        debugPrint(
-          '[boot] $streak incomplete boots in a row — cleared Firestore cache',
-        );
-      }
-      await prefs.setInt(kBootFailStreakKey, streak + 1);
+      unawaited(prefs.remove(kBootFailStreakKey));
       unawaited(prefs.remove(kBootIncompleteLegacyKey));
-    } catch (e) {
-      debugPrint('[boot] crash-loop breaker failed: $e');
-    }
-    // Offline persistence is ON (the default). It used to be disabled because
-    // the single multi-MB family `workspace` blob overflowed Android's ~2MB
-    // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
-    // small per-section docs (`families/{id}/workspace/{section}`), so cached
-    // reads and offline edits work again. (A legacy family doc still carrying
-    // its old giant `workspace` blob shrinks on that family's first
-    // post-migration persist, which drops the blob from the meta doc.)
+    } catch (_) {}
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
   } on PlatformException catch (e) {

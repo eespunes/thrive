@@ -18,12 +18,15 @@ const Set<String> kValidTabs = {
 /// `renderNav()` / `renderFab()` / `renderMore()` / `tabMeta()` / `goTab()`.
 extension _ThriveAppShell on _ThriveHomeState {
   /// Switches the active top-level tab. Mirrors `goTab()` in the design.
+  /// Opening a screen reloads its data from the server (throttled — see
+  /// `reloadFromServer`), so it never shows a stale copy.
   void goTab(String t) {
     update(() {
       tab = t;
       swipedId = null;
     });
     _persist();
+    unawaited(reloadFromServer(cols: tabCollections(t)));
   }
 
   bool _navActive(String key) {

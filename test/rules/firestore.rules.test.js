@@ -333,6 +333,44 @@ describe('per-item collections', () => {
   }
 });
 
+describe('record version (_v)', () => {
+  const recRef = (d, col, id) => doc(d, 'families', FAM, col, id);
+  for (const [col, id] of [
+    ['events', 'ev_v'],
+    ['budgetItems', '2026_Mei_v'],
+    ['listItems', 'task_l1_v'],
+    ['weekly', '2026-05-11'],
+    ['workspace', 'settings'],
+  ]) {
+    it(`${col}: creates at 1 (or no version)`, async () => {
+      const { increment } = await import('firebase/firestore');
+      await assertSucceeds(setDoc(recRef(db(MEMBER), col, id),
+        { title: 'a', _v: increment(1) }, { merge: true }));
+      await assertSucceeds(setDoc(recRef(db(MEMBER), col, `${id}_legacy`),
+        { title: 'a' }));
+      await assertFails(setDoc(recRef(db(MEMBER), col, `${id}_skip`),
+        { title: 'a', _v: 5 }));
+      await assertFails(setDoc(recRef(db(MEMBER), col, `${id}_str`),
+        { title: 'a', _v: '1' }));
+    });
+    it(`${col}: each save bumps by exactly 1 or keeps it`, async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(recRef(ctx.firestore(), col, id), { title: 'a', _v: 3 });
+      });
+      await assertSucceeds(updateDoc(recRef(db(MEMBER), col, id),
+        { title: 'b', _v: 4 }));
+      // An app version that doesn't track versions leaves it unchanged.
+      await assertSucceeds(updateDoc(recRef(db(MEMBER), col, id),
+        { title: 'c' }));
+      await assertFails(updateDoc(recRef(db(MEMBER), col, id),
+        { title: 'd', _v: 3 }));
+      await assertFails(updateDoc(recRef(db(MEMBER), col, id),
+        { title: 'd', _v: 6 }));
+      await assertSucceeds(deleteDoc(recRef(db(MEMBER), col, id)));
+    });
+  }
+});
+
 describe('family_handles', () => {
   it('owner can create a handle matching the family username', async () => {
     await assertSucceeds(setDoc(doc(db(OWNER), 'family_handles', 'thefam'), {

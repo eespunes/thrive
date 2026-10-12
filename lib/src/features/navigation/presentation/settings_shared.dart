@@ -57,8 +57,8 @@ extension _ThriveSettingsShared on _ThriveHomeState {
 /// Write status surfaced on the sub-page headers (#283).
 enum SettingsSyncStatus { saving, saved, queued }
 
-/// The design's `syncPill`: "Saving…" / "Saved ✓" in green, "Queued —
-/// offline" in amber. Rendered in the header's trailing slot.
+/// The design's `syncPill`: "Saving…" / "Saved ✓" in green, "Not saved —
+/// offline" in amber (the save didn't reach the server; it is retried). Rendered in the header's trailing slot.
 Widget settingsSyncPill(SettingsSyncStatus status) {
   final queued = status == SettingsSyncStatus.queued;
   return Container(
@@ -72,7 +72,7 @@ Widget settingsSyncPill(SettingsSyncStatus status) {
       switch (status) {
         SettingsSyncStatus.saving => 'Saving…',
         SettingsSyncStatus.saved => 'Saved ✓',
-        SettingsSyncStatus.queued => 'Queued — offline',
+        SettingsSyncStatus.queued => 'Not saved — offline',
       },
       style: TextStyle(
         fontSize: 10,
@@ -84,7 +84,8 @@ Widget settingsSyncPill(SettingsSyncStatus status) {
 }
 
 /// The design's offline strip: shown under the header on sub-pages while the
-/// cloud can't be reached — writes queue and sync when back online.
+/// cloud can't be reached — edits aren't saved until the connection is back
+/// (there is no offline copy; failed saves are retried while the app is open).
 Widget settingsOfflineBanner() => Container(
   key: const ValueKey('offline-banner'),
   width: double.infinity,
@@ -95,7 +96,7 @@ Widget settingsOfflineBanner() => Container(
     borderRadius: BorderRadius.circular(10),
   ),
   child: const Text(
-    'Offline — changes queue and sync when you’re back',
+    'Offline — changes aren’t saved until you’re back online',
     textAlign: TextAlign.center,
     style: TextStyle(
       fontSize: 11,

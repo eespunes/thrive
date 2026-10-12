@@ -30,7 +30,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('offline: banner + "Queued — offline" pill, back online '
+    testWidgets('offline: banner + "Not saved — offline" pill, back online '
         'clears the banner', (tester) async {
       await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
       await openMoreHub(tester);
@@ -42,16 +42,16 @@ void main() {
       await tester.pump();
       expect(find.byKey(const ValueKey('offline-banner')), findsOneWidget);
       expect(
-        find.text('Offline — changes queue and sync when you’re back'),
+        find.text('Offline — changes aren’t saved until you’re back online'),
         findsOneWidget,
       );
 
       await tester.tap(find.byKey(const ValueKey('layers-toggle-appt')));
       await tester.pump();
-      expect(find.text('Queued — offline'), findsOneWidget);
+      expect(find.text('Not saved — offline'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 700));
-      // Still queued after the settle tick — never a false "Saved ✓".
-      expect(find.text('Queued — offline'), findsOneWidget);
+      // Still not saved after the settle tick — never a false "Saved ✓".
+      expect(find.text('Not saved — offline'), findsOneWidget);
       expect(find.text('Saved ✓'), findsNothing);
 
       // Reconnect: the banner goes, the next blip saves normally.

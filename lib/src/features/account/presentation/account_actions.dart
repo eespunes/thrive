@@ -204,8 +204,12 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final uid = _firebaseUid();
     if (uid == null) return;
     try {
+      _cloudUnreachable = false;
       await cloudBoot(uid);
       await bindCloudSync(uid);
+    } on CloudUnreachable catch (e) {
+      debugPrint('[cloud] sign-in load: server unreachable: $e');
+      _cloudUnreachable = true;
     } finally {
       // Families are now resolved (loaded, migrated, or confirmed-none): let the
       // onboarding gate decide based on the real result (#120).
@@ -213,30 +217,73 @@ extension _ThriveAccountActions on _ThriveHomeState {
       if (mounted) update(() {});
     }
   }
+
+  /// "Try again" on the can't-connect screen: the same cloud load as boot,
+  /// including promoting a brand-new cloud user's local data (the boot that
+  /// couldn't connect never got to it — skipping it would let the next save
+  /// wipe that local data without uploading it).
+  Future<void> retryCloudConnect() async {
+    final uid = _firebaseUid();
+    if (uid == null || _resolvingFamilies) return;
+    update(() {
+      _cloudUnreachable = false;
+      _resolvingFamilies = true;
+    });
+    var promote = false;
+    try {
+      final hadCloud = await cloudBoot(uid);
+      if (!hadCloud) {
+        final prefs = await SharedPreferences.getInstance();
+        final rawV4 = prefs.getString(kStorageKeyV4);
+        if (rawV4 != null) {
+          try {
+            _restoreV4(
+              await _decodeJsonMap(rawV4),
+              sectionWorkspaces: _readLocalWorkspaceSections(prefs),
+            );
+            promote = true;
+          } catch (_) {
+            /* corrupt local state: start empty (onboarding) */
+          }
+        }
+      }
+      if (promote) await _persist();
+      await bindCloudSync(uid);
+    } on CloudUnreachable catch (e) {
+      debugPrint('[cloud] retry: server unreachable: $e');
+      _cloudUnreachable = true;
+    } finally {
+      _resolvingFamilies = false;
+      if (mounted) update(() {});
+    }
+    if (families.isNotEmpty && mounted) {
+      unawaited(_rescheduleReminders());
+    }
+  }
   // coverage:ignore-end
 
   Future<void> signOut() async {
-    // Drop any debounced persist BEFORE clearing state: the timer would
-    // otherwise fire up to 2s after sign-out and write the previous
-    // account's data back to local storage under the fresh session.
-    final hadPendingPersist = _persistTimer?.isActive == true;
-    _persistTimer?.cancel();
-    // For cloud-backed users, flush that pending edit to Firestore first —
-    // cancelling alone silently dropped the last ~2s of edits. Bounded by
-    // [kCloudOpTimeout] so sign-out can't hang offline.
-    if (hadPendingPersist && _cloudBacked && _firebaseUid() != null) {
+    // Edits are saved immediately; wait (bounded by [kCloudOpTimeout] so
+    // sign-out can't hang offline) for a save still in flight so the last
+    // edit isn't lost, and stop retrying failed saves for this account.
+    _saveRetryTimer?.cancel();
+    _widgetPushTimer?.cancel();
+    final inflight = _persistRun;
+    if (inflight != null) {
       try {
-        await _persist().timeout(kCloudOpTimeout);
+        await inflight.timeout(kCloudOpTimeout);
       } catch (e) {
         debugPrint('[cloud] sign-out flush failed: $e');
       }
     }
+    _saveRetryTimer?.cancel();
     update(() {
       user = null;
       families = [];
       workspaces = {};
       familyId = 'fam_main';
       _resolvingFamilies = false;
+      _cloudUnreachable = false;
     });
     _cloudSub?.cancel();
     _cloudSub = null;
@@ -704,13 +751,21 @@ extension _ThriveAccountActions on _ThriveHomeState {
 
   Future<void> switchFamily(String id) async {
     if (id == familyId) return;
-    // A debounced edit to the CURRENT family may still be pending; persist it
-    // while `familyId` still points at that family, or the edit would only
-    // ever reach local memory (cloudPersist persists the active family, so
-    // after the switch the timer would persist the wrong one).
-    if (_persistTimer?.isActive == true) {
-      _persistTimer?.cancel();
-      await _persist();
+    // A save of the CURRENT family may still be in flight (or pending a
+    // retry); finish it while `familyId` still points at that family —
+    // cloudPersist persists the active family.
+    // Saves only ever cover the ACTIVE family, so leaving it with unsaved
+    // edits would strand them in memory: don't.
+    if (_persistRun != null || netOffline.value) {
+      _saveRetryTimer?.cancel();
+      final ok = await _persist();
+      if (!ok && _cloudBacked) {
+        showError(
+          'Can\u2019t switch yet \u2014 your latest changes aren\u2019t saved '
+          '(no connection).',
+        );
+        return;
+      }
     }
     update(() {
       familyId = id;

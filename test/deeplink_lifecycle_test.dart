@@ -88,8 +88,8 @@ void main() {
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
 
-    // Make an edit so a debounced persist is pending, then background the
-    // app — the pause handler must flush it.
+    // Make an edit (saved immediately), then background and resume the app —
+    // the lifecycle handlers must not lose or duplicate it.
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
@@ -106,7 +106,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
-    // The persisted event survives a reboot (proves the flush happened).
+    // The persisted event survives a reboot.
     await tester.runAsync(
       () async => Future<void>.delayed(const Duration(milliseconds: 250)),
     );

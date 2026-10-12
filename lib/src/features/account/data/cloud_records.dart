@@ -20,6 +20,12 @@ part of 'package:family_money_management_app/main.dart';
 /// - `weekly/<date>`                 weekly-plan day
 /// - `events/<id>`                   calendar event
 ///
+/// Every record also carries a version, `_v` ([kVersionField], +1 per save,
+/// enforced by firestore.rules) and who saved it last, `_by`. Edits are
+/// saved in a transaction against the current version, so a concurrent edit
+/// by someone else is merged (different fields) or reported (same field —
+/// see [planVersionedSave]). Neither is part of the record's content.
+///
 /// A record key is `<collection>/<docId>`. Everything here is a plain function
 /// of its inputs (unit-tested in test/cloud_records_test.dart).
 
@@ -38,6 +44,16 @@ const List<String> kRecordCollections = [
   kWeeklyCol,
 ];
 
+/// The record collections a top-level tab shows, reloaded from the server
+/// when that tab is opened (Home and More summarize everything).
+List<String> tabCollections(String tab) => switch (tab) {
+  'finance' => const [kWorkspaceCol, kBudgetItemsCol],
+  'calendar' => const [kWorkspaceCol, kEventsCol],
+  'lists' => const [kWorkspaceCol, kListItemsCol],
+  'weekly' => const [kWorkspaceCol, kWeeklyCol],
+  _ => kRecordCollections,
+};
+
 /// Top-level keys that only the pre-record (whole-array) workspace docs carry.
 /// Their presence marks a doc as legacy; firestore.rules rejects writes that
 /// would (re)introduce them, so an out-of-date app can't push stale arrays.
@@ -55,6 +71,17 @@ const List<String> kLegacyWorkspaceKeys = [
 ];
 
 typedef Records = Map<String, Map<String, dynamic>>;
+
+/// Per-document save counter. Every write bumps it by exactly one (enforced
+/// by firestore.rules), so a device knows which version of a record it last
+/// saw and whether its own save landed. Never part of the record payload.
+const String kVersionField = '_v';
+
+/// Member id (uid) of whoever saved the document last.
+const String kUpdatedByField = '_by';
+
+/// The [kVersionField] of raw document [raw] (0 when it never had one).
+int recordVersion(Map? raw) => _int(raw?[kVersionField]) ?? 0;
 
 String recordKey(String col, String docId) => '$col/$docId';
 
@@ -196,7 +223,9 @@ Map<String, dynamic>? _normalizeRecord(String key, Map raw) {
   final (col, id) = splitRecordKey(key);
   final j = Map<String, dynamic>.from(raw)
     ..remove('updatedAtMillis')
-    ..remove('updatedAt');
+    ..remove('updatedAt')
+    ..remove(kVersionField)
+    ..remove(kUpdatedByField);
   switch (col) {
     case kEventsCol:
       return CalendarEvent.fromJson(j).toJson();
@@ -574,6 +603,99 @@ Records rebaseRecords({
     }
   }
   return out;
+}
+
+/// Field paths that BOTH this device and someone else changed, to different
+/// values, since [o] (the version this device last saw): [n] is the server's
+/// current version, [l] this device's. Mirrors [rebaseValue]'s merge — maps
+/// recurse, so edits to different fields never conflict.
+List<List<String>> conflictPaths(
+  Object? o,
+  Object? n,
+  Object? l, [
+  List<String> prefix = const [],
+]) {
+  if (jsonEquals(l, o) || jsonEquals(n, o) || jsonEquals(n, l)) return [];
+  if (o is Map && n is Map && l is Map) {
+    return [
+      for (final k in {...o.keys, ...n.keys, ...l.keys})
+        ...conflictPaths(
+          o.containsKey(k) ? o[k] : kAbsent,
+          n.containsKey(k) ? n[k] : kAbsent,
+          l.containsKey(k) ? l[k] : kAbsent,
+          [...prefix, '$k'],
+        ),
+    ];
+  }
+  return [prefix];
+}
+
+/// What a versioned save of one record must write, given [prev] (the
+/// version this device last saw), [server] (what the server holds right
+/// now, read inside the save's transaction) and [local] (this device's
+/// copy): the three-way [merged] record, the field-level [patch] taking
+/// [server] to it, and the [conflicts] — fields both sides changed, where
+/// this device's value wins (the caller tells the user and offers theirs).
+({
+  Map<String, dynamic> merged,
+  List<FieldChange> patch,
+  List<List<String>> conflicts,
+})
+planVersionedSave({
+  required Map<String, dynamic> prev,
+  required Map<String, dynamic> server,
+  required Map<String, dynamic> local,
+}) {
+  final merged = Map<String, dynamic>.from(
+    rebaseValue(prev, server, local) as Map,
+  );
+  return (
+    merged: merged,
+    patch: recordPatch(server, merged),
+    conflicts: conflictPaths(prev, server, local),
+  );
+}
+
+/// [rec] with the value at every path in [paths] taken from [theirs] (or
+/// removed where [theirs] lacks it) — "use their version" of a conflict.
+Map<String, dynamic> takeTheirs(
+  Map<String, dynamic> rec,
+  Map<String, dynamic> theirs,
+  List<List<String>> paths,
+) {
+  final out = json.decode(json.encode(rec)) as Map<String, dynamic>;
+  for (final path in paths) {
+    if (path.isEmpty) return Map<String, dynamic>.from(theirs);
+    Map? dst = out;
+    Object? src = theirs;
+    for (final seg in path.take(path.length - 1)) {
+      src = src is Map ? src[seg] : null;
+      final next = dst?[seg];
+      if (next is! Map) {
+        dst = null;
+        break;
+      }
+      dst = next;
+    }
+    if (dst == null) continue;
+    final last = path.last;
+    if (src is Map && src.containsKey(last)) {
+      dst[last] = src[last];
+    } else {
+      dst.remove(last);
+    }
+  }
+  return out;
+}
+
+/// A human label for record [rec] (event title, budget entry label, note or
+/// line name), or '' when it has none.
+String recordLabel(Map<String, dynamic> rec) {
+  for (final k in const ['title', 'label', 'name']) {
+    final v = rec[k];
+    if (v is String && v.trim().isNotEmpty) return v.trim();
+  }
+  return '';
 }
 
 /// List items in [view] whose list is in neither [view] nor [local] — e.g. the
