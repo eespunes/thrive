@@ -866,9 +866,38 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     debugPrint('[cloud] $label stream failed for $fid: $e');
     // Re-subscribed when the app next comes to the foreground.
     _streamsBroken = true;
-    if (mounted) {
-      showError('Lost sync with your family — restart the app if it persists.');
-    }
+    if (mounted) _showSectionLoadSheet(label, uid: _firebaseUid());
+  }
+
+  /// A family stream broke: that part of the family's data stops updating.
+  void _showSectionLoadSheet(String label, {String? uid}) {
+    final what = switch (label) {
+      kCalendarCol || kEventsCol || kLayersCol || kCategoriesCol => 'calendar',
+      kFinanceCol ||
+      kAccountsCol ||
+      kBlocksCol ||
+      kEntriesCol ||
+      kCardsCol ||
+      kImportsCol => 'budget',
+      kNotesCol || kLinesCol => 'lists',
+      kMealsCol || kDaysCol => 'meal plan',
+      _ => 'family’s data',
+    };
+    _showStatusSheetOnce(
+      tone: StatusTone.amber,
+      title: 'Couldn’t load your $what',
+      body:
+          'The rest of Thrive works fine. Try again, or come back to it in a '
+          'moment.',
+      primary: 'Try again',
+      onPrimary: () {
+        if (uid == null || !_streamsBroken) return;
+        _streamsBroken = false;
+        unawaited(bindCloudSync(uid));
+      },
+      secondary: 'Go to Home',
+      onSecondary: () => update(() => tab = 'home'),
+    );
   }
 
   void _cancelRecordSubs() {

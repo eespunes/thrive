@@ -164,7 +164,7 @@ extension _ThrivePendingChanges on _ThriveHomeState {
 
   /// Sends every unsaved change now.
   Future<void> retryPendingChanges() async {
-    final ok = await _persist();
+    final ok = await syncNow();
     if (!mounted) return;
     if (ok && _pending.isEmpty) {
       flash('All changes saved');
@@ -402,9 +402,14 @@ Widget _verbLine(PendingChange c, {String? tail, double fontSize = 12.5}) {
 
 /// A small spinning ring; still under tests and with reduced motion.
 class _PendingSpinner extends StatefulWidget {
-  const _PendingSpinner({this.size = 14, this.track = const Color(0xffdbe3ea)});
+  const _PendingSpinner({
+    this.size = 14,
+    this.track = const Color(0xffdbe3ea),
+    this.tone = B.primary,
+  });
   final double size;
   final Color track;
+  final Color tone;
 
   @override
   State<_PendingSpinner> createState() => _PendingSpinnerState();
@@ -443,14 +448,15 @@ class _PendingSpinnerState extends State<_PendingSpinner>
     child: SizedBox(
       width: widget.size,
       height: widget.size,
-      child: CustomPaint(painter: _RingPainter(widget.track)),
+      child: CustomPaint(painter: _RingPainter(widget.track, widget.tone)),
     ),
   );
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter(this.track);
+  const _RingPainter(this.track, [this.tone = B.primary]);
   final Color track;
+  final Color tone;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -460,17 +466,12 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawOval(rect, p..color = track);
-    canvas.drawArc(
-      rect,
-      -math.pi * .75,
-      math.pi / 2,
-      false,
-      p..color = B.primary,
-    );
+    canvas.drawArc(rect, -math.pi * .75, math.pi / 2, false, p..color = tone);
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.track != track;
+  bool shouldRepaint(_RingPainter old) =>
+      old.track != track || old.tone != tone;
 }
 
 /// The set-aside tray's 1.5px dashed amber outline.

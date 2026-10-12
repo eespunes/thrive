@@ -8,7 +8,7 @@ import 'settings_v2_seed.dart';
 /// #283 sync/offline indicator + #284 migration & regression pass.
 void main() {
   group('#283 sync pill', () {
-    testWidgets('a sub-page mutation blips Saving… → Saved ✓ → gone', (
+    testWidgets('a sub-page mutation blips Saving… → Saved → gone', (
       tester,
     ) async {
       await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
@@ -22,43 +22,38 @@ void main() {
       expect(find.text('Saving…'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 700));
-      expect(find.text('Saved ✓'), findsOneWidget);
+      expect(find.text('Saved'), findsOneWidget);
 
       // Clears 1800ms after settling.
       await tester.pump(const Duration(milliseconds: 1900));
-      expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
     });
 
-    testWidgets('offline: banner + "Not saved — offline" pill, back online '
-        'clears the banner', (tester) async {
+    testWidgets('offline: the header chip stays on "Offline · saved on '
+        'phone"; back online it goes', (tester) async {
       await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
       await openMoreHub(tester);
       await tapHubRow(tester, 'planning', 'more-callayers');
-      expect(find.byKey(const ValueKey('offline-banner')), findsNothing);
+      expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
 
-      // Simulate a failed cloud commit (writes queue in the local store).
+      // Simulate a failed cloud commit (writes wait on this phone).
       thriveDebug.netOffline.value = true;
       await tester.pump();
-      expect(find.byKey(const ValueKey('offline-banner')), findsOneWidget);
-      expect(
-        find.text('Offline — changes aren’t saved until you’re back online'),
-        findsOneWidget,
-      );
+      expect(find.text('Offline · saved on phone'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('layers-toggle-appt')));
       await tester.pump();
-      expect(find.text('Not saved — offline'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 700));
-      // Still not saved after the settle tick — never a false "Saved ✓".
-      expect(find.text('Not saved — offline'), findsOneWidget);
-      expect(find.text('Saved ✓'), findsNothing);
-
-      // Reconnect: the banner goes, the next blip saves normally.
-      thriveDebug.netOffline.value = false;
+      // Never a false "Saved" while offline.
+      expect(find.text('Offline · saved on phone'), findsOneWidget);
+      expect(find.text('Saved'), findsNothing);
       await tester.pump(const Duration(milliseconds: 1900));
-      expect(find.byKey(const ValueKey('offline-banner')), findsNothing);
+      expect(find.text('Offline · saved on phone'), findsOneWidget);
+
+      thriveDebug.netOffline.value = false;
       await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
     });
   });
 

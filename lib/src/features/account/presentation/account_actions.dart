@@ -225,13 +225,19 @@ extension _ThriveAccountActions on _ThriveHomeState {
   Future<void> retryCloudConnect() async {
     final uid = _firebaseUid();
     if (uid == null || _resolvingFamilies) return;
-    update(() {
-      _cloudUnreachable = false;
-      _resolvingFamilies = true;
-    });
+    // The can't-connect sheet stays up, its button reading "Connecting…".
+    update(() => _resolvingFamilies = true);
+    final shownFor = Future<void>.delayed(const Duration(milliseconds: 700));
     var promote = false;
     try {
-      final hadCloud = await cloudBoot(uid);
+      final bool hadCloud;
+      try {
+        hadCloud = await cloudBoot(uid);
+      } on CloudUnreachable {
+        await shownFor;
+        rethrow;
+      }
+      _cloudUnreachable = false;
       if (!hadCloud) {
         final prefs = await SharedPreferences.getInstance();
         final rawV4 = prefs.getString(kStorageKeyV4);

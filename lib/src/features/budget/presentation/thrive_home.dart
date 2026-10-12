@@ -199,6 +199,8 @@ class ThriveDebugController {
   ValueNotifier<SettingsSyncStatus?> get syncStatus => _s.syncStatus;
   ValueNotifier<bool> get netOffline => _s.netOffline;
   void syncBlip() => _s.syncBlip();
+  Future<bool> syncNow() => _s.syncNow();
+  void showWaitingToSyncSheet() => _s._showWaitingToSyncSheet();
   void saveMemberStudio(
     String id, {
     required String name,
@@ -502,6 +504,22 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   bool _settleSyncWhenSaved = false;
+
+  /// Saves the changes waiting on this phone now, showing "Syncing N
+  /// changes" until the save finishes ("Saved", or back to offline).
+  Future<bool> syncNow() async {
+    if (!mounted) return false;
+    syncingChangeCount = visiblePendingChanges.length;
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
+    _settleSyncWhenSaved = false;
+    syncStatus.value = SettingsSyncStatus.syncing;
+    _saveRetryTimer?.cancel();
+    final ok = await _persist();
+    if (!mounted) return ok;
+    _settleSyncStatus();
+    return ok;
+  }
 
   void _settleSyncStatus() {
     if (!mounted || syncStatus.value == null) return;
@@ -1279,12 +1297,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     } else {
       _saveFailures++;
       if (!netOffline.value) netOffline.value = true;
-      if (_saveFailures == 1) {
-        showError(
-          'Couldn\u2019t save your latest changes \u2014 no connection. '
-          'They\u2019re kept on this phone and saved when you\u2019re back online.',
-        );
-      }
+      if (_saveFailures == 1) _showWaitingToSyncSheet();
       final seconds = (5 << (_saveFailures - 1).clamp(0, 4)).clamp(5, 60);
       _saveRetryTimer = Timer(Duration(seconds: seconds), () {
         if (mounted) unawaited(_persist());
@@ -2108,12 +2121,88 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
+  bool _statusSheetOpen = false;
+
+  /// Shows one error sheet at a time ([showStatusSheet]).
+  void _showStatusSheetOnce({
+    required StatusTone tone,
+    required String title,
+    required String body,
+    required String primary,
+    VoidCallback? onPrimary,
+    String? secondary,
+    VoidCallback? onSecondary,
+  }) {
+    if (!mounted || _statusSheetOpen) return;
+    _statusSheetOpen = true;
+    showStatusSheet(
+      context,
+      tone: tone,
+      title: title,
+      body: body,
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: secondary,
+      onSecondary: onSecondary,
+    ).whenComplete(() => _statusSheetOpen = false);
+  }
+
+  /// A save couldn't reach the server: the changes wait on this phone.
+  void _showWaitingToSyncSheet() {
+    final n = visiblePendingChanges.length;
+    _showStatusSheetOnce(
+      tone: StatusTone.amber,
+      title: n <= 0
+          ? 'Changes waiting to sync'
+          : '$n ${n == 1 ? 'change' : 'changes'} waiting to sync',
+      body:
+          'You\u2019re offline. Your changes are saved on this phone and will '
+          'sync as soon as you\u2019re back online.',
+      primary: 'Got it',
+      secondary: 'Try syncing now',
+      onSecondary: () => unawaited(syncNow()),
+    );
+  }
+
+  /// The floating chip over the main screens: the latest save's progress, or
+  /// "Offline · saved on phone" (tap to sync now) while saves don't get
+  /// through.
+  Widget _buildStatusChip() => ListenableBuilder(
+    listenable: Listenable.merge([syncStatus, netOffline]),
+    builder: (context, _) {
+      final status =
+          syncStatus.value ??
+          (netOffline.value ? SettingsSyncStatus.queued : null);
+      return statusChipSwitcher(
+        status == null
+            ? null
+            : StatusChip(
+                key: ValueKey('status-chip-${status.name}'),
+                kind: status.chipKind,
+                text: statusChipText(
+                  status.chipKind,
+                  count: syncingChangeCount,
+                ),
+                dark: true,
+                onTap: status == SettingsSyncStatus.queued
+                    ? () => unawaited(syncNow())
+                    : null,
+              ),
+      );
+    },
+  );
+
   // =============================================================== build
   @override
   Widget build(BuildContext context) {
     final authOpen = ready && user == null;
+    // A retry from the can't-connect screen keeps it up ("Connecting…").
     final familyLoading =
-        ready && user != null && families.isEmpty && _resolvingFamilies;
+        ready &&
+        user != null &&
+        families.isEmpty &&
+        _resolvingFamilies &&
+        !_cloudUnreachable;
     final cloudOffline =
         ready && user != null && families.isEmpty && _cloudUnreachable;
     final onboardingOpen =
@@ -2149,17 +2238,20 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             Column(
               children: [
                 _buildHeader(),
-                // There's no offline copy: while a save hasn't reached the
-                // server, say so on every screen.
-                if (shellReady)
-                  ValueListenableBuilder<bool>(
-                    valueListenable: netOffline,
-                    builder: (context, off, _) =>
-                        off ? _buildUnsavedBanner() : const SizedBox.shrink(),
-                  ),
                 Expanded(
                   child: ready
-                      ? _buildBody()
+                      ? Stack(
+                          children: [
+                            Positioned.fill(child: _buildBody()),
+                            if (shellReady)
+                              Positioned(
+                                top: 4,
+                                left: 16,
+                                right: 16,
+                                child: Center(child: _buildStatusChip()),
+                              ),
+                          ],
+                        )
                       : const Center(
                           child: Text(
                             'Loading budget…',
@@ -2198,7 +2290,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             // Signed in, but the families couldn't be loaded (no connection).
             if (cloudOffline && !familyLoading)
               Positioned.fill(
-                child: _CloudOfflineScreen(onRetry: retryCloudConnect),
+                child: _CloudOfflineScreen(
+                  onRetry: retryCloudConnect,
+                  busy: _resolvingFamilies,
+                ),
               ),
             // Onboarding gate: a signed-in user with confirmed-no family must
             // create or join one before reaching the budget.
@@ -2209,30 +2304,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       ),
     );
   }
-
-  Widget _buildUnsavedBanner() => GestureDetector(
-    key: const ValueKey('unsaved-banner'),
-    onTap: () => unawaited(_persist()),
-    child: Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
-      decoration: BoxDecoration(
-        color: B.amberSoft,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: B.amberLine),
-      ),
-      child: const Text(
-        'Not saved \u2014 no connection. Retrying\u2026 (tap to retry now)',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: B.amberText,
-        ),
-      ),
-    ),
-  );
 
   /// The dark toast: a tone glyph, the message and an optional second line.
   Widget _buildToast(String msg) {
@@ -3065,76 +3136,6 @@ class _FamilyLoadingScreen extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown instead of the app when a signed-in user's families couldn't be
-/// loaded because the server is unreachable (there's no offline copy).
-class _CloudOfflineScreen extends StatelessWidget {
-  const _CloudOfflineScreen({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      key: const ValueKey('cloud-offline-screen'),
-      color: B.page,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Can\u2019t connect to Thrive',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 17.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Your family\u2019s data lives online. Check your connection '
-                'and try again.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: B.muted,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                key: const ValueKey('cloud-offline-retry'),
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 13,
-                  ),
-                  decoration: BoxDecoration(
-                    color: B.primary,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: const Text(
-                    'Try again',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

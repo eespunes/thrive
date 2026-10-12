@@ -649,11 +649,11 @@ class SettingsSubScreen extends StatefulWidget {
   final String title;
   final String? subtitle;
 
-  /// Write-status pill in the header (#283): "Saving… → Saved ✓", or
-  /// "Not saved — offline" while disconnected. Null hides the slot.
+  /// Write-status chip in the header (#283, #401): "Saving… → Saved", or
+  /// "Offline · saved on phone" while disconnected.
   final foundation.ValueListenable<SettingsSyncStatus?>? sync;
 
-  /// When it reports true, the amber offline strip renders under the header.
+  /// While it reports true, the header chip reads "Offline · saved on phone".
   final foundation.ValueListenable<bool>? offline;
 
   /// The one-liner under the header explaining the screen.
@@ -703,26 +703,34 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
               title: widget.title,
               subtitle: widget.subtitle,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              trailing: widget.sync == null
+              // The latest save's progress, or — while saves don't get
+              // through — "Offline · saved on phone".
+              trailing: widget.sync == null && widget.offline == null
                   ? null
-                  : ValueListenableBuilder<SettingsSyncStatus?>(
-                      valueListenable: widget.sync!,
-                      builder: (context, status, _) => status == null
-                          ? const SizedBox.shrink()
-                          : settingsSyncPill(status),
+                  : ListenableBuilder(
+                      listenable: Listenable.merge([
+                        ?widget.sync,
+                        ?widget.offline,
+                      ]),
+                      builder: (context, _) {
+                        final status =
+                            widget.sync?.value ??
+                            (widget.offline?.value == true
+                                ? SettingsSyncStatus.queued
+                                : null);
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 190),
+                          child: statusChipSwitcher(
+                            status == null ? null : settingsSyncPill(status),
+                          ),
+                        );
+                      },
                     ),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
                 children: [
-                  if (widget.offline != null)
-                    ValueListenableBuilder<bool>(
-                      valueListenable: widget.offline!,
-                      builder: (context, off, _) => off
-                          ? settingsOfflineBanner()
-                          : const SizedBox.shrink(),
-                    ),
                   if (widget.intro != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
