@@ -50,8 +50,11 @@ void main() {
 
     await tester.tap(row);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Discard').last);
+    expect(find.text('Discard this change?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('discard-confirm')));
     await tester.pumpAndSettle();
+    expect(thriveDebug.toast, 'Change discarded');
+    expect(thriveDebug.toastTone, ToastTone.neutral);
 
     expect(find.byKey(const ValueKey('pending-empty')), findsOneWidget);
     expect(thriveDebug.pendingChanges.isEmpty, isTrue);
@@ -89,9 +92,16 @@ void main() {
     // Set aside: not in the family's data.
     expect(thriveDebug.events.any((e) => e.id == 'staged-1'), isFalse);
 
+    // "Keep it" leaves it set aside.
     await tester.tap(find.byKey(ValueKey('staged-discard-${change.id}')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Discard').last);
+    await tester.tap(find.byKey(const ValueKey('discard-cancel')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.stagedChanges.isEmpty, isFalse);
+
+    await tester.tap(find.byKey(ValueKey('staged-discard-${change.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('discard-confirm')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('pending-empty')), findsOneWidget);
@@ -122,5 +132,95 @@ void main() {
     thriveDebug.promptUnsavedChanges();
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('unsaved-changes-dialog')), findsNothing);
+  });
+
+  testWidgets('the More row shows how many changes are unsaved', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    await openMoreHub(tester);
+    await openHubCard(tester, 'account', 'hub-pending');
+    final pill = find.byKey(const ValueKey('hub-pending-pill'));
+    await tester.scrollUntilVisible(
+      pill,
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.descendant(of: pill, matching: find.text('All saved')),
+      findsOneWidget,
+    );
+    thriveDebug.stagedChanges.addStaged(
+      PendingChange(
+        familyId: thriveDebug.familyId,
+        key: 'notes/n1',
+        op: PendingOp.save,
+        at: DateTime.now().millisecondsSinceEpoch,
+        record: {'id': 'n1', 'name': 'Pharmacy'},
+      ),
+    );
+    thriveDebug.pendingChangesChanged();
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: pill, matching: find.text('1 unsaved')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a long set-aside list is filtered by verb, grouped by type, '
+      'and discarded all at once', (tester) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final fid = thriveDebug.familyId;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (var i = 0; i < 6; i++) {
+      thriveDebug.stagedChanges.addStaged(
+        PendingChange(
+          familyId: fid,
+          key: 'notes/n$i',
+          op: PendingOp.save,
+          at: now - i,
+          record: {'id': 'n$i', 'name': 'Note $i'},
+        ),
+      );
+    }
+    for (var i = 0; i < 4; i++) {
+      final ev = CalendarEvent(
+        id: 'e$i',
+        title: 'Event $i',
+        date: todayIso(),
+        color: const Color(0xff1684B4),
+      );
+      thriveDebug.stagedChanges.addStaged(
+        PendingChange(
+          familyId: fid,
+          key: eventRecordKey(ev),
+          op: PendingOp.delete,
+          at: now - 10 - i,
+          serverRecord: {'id': 'e$i', 'title': 'Event $i'},
+        ),
+      );
+    }
+    thriveDebug.pendingChangesChanged();
+    await tester.pumpAndSettle();
+    await openPending(tester);
+
+    expect(find.text('NOTES'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('staged-filter-Deleted')));
+    await tester.pumpAndSettle();
+    expect(find.text('NOTES'), findsNothing);
+    expect(find.text('EVENTS'), findsOneWidget);
+    expect(find.text('Event 0'), findsOneWidget);
+    expect(find.text('Note 0'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('staged-discard-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard 10 set-aside changes?'), findsOneWidget);
+    expect(find.text('6 notes'), findsOneWidget);
+    expect(find.text('4 events'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('discard-confirm')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.stagedChanges.isEmpty, isTrue);
+    expect(thriveDebug.toast, '10 changes discarded');
+    expect(find.byKey(const ValueKey('pending-empty')), findsOneWidget);
   });
 }

@@ -1648,12 +1648,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   /// Applies the staged changes [ids] onto each family's CURRENT data (see
   /// [applyPendingChanges]: edits are merged field by field) and saves them;
-  /// their staging docs are then deleted. Changes that can't be applied (see
-  /// [stagedStatus]) stay set aside until discarded. Returns a message for
-  /// the user.
-  Future<String> applyStagedChanges(List<String> ids) async {
+  /// their staging docs are then deleted. A change to an item deleted
+  /// meanwhile is dropped (the deletion wins); one for a family the user left
+  /// stays set aside until discarded.
+  Future<StagedApplyResult> applyStagedChanges(List<String> ids) async {
     final uid = _firebaseUid();
-    if (uid == null) return 'Sign in to apply changes';
+    if (uid == null) return const StagedApplyResult(signedOut: true);
     final byFamily = <String, List<PendingChange>>{};
     final wanted = {...ids};
     // An item of a new note that's set aside too brings its note along.
@@ -1663,15 +1663,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       final note = _staged['${c.familyId}|${_noteKeyOfLine(c.key)}'];
       if (note != null && note.op == PendingOp.save) wanted.add(note.id);
     }
-    for (final id in wanted) {
-      final c = _staged[id];
-      if (c != null && stagedStatus(c) == StagedStatus.ready) {
-        (byFamily[c.familyId] ??= []).add(c);
-      }
-    }
     final done = <PendingChange>[];
     final lost = <PendingChange>[];
     final sent = <PendingChange>[];
+    for (final id in wanted) {
+      final c = _staged[id];
+      if (c == null) continue;
+      switch (stagedStatus(c)) {
+        case StagedStatus.ready:
+          (byFamily[c.familyId] ??= []).add(c);
+        case StagedStatus.deletedMeanwhile:
+          // The deletion wins: applying it just clears it.
+          lost.add(c);
+        case StagedStatus.familyGone:
+          break;
+      }
+    }
     for (final MapEntry(key: fid, value: changes) in byFamily.entries) {
       final ws = workspaces[fid];
       if (ws == null || _cloudBase[fid] == null) continue;
@@ -1700,18 +1707,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
     final ok = sent.isEmpty || await _persist();
     // Saved changes are now in the family's data (and, if the save failed,
-    // in the device journal, retried like any other edit).
-    await _dropStaged(uid, [...done, if (ok) ...sent]);
-    if (lost.isNotEmpty) {
-      _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
-    }
-    final n = sent.length + done.length;
-    if (!ok) return 'Couldn’t save yet — will keep trying';
-    return n == 0
-        ? 'Nothing could be applied'
-        : n == 1
-        ? 'Change applied'
-        : '$n changes applied';
+    // in the device journal, retried like any other edit); changes to items
+    // deleted meanwhile are dropped — the deletion wins.
+    await _dropStaged(uid, [...done, ...lost, if (ok) ...sent]);
+    return StagedApplyResult(
+      applied: sent.length + done.length,
+      gone: [for (final c in lost) pendingChangeLabel(c)],
+      failed: !ok,
+    );
   }
 
   /// Discards the staged changes [ids]: their staging docs are deleted; the

@@ -31,6 +31,26 @@ enum StagedStatus {
 /// changes set aside after a restart, until they're applied or discarded.
 const String kUnsavedChangesCollection = 'unsavedChanges';
 
+/// What applying set-aside changes did.
+class StagedApplyResult {
+  const StagedApplyResult({
+    this.applied = 0,
+    this.gone = const [],
+    this.failed = false,
+    this.signedOut = false,
+  });
+
+  /// Changes now in the family's data.
+  final int applied;
+
+  /// Names of the items deleted by another member meanwhile (dropped).
+  final List<String> gone;
+
+  /// The save didn't go through yet (it keeps being retried).
+  final bool failed;
+  final bool signedOut;
+}
+
 enum PendingOp { save, delete }
 
 class PendingChange {

@@ -183,7 +183,10 @@ class ThriveDebugController {
   }) => _s.askDelete(name, message, onConfirm, confirmLabel: confirmLabel);
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
-  void flash(String msg) => _s.flash(msg);
+  void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) =>
+      _s.flash(msg, tone: tone, body: body);
+  ToastTone get toastTone => _s.toastTone;
+  String? get toastBody => _s.toastBody;
 
   /// The unsaved-changes journal, so tests can seed entries to review.
   PendingChanges get pendingChanges => _s._pending;
@@ -515,6 +518,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// dismisses the toast (fridge door #315: cross-off has no confirm dialog,
   /// only a 4-second Undo).
   VoidCallback? toastUndo;
+
+  /// The current toast's tone (glyph + colour) and optional second line.
+  ToastTone toastTone = ToastTone.success;
+  String? toastBody;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
 
@@ -1570,12 +1577,16 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     });
   }
 
-  void flash(String msg) {
+  void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) {
     if (!mounted) return;
     toastUndo = null;
+    toastTone = tone;
+    toastBody = body;
+    // Re-notify even when the text repeats (the tone/body may differ).
+    _toastNotifier.value = null;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(milliseconds: 2100), () {
+    _toastTimer = Timer(Duration(milliseconds: body == null ? 2100 : 4000), () {
       if (mounted) {
         toastUndo = null;
         _toastNotifier.value = null;
@@ -1588,6 +1599,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void flashUndo(String msg, VoidCallback onUndo) {
     if (!mounted) return;
     toastUndo = onUndo;
+    toastTone = ToastTone.success;
+    toastBody = null;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 4000), () {
@@ -2221,65 +2234,115 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     ),
   );
 
+  /// The dark toast: a tone glyph, the message and an optional second line.
   Widget _buildToast(String msg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: B.ink,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .4),
-            blurRadius: 28,
-            spreadRadius: -8,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ic('check', size: 14, sw: 2.8, color: const Color(0xff4ade80)),
-          const SizedBox(width: 7),
-          // Flexible so long toasts ("Groceries paid with Albert Heijn")
-          // ellipsize instead of overflowing the pill.
-          Flexible(
-            child: Text(
-              msg,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+    final body = toastBody;
+    // Transparent Material: settings pages re-host the toast outside any
+    // Scaffold, where text would otherwise get the debug fallback style.
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        key: const ValueKey('toast'),
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: B.ink,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x8c0f172a),
+              blurRadius: 30,
+              spreadRadius: -10,
+              offset: Offset(0, 14),
             ),
-          ),
-          if (toastUndo != null) ...[
-            const SizedBox(width: 12),
-            GestureDetector(
-              key: const ValueKey('toast-undo'),
-              onTap: () {
-                final undo = toastUndo;
-                toastUndo = null;
-                _toastTimer?.cancel();
-                _toastNotifier.value = null;
-                undo?.call();
-              },
-              // The pill is small; pad the label up to a comfortable target.
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Text(
-                  'Undo',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xff5eead4),
-                  ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: body == null
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: toastTone.color,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                toastTone.glyph,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: Colors.white,
                 ),
               ),
             ),
+            const SizedBox(width: 11),
+            // Flexible so long toasts ("Groceries paid with Albert Heijn")
+            // ellipsize instead of overflowing the pill.
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    msg,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                      color: Color(0xfff8fafc),
+                    ),
+                  ),
+                  if (body != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        body,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.45,
+                          color: Color(0xffcbd5e1),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (toastUndo != null) ...[
+              const SizedBox(width: 12),
+              GestureDetector(
+                key: const ValueKey('toast-undo'),
+                onTap: () {
+                  final undo = toastUndo;
+                  toastUndo = null;
+                  _toastTimer?.cancel();
+                  _toastNotifier.value = null;
+                  undo?.call();
+                },
+                // The pill is small; pad the label up to a comfortable target.
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Text(
+                    'Undo',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xff5eead4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -3307,3 +3370,25 @@ class _ConfirmDialog extends StatelessWidget {
 /// Top-level so [foundation.compute] can send it to a worker isolate.
 Map<String, dynamic> _jsonDecodeMap(String raw) =>
     json.decode(raw) as Map<String, dynamic>;
+
+/// The toast's tones: a coloured glyph before the message.
+enum ToastTone {
+  /// Done (✓ green).
+  success('✓', B.green),
+
+  /// Removed / discarded (– slate).
+  neutral('–', B.soft2),
+
+  /// For your information (i slate).
+  info('i', B.soft2),
+
+  /// Not yet, will retry (↻ amber).
+  retry('↻', B.amber),
+
+  /// Something went wrong (! amber).
+  alert('!', B.amber);
+
+  const ToastTone(this.glyph, this.color);
+  final String glyph;
+  final Color color;
+}
