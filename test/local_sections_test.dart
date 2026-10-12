@@ -17,7 +17,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
-    // Any mutation triggers a (debounced) persist.
+    // Any mutation is saved immediately.
     thriveDebug.mutateState(() {
       thriveDebug.events.add(
         CalendarEvent(
@@ -32,7 +32,6 @@ void main() {
     await tester.runAsync(
       () async => Future<void>.delayed(const Duration(milliseconds: 250)),
     );
-    // The debounced persist flushes on dispose — the reboot guarantees it.
     await rebootApp(tester);
     final prefs = await SharedPreferences.getInstance();
     final v4 = jsonDecode(prefs.getString(kStorageKeyV4)!) as Map;
@@ -51,6 +50,35 @@ void main() {
     // And the reboot loads the event back from those section keys.
     await rebootApp(tester);
     expect(thriveDebug.events.any((e) => e.title == 'Sectioned event'), isTrue);
+  });
+
+  testWidgets('an edit is saved right away — no debounce, no flush', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    thriveDebug.mutateState(() {
+      thriveDebug.events.add(
+        CalendarEvent(
+          id: 'now1',
+          title: 'Saved immediately',
+          date: todayIso(),
+          allDay: true,
+          color: const Color(0xff7c3aed),
+        ),
+      );
+    });
+    // Well under the old 2 s debounce, with no lifecycle flush or reboot.
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 250)),
+    );
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs
+        .getKeys()
+        .where((k) => k.startsWith(kWsSectionPrefix))
+        .map((k) => prefs.getString(k) ?? '')
+        .any((v) => v.contains('Saved immediately'));
+    expect(saved, isTrue);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('a legacy blob with embedded workspaces still loads', (

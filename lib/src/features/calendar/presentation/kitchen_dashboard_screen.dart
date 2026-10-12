@@ -139,8 +139,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
   void deleteKitchenItem(String id) {
     final ev = eventById(id);
     if (ev == null || !ev.kitchenOrigin) return;
-    mutate(() => _tombstoneEvent(ev));
-    _reconcileEventDeletions(familyId);
+    mutate(() => _removeEvent(ev));
   }
 
   /// Completed-vs-total task/content count for [memberId] on [iso]

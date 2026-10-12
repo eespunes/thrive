@@ -31,8 +31,6 @@ void main() {
 
     expect(thriveDebug.events.any((e) => e.id == ev.id), isFalse);
     expect(thriveDebug.events.length, before - 1);
-    // Only member of a local family: acknowledged by everyone at once.
-    expect(thriveDebug.deletedEvents, isEmpty);
 
     await tester.pump(const Duration(seconds: 2));
     await rebootApp(tester);
@@ -48,7 +46,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(thriveDebug.events.any((e) => e.id == ev.id), isTrue);
-    expect(thriveDebug.deletedEvents, isEmpty);
   });
 
   for (final recur in ['none', 'weekly']) {
@@ -64,12 +61,9 @@ void main() {
       await tester.pump();
 
       // Another member's deletion lands while the editor is open.
-      thriveDebug.mutateState(() {
-        thriveDebug.events.removeWhere((e) => e.id == ev.id);
-        thriveDebug.deletedEvents.add(
-          ev..deletion = EventDeletion(by: 'B', at: 1, acks: {'B': 1}),
-        );
-      });
+      thriveDebug.mutateState(
+        () => thriveDebug.events.removeWhere((e) => e.id == ev.id),
+      );
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));

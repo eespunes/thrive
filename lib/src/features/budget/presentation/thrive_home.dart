@@ -183,13 +183,24 @@ class ThriveDebugController {
   }) => _s.askDelete(name, message, onConfirm, confirmLabel: confirmLabel);
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
-  void flash(String msg) => _s.flash(msg);
+  void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) =>
+      _s.flash(msg, tone: tone, body: body);
+  ToastTone get toastTone => _s.toastTone;
+  String? get toastBody => _s.toastBody;
+
+  /// The unsaved-changes journal, so tests can seed entries to review.
+  PendingChanges get pendingChanges => _s._pending;
+  PendingChanges get stagedChanges => _s._staged;
+  void promptUnsavedChanges() => _s.promptUnsavedChanges();
+  void pendingChangesChanged() => _s.pendingChangesTick.value++;
 
   /// Sync/offline indicator plumbing (#283), so tests can read the pill
   /// state and simulate the offline queue without a real backend.
   ValueNotifier<SettingsSyncStatus?> get syncStatus => _s.syncStatus;
   ValueNotifier<bool> get netOffline => _s.netOffline;
   void syncBlip() => _s.syncBlip();
+  Future<bool> syncNow() => _s.syncNow();
+  void showWaitingToSyncSheet() => _s._showWaitingToSyncSheet();
   void saveMemberStudio(
     String id, {
     required String name,
@@ -219,7 +230,6 @@ class ThriveDebugController {
   String get familyId => _s.familyId;
   String get myId => _s.myId;
   List<CalendarEvent> get events => _s.events;
-  List<CalendarEvent> get deletedEvents => _s._activeWs.deletedEvents;
   void deleteEvent(String id, String scope, [String? date]) =>
       _s.deleteEvent(id, scope, date);
   List<TaskList> get taskLists => _s.taskLists;
@@ -239,6 +249,24 @@ class ThriveDebugController {
   void openCardFace(String id, {String? payCat, String? payItemId}) =>
       _s.openCardFace(id, payCat: payCat, payItemId: payItemId);
   void mutateState(VoidCallback fn) => _s.mutate(fn);
+
+  /// Runs the real recurring-series sync on [ws] (as the active workspace).
+  Workspace syncRecurringSeries(Workspace ws) {
+    final s = _s;
+    final prev = s.workspaces[s.familyId];
+    s.workspaces[s.familyId] = ws;
+    try {
+      s._syncRecurringSeries();
+    } finally {
+      if (prev == null) {
+        s.workspaces.remove(s.familyId);
+      } else {
+        s.workspaces[s.familyId] = prev;
+      }
+    }
+    return ws;
+  }
+
   List<(Category, ExpenseItem)> unpaidItemsThisMonth() =>
       _s.unpaidItemsThisMonth();
   Map<String, dynamic> phoneWidgetPayload() => _s.phoneWidgetPayload();
@@ -439,22 +467,24 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Timer? _toastTimer;
 
   /// Write-status pill on the Settings v2 sub-page headers (#283): every
-  /// mutation blips "Saving…" → "Saved ✓" (or "Queued — offline" while the
-  /// cloud can't be reached). Writes already queue via the local store /
-  /// Firestore's offline cache — this only SURFACES it.
+  /// mutation blips "Saving…" → "Saved ✓" once the server acknowledged it,
+  /// or "Not saved — offline" when it didn't (there is no offline queue).
   final ValueNotifier<SettingsSyncStatus?> syncStatus =
       ValueNotifier<SettingsSyncStatus?>(null);
 
-  /// Whether the last cloud commit failed (offline / rules): flips the sync
-  /// pill to "Queued — offline" and shows the amber banner on sub-pages.
-  /// Always false in local/demo mode, where SharedPreferences writes are the
-  /// durable store and never "queue".
+  /// Whether the last cloud save failed (offline / timed out / rejected):
+  /// flips the sync pill to "Not saved — offline" and shows the amber
+  /// "Not saved" banners; cleared by the next successful save (retried with
+  /// backoff). Always false in local/demo mode, where SharedPreferences
+  /// writes are the durable store.
   final ValueNotifier<bool> netOffline = ValueNotifier<bool>(false);
   Timer? _syncSettleTimer;
   Timer? _syncClearTimer;
 
-  /// Design `syncBlip()`: saving (or queued) now, settle after 600ms, clear
-  /// 1800ms later.
+  /// Design `syncBlip()`: "Saving…" now; after 600 ms it settles to
+  /// "Saved ✓" — but only once the save was actually acknowledged (a save
+  /// still in flight settles when it finishes) — or "Not saved" when it
+  /// failed. Clears 1800 ms after settling.
   void syncBlip() {
     if (!mounted) return;
     syncStatus.value = netOffline.value
@@ -462,14 +492,43 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         : SettingsSyncStatus.saving;
     _syncSettleTimer?.cancel();
     _syncClearTimer?.cancel();
+    _settleSyncWhenSaved = false;
     _syncSettleTimer = Timer(const Duration(milliseconds: 600), () {
       if (!mounted) return;
-      syncStatus.value = netOffline.value
-          ? SettingsSyncStatus.queued
-          : SettingsSyncStatus.saved;
-      _syncClearTimer = Timer(const Duration(milliseconds: 1800), () {
-        if (mounted) syncStatus.value = null;
-      });
+      if (_persistRun != null) {
+        _settleSyncWhenSaved = true;
+        return;
+      }
+      _settleSyncStatus();
+    });
+  }
+
+  bool _settleSyncWhenSaved = false;
+
+  /// Saves the changes waiting on this phone now, showing "Syncing N
+  /// changes" until the save finishes ("Saved", or back to offline).
+  Future<bool> syncNow() async {
+    if (!mounted) return false;
+    syncingChangeCount = visiblePendingChanges.length;
+    _syncSettleTimer?.cancel();
+    _syncClearTimer?.cancel();
+    _settleSyncWhenSaved = false;
+    syncStatus.value = SettingsSyncStatus.syncing;
+    _saveRetryTimer?.cancel();
+    final ok = await _persist();
+    if (!mounted) return ok;
+    _settleSyncStatus();
+    return ok;
+  }
+
+  void _settleSyncStatus() {
+    if (!mounted || syncStatus.value == null) return;
+    syncStatus.value = netOffline.value
+        ? SettingsSyncStatus.queued
+        : SettingsSyncStatus.saved;
+    _syncClearTimer?.cancel();
+    _syncClearTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) syncStatus.value = null;
     });
   }
 
@@ -477,6 +536,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// dismisses the toast (fridge door #315: cross-off has no confirm dialog,
   /// only a 4-second Undo).
   VoidCallback? toastUndo;
+
+  /// The current toast's tone (glyph + colour) and optional second line.
+  ToastTone toastTone = ToastTone.success;
+  String? toastBody;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
 
@@ -504,11 +567,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// collection, so an unloaded one can't be overwritten blind.
   final Map<String, Set<String>> _cloudLoaded = {};
 
-  /// Per-family pre-record workspace docs still on the server (whole-array
-  /// `budget_*`/`lists`/`cards`/`weekly`/`events*` docs, or current ids still
-  /// embedding `blocks`/`tasks`/`items`), docId → raw payload.
-  final Map<String, Map<String, Map<String, dynamic>>> _legacyDocs = {};
-
   /// Per-family legacy single-doc `workspace` blob still on the meta doc.
   final Map<String, Map<String, dynamic>> _legacyBlob = {};
 
@@ -518,31 +576,80 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Families whose legacy docs are being migrated right now.
   final Set<String> _legacyMigrating = {};
 
-  /// Per-family guarded record keys this device explicitly deleted and not
-  /// yet deleted on the server: lists/lines the user unpinned or crossed off,
-  /// and events whose deletion every member acknowledged. Only these lists,
-  /// lines and events may be removed from the server — see
-  /// `unintendedDeletes`. A list/line delete is only a deletion marker until
-  /// every member acknowledged it (`planListDeletions`).
+  /// Per-family guarded record keys (events, notes, lines) the user
+  /// explicitly deleted and not yet deleted on the server. Only these may be
+  /// removed from the server — anything else missing locally is a sync
+  /// glitch and is restored (see `unintendedDeletes`).
   final Map<String, Set<String>> _deleteIntents = {};
 
-  /// Per-family ids of events a member deleted that this device has seen
-  /// (still a tombstone, or already purged). A deletion always wins: an edit
-  /// made meanwhile never brings one of these back — see
-  /// `_reconcileEventDeletions`.
-  final Map<String, Set<String>> _deletedEventIds = {};
+  /// Per-family note keys deleted on the server since this device saw them:
+  /// lines still filed under them are deleted too.
+  final Map<String, Set<String>> _goneNotes = {};
+
+  /// Changes not yet confirmed by the server (persisted on the device, so
+  /// they survive a restart) — reviewable in Settings → Unsaved changes.
+  PendingChanges _pending = PendingChanges();
+
+  /// Unsaved changes from a previous run, set aside in the user's staging
+  /// area in Firestore until they're applied or discarded.
+  PendingChanges _staged = PendingChanges();
+
+  /// Families (besides the active one) with changes to save on the next
+  /// persist (staged changes just applied).
+  final Set<String> _persistAlso = {};
+
+  /// Whether this session already offered to review set-aside changes.
+  bool _unsavedPromptShown = false;
+
+  /// Bumped whenever [_pending] changes (drives the review screen).
+  final ValueNotifier<int> pendingChangesTick = ValueNotifier(0);
 
   /// Per-family record keys this device has created on the server whose
   /// write isn't acknowledged yet. The SDK reverting such a write (e.g. a
   /// rejected batch) must not wipe the local copy.
   final Map<String, Map<String, int>> _inflightCreates = {};
 
-  /// Trailing-debounce timer for [_persist]: serializing and uploading state
-  /// on EVERY tap caused main-thread jank and a network write per keystroke.
-  /// Edits are coalesced for [_persistDebounce] and flushed early when the
-  /// app is backgrounded or disposed so nothing is lost on a swipe-away.
-  Timer? _persistTimer;
-  static const Duration _persistDebounce = Duration(seconds: 2);
+  /// Per-family [kVersionField] of every record as last seen on the server
+  /// (or as set by this device's own acknowledged save).
+  final Map<String, Map<String, int>> _cloudVersions = {};
+
+  /// Per-family records whose versioned save is in flight → the server
+  /// version the save started from. Server changes arriving meanwhile are
+  /// merged against it, so they never drop the edit being saved.
+  final Map<String, Map<String, Map<String, dynamic>>> _inflightUpdates = {};
+
+  /// When each `<familyId>/<collection>` was last reloaded from the server
+  /// on opening a screen (see `reloadFromServer`).
+  final Map<String, DateTime> _lastServerReload = {};
+
+  /// A family stream died (not a permission error): re-subscribe on resume.
+  bool _streamsBroken = false;
+
+  /// A save-conflict dialog is showing (further conflicts only toast).
+  bool _conflictDialogOpen = false;
+
+  /// Signed in but the server couldn't be reached to load the families:
+  /// there is no offline copy to fall back to, so a "Can't connect" screen
+  /// with Retry covers the app (never the create/join onboarding).
+  bool _cloudUnreachable = false;
+
+  /// Every edit is saved IMMEDIATELY (no debounce): [_persist] runs at once,
+  /// and edits made while a save is in flight are coalesced into exactly one
+  /// follow-up save. [_persistRun] is the save in flight; [_persistGeneration]
+  /// counts saves started (a server reload that raced one is dropped).
+  Future<bool>? _persistRun;
+  bool _persistAgain = false;
+  Completer<bool>? _persistNext;
+  int _persistGeneration = 0;
+
+  /// Retry of a save that wasn't acknowledged (offline / rejected), with
+  /// backoff; [_saveFailures] counts consecutive failures.
+  Timer? _saveRetryTimer;
+  int _saveFailures = 0;
+
+  /// Debounce for refreshing the Android home-screen widgets (issue #252) —
+  /// the save itself is immediate.
+  Timer? _widgetPushTimer;
 
   // True while a just-signed-in user's shared families are still being loaded
   // from the cloud. Suppresses the create/join onboarding gate so a returning
@@ -614,6 +721,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       sub.cancel();
     }
     _flushPersist();
+    _saveRetryTimer?.cancel();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
     _syncSettleTimer?.cancel();
@@ -624,28 +732,41 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// Keeps subscribed (auto-sync) ICS imports — e.g. a sports team's
-  /// schedule — current whenever the app comes back to the foreground.
+  /// Back in the foreground: everything is reloaded from the server (there
+  /// is no offline copy — another member may have changed anything while we
+  /// were away), dead streams are re-subscribed, an unsaved edit is retried,
+  /// and subscribed (auto-sync) ICS imports are refreshed.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       syncDueImports();
       unawaited(_refreshReminderSchedule());
+      _reloadOnResume();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
-      // Flush any debounced edit before the OS can kill the app.
       _flushPersist();
     }
   }
 
-  /// Immediately runs a pending debounced persist, if any.
+  // coverage:ignore-start
+  void _reloadOnResume() {
+    final uid = _firebaseUid();
+    if (uid == null || !ready || families.isEmpty) return;
+    if (_streamsBroken) {
+      _streamsBroken = false;
+      unawaited(bindCloudSync(uid));
+    }
+    if (netOffline.value) unawaited(_persist());
+    unawaited(reloadFromServer(force: true));
+  }
+  // coverage:ignore-end
+
+  /// Saves are immediate, so nothing is ever waiting on a timer — only the
+  /// home-screen widget refresh is (issue #252): run it now, before the OS
+  /// can kill the app.
   void _flushPersist() {
-    if (_persistTimer?.isActive != true) return;
-    _persistTimer?.cancel();
-    unawaited(_persist());
-    // The debounced path also refreshes the Android home-screen widgets
-    // (issue #252); a flush must too, or backgrounding inside the debounce
-    // window left the widgets showing pre-edit data.
+    if (_widgetPushTimer?.isActive != true) return;
+    _widgetPushTimer?.cancel();
     unawaited(pushPhoneWidgets());
   }
 
@@ -710,12 +831,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// and was easy to miss when adding a new one.
   void _finishBoot() {
     setState(() => ready = true);
-    // Boot survived — disarm the crash-loop breaker (see kBootFailStreakKey).
-    unawaited(
-      SharedPreferences.getInstance()
-          .then((p) => p.setInt(kBootFailStreakKey, 0))
-          .catchError((Object _) => true),
-    );
     unawaited(_rescheduleReminders());
     _handleNotificationDeepLink();
   }
@@ -746,7 +861,18 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       final uid = _firebaseUid()!;
       // Load the shared families this user belongs to (migrating any legacy
       // single-blob state on first run).
-      final hadCloud = await cloudBoot(uid);
+      final bool hadCloud;
+      try {
+        hadCloud = await cloudBoot(uid);
+      } on CloudUnreachable catch (e) {
+        debugPrint('[cloud] boot: server unreachable: $e');
+        families = [];
+        workspaces = {};
+        _cloudUnreachable = true;
+        if (!mounted) return;
+        _finishBoot();
+        return;
+      }
       if (hadCloud) {
         await bindCloudSync(uid);
         if (!mounted) return;
@@ -1110,7 +1236,80 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// sections are skipped on every save.
   final Map<String, Map<String, String>> _localWsDigests = {};
 
-  Future<void> _persist() async {
+  /// Saves the current state now: to Firestore when signed in (each create /
+  /// edit / delete goes to the server immediately — there is no local copy),
+  /// else to local storage. Saves never overlap: one requested while another
+  /// is in flight runs once right after it (coalescing a burst of edits).
+  /// Completes with whether everything was saved.
+  Future<bool> _persist() {
+    if (_persistRun != null) {
+      _persistAgain = true;
+      // It may wait a while (a save timing out offline): journal its changes
+      // now so they survive the app being closed meanwhile.
+      if (_cloudBacked) _journalWaitingChanges();
+      return (_persistNext ??= Completer<bool>()).future;
+    }
+    final run = _runPersistLoop();
+    _persistRun = run;
+    return run;
+  }
+
+  Future<bool> _runPersistLoop() async {
+    var ok = true;
+    try {
+      ok = await _persistOnce();
+      while (_persistAgain) {
+        _persistAgain = false;
+        final waiting = _persistNext;
+        _persistNext = null;
+        ok = await _persistOnce();
+        waiting?.complete(ok);
+      }
+    } finally {
+      _persistRun = null;
+      _persistNext?.complete(ok);
+      _persistNext = null;
+    }
+    _afterSave(ok);
+    return ok;
+  }
+
+  Future<bool> _persistOnce() async {
+    _persistGeneration++;
+    try {
+      return await _persistNow();
+    } catch (e) {
+      debugPrint('[persist] save failed: $e');
+      return false;
+    }
+  }
+
+  /// Reflects a finished save: the sync pill / "Not saved" banner, and a
+  /// retry with backoff (5 s, 10 s, … 60 s) while saves keep failing.
+  void _afterSave(bool ok) {
+    _saveRetryTimer?.cancel();
+    if (!mounted) return;
+    if (!_cloudBacked) {
+      // Local/demo mode: there's no server to be "offline" from.
+    } else if (ok) {
+      _saveFailures = 0;
+      if (netOffline.value) netOffline.value = false;
+    } else {
+      _saveFailures++;
+      if (!netOffline.value) netOffline.value = true;
+      if (_saveFailures == 1) _showWaitingToSyncSheet();
+      final seconds = (5 << (_saveFailures - 1).clamp(0, 4)).clamp(5, 60);
+      _saveRetryTimer = Timer(Duration(seconds: seconds), () {
+        if (mounted) unawaited(_persist());
+      });
+    }
+    if (_settleSyncWhenSaved) {
+      _settleSyncWhenSaved = false;
+      _settleSyncStatus();
+    }
+  }
+
+  Future<bool> _persistNow() async {
     final prefs = await SharedPreferences.getInstance();
     // Per-DEVICE settings (reminders, device-calendar mirror, widget privacy,
     // active tab) live under their own small key on every persist. They never
@@ -1127,7 +1326,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       // "leave/delete my last family" flows update the user doc on their own.
       // Nor may the local copies be deleted then: local storage may still
       // hold families the cloud has never seen.
-      if (families.isEmpty) return;
+      if (families.isEmpty) return true;
       final hasLocalState =
           prefs.containsKey(kStorageKeyV4) ||
           prefs.getKeys().any((k) => k.startsWith(kWsSectionPrefix));
@@ -1146,9 +1345,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         final promoted = await _persistAllFamilies(meUid);
         await _recordMembership(meUid);
         // A rejected write leaves the local copy as the only one.
-        if (!promoted) return;
+        if (!promoted) return false;
       } else {
-        await _pushCloudState();
+        if (!await _pushCloudState()) return false;
       }
       // Delete the local copies only NOW — after the cloud writes committed
       // (or were durably queued by the SDK's offline persistence). Deleting
@@ -1158,7 +1357,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       for (final key in prefs.getKeys().toList()) {
         if (key.startsWith(kWsSectionPrefix)) await prefs.remove(key);
       }
-      return;
+      return true;
     }
     // Sections FIRST, the slim meta blob last: if the process dies between
     // the two, the previous v4 (possibly still carrying legacy embedded
@@ -1180,6 +1379,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('[persist] registry refresh failed: $e');
     }
+    return ok;
   }
 
   /// Serializes the per-device settings (see [_persistDevicePrefs]).
@@ -1339,12 +1539,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   // requires a live Firestore backend.
   // coverage:ignore-start
-  /// Pushes the active family + per-user view state to the shared collections.
-  Future<void> _pushCloudState() async {
-    if (_applyingCloudSnapshot) return;
+  /// Pushes the active family + per-user view state to the shared
+  /// collections; completes with whether it was all saved.
+  Future<bool> _pushCloudState() async {
+    if (_applyingCloudSnapshot) return true;
     final uid = _firebaseUid();
-    if (uid == null) return;
-    await cloudPersist(uid);
+    if (uid == null) return true;
+    return cloudPersist(uid);
   }
   // coverage:ignore-end
 
@@ -1378,25 +1579,27 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     cb?.call();
   }
 
-  /// Debounced [_persist]: coalesces a burst of edits (typing, repeated
-  /// checkbox taps) into one serialize + one set of cloud writes. Flows that
-  /// must be durable before continuing (create/join/leave, sign-out) call
-  /// [_persist] directly and await it.
+  /// Saves an edit right away ([_persist] — bursts coalesce while a save is
+  /// in flight) and refreshes the Android home-screen widgets shortly after
+  /// (issue #252).
   void _schedulePersist() {
-    _persistTimer?.cancel();
-    _persistTimer = Timer(_persistDebounce, () {
-      unawaited(_persist());
-      // Push refresh for the Android home-screen widgets (issue #252).
+    unawaited(_persist());
+    _widgetPushTimer?.cancel();
+    _widgetPushTimer = Timer(const Duration(seconds: 2), () {
       unawaited(pushPhoneWidgets());
     });
   }
 
-  void flash(String msg) {
+  void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) {
     if (!mounted) return;
     toastUndo = null;
+    toastTone = tone;
+    toastBody = body;
+    // Re-notify even when the text repeats (the tone/body may differ).
+    _toastNotifier.value = null;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(milliseconds: 2100), () {
+    _toastTimer = Timer(Duration(milliseconds: body == null ? 2100 : 4000), () {
       if (mounted) {
         toastUndo = null;
         _toastNotifier.value = null;
@@ -1409,6 +1612,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void flashUndo(String msg, VoidCallback onUndo) {
     if (!mounted) return;
     toastUndo = onUndo;
+    toastTone = ToastTone.success;
+    toastBody = null;
     _toastNotifier.value = msg;
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 4000), () {
@@ -1916,17 +2121,104 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
+  bool _statusSheetOpen = false;
+
+  /// Shows one error sheet at a time ([showStatusSheet]).
+  void _showStatusSheetOnce({
+    required StatusTone tone,
+    required String title,
+    required String body,
+    required String primary,
+    VoidCallback? onPrimary,
+    String? secondary,
+    VoidCallback? onSecondary,
+  }) {
+    if (!mounted || _statusSheetOpen) return;
+    _statusSheetOpen = true;
+    showStatusSheet(
+      context,
+      tone: tone,
+      title: title,
+      body: body,
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: secondary,
+      onSecondary: onSecondary,
+    ).whenComplete(() => _statusSheetOpen = false);
+  }
+
+  /// A save couldn't reach the server: the changes wait on this phone.
+  void _showWaitingToSyncSheet() {
+    final n = visiblePendingChanges.length;
+    _showStatusSheetOnce(
+      tone: StatusTone.amber,
+      title: n <= 0
+          ? 'Changes waiting to sync'
+          : '$n ${n == 1 ? 'change' : 'changes'} waiting to sync',
+      body:
+          'You\u2019re offline. Your changes are saved on this phone and will '
+          'sync as soon as you\u2019re back online.',
+      primary: 'Got it',
+      secondary: 'Try syncing now',
+      onSecondary: () => unawaited(syncNow()),
+    );
+  }
+
+  /// The floating chip over the main screens: the latest save's progress, or
+  /// "Offline · saved on phone" (tap to sync now) while saves don't get
+  /// through.
+  Widget _buildStatusChip() => ListenableBuilder(
+    listenable: Listenable.merge([syncStatus, netOffline]),
+    builder: (context, _) {
+      final status =
+          syncStatus.value ??
+          (netOffline.value ? SettingsSyncStatus.queued : null);
+      return statusChipSwitcher(
+        status == null
+            ? null
+            : StatusChip(
+                key: ValueKey('status-chip-${status.name}'),
+                kind: status.chipKind,
+                text: statusChipText(
+                  status.chipKind,
+                  count: syncingChangeCount,
+                ),
+                dark: true,
+                onTap: status == SettingsSyncStatus.queued
+                    ? () => unawaited(syncNow())
+                    : null,
+              ),
+      );
+    },
+  );
+
   // =============================================================== build
   @override
   Widget build(BuildContext context) {
     final authOpen = ready && user == null;
+    // A retry from the can't-connect screen keeps it up ("Connecting…").
     final familyLoading =
-        ready && user != null && families.isEmpty && _resolvingFamilies;
+        ready &&
+        user != null &&
+        families.isEmpty &&
+        _resolvingFamilies &&
+        !_cloudUnreachable;
+    final cloudOffline =
+        ready && user != null && families.isEmpty && _cloudUnreachable;
     final onboardingOpen =
-        ready && user != null && families.isEmpty && !_resolvingFamilies;
+        ready &&
+        user != null &&
+        families.isEmpty &&
+        !_resolvingFamilies &&
+        !_cloudUnreachable;
     // The nav bar + FAB only make sense once the budget/family gates are
     // all clear — same condition every gate below uses.
-    final shellReady = ready && !authOpen && !familyLoading && !onboardingOpen;
+    final shellReady =
+        ready &&
+        !authOpen &&
+        !familyLoading &&
+        !onboardingOpen &&
+        !cloudOffline;
     if (shellReady && !_didSyncImportsOnOpen) {
       _didSyncImportsOnOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
@@ -1948,7 +2240,18 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                 _buildHeader(),
                 Expanded(
                   child: ready
-                      ? _buildBody()
+                      ? Stack(
+                          children: [
+                            Positioned.fill(child: _buildBody()),
+                            if (shellReady)
+                              Positioned(
+                                top: 4,
+                                left: 16,
+                                right: 16,
+                                child: Center(child: _buildStatusChip()),
+                              ),
+                          ],
+                        )
                       : const Center(
                           child: Text(
                             'Loading budget…',
@@ -1984,6 +2287,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             // join to someone who already has a family (#120).
             if (familyLoading)
               const Positioned.fill(child: _FamilyLoadingScreen()),
+            // Signed in, but the families couldn't be loaded (no connection).
+            if (cloudOffline && !familyLoading)
+              Positioned.fill(
+                child: CloudOfflineScreen(
+                  onRetry: retryCloudConnect,
+                  busy: _resolvingFamilies,
+                ),
+              ),
             // Onboarding gate: a signed-in user with confirmed-no family must
             // create or join one before reaching the budget.
             if (onboardingOpen)
@@ -1994,65 +2305,115 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
+  /// The dark toast: a tone glyph, the message and an optional second line.
   Widget _buildToast(String msg) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: B.ink,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .4),
-            blurRadius: 28,
-            spreadRadius: -8,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ic('check', size: 14, sw: 2.8, color: const Color(0xff4ade80)),
-          const SizedBox(width: 7),
-          // Flexible so long toasts ("Groceries paid with Albert Heijn")
-          // ellipsize instead of overflowing the pill.
-          Flexible(
-            child: Text(
-              msg,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+    final body = toastBody;
+    // Transparent Material: settings pages re-host the toast outside any
+    // Scaffold, where text would otherwise get the debug fallback style.
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        key: const ValueKey('toast'),
+        margin: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: B.ink,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x8c0f172a),
+              blurRadius: 30,
+              spreadRadius: -10,
+              offset: Offset(0, 14),
             ),
-          ),
-          if (toastUndo != null) ...[
-            const SizedBox(width: 12),
-            GestureDetector(
-              key: const ValueKey('toast-undo'),
-              onTap: () {
-                final undo = toastUndo;
-                toastUndo = null;
-                _toastTimer?.cancel();
-                _toastNotifier.value = null;
-                undo?.call();
-              },
-              // The pill is small; pad the label up to a comfortable target.
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                child: Text(
-                  'Undo',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xff5eead4),
-                  ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: body == null
+              ? CrossAxisAlignment.center
+              : CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: toastTone.color,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                toastTone.glyph,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: Colors.white,
                 ),
               ),
             ),
+            const SizedBox(width: 11),
+            // Flexible so long toasts ("Groceries paid with Albert Heijn")
+            // ellipsize instead of overflowing the pill.
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    msg,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                      color: Color(0xfff8fafc),
+                    ),
+                  ),
+                  if (body != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        body,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.45,
+                          color: Color(0xffcbd5e1),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (toastUndo != null) ...[
+              const SizedBox(width: 12),
+              GestureDetector(
+                key: const ValueKey('toast-undo'),
+                onTap: () {
+                  final undo = toastUndo;
+                  toastUndo = null;
+                  _toastTimer?.cancel();
+                  _toastNotifier.value = null;
+                  undo?.call();
+                },
+                // The pill is small; pad the label up to a comfortable target.
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Text(
+                    'Undo',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xff5eead4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -2781,6 +3142,112 @@ class _FamilyLoadingScreen extends StatelessWidget {
   }
 }
 
+// ============================================== save-conflict dialog widget
+/// Shown when another member changed the same field(s) of an item while this
+/// device was saving it: ours was saved; offer to switch to theirs.
+class _SaveConflictDialog extends StatelessWidget {
+  const _SaveConflictDialog({
+    required this.who,
+    required this.what,
+    required this.onKeepMine,
+    required this.onUseTheirs,
+  });
+
+  final String who;
+  final String what;
+  final VoidCallback onKeepMine;
+  final VoidCallback onUseTheirs;
+
+  Widget _button(String label, VoidCallback onTap, {required bool filled}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            color: filled ? B.primary : Colors.white,
+            borderRadius: BorderRadius.circular(13),
+            border: filled ? null : Border.all(color: B.line),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: filled ? Colors.white : B.text,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const ValueKey('save-conflict-dialog'),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(26),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 312),
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: B.amberSoft,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Center(
+                child: ic('users', size: 23, sw: 2.2, color: B.amber),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text(
+              '$who also edited $what',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17.5,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                letterSpacing: -.2,
+              ),
+            ),
+            const SizedBox(height: 7),
+            const Text(
+              'You both changed the same thing at the same time. Your version '
+              'was saved — keep it, or switch to theirs.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: B.soft2,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 19),
+            Row(
+              children: [
+                _button('Use theirs', onUseTheirs, filled: false),
+                const SizedBox(width: 10),
+                _button('Keep mine', onKeepMine, filled: true),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ================================================== confirm dialog widget
 class _ConfirmDialog extends StatelessWidget {
   const _ConfirmDialog({
@@ -2904,3 +3371,25 @@ class _ConfirmDialog extends StatelessWidget {
 /// Top-level so [foundation.compute] can send it to a worker isolate.
 Map<String, dynamic> _jsonDecodeMap(String raw) =>
     json.decode(raw) as Map<String, dynamic>;
+
+/// The toast's tones: a coloured glyph before the message.
+enum ToastTone {
+  /// Done (✓ green).
+  success('✓', B.green),
+
+  /// Removed / discarded (– slate).
+  neutral('–', B.soft2),
+
+  /// For your information (i slate).
+  info('i', B.soft2),
+
+  /// Not yet, will retry (↻ amber).
+  retry('↻', B.amber),
+
+  /// Something went wrong (! amber).
+  alert('!', B.amber);
+
+  const ToastTone(this.glyph, this.color);
+  final String glyph;
+  final Color color;
+}

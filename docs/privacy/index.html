@@ -58,8 +58,10 @@
           </tr>
           <tr>
             <td>On-device storage</td>
-            <td>A local cache (via <code>SharedPreferences</code>) so the app works
-            offline. This stays on your device.</td>
+            <td>Per-device preferences (via <code>SharedPreferences</code>), and
+            for signed-in families no copy of your family data — it is always
+            loaded from and saved to the cloud. In local/demo mode your data is
+            kept here instead. This stays on your device.</td>
           </tr>
         </table>
         <p>We do <strong>not</strong> collect location, contacts, advertising

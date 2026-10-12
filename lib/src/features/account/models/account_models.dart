@@ -6,19 +6,11 @@ part of 'package:family_money_management_app/main.dart';
 /// load).
 const String kStorageKeyV4 = 'thrive.v4';
 
-/// Count of consecutive launches that died before boot completed:
-/// incremented at Firebase init, reset to 0 when boot finishes. Two or more
-/// in a row means the previous runs likely died on the Firestore SQLite
-/// cache feeding boot a row too big for Android's ~2MB CursorWindow (a
-/// legacy un-migrated family's single `workspace` blob), which is fatal and
-/// un-catchable from Dart — the breaker then clears the local cache so boot
-/// falls back to a clean server read. A single incomplete boot (one crash,
-/// or the user killing the app mid-boot) is forgiven: clearing on every one
-/// forced the next launch to re-read everything over the network, a
-/// multi-second cold start.
+/// Retired crash-loop breaker counter (it wiped the Firestore disk cache,
+/// which no longer exists); only removed at init now.
 const String kBootFailStreakKey = 'thrive.bootFailStreak';
 
-/// Legacy boolean predecessor of [kBootFailStreakKey]; removed at init.
+/// Retired predecessor of [kBootFailStreakKey]; removed at init.
 const String kBootIncompleteLegacyKey = 'thrive.bootIncomplete';
 
 /// Prefix for local per-workspace section keys:
@@ -249,7 +241,6 @@ class Workspace {
     List<TaskList>? taskLists,
     List<ShoppingList>? shoppingLists,
     List<CalendarEvent>? events,
-    List<CalendarEvent>? deletedEvents,
     List<EventCategory>? eventCategories,
     List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
@@ -262,7 +253,6 @@ class Workspace {
   }) : taskLists = taskLists ?? <TaskList>[],
        shoppingLists = shoppingLists ?? <ShoppingList>[],
        events = events ?? <CalendarEvent>[],
-       deletedEvents = deletedEvents ?? <CalendarEvent>[],
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
        weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
@@ -283,14 +273,7 @@ class Workspace {
   List<TaskList> taskLists;
   List<ShoppingList> shoppingLists;
 
-  /// Live calendar events. Never holds a deleted one — see [deletedEvents].
   List<CalendarEvent> events;
-
-  /// Tombstones of events a member deleted ([CalendarEvent.deletion] set)
-  /// whose deletion not every member has acknowledged yet. Hidden from every
-  /// view; kept (and synced) only so the deletion reaches every member's
-  /// device before the event's data is removed for good.
-  List<CalendarEvent> deletedEvents;
   List<EventCategory> eventCategories;
   List<ImportedCalendar> importedCalendars;
 
@@ -340,8 +323,6 @@ class Workspace {
     'taskLists': taskLists.map((l) => l.toJson()).toList(),
     'shoppingLists': shoppingLists.map((l) => l.toJson()).toList(),
     'events': events.map((e) => e.toJson()).toList(),
-    if (deletedEvents.isNotEmpty)
-      'deletedEvents': deletedEvents.map((e) => e.toJson()).toList(),
     'eventCategories': eventCategories.map((c) => c.toJson()).toList(),
     'importedCalendars': importedCalendars.map((c) => c.toJson()).toList(),
     'weeklyPlan': {
@@ -387,20 +368,20 @@ class Workspace {
       for (final l in (j['shoppingLists'] as List? ?? []))
         ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
     ];
-    // Tombstones may arrive in either list (records put every event doc in
-    // `events`); the deletion marker alone decides where each one goes.
-    final events = <CalendarEvent>[];
-    final deletedEvents = <CalendarEvent>[];
-    for (final e in [
-      ...(j['events'] as List? ?? const []),
-      ...(j['deletedEvents'] as List? ?? const []),
-    ]) {
-      final ev = CalendarEvent.fromJson(Map<String, dynamic>.from(e as Map));
-      (ev.deletion == null ? events : deletedEvents).add(ev);
-    }
-    // A deletion wins over any copy of the event edited meanwhile.
-    final deletedIds = {for (final e in deletedEvents) e.id};
-    events.removeWhere((e) => deletedIds.contains(e.id));
+    // Data saved by older versions may still hold deleted events (with a
+    // `deletion` marker, or in `deletedEvents`): those are gone for good.
+    final deletedIds = {
+      for (final e in [
+        ...(j['events'] as List? ?? const []),
+        ...(j['deletedEvents'] as List? ?? const []),
+      ])
+        if (e is Map && e['deletion'] is Map) '${e['id']}',
+    };
+    final events = <CalendarEvent>[
+      for (final e in (j['events'] as List? ?? const []))
+        if (!deletedIds.contains('${(e as Map)['id']}'))
+          CalendarEvent.fromJson(Map<String, dynamic>.from(e)),
+    ];
     final eventCategories = <EventCategory>[
       for (final c in (j['eventCategories'] as List? ?? []))
         EventCategory.fromJson(Map<String, dynamic>.from(c as Map)),
@@ -459,7 +440,6 @@ class Workspace {
       taskLists: taskLists,
       shoppingLists: shoppingLists,
       events: events,
-      deletedEvents: deletedEvents,
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,

@@ -275,6 +275,64 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       title: 'Account',
       summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
       rows: [
+        ValueListenableBuilder<int>(
+          valueListenable: pendingChangesTick,
+          builder: (context, _, _) {
+            final n = unsavedChangeCount;
+            final waiting = n > 0;
+            final ink = waiting ? B.amberText : B.greenText;
+            return _hubRow(
+              key: 'hub-pending',
+              label: 'Unsaved changes',
+              sub: 'Review what hasn’t reached Thrive',
+              lead: Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: waiting ? B.amberSoft : B.soft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: unsavedChangesGlyph(waiting ? B.amberText : B.deep),
+              ),
+              trail: Container(
+                key: const ValueKey('hub-pending-pill'),
+                height: 26,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: waiting ? B.amberSoft : B.greenSoft,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: waiting ? B.amberLine : B.greenLine,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: ink,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      waiting ? '$n unsaved' : 'All saved',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              onTap: openPendingChangesScreen,
+            );
+          },
+        ),
         _hubRow(
           key: 'hub-notifications',
           label: 'Notifications',
@@ -662,6 +720,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     bool disabled = false,
     String? disHint,
     Widget? trail,
+    Widget? lead,
   }) {
     final row = GestureDetector(
       key: ValueKey(key),
@@ -681,6 +740,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           ),
           child: Row(
             children: [
+              if (lead != null) ...[lead, const SizedBox(width: 12)],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

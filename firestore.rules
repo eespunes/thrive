@@ -6,6 +6,12 @@ service cloud.firestore {
     // Strictly owner-only.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Unsaved changes set aside after a restart, kept apart from the family
+      // data until the user applies or discards them. Owner-only.
+      match /unsavedChanges/{changeId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Shared family workspace. `memberUids` is the source of truth for access.
@@ -143,45 +149,48 @@ service cloud.firestore {
                  .data.memberUids;
       }
 
-      // Workspace container docs: `settings`, one per budget month
-      // (`budget_<y>_<month>`, month fields only), task/shopping list
-      // (`list_task_<id>`/`list_shop_<id>`, list fields only), discount card
-      // (`card_<id>`) and imported calendar (`import_<id>`). Access is exactly
-      // the parent doc's membership.
-      //
-      // Items live one-per-doc in the sibling collections below, never as
-      // arrays in here: a write that would leave an embedded item array
-      // (`blocks`, `tasks`, `items`, `weeklyPlan`, …) is rejected. That's what
-      // stops an outdated app version — which re-uploads whole arrays from its
-      // possibly stale copy — from reverting other members' edits. Deleting
-      // such legacy arrays (the one-time migration) stays allowed.
-      match /workspace/{section} {
+      // Record version (`_v`): every save bumps it by exactly 1 (or leaves it
+      // unchanged — an app version that doesn't track it), so the app can
+      // tell whether its save landed on the version it last saw and detect
+      // concurrent edits. A write may never set it backwards or skip ahead.
+      function versionOk() {
+        return !('_v' in request.resource.data)
+          || (request.resource.data._v is int
+              && request.resource.data._v
+                   - (resource == null ? 0 : resource.data.get('_v', 0))
+                 in [0, 1]);
+      }
+
+      // Every family record lives somewhere below the family doc, laid out as
+      // a readable hierarchy (see lib/src/features/account/data/cloud_records.dart):
+      //   settings/kitchen, finance/main/{accounts,blocks,recurring,months/
+      //   {ym}/{entries,recurring}}, calendar/main/{layers,categories,imports,
+      //   recurring,months/{ym}/events}, meals/{y}/months/{MM}/days/{DD},
+      //   notes/{id}/lines/{lineId}, cards/{id}.
+      // Each doc carries its `familyId` so the app can load a whole collection
+      // id with one collection-group query (rule below). A write must stamp
+      // this family's id — which also locks out outdated app versions that
+      // still write the old flat layout.
+      match /{sub}/{document=**} {
         allow read, delete: if isFamilyMember();
-        allow create, update: if isFamilyMember()
-          && !request.resource.data.keys().hasAny([
-               'blocks', 'income', 'tasks', 'items', 'months', 'cards',
-               'taskLists', 'shoppingLists', 'weeklyPlan', 'events']);
+        allow create, update: if isFamilyMember() && versionOk()
+          && request.resource.data.familyId == familyId;
       }
+    }
 
-      // One doc per budget item: `<year>_<month>_<itemId>`.
-      match /budgetItems/{itemId} {
-        allow read, write: if isFamilyMember();
-      }
-
-      // One doc per task / shopping item: `<task|shop>_<listId>_<itemId>`.
-      match /listItems/{itemId} {
-        allow read, write: if isFamilyMember();
-      }
-
-      // One doc per weekly-plan day.
-      match /weekly/{day} {
-        allow read, write: if isFamilyMember();
-      }
-
-      // One doc per calendar event (id = event id).
-      match /events/{eventId} {
-        allow read, write: if isFamilyMember();
-      }
+    // Collection-group reads of the family record collections
+    // (`collectionGroup(col).where('familyId', '==', fid)`). Writes under a
+    // family require `familyId` to be that family, so the field is
+    // trustworthy and membership of that family gates the read.
+    match /{path=**}/{col}/{id} {
+      allow read: if request.auth != null
+        && col in ['settings', 'finance', 'accounts', 'blocks', 'recurring',
+                   'months', 'entries', 'calendar', 'layers', 'categories',
+                   'imports', 'events', 'meals', 'days', 'notes', 'lines',
+                   'cards']
+        && request.auth.uid in
+             get(/databases/$(database)/documents/families/$(resource.data.familyId))
+               .data.memberUids;
     }
 
     // Public handle resolver: maps a family `username` to its `familyId` so a
