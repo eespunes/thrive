@@ -2290,7 +2290,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             // Signed in, but the families couldn't be loaded (no connection).
             if (cloudOffline && !familyLoading)
               Positioned.fill(
-                child: _CloudOfflineScreen(
+                child: CloudOfflineScreen(
                   onRetry: retryCloudConnect,
                   busy: _resolvingFamilies,
                 ),

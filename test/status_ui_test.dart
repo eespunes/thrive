@@ -114,6 +114,90 @@ void main() {
     expect(taps, 1);
   });
 
+  testWidgets('can’t connect: greyed app under the sheet; retry, then '
+      'Connecting…', (tester) async {
+    var retries = 0;
+    Widget screen(bool busy) => MaterialApp(
+      home: Scaffold(
+        body: CloudOfflineScreen(onRetry: () => retries++, busy: busy),
+      ),
+    );
+    await tester.pumpWidget(screen(false));
+    expect(find.byKey(const ValueKey('cloud-offline-screen')), findsOneWidget);
+    expect(find.text('Can’t connect to Thrive'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cloud-offline-retry')));
+    expect(retries, 1);
+
+    await tester.pumpWidget(screen(true));
+    expect(find.text('Connecting…'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('cloud-offline-retry')));
+    expect(retries, 1);
+  });
+
+  testWidgets('status sheet: secondary button and every tone render', (
+    tester,
+  ) async {
+    final taps = <String>[];
+    for (final tone in StatusTone.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => showStatusSheet(
+                  context,
+                  tone: tone,
+                  title: 'T ${tone.name}',
+                  body: 'B',
+                  primary: 'P',
+                  onPrimary: () => taps.add('p'),
+                  secondary: 'S',
+                  onSecondary: () => taps.add('s'),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.text('T ${tone.name}'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('status-sheet-secondary')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('status-sheet')), findsNothing);
+    }
+    expect(taps, List.filled(StatusTone.values.length, 's'));
+  });
+
+  testWidgets('every chip kind renders, light and dark', (tester) async {
+    for (final dark in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                for (final k in StatusChipKind.values)
+                  SizedBox(
+                    width: 260,
+                    child: StatusChip(
+                      kind: k,
+                      text: statusChipText(k),
+                      dark: dark,
+                      compact: !dark,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      for (final k in StatusChipKind.values) {
+        expect(find.text(statusChipText(k)), findsOneWidget);
+      }
+    }
+  });
+
   test('chip texts', () {
     expect(
       statusChipText(StatusChipKind.syncing, count: 3),

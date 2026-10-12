@@ -21,6 +21,46 @@ void main() {
     expect(find.byKey(const ValueKey('pending-retry')), findsNothing);
   });
 
+  testWidgets('offline: shows the offline strip; Save now tries again', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final ev = CalendarEvent(
+      id: 'offline-2',
+      title: 'Vet',
+      date: todayIso(),
+      color: const Color(0xff1684B4),
+    );
+    thriveDebug.mutateState(() => thriveDebug.events.add(ev));
+    thriveDebug.pendingChanges.record(
+      thriveDebug.familyId,
+      eventRecordKey(ev),
+      record: ev.toJson(),
+      serverRecord: null,
+      now: DateTime.now().millisecondsSinceEpoch,
+    );
+    thriveDebug.pendingChangesChanged();
+    thriveDebug.netOffline.value = true;
+    await tester.pumpAndSettle();
+
+    await openPending(tester);
+    expect(find.text('Vet'), findsOneWidget);
+    expect(
+      find.text('You’re offline — changes are kept on this phone'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('pending-retry')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      thriveDebug.toast,
+      anyOf('All changes saved', 'Couldn’t save yet — will keep trying'),
+    );
+    thriveDebug.netOffline.value = false;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('lists an unsaved change and discards it', (tester) async {
     await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
     final ev = CalendarEvent(

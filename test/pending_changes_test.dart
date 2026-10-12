@@ -231,6 +231,36 @@ void main() {
     expect(recordKindLabel(listMetaKey('L')), 'Note');
   });
 
+  test('review labels fall back to text, the meal day, then the kind', () {
+    PendingChange change(String key, Map<String, dynamic> rec) => PendingChange(
+      familyId: 'f',
+      key: key,
+      op: PendingOp.save,
+      at: 0,
+      record: rec,
+    );
+    expect(pendingChangeLabel(change(keyA, {'text': '  Milk '})), 'Milk');
+    expect(
+      pendingChangeLabel(
+        change('$kMealsCol/2026/$kMonthsCol/10/$kDaysCol/17', {}),
+      ),
+      'Saturday 17 Oct',
+    );
+    expect(
+      pendingChangeLabel(
+        change('$kMealsCol/x/$kMonthsCol/y/$kDaysCol/z', {
+          '_key': '2026-10-17',
+        }),
+      ),
+      '2026-10-17',
+    );
+    expect(
+      pendingChangeLabel(change('$kMealsCol/x/$kMonthsCol/y/$kDaysCol/z', {})),
+      'Meal plan',
+    );
+    expect(pendingChangeLabel(change(keyA, {})), 'Event');
+  });
+
   test('review labels', () {
     final c = PendingChange(
       familyId: 'f',

@@ -387,8 +387,12 @@ Future<void> showStatusSheet(
 /// Shown instead of the app when a signed-in user's families couldn't be
 /// loaded because the server is unreachable (there's no offline copy): the
 /// app's outline, greyed out and dimmed, under the "Can't connect" sheet.
-class _CloudOfflineScreen extends StatelessWidget {
-  const _CloudOfflineScreen({required this.onRetry, this.busy = false});
+class CloudOfflineScreen extends StatelessWidget {
+  const CloudOfflineScreen({
+    super.key,
+    required this.onRetry,
+    this.busy = false,
+  });
 
   final VoidCallback onRetry;
   final bool busy;
