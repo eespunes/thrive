@@ -77,7 +77,7 @@ class CalendarEvent {
   /// ISO weekday numbers (1=Mon .. 7=Sun) for custom weekly repeats.
   List<int> recurWeekdays;
 
-  /// Monthly repeat flavour (#262): `'date'` (the 28th — historical
+  /// Monthly repeat flavour (#262): `'date'` (the 28th - historical
   /// behaviour) or `'nthWeekday'` ("first Monday"). Only meaningful when
   /// [recur] is `'monthly'`; serialisation omits the fields at their
   /// defaults so old payloads round-trip unchanged.
@@ -92,7 +92,7 @@ class CalendarEvent {
   /// ISO dates removed from a recurring series (single-occurrence deletes).
   List<String> exceptions;
 
-  /// The [CalendarLayerDef.id] this event belongs to — `appt` (the default,
+  /// The [CalendarLayerDef.id] this event belongs to - `appt` (the default,
   /// preserving pre-layers behaviour), `task`, `content`, or any custom
   /// layer id. Kitchen-origin-only items may use an empty layer id because
   /// they are independent from the phone calendar.
@@ -104,7 +104,7 @@ class CalendarEvent {
   bool todo;
 
   /// Completion state for a non-recurring to-do event. For a recurring event,
-  /// completion is tracked per-occurrence in [doneDates] instead — this field
+  /// completion is tracked per-occurrence in [doneDates] instead - this field
   /// is ignored in that case. Meaningless for plain appointments but harmless.
   bool done;
 
@@ -116,7 +116,7 @@ class CalendarEvent {
   /// quick-add sheet (as opposed to the phone's event editor). Kitchen-origin
   /// items show a remove (×) control on the dashboard and can be deleted from
   /// there; phone-created items cannot (they're edited/removed from the
-  /// phone's calendar instead). Purely a UI/permission flag — kitchen-origin
+  /// phone's calendar instead). Purely a UI/permission flag - kitchen-origin
   /// events are otherwise ordinary [CalendarEvent]s, but phone calendar
   /// views skip them so kitchen-only chores remain independent.
   bool kitchenOrigin;
@@ -129,7 +129,7 @@ class CalendarEvent {
   /// Mutually exclusive with [picture] in the shared glyph picker.
   String? emoji;
 
-  /// Whether this event is a birthday/anniversary — its own display kind
+  /// Whether this event is a birthday/anniversary - its own display kind
   /// across every calendar surface (cream/amber treatment, cake glyph,
   /// never a time, sorts to the top of the day). Before this flag existed
   /// birthdays were only guessed at on the Home board via a
@@ -230,7 +230,7 @@ class CalendarEvent {
         ? j['emoji'] as String
         : null,
     // Migration: events saved before the flag existed are birthdays if they
-    // match what the Home board used to guess at — a yearly all-day event.
+    // match what the Home board used to guess at - a yearly all-day event.
     birthday:
         j['birthday'] == true ||
         (j['birthday'] == null &&
@@ -240,7 +240,7 @@ class CalendarEvent {
   );
 }
 
-/// An event category — drives colour/icon tinting across the calendar.
+/// An event category - drives colour/icon tinting across the calendar.
 class EventCategory {
   EventCategory({
     required this.id,
@@ -257,7 +257,7 @@ class EventCategory {
   String name;
   Color color;
 
-  /// The [CalendarLayerDef.id] this category is scoped to — categories are
+  /// The [CalendarLayerDef.id] this category is scoped to - categories are
   /// layer-scoped, so the event editor only offers categories whose
   /// [layerId] matches the event's selected layer. Defaults to `appt` for
   /// backward compatibility with categories saved before layer-scoping.
@@ -303,7 +303,7 @@ class EventCategory {
   );
 }
 
-/// A user-customizable calendar layer definition — drives the calendar's
+/// A user-customizable calendar layer definition - drives the calendar's
 /// layer-toggle chips/sections, the Agenda view's section order, week-strip
 /// dots and Month-view bar colours. The 3 built-ins (`appt`/`task`/
 /// `content`) are only default starter layers; they are not protected from
@@ -369,7 +369,7 @@ const String kLayerTask = 'task';
 const String kLayerContent = 'content';
 const List<String> kBuiltinLayerIds = [kLayerAppt, kLayerTask, kLayerContent];
 
-/// The 3 built-in calendar layers, in their original order/colours — used
+/// The 3 built-in calendar layers, in their original order/colours - used
 /// both as the seed for brand-new workspaces and to backfill any legacy
 /// workspace saved before layers became customizable (see
 /// `Workspace.fromJson`).
@@ -490,7 +490,7 @@ class ImportedCalendar {
   /// bank holiday reads as a day off at a glance rather than as one more bar.
   bool holidays;
 
-  /// `none` | `at` | `5m` | `15m` | `30m` | `1h` | `2h` | `1d` | `2d` — applied
+  /// `none` | `at` | `5m` | `15m` | `30m` | `1h` | `2h` | `1d` | `2d` - applied
   /// to every occurrence from this feed, since imported events don't have
   /// their own per-event reminder field.
   String reminder;

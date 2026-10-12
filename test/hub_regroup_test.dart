@@ -217,7 +217,7 @@ void main() {
     await tester.pumpAndSettle();
     // No Firebase in tests → the honest failure toast.
     expect(
-      find.text('Couldn’t send the link — try again later'),
+      find.text('Couldn’t send the link - try again later'),
       findsOneWidget,
     );
   });
@@ -230,13 +230,13 @@ void main() {
     await openHubCard(tester, 'account', 'hub-resetpw');
 
     expect(
-      find.text('You sign in with Google — no password here'),
+      find.text('You sign in with Google - no password here'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('hub-resetpw')));
     await tester.pumpAndSettle();
     expect(
-      find.text('You sign in with Google — there’s no password to reset'),
+      find.text('You sign in with Google - there’s no password to reset'),
       findsOneWidget,
     );
   });

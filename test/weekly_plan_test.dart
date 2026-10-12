@@ -6,7 +6,7 @@ import 'helpers.dart';
 
 /// Opens the FULL weekly planner (breakfast/lunch/dinner grid) on its own
 /// tab. The More hub's "Weekly plan" row now opens the compact Settings v2
-/// dinner sub-page instead (#282) — covered by its own test below.
+/// dinner sub-page instead (#282) - covered by its own test below.
 Future<void> goToWeekly(WidgetTester tester) async {
   thriveDebug.goTab('weekly');
   await tester.pumpAndSettle();

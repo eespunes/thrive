@@ -46,7 +46,7 @@ void main() {
     await openPending(tester);
     expect(find.text('Vet'), findsOneWidget);
     expect(
-      find.text('You’re offline — changes are kept on this phone'),
+      find.text('You’re offline - changes are kept on this phone'),
       findsOneWidget,
     );
 
@@ -54,7 +54,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(
       thriveDebug.toast,
-      anyOf('All changes saved', 'Couldn’t save yet — will keep trying'),
+      anyOf('All changes saved', 'Couldn’t save yet - will keep trying'),
     );
     thriveDebug.netOffline.value = false;
     await tester.pump(const Duration(seconds: 5));

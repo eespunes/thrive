@@ -4,7 +4,7 @@ part of 'package:family_money_management_app/main.dart';
 /// active members list (avatar, name, role) → full-screen member editor with
 /// name, photo/emoji/initials badge, optional email for login-less members,
 /// and colour dots that enforce family-wide uniqueness (✓ current, dimmed ×
-/// taken). No delete here — member removal lives in the family flows.
+/// taken). No delete here - member removal lives in the family flows.
 extension _ThriveMembersScreen on _ThriveHomeState {
   void openMemberColoursScreen() {
     pushSettingsPage<void>((_) => _MemberColoursScreen(state: this));
@@ -32,14 +32,14 @@ extension _ThriveMembersScreen on _ThriveHomeState {
           ..color = color
           ..photo = photo
           ..emoji = emoji;
-        // Kid profiles (#245): flips member↔kid only — an owner can never be
+        // Kid profiles (#245): flips member↔kid only - an owner can never be
         // downgraded to a kid, and only owners may change roles (never their
         // own row, so a kid can't unlock itself).
         if (kid != null && m.role != 'owner' && m.id != myId && amOwner()) {
           m.role = kid ? 'kid' : 'member';
         }
       }
-    }, 'Member saved — updated everywhere');
+    }, 'Member saved - updated everywhere');
     if (id == myId && user != null) {
       final u = user!;
       update(() {
@@ -73,10 +73,10 @@ class _MemberColoursScreen extends StatelessWidget {
           title: 'Member colours',
           subtitle: 'Each person’s identity colour',
           intro:
-              'Each member’s identity colour — used on avatars, events and '
+              'Each member’s identity colour - used on avatars, events and '
               'lists. Tap a member to edit.',
           footnote:
-              'Changing a colour updates it everywhere at once — calendar, '
+              'Changing a colour updates it everywhere at once - calendar, '
               'lists and widgets.',
           onToast: s.flash,
           children: [
@@ -100,7 +100,7 @@ class _MemberColoursScreen extends StatelessWidget {
                       : (m.role == 'kid'
                             ? 'Kid'
                             : (m.uid == null && m.email.isEmpty
-                                  ? 'No login — managed by anyone'
+                                  ? 'No login - managed by anyone'
                                   : 'Member')),
                   onTap: () => s.pushSettingsPage<void>(
                     (_) => _MemberStudio(state: s, memberId: m.id),
@@ -214,7 +214,7 @@ class _MemberStudioState extends State<_MemberStudio> {
         studioTextField(
           key: const ValueKey('member-email'),
           controller: _email,
-          hint: 'Email (optional — for members without a login)',
+          hint: 'Email (optional - for members without a login)',
         ),
         // Kid profiles (#245): the toggle moved here when the old member
         // edit sheet was retired.

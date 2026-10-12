@@ -14,7 +14,7 @@ const List<(Color, Color)> _kNotePapers = [
 /// Stable (paper, tape) for a list: a classic paper keeps its matching
 /// tape, any other colour from the app-wide picker is used as-is with a
 /// darkened tape, and a list without a colour gets a deterministic pick
-/// from its id — never random per build.
+/// from its id - never random per build.
 (Color, Color) _paperFor(String id, Color? color) {
   if (color != null) {
     for (final p in _kNotePapers) {
@@ -71,7 +71,7 @@ Widget _listChip(
 }
 
 /// "Pin a new note" / "Edit note" sheet (#305/#306): name, kind (create
-/// only), paper colour, and — when editing — the visible unpin action.
+/// only), paper colour, and - when editing - the visible unpin action.
 class _NoteSheet extends StatefulWidget {
   const _NoteSheet({
     required this.state,
@@ -266,7 +266,7 @@ class _NoteSheetState extends State<_NoteSheet> {
 }
 
 /// Line edit sheet (#315): tap a line's text to rename it, hand it to
-/// someone (incl. Anyone), or cross it off — no confirm, a 4-second Undo
+/// someone (incl. Anyone), or cross it off - no confirm, a 4-second Undo
 /// instead. Grocery lines get the same sheet minus the assignee. Also
 /// serves as the "New task" sheet for the quick-add flows.
 class _LineEditSheet extends StatefulWidget {
@@ -419,7 +419,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
 }
 
 /// "Who's on it?" sheet (#316): member chips with live open-task loads
-/// across all task notes (for fairness), plus "Anyone — first to grab it".
+/// across all task notes (for fairness), plus "Anyone - first to grab it".
 class _AssignSheet extends StatelessWidget {
   const _AssignSheet({
     required this.state,
@@ -530,7 +530,7 @@ class _AssignSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                'Anyone — first to grab it',
+                'Anyone - first to grab it',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,

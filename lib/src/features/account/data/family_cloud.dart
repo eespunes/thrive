@@ -22,13 +22,13 @@ const String kRegistryKey = 'thrive.registry';
 
 /// Stable per-device id used in place of a Firebase `uid` when running in
 /// local/offline mode (see `myId`), so every member's own row always has a
-/// real, globally-consistent id — never the ambiguous legacy `'me'` sentinel,
+/// real, globally-consistent id - never the ambiguous legacy `'me'` sentinel,
 /// which used to collide whenever two real people's rows both carried it.
 const String kLocalSelfUidKey = 'thrive.localSelfUid';
 
 /// Per-DEVICE settings (reminders switch, device-calendar mirror, widget
-/// privacy, active tab). Kept OUTSIDE the v4 blob — which cloud mode deletes
-/// on every persist — so a cloud-backed device no longer loses them on every
+/// privacy, active tab). Kept OUTSIDE the v4 blob - which cloud mode deletes
+/// on every persist - so a cloud-backed device no longer loses them on every
 /// boot. Never mirrored to the cloud user doc: they describe this device.
 const String kDevicePrefsKey = 'thrive.deviceprefs.v1';
 
@@ -65,7 +65,7 @@ const String kFamilyPasswordTooShort =
     'Password must be at least $kMinFamilyPasswordLength characters';
 
 /// v2 join-password hash: SHA-256 chained [kJoinHashIterations] times over a
-/// RANDOM per-family salt (stored on the public handle doc as `joinSalt` —
+/// RANDOM per-family salt (stored on the public handle doc as `joinSalt` -
 /// salts need to be unique, not secret, and a joining client must be able to
 /// read it before it can read the family doc). Families created before v2
 /// have no `joinSalt` on their handle and keep verifying via the legacy
@@ -121,7 +121,7 @@ Future<Workspace> buildSampleWorkspace() async {
     if (m != null) {
       // The sample budget keys income under 'income' and each expense block by
       // its category key. Income is now the income-direction block (issue #137),
-      // so it loads through the same loop — its rows carry expected/actual/
+      // so it loads through the same loop - its rows carry expected/actual/
       // received rather than amount/paid.
       for (final c in cats) {
         for (final it in (m[c.key] as List? ?? [])) {
@@ -177,7 +177,7 @@ Future<Workspace> buildSampleWorkspace() async {
     // Unlike a genuinely new family (which starts with zero calendar
     // layers, see [Workspace]'s constructor), this bundled first-launch
     // sample is deliberately pre-populated demo content (issue #119) so a
-    // brand-new install isn't an empty shell — seed the 3 legacy layers too
+    // brand-new install isn't an empty shell - seed the 3 legacy layers too
     // so the demo calendar data reads sensibly out of the box.
     calendarLayers: kDefaultCalendarLayers(),
   );
@@ -216,7 +216,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // The pure serialization/digest layer lives in workspace_sections.dart,
   // where it is unit-tested without a widget tree or a live backend.
   /// Every record of family [fid] in the collections with id [col], at any
-  /// depth (one collection-group query — see cloud_records.dart).
+  /// depth (one collection-group query - see cloud_records.dart).
   Query<Map<String, dynamic>> _recordQuery(String fid, String col) =>
       FirebaseFirestore.instance
           .collectionGroup(col)
@@ -243,8 +243,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// an offline launch must never be mistaken for "no family yet" (which
   /// would show the create/join gate to an existing member).
   ///
-  /// Membership is read from the families' own `memberUids` — the same field the
-  /// security rules treat as the source of truth — rather than the per-user
+  /// Membership is read from the families' own `memberUids` - the same field the
+  /// security rules treat as the source of truth - rather than the per-user
   /// `familyIds` mirror, which is written best-effort and could lag a create or
   /// join and strand an existing member on the onboarding gate (issue #128).
   ///
@@ -259,7 +259,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   Future<bool> _cloudBootLoad(String meUid) async {
     const server = GetOptions(source: Source.server);
-    // The user-doc read and the membership query are independent — run them
+    // The user-doc read and the membership query are independent - run them
     // concurrently to save a round-trip.
     var userDocReached = true;
     final userDataFuture = _userDocRef(meUid)
@@ -375,7 +375,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final fromCache = snap.metadata.isFromCache;
     bool inCol(String k) => recordSource(k) == col;
     // An empty CACHE answer for a collection we already hold data for is a
-    // cold/partial cache, not "everything was deleted" — wait for the server.
+    // cold/partial cache, not "everything was deleted" - wait for the server.
     if (full && fromCache && snap.docs.isEmpty && base.keys.any(inCol)) {
       return;
     }
@@ -415,7 +415,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
     }
     // Notes deleted on the server: lines still filed under them (added while
-    // the note was being deleted) are deleted too — see _localRecords.
+    // the note was being deleted) are deleted too - see _localRecords.
     for (final k in hadNotes) {
       if (!base.containsKey(k)) _goneNotes.putIfAbsent(fid, () => {}).add(k);
     }
@@ -444,7 +444,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       workspaceFromRecords(_serverView(fid));
 
   /// Applies a server-side change to [fid]: runs [mutate] (which updates the
-  /// server state), then rebases this device's in-memory workspace onto it —
+  /// server state), then rebases this device's in-memory workspace onto it -
   /// records this device didn't touch take the server's version, records
   /// with a pending local edit keep it (merged per field where both sides
   /// changed). The workspace object is only swapped when something visible
@@ -452,7 +452,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _onCloudChange(String fid, void Function() mutate) {
     final hadBase = _cloudBase.containsKey(fid);
     // A copy: [_serverView] may return the live `_cloudBase` map, which
-    // [mutate] changes in place — `before` would then equal `after` and
+    // [mutate] changes in place - `before` would then equal `after` and
     // every remote change would be ignored.
     final before = hadBase
         ? Map.of(_serverView(fid))
@@ -509,7 +509,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }
       }
       // Our unsaved edits of records another member deleted: dropped (a
-      // deletion always wins — see rebaseRecords), and the user is told.
+      // deletion always wins - see rebaseRecords), and the user is told.
       lostEdits = [
         for (final k in changed)
           if (oldBase.containsKey(k) &&
@@ -520,7 +520,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             local[k]!,
       ];
       // Deleted on the server: our pending delete is done, our pending edit
-      // is moot (a pending create stays — it's being sent).
+      // is moot (a pending create stays - it's being sent).
       for (final k in changed) {
         if (after.containsKey(k)) continue;
         final c = _pending['$fid|$k'];
@@ -571,7 +571,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Record [key] of [fid] was deleted on the server while this device's
-  /// edit ([rec]) was being saved: the deletion wins — drop it here too.
+  /// edit ([rec]) was being saved: the deletion wins - drop it here too.
   void _dropDeletedRecord(String fid, String key, Map<String, dynamic> rec) {
     _cloudBase[fid]?.remove(key);
     _cloudVersions[fid]?.remove(key);
@@ -727,7 +727,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
       final ws = _workspaceFromCloud(fid);
       loadedWorkspaces[fid] = ws;
-      // Cloud records never carry card photos (issue #234) — restore the
+      // Cloud records never carry card photos (issue #234) - restore the
       // ones this device already had from local storage.
       mergeCardPhotos(ws.cards, workspaces[fid]?.cards ?? const []);
     }
@@ -844,7 +844,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Removes a family this user no longer belongs to from local state and
-  /// falls back to the next family — or the create/join gate when it was the
+  /// falls back to the next family - or the create/join gate when it was the
   /// last one. Shared by the snapshot-based membership check below and the
   /// stream `onError` handlers (an evicted device's reads are denied by the
   /// security rules, so eviction can arrive as a permission error too).
@@ -865,12 +865,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Shared `onError` for both family streams. A stream error KILLS the
   /// subscription, so without this an evicted device (whose reads the rules
   /// now deny) kept stale data silently and every persist failed until
-  /// restart. Permission-denied means we're no longer a member — run the same
+  /// restart. Permission-denied means we're no longer a member - run the same
   /// cleanup as the snapshot-based membership check; anything else is at
   /// least surfaced instead of dying unnoticed.
   void _onFamilyStreamError(String fid, String label, Object e) {
     if (e is FirebaseException && e.code == 'permission-denied') {
-      debugPrint('[cloud] $label stream denied for $fid — dropping family');
+      debugPrint('[cloud] $label stream denied for $fid - dropping family');
       _dropFamilyLocally(fid);
       return;
     }
@@ -925,8 +925,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _cancelRecordSubs();
     try {
       // One realtime listener per record collection. EVERY snapshot is
-      // processed — including the local echo of our own pending writes,
-      // which is simply a no-op after the rebase — so the in-memory
+      // processed - including the local echo of our own pending writes,
+      // which is simply a no-op after the rebase - so the in-memory
       // workspace always converges on what Firestore holds. Only the docs
       // that changed are applied (docChanges), and they are rebased onto
       // this device's pending edits instead of overwriting them.
@@ -948,8 +948,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final data = snap.data();
         if (data == null) return;
         // We're no longer a member of this family (we left it, or an owner
-        // removed us). Drop it locally and fall back to the next family — or
-        // the create/join gate when it was our last — instead of re-adopting
+        // removed us). Drop it locally and fall back to the next family - or
+        // the create/join gate when it was our last - instead of re-adopting
         // it (issue #133).
         final uids = data['memberUids'];
         if (uids is! List || !uids.contains(meUid)) {
@@ -1039,7 +1039,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// server state it last saw ([_cloudBase] / [_metaBase]): new records are
   /// created, changed records get FIELD-LEVEL, versioned updates (so another
   /// member's edit to a different field of the same item is never
-  /// overwritten — see [_versionedUpdate]), and records deleted locally are
+  /// overwritten - see [_versionedUpdate]), and records deleted locally are
   /// deleted. Nothing this device didn't touch is ever written, so a stale
   /// device can't revert anyone's edits.
   ///
@@ -1131,7 +1131,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // Records still held by legacy docs are created by the migration.
       if (legacyPending && view.containsKey(key)) return;
       // Container docs (settings, months, accounts, cards, ...) are
-      // placeholders until their collection has loaded — never write those.
+      // placeholders until their collection has loaded - never write those.
       // A note is only ever in memory because a member pinned it, so it's
       // written right away: its lines are, and a note doc that never reached
       // the durable write queue is lost on the next restart.
@@ -1141,7 +1141,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
       // Merge-safe even when the doc exists but hasn't reached this device
       // (see createPayload), so this never waits for the collection to load
-      // — the create is sent to the server right away.
+      // - the create is sent to the server right away.
       final body = _createBody(fid, key, rec, now);
       ops.add(
         (b) => b.set(_recordRef(fid, key), body, SetOptions(merge: true)),
@@ -1154,7 +1154,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (jsonEquals(base[key], rec)) base.remove(key);
       });
     });
-    // Undone (the record is back) — no longer a delete.
+    // Undone (the record is back) - no longer a delete.
     intents.removeWhere(local.containsKey);
     // Lines left under a note another member deleted go with it.
     final unintended = unintendedDeletes(base, plan.deletes, {
@@ -1236,7 +1236,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// This device's records of [fid] ([ws]), plus lines the server holds
-  /// whose note hasn't arrived yet (see [orphanListItems]) — except lines of
+  /// whose note hasn't arrived yet (see [orphanListItems]) - except lines of
   /// a note that was deleted: those are deleted too.
   Records _localRecords(String fid, Workspace ws, [Records? view]) {
     final local = normalizedRecords(ws);
@@ -1350,7 +1350,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final label = recordLabel(mine);
     final what = label.isEmpty ? 'this item' : '\u201C$label\u201D';
     if (_conflictDialogOpen) {
-      flash('$who also changed $what — your version was saved');
+      flash('$who also changed $what - your version was saved');
       return;
     }
     _conflictDialogOpen = true;
@@ -1456,8 +1456,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     ]);
   }
 
-  /// Puts list / event records the in-memory workspace lost — without the
-  /// user deleting them — back into [fid]'s workspace, so the device shows
+  /// Puts list / event records the in-memory workspace lost - without the
+  /// user deleting them - back into [fid]'s workspace, so the device shows
   /// (and keeps) what the server still holds instead of wiping it.
   void _restoreGuardedRecords(String fid, Records local, Records lost) {
     debugPrint(
@@ -1571,7 +1571,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       _userDocRef(uid).collection(kUnsavedChangesCollection);
 
   /// Moves [uid]'s unsaved changes from a previous run (the device journal)
-  /// to their staging area in Firestore, out of the family data — nothing is
+  /// to their staging area in Firestore, out of the family data - nothing is
   /// written to the families until the user applies them (Settings →
   /// Unsaved changes). A set-aside change only ever leaves the staging area
   /// once the user reviewed it (applied or discarded); the only changes not
@@ -1748,7 +1748,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final ok = sent.isEmpty || await _persist();
     // Saved changes are now in the family's data (and, if the save failed,
     // in the device journal, retried like any other edit); changes to items
-    // deleted meanwhile are dropped — the deletion wins.
+    // deleted meanwhile are dropped - the deletion wins.
     await _dropStaged(uid, [...done, ...lost, if (ok) ...sent]);
     return StagedApplyResult(
       applied: sent.length + done.length,
@@ -1856,14 +1856,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Persists the user-doc mirror (profile, `familyIds`, active family, view
-  /// state), bounded by [kCloudOpTimeout] and swallowing failures — the
+  /// state), bounded by [kCloudOpTimeout] and swallowing failures - the
   /// canonical way to await [_writeUserDoc] anywhere an unbounded hang would
   /// block a user-visible flow (its `set()` only acks from the backend, so
   /// offline it never resolves).
   /// Originally added so a freshly created or joined family is
   /// durably recorded in Firestore before we leave the flow. This closes the gap
-  /// where an app closed right after create/join — before any edit triggered a
-  /// persist — would lose its `familyIds` and bounce the user back to the
+  /// where an app closed right after create/join - before any edit triggered a
+  /// persist - would lose its `familyIds` and bounce the user back to the
   /// onboarding gate on next launch (issue #128). Bounded by [kCloudOpTimeout]
   /// so a flaky connection can't strand the UI; the membership query in
   /// [cloudBoot] remains the backstop if this write still doesn't land.
@@ -1878,7 +1878,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Prepares every locally-held family for its first cloud persist (the
   /// local→cloud promotion in `_persist`): claims ownership/membership for
   /// [meUid], backfills usernames, rewrites any legacy literal `'me'` rows,
-  /// and — crucially — remaps this device's local pseudo-uid to the Firebase
+  /// and - crucially - remaps this device's local pseudo-uid to the Firebase
   /// [meUid] across member rows, memberUids and workspace references. The
   /// old promotion only ADDED [meUid] to `memberUids`, leaving the
   /// pseudo-uid self row behind as a ghost second member.
@@ -1911,7 +1911,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Rewrites every workspace reference to member id [from] (attendees,
-  /// creators, assignees, shopping adders) to [to] — the same reference set
+  /// creators, assignees, shopping adders) to [to] - the same reference set
   /// the legacy `'me'` migration covers.
   void _remapMemberIdInWorkspace(Workspace ws, String from, String to) {
     for (final ev in ws.events) {
@@ -1985,12 +1985,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         members: [me],
       );
       final ws = Workspace.empty();
-      // The iterated, randomly-salted password hash (v2 — see
+      // The iterated, randomly-salted password hash (v2 - see
       // [hashFamilyPasswordV2]) lives on the family doc itself, which is
       // readable ONLY by members (see firestore.rules). A non-member joining
       // proves knowledge of the password by matching this `joinHash`; they can
       // never read it, which prevents offline brute-forcing. The plaintext is
-      // NEVER persisted anywhere — only cached in memory for this session so
+      // NEVER persisted anywhere - only cached in memory for this session so
       // the "Invite someone" sheet can show what was just typed.
       final joinSalt = newJoinSalt();
       final joinHash = hashFamilyPasswordV2(password, joinSalt);
@@ -2001,7 +2001,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       try {
         // The random salt rides on the PUBLIC handle doc: a joining client
         // must derive its proof before it can read the family doc, and a salt
-        // only needs to be unique — not secret — to do its job.
+        // only needs to be unique - not secret - to do its job.
         await _familyHandleRef(slug)
             .set({'familyId': fid, 'ownerUid': meUid, 'joinSalt': joinSalt})
             .timeout(kCloudOpTimeout);
@@ -2080,7 +2080,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (mineSnap.exists && mineData != null) {
           // A migrated family's meta doc no longer carries the legacy
           // `workspace` blob, so the sections MUST be fetched before adopting
-          // — otherwise this path adopted an empty workspace, and an edit in
+          // - otherwise this path adopted an empty workspace, and an edit in
           // the following seconds could persist that emptiness over the
           // family's real shared data.
           await _fetchAllRecords([fid]);
@@ -2106,7 +2106,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // scheme is picked from the handle doc: a random `joinSalt` there means
       // the iterated v2 hash, no salt means a legacy v1 family. Our display
       // row in `members` is appended in a SECOND write below, once we ARE a
-      // member — the rules deliberately no longer let a joiner shape the
+      // member - the rules deliberately no longer let a joiner shape the
       // members array (a joiner could otherwise append themselves with an
       // impersonated identity or a fake 'owner' role before anyone knew them).
       final joinProof = joinProofFor(password, slug, handle);
@@ -2182,7 +2182,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final fam = _familyFromDoc(fid, data);
     // Our own display row is appended in a separate (best-effort, unawaited)
     // write right after the join lands, so the doc we just read may not carry
-    // it yet — add it locally rather than showing a family we're missing from.
+    // it yet - add it locally rather than showing a family we're missing from.
     if (selfRow != null && !fam.members.any((m) => m.uid == meUid)) {
       fam.members = [...fam.members, selfRow];
     }
@@ -2256,14 +2256,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return null;
     } catch (e) {
       debugPrint('[cloud] deleteFamily failed: $e');
-      return 'Could not delete the family in the cloud — it may reappear. '
+      return 'Could not delete the family in the cloud - it may reappear. '
           'Check your connection and try again.';
     }
   }
 
   /// Persists a family the signed-in user is leaving (issue #133). [fam] has
-  /// already had this user removed from `members`/`memberUids` and — when an
-  /// owner is leaving — a remaining member promoted. If no members remain the
+  /// already had this user removed from `members`/`memberUids` and - when an
+  /// owner is leaving - a remaining member promoted. If no members remain the
   /// family and its public handle are deleted; otherwise the handed-off document
   /// is written so the new owner + dropped membership are durable.
   /// Returns null on success, or a user-facing error message (see
@@ -2287,14 +2287,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return null;
     } catch (e) {
       debugPrint('[cloud] leaveFamily failed: $e');
-      return 'Could not leave the family in the cloud — it may reappear. '
+      return 'Could not leave the family in the cloud - it may reappear. '
           'Check your connection and try again.';
     }
   }
 
-  /// Detaches the signed-in user from every family — deleting any family they
+  /// Detaches the signed-in user from every family - deleting any family they
   /// are the sole member of (and its public handle) and otherwise removing only
-  /// their membership — then drops their user doc and Firebase auth account.
+  /// their membership - then drops their user doc and Firebase auth account.
   Future<void> _deleteAccountCloud(String meUid) async {
     for (final f in [...families]) {
       try {
@@ -2370,7 +2370,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Returns (creating on first use) a stable id for this device's local,
-  /// no-Firebase identity — this device's `myId` when not signed in via
+  /// no-Firebase identity - this device's `myId` when not signed in via
   /// Firebase.
   Future<String> _localSelfUid() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2463,7 +2463,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _sessionFamilyPasswords[id] = password;
     reg[slug] = {
       'username': slug,
-      // Only a salted hash is persisted — SharedPreferences is plaintext on
+      // Only a salted hash is persisted - SharedPreferences is plaintext on
       // disk, and users reuse personal passwords. The plaintext lives solely
       // in the in-memory session cache for the invite sheet.
       'passHash': hashFamilyPassword(password, _localJoinSalt(slug)),
@@ -2517,7 +2517,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     ];
     // Rewrites any legacy `'me'`-tagged row (e.g. the family's original
     // local creator, from before this fix) to its own distinct id. None of
-    // these can be us — we're not a member yet — so nothing is claimed as
+    // these can be us - we're not a member yet - so nothing is claimed as
     // [selfUid], preventing a collision with our own (already-distinct,
     // uid-based) row added below.
     _migrateLegacyMeIdsInList(fetchedMembers, selfUid, false);
@@ -2568,7 +2568,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `_migrateLegacyMeReferencesInWorkspace`).
   void _adoptActiveWorkspace() {
     // `workspaces[familyId]` IS the active state (the state accessors read
-    // through to it), so adopting only needs the legacy-`'me'` migration —
+    // through to it), so adopting only needs the legacy-`'me'` migration -
     // and regenerating the recurring copies the cloud never stores (see
     // [isDerivedSeriesCopy]): a workspace rebuilt from records lacks them.
     _migrateLegacyMeReferencesInWorkspace(_activeWs);
@@ -2579,12 +2579,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// items) that still carries the legacy literal `'me'` sentinel instead of
   /// a real, stable member id (see `myId`). Before this fix, `'me'` in shared
   /// workspace data was a *relative* token meant to resolve to "whichever
-  /// device is viewing" — but since the workspace is a single shared blob,
+  /// device is viewing" - but since the workspace is a single shared blob,
   /// this made an event/task genuinely assigned to one specific family
   /// member appear as "assigned to me" on every other member's device too.
   /// Rewriting any stray `'me'` here to this device's own real [myId]
-  /// preserves the historic (if bugged) intent — data literally created as
-  /// `'me'` was created by this device — while ensuring it never again
+  /// preserves the historic (if bugged) intent - data literally created as
+  /// `'me'` was created by this device - while ensuring it never again
   /// resolves differently depending on who's looking.
   void _migrateLegacyMeReferencesInWorkspace(Workspace ws) {
     final id = myId;
@@ -2619,13 +2619,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   /// One-time migration for family data that still carries the legacy
   /// `'me'` sentinel id (from before every member's own row always used its
-  /// real, stable id — see `myId`). When [claim] is true (the default —
+  /// real, stable id - see `myId`). When [claim] is true (the default -
   /// used when reloading/migrating a family we're already in), the first
   /// stale `'me'` row is rewritten to [meId] permanently, since a literal
   /// `'me'` there could only ever have been written by whichever single
   /// device considered itself `'me'` at the time; any *additional* stale
   /// `'me'` row (e.g. legacy data from two different devices merged into
-  /// the same doc/registry entry) is given a fresh, unique id instead —
+  /// the same doc/registry entry) is given a fresh, unique id instead -
   /// `'me'` must never resolve to more than one member, or their identities
   /// (and calendar events, tasks, etc.) merge. When [claim] is false (used
   /// right before *joining* a family, whose members can't yet include us),

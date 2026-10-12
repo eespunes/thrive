@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Kitchen-tablet wall (design `Calendar options.dc.html` §4a): a landscape,
 /// large-touch-target full-screen view with a fixed weekly-schedule panel on
-/// the left and one column per family member — each column listing the
+/// the left and one column per family member - each column listing the
 /// member's calendar events above their tickable chores. Stars are EARNED by
 /// ticking chores; five of them turn the header into a gold claim button.
 /// Stars, picture-mode overrides and kitchen-origin items all live on the
@@ -15,7 +15,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     );
   }
 
-  /// Whether [ev] is due — or, if recurring, has an occurrence — on [iso].
+  /// Whether [ev] is due - or, if recurring, has an occurrence - on [iso].
   bool _kitchenEventDueOn(CalendarEvent ev, String iso) {
     if (ev.recur == 'none') return ev.date == iso;
     return recurringEventDates(ev, iso, iso).isNotEmpty;
@@ -121,7 +121,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
           emoji: emoji,
         ),
       );
-    }, () => flash('On the wall — due today'));
+    }, () => flash('On the wall - due today'));
   }
 
   /// Attaches/clears a picture-mode emoji or photo on a kitchen-origin item.
@@ -134,7 +134,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     });
   }
 
-  /// Deletes a kitchen-origin item. A no-op for phone-created events — those
+  /// Deletes a kitchen-origin item. A no-op for phone-created events - those
   /// are only editable/removable from the phone's calendar.
   void deleteKitchenItem(String id) {
     final ev = eventById(id);
@@ -153,7 +153,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     return (completed: occ.where((o) => o.done).length, total: occ.length);
   }
 
-  /// [memberId]'s tickable chores for [iso] — kitchen-origin items plus any
+  /// [memberId]'s tickable chores for [iso] - kitchen-origin items plus any
   /// non-appointment calendar item assigned to them.
   List<CalendarOccurrence> kitchenMemberOccurrences(
     String memberId,
@@ -190,7 +190,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
     return out;
   }
 
-  /// [memberId]'s CALENDAR events for [iso] — the group that sits above the
+  /// [memberId]'s CALENDAR events for [iso] - the group that sits above the
   /// chores in their column (#332), rendered with the app's standard event
   /// anatomy. Anything already listed as a chore is skipped so nothing
   /// appears twice in one column.
@@ -335,7 +335,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
   /// rebuilds (via `mutate()`/`update()`) don't reach this route on their
   /// own. Re-deriving every occurrence/progress value from the same shared,
   /// mutated-in-place `events` on a local `setState()` keeps this screen
-  /// live — whether the change came from this tablet or from another
+  /// live - whether the change came from this tablet or from another
   /// device's cloud snapshot.
   void _refresh() {
     if (mounted) setState(() {});
@@ -842,7 +842,7 @@ class _KitchenMemberColumn extends StatelessWidget {
   final FamilyMember member;
   final String today;
 
-  /// Called after any tap on the column's content — cheap to call on every
+  /// Called after any tap on the column's content - cheap to call on every
   /// tap (not just the checkbox's) since it only triggers a `setState()` on
   /// the dashboard route to re-derive occurrences/progress from the shared,
   /// already-mutated `events` (see [_KitchenDashboardScreenState._refresh]).
@@ -922,7 +922,7 @@ class _KitchenMemberColumn extends StatelessWidget {
               key: ValueKey('kitchen-claim-${member.id}'),
               onTap: () {
                 state.claimMemberReward(member.id);
-                onToast('Reward claimed — well earned, ${member.name}! 🎉');
+                onToast('Reward claimed - well earned, ${member.name}! 🎉');
                 onOccurrenceChanged();
               },
               child: Container(
@@ -1182,7 +1182,7 @@ Widget _kitchenChip(String label, Color ink, Color bg) => Container(
   ),
 );
 
-/// Display-only star bar — stars are EARNED by ticking chores (#333), never
+/// Display-only star bar - stars are EARNED by ticking chores (#333), never
 /// set by tapping. At 5/5 the column swaps this row for the gold claim
 /// button instead.
 class _KitchenStarRow extends StatelessWidget {
@@ -1220,7 +1220,7 @@ class _KitchenStarRow extends StatelessWidget {
 }
 
 /// Picture-mode tile for pre-readers (#335): a big photo with the title
-/// small beneath. Tapping ANYWHERE toggles done — done tints the card in the
+/// small beneath. Tapping ANYWHERE toggles done - done tints the card in the
 /// member's colour, greys the image and puts a ✓ badge top-right.
 class _KitchenPictureTile extends StatelessWidget {
   const _KitchenPictureTile({
@@ -1420,7 +1420,7 @@ class _KitchenItemGlyphSheetState extends State<_KitchenItemGlyphSheet> {
 }
 
 /// "Add to the wall" (#334): assignee chips tinted in the member's colour,
-/// a REQUIRED photo step for picture-mode members (no emoji shortcut — a
+/// a REQUIRED photo step for picture-mode members (no emoji shortcut - a
 /// pre-reader needs a real photo), a title field, and "Add for today".
 class _KitchenQuickAddSheet extends StatefulWidget {
   const _KitchenQuickAddSheet({
@@ -1578,7 +1578,7 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
           ),
           if (_pictureMode)
             _sheetField(
-              'Add a photo — $_assigneeName reads pictures, not words',
+              'Add a photo - $_assigneeName reads pictures, not words',
               hasPhoto
                   ? Container(
                       key: const ValueKey('kitchen-add-photo-ready'),
@@ -1679,7 +1679,7 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
               assignee: _assignee!,
               picture: _picture,
             );
-            widget.onToast?.call('On the wall — due today');
+            widget.onToast?.call('On the wall - due today');
             Navigator.of(context).pop();
           }, enabled: _assignee != null),
         ],

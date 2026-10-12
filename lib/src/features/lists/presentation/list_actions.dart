@@ -145,7 +145,7 @@ extension _ThriveListActions on _ThriveHomeState {
           picture: picture,
         ),
       );
-    }, () => flash('Pinned — the whole family sees it'));
+    }, () => flash('Pinned - the whole family sees it'));
   }
 
   void renameTaskList(String listId, String name, Color color) {
@@ -245,7 +245,7 @@ extension _ThriveListActions on _ThriveHomeState {
         }
       },
       () {
-        if (claimed) flash('Ticked & claimed — nice one');
+        if (claimed) flash('Ticked & claimed - nice one');
       },
     );
   }
@@ -268,12 +268,12 @@ extension _ThriveListActions on _ThriveHomeState {
       },
       () {
         if (memberId == null) {
-          flash('Up for grabs — first to tick it claims it');
+          flash('Up for grabs - first to tick it claims it');
         } else if (memberId != prev) {
           final m = _memberById(memberId);
           // There's no cross-device push channel yet, so the nudge is the
           // synced avatar change; the copy still sets the expectation.
-          flash('Handed to ${m?.name ?? 'them'} — they’ll get a nudge');
+          flash('Handed to ${m?.name ?? 'them'} - they’ll get a nudge');
         }
       },
     );
@@ -329,7 +329,7 @@ extension _ThriveListActions on _ThriveHomeState {
           picture: picture,
         ),
       );
-    }, () => flash('Pinned — the whole family sees it'));
+    }, () => flash('Pinned - the whole family sees it'));
   }
 
   void renameShopList(String listId, String name, Color? color) {
@@ -440,7 +440,7 @@ extension _ThriveListActions on _ThriveHomeState {
     final n = taskList?.tasks.length ?? shopList?.items.length ?? 0;
     askDelete(
       name,
-      'It takes its $n line${n == 1 ? '' : 's'} with it — and it comes off '
+      'It takes its $n line${n == 1 ? '' : 's'} with it - and it comes off '
       'the door for the whole family.',
       () => taskList != null
           ? deleteTaskList(taskList.id)

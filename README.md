@@ -1,4 +1,4 @@
-# Thrive — Family Management App
+# Thrive - Family Management App
 
 Flutter app for managing a family's budget, calendar, lists, weekly meal plan
 and kitchen wall dashboard, shared in real time between family members.
@@ -7,7 +7,7 @@ and kitchen wall dashboard, shared in real time between family members.
 
 - Android
 - iOS
-- Web (scaffold only — used for headless smoke-testing in local/demo mode;
+- Web (scaffold only - used for headless smoke-testing in local/demo mode;
   there is no Firebase web config, so cloud sync is unavailable on web)
 
 ## Legal & Play Store compliance pages
@@ -20,7 +20,7 @@ from branch `main`, folder `/docs`). Canonical URLs:
 | --- | --- | --- |
 | Privacy Policy (#110) | https://eespunes.github.io/thrive/privacy/ | App content → Privacy policy |
 | Account deletion (#109) | https://eespunes.github.io/thrive/delete-account/ | App content → Data deletion → external URL |
-| Landing | https://eespunes.github.io/thrive/ | — |
+| Landing | https://eespunes.github.io/thrive/ | - |
 
 **Account deletion process (owner: Erik Espuñes Jubero, erik.espunyes7@gmail.com):**
 
@@ -64,7 +64,7 @@ flutter build appbundle --release
 Release builds are configured to fail fast if Firebase config or signing config
 is missing. Version numbers are bumped **automatically** by the
 `version-bump-on-main.yml` workflow after each merge to `main` (major/minor/patch
-inferred from PR labels / conventional-commit markers) — don't bump
+inferred from PR labels / conventional-commit markers) - don't bump
 `pubspec.yaml` by hand.
 
 ## Data persistence & multi-device sync
@@ -73,8 +73,8 @@ The app stores data locally in `SharedPreferences` and, when Firebase is
 configured, syncs a shared family workspace to Firestore so multiple signed-in
 users can share one budget:
 
-- `users/{uid}` — per-user profile + the families they belong to.
-- `families/{familyId}` — family metadata (name, members, join hash);
+- `users/{uid}` - per-user profile + the families they belong to.
+- `families/{familyId}` - family metadata (name, members, join hash);
   `memberUids` drives access.
 - Below `families/{familyId}`, one document per record in a readable
   hierarchy (layout documented in
@@ -91,7 +91,7 @@ users can share one budget:
   collection-group query (`where familyId == …`, indexes in
   `firestore.indexes.json`) and uploads only changed fields of changed
   records.
-- `family_handles/{username}` — public handle resolver (family username →
+- `family_handles/{username}` - public handle resolver (family username →
   `familyId`, plus the non-secret random `joinSalt`). Any signed-in user may
   `get` a handle they already know, but the collection cannot be **listed**
   (enumerated); writable only by the family owner, and only for a handle
@@ -99,7 +99,7 @@ users can share one budget:
 
 ### Family join security
 
-There are **no Cloud Functions** — all persistence is client-direct, and the
+There are **no Cloud Functions** - all persistence is client-direct, and the
 join password is verified by the Firestore **security rules**:
 
 - The family doc stores `joinHash`, readable only by members. New families use
@@ -117,8 +117,8 @@ join password is verified by the Firestore **security rules**:
 - The plaintext password is never persisted anywhere (server or device); the
   invite sheet can only show it in the session that typed it.
 
-The rules are tested against the Firestore emulator — see
-[`test/rules/`](test/rules/) — and rules changes run CI like any other change.
+The rules are tested against the Firestore emulator - see
+[`test/rules/`](test/rules/) - and rules changes run CI like any other change.
 
 ### Required Firebase setup
 
@@ -133,7 +133,7 @@ firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 > Deploy the rules **before** rolling out an app release that depends on rules
-> changes — the rules are written to stay compatible with the previous app
+> changes - the rules are written to stay compatible with the previous app
 > version so this order is always safe.
 
 5. (Recommended) Enable **Firebase App Check** in the console (Play Integrity
@@ -146,7 +146,7 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 ### Abuse hardening (console-only)
 
-The Android API key in `google-services.json` is public by design — this repo
+The Android API key in `google-services.json` is public by design - this repo
 is public, so assume it has been scraped. Rotating it does nothing; restrict it
 instead (#363):
 

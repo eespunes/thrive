@@ -183,7 +183,7 @@ String monthTitleForTest(String iso) {
 }
 
 /// The day sheet's title reads "Wed 26 Aug" now, per the approved design's
-/// `gSelTitle` — not the app's old numeric date.
+/// `gSelTitle` - not the app's old numeric date.
 String prettyDateForTest(String iso) {
   const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   final d = DateTime.parse('${iso}T00:00:00Z');
@@ -202,9 +202,9 @@ String shortDateForTest(String iso) {
 /// (epic: replace `_EventEditSheet`), so repeat/reminder/when controls live
 /// behind their ticket elements.
 /// Scrolls one of the event editor's cards into view. The editor no longer
-/// has trays to open — every card is always on the page — so this only has to
+/// has trays to open - every card is always on the page - so this only has to
 /// bring the card on screen before the test touches its controls.
-/// Scopes a text match to one editor card — the editor's live preview strip
+/// Scopes a text match to one editor card - the editor's live preview strip
 /// repeats titles, times and dates, so a bare find.text matches twice.
 Finder inEditorCard(String card, String text) => find.descendant(
   of: find.byKey(ValueKey('event-card-$card')),
@@ -480,7 +480,7 @@ void main() {
     await goToCalendar(tester);
 
     // Three inline view buttons (month / agenda / kitchen) plus the funnel
-    // filter button — no view-picker sheet any more (#344).
+    // filter button - no view-picker sheet any more (#344).
     final monthButton = find.byKey(const ValueKey('cal-view-month'));
     final agendaButton = find.byKey(const ValueKey('cal-view-agenda'));
     final kitchenButton = find.byKey(const ValueKey('cal-view-kitchen'));
@@ -607,7 +607,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToCalendar(tester);
 
-    // Every day is tinted now — ghost days (a neighbouring month's) get the
+    // Every day is tinted now - ghost days (a neighbouring month's) get the
     // faint ghost fill, in-month days a soft teal or warm weekend cream
     // (#346). The cell's surface is the Container inside its tap target.
     BoxDecoration cellDecoration(String iso) => tester
@@ -759,7 +759,7 @@ void main() {
 
     await tester.tap(find.byKey(ValueKey('cal-day-${todayIso()}')));
     await tester.pumpAndSettle();
-    expect(find.text('Nothing planned — enjoy the calm.'), findsOneWidget);
+    expect(find.text('Nothing planned - enjoy the calm.'), findsOneWidget);
     expect(find.text('＋ Add on this day'), findsOneWidget);
   });
 
@@ -771,11 +771,11 @@ void main() {
 
       await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
       await tester.pumpAndSettle();
-      expect(find.text('Nothing planned — enjoy the calm.'), findsOneWidget);
+      expect(find.text('Nothing planned - enjoy the calm.'), findsOneWidget);
       await tester.tap(find.text('＋ Add on this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
-      // The editor opens prefilled on the tapped day — its When card carries
+      // The editor opens prefilled on the tapped day - its When card carries
       // the date, dd-mm-yyyy.
       final iso = todayIso();
       expect(
@@ -932,7 +932,7 @@ void main() {
   test('weekNumberLabelForTest follows ISO-8601 week numbering', () {
     // 2026-01-01 is a Thursday, so it anchors week 1; the following Sunday
     // still belongs to week 1 and Monday starts week 2. Computed fully in
-    // UTC — mixing a local Jan 1 with the UTC date used to shift the week
+    // UTC - mixing a local Jan 1 with the UTC date used to shift the week
     // number by one for UTC+X (e.g. CET) users.
     expect(weekNumberLabelForTest('2026-01-01'), 'Week 1');
     expect(weekNumberLabelForTest('2026-01-04'), 'Week 1');
@@ -1613,7 +1613,7 @@ void main() {
     expect(find.text('Dinner'), findsWidgets);
 
     // The new category has no members assigned, so the event should have
-    // no attendees either — it must not fall back to "me".
+    // no attendees either - it must not fall back to "me".
     await openMonthEvent(tester, 'Dinner');
     expect(find.text('ATTENDEES'), findsOneWidget);
     final attendeesWrap = tester.widget<Wrap>(find.byType(Wrap));
@@ -1670,7 +1670,7 @@ void main() {
 
       // ...but the series continues: paging Month view forward a week
       // still shows it (Agenda is single-day now, so the next weekly
-      // occurrence — 7 days out — isn't reachable from its week strip).
+      // occurrence - 7 days out - isn't reachable from its week strip).
       await setCalView(tester, 'month');
       await tester.fling(
         find.byKey(const ValueKey('cal-pager-month')),
@@ -1740,7 +1740,7 @@ void main() {
       expect(find.text('Standup ↻'), findsNothing);
 
       // ...but the rest of the series keeps its original title (Agenda is
-      // single-day now, so the next weekly occurrence — 7 days out — isn't
+      // single-day now, so the next weekly occurrence - 7 days out - isn't
       // reachable from its week strip; check Month view instead).
       await setCalView(tester, 'month');
       await tester.fling(
@@ -1954,7 +1954,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      // The editor opens straight after importing — flip Location off there.
+      // The editor opens straight after importing - flip Location off there.
       await tester.tap(find.byKey(const ValueKey('imp-location')));
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('studio-save')));
@@ -2000,14 +2000,14 @@ void main() {
       await tester.pumpAndSettle();
 
       // Auto-sync is on by default: change what the feed returns, then
-      // reboot — the boot-time sync should pick up the new title.
+      // reboot - the boot-time sync should pick up the new title.
       title = 'Match day v2';
       await rebootApp(tester);
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
       expect(find.textContaining('Match day v2'), findsWidgets);
 
-      // Turn auto-sync off, change the feed again, reboot — should NOT
+      // Turn auto-sync off, change the feed again, reboot - should NOT
       // pick up the new title this time.
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
@@ -2130,7 +2130,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Fixtures'), findsWidgets);
 
-    // Removal lives inside the feed studio — its counting confirm states
+    // Removal lives inside the feed studio - its counting confirm states
     // the events disappear (#326).
     final calId = thriveDebug.importedCalendars.single.id;
     await tester.tap(find.byKey(ValueKey('imports-row-$calId')));
@@ -2234,7 +2234,7 @@ void main() {
       // Dated at the Monday start of the current week (rather than "today",
       // via Quick-Add) so every one of the strip's 7 day-cells this week has
       // an occurrence, regardless of which weekday the suite happens to run
-      // on — Agenda only ever shows one day at a time now, so multiple
+      // on - Agenda only ever shows one day at a time now, so multiple
       // occurrences are checked by tapping between strip cells instead of a
       // single all-dates-at-once list.
       final weekStart = startOfWeekForTest(todayIso());
@@ -2274,7 +2274,7 @@ void main() {
     tester,
   ) async {
     // Agenda is single-day now, so a monthly series' next occurrence (a
-    // month out) isn't reachable from the week strip — verified via
+    // month out) isn't reachable from the week strip - verified via
     // Month view paging instead, which already covers cross-month
     // recurrence expansion.
     await pumpApp(tester, landOnDefaultTab: true);
@@ -2400,7 +2400,7 @@ void main() {
 
       // Chips are on by default and tapping one switches it OFF (#349).
       // This quick-added event has no attendees at all, so no member filter
-      // can hide it — an event only disappears when every one of ITS people
+      // can hide it - an event only disappears when every one of ITS people
       // is switched off.
       await openCalFilters(tester);
       await tester.tap(find.text('Eva Janssen'));
@@ -2642,7 +2642,7 @@ void main() {
       await setCalView(tester, 'agenda');
       expect(find.textContaining('Parent evening'), findsOneWidget);
 
-      // Switching Eva off leaves Erik on — and the feed's category lists
+      // Switching Eva off leaves Erik on - and the feed's category lists
       // Erik, so its events stay visible.
       await openCalFilters(tester);
       await tester.tap(find.byKey(const ValueKey('cal-filter-member-me')));
@@ -2876,7 +2876,7 @@ void main() {
         find.descendant(of: bar, matching: find.text('▢ Take out bins')),
         findsOneWidget,
       );
-      // A to-do bar is a soft tint of the resolved event colour — here the
+      // A to-do bar is a soft tint of the resolved event colour - here the
       // assignee's, since no category is set.
       final barBox = tester.widget<Container>(bar);
       expect(
@@ -3097,13 +3097,13 @@ void main() {
       expect(find.text('Film reel'), findsOneWidget);
 
       // Turning off content too hides that occurrence, leaving only the
-      // appointment — the only remaining enabled layer.
+      // appointment - the only remaining enabled layer.
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-content')));
       await tester.pumpAndSettle();
       expect(find.text('Film reel'), findsNothing);
       expect(find.textContaining('Team sync'), findsOneWidget);
 
-      // Tapping the last remaining enabled layer's chip must be ignored —
+      // Tapping the last remaining enabled layer's chip must be ignored -
       // at least one layer always stays visible.
       await tester.tap(find.byKey(const ValueKey('cal-filter-layer-appt')));
       await tester.pumpAndSettle();
@@ -3151,7 +3151,7 @@ void main() {
               (widget.key! as ValueKey<String>).value.startsWith('cal-bar-t1-'),
         );
 
-        // Month bars are label-only now (§3a) — "▢ " marks a to-do and the
+        // Month bars are label-only now (§3a) - "▢ " marks a to-do and the
         // checkbox itself lives on the full row in the day sheet.
         expect(monthBar(), findsOneWidget);
         expect(
@@ -3174,7 +3174,7 @@ void main() {
 
     testWidgets(
       "checking one occurrence of a recurring to-do-layer event's box only "
-      'completes that date — a later occurrence stays visible, visible '
+      'completes that date - a later occurrence stays visible, visible '
       'count unchanged, and untouched (not done)',
       (tester) async {
         // Pin "today" to mid-month so today+7 stays in the same month grid and
@@ -3221,7 +3221,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Both occurrences stay on the calendar (done occurrences are
-        // never removed) — only today's picks up the done/strikethrough
+        // never removed) - only today's picks up the done/strikethrough
         // treatment, the later one is untouched.
         expect(barOn(today), findsOneWidget);
         expect(barOn(future), findsOneWidget);
@@ -3265,7 +3265,7 @@ void main() {
         await goToCalendar(tester);
 
         // An all-day event of ANY layer paints as the cell's bottom banner
-        // — a solid block of its own colour, never a dotted
+        // - a solid block of its own colour, never a dotted
         // content-only outline (§3a).
         final banner = find.byWidgetPredicate(
           (widget) =>
@@ -3386,7 +3386,7 @@ void main() {
       await goToCalendar(tester);
       await setCalView(tester, 'agenda');
 
-      // Only sections that actually have something show now — an enabled
+      // Only sections that actually have something show now - an enabled
       // but empty layer no longer renders a header + "No events yet" row
       // (#348).
       expect(find.byKey(ValueKey('agenda-appt-e1-$today')), findsOneWidget);
@@ -3676,7 +3676,7 @@ void main() {
         await goToCalendar(tester);
         await setCalView(tester, 'agenda');
 
-        // One teal dot means "this day has something" — not one dot per
+        // One teal dot means "this day has something" - not one dot per
         // layer in layer colours any more (#348).
         expect(
           find.byKey(ValueKey('cal-week-strip-dot-$today')),
@@ -3752,7 +3752,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(thriveDebug.layerFilter, contains(layerId));
 
-        // Tapping the row opens its studio, pre-filled — rename and save.
+        // Tapping the row opens its studio, pre-filled - rename and save.
         await tester.tap(find.byKey(ValueKey('layers-row-$layerId')));
         await tester.pumpAndSettle();
         expect(find.text('Edit layer'), findsOneWidget);
@@ -3772,7 +3772,7 @@ void main() {
 
         // Create a calendar event directly on the renamed "Fitness" layer
         // via the event editor's layer picker (to-do/content items are
-        // just CalendarEvents tagged with a layerId — there's no separate
+        // just CalendarEvents tagged with a layerId - there's no separate
         // Lists-driven creation flow any more).
         await goToCalendar(tester);
         await tester.tap(find.byKey(const ValueKey('quickadd-fab')));

@@ -65,13 +65,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cats-row-ec1')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Delete category — events keep their times'),
+      find.text('Delete category - events keep their times'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('studio-delete')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Its 1 event keeps its time — it just loses the badge.'),
+      find.text('Its 1 event keeps its time - it just loses the badge.'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));

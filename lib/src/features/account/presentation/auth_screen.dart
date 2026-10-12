@@ -247,7 +247,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                           ),
                           const SizedBox(height: 22),
                           const Text(
-                            'Every euro, every account — in sync for the '
+                            'Every euro, every account - in sync for the '
                             'whole family.',
                             style: TextStyle(
                               fontSize: 24,

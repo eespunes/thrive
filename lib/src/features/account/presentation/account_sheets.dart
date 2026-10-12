@@ -117,7 +117,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
   // Username suggestion / availability state (issue #121). While the user
   // hasn't touched the username field we auto-fill it with an available
   // suggestion derived from the family name; once they edit it we validate
-  // it live instead — when taken, a "use @suggestion" chip offers the next
+  // it live instead - when taken, a "use @suggestion" chip offers the next
   // free handle (#284, design `cfTaken`).
   bool _usernameEdited = false;
   Timer? _usernameDebounce;
@@ -307,7 +307,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
         studioTextField(
           key: const ValueKey('nf-name'),
           controller: _name,
-          hint: 'Family name — e.g. The Janssens',
+          hint: 'Family name - e.g. The Janssens',
           capitalization: TextCapitalization.sentences,
           textInputAction: TextInputAction.next,
           onSubmitted: (_) => _usernameFocus.requestFocus(),
@@ -459,7 +459,7 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
       Navigator.of(context).pop();
       return;
     }
-    // Inline error box per the design (`jfError`) — wrong username, wrong
+    // Inline error box per the design (`jfError`) - wrong username, wrong
     // password and already-a-member all land here.
     setState(() {
       _busy = false;
@@ -512,7 +512,7 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
         studioTextField(
           key: const ValueKey('jf-username'),
           controller: _username,
-          hint: 'Family username — e.g. smith-home',
+          hint: 'Family username - e.g. smith-home',
           textInputAction: TextInputAction.next,
           onSubmitted: (_) => _passwordFocus.requestFocus(),
           onChanged: (_) => setState(() => _error = null),

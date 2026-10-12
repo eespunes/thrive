@@ -139,7 +139,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-name-save')));
       await tester.pumpAndSettle();
       expect(
-        find.text('Name saved — mirrored to your member rows'),
+        find.text('Name saved - mirrored to your member rows'),
         findsOneWidget,
       );
     });
@@ -291,7 +291,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pumpAndSettle();
-      expect(find.text('Member saved — updated everywhere'), findsOneWidget);
+      expect(find.text('Member saved - updated everywhere'), findsOneWidget);
     });
 
     testWidgets('owner revokes an invite from the actions sheet', (
@@ -401,7 +401,7 @@ void main() {
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
       expect(find.text('NO LOGIN'), findsOneWidget);
-      expect(find.text('No login — managed by anyone'), findsOneWidget);
+      expect(find.text('No login - managed by anyone'), findsOneWidget);
 
       final added = thriveDebug.curFamily()!.members.firstWhere(
         (m) => m.name == 'Emma Bakker',
@@ -552,7 +552,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Immediately after creation the password is served from the
-        // in-memory session cache — the "Invite someone" sheet can show it.
+        // in-memory session cache - the "Invite someone" sheet can show it.
         final fam = thriveDebug.curFamily()!;
         expect(await thriveDebug.fetchFamilyPassword(fam), 'sunshine');
 
@@ -596,7 +596,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
       await openHubCard(tester, 'family', 'more-invite');
-      // Settings v2 (#273): members see the row disabled with a hint —
+      // Settings v2 (#273): members see the row disabled with a hint -
       // the invite sheet (and password reveal) is owner-only.
       await tester.tap(find.byKey(const ValueKey('more-invite')));
       await tester.pumpAndSettle();
@@ -612,7 +612,7 @@ void main() {
       // Simulates a family registry entry left over from before members
       // were externalized on write (or any other stale doc): the owner's
       // row is still literally `id: 'me'`. Joining it must not let the
-      // freshly-signed-in device collide with — and take over — that real
+      // freshly-signed-in device collide with - and take over - that real
       // member's identity.
       final reg = {
         'oldfam': {
@@ -648,7 +648,7 @@ void main() {
 
       final members = thriveDebug.curFamily()!.members;
       final meRows = members.where((m) => m.id == 'me').toList();
-      // Exactly one row resolves to `'me'` — the signed-in device itself —
+      // Exactly one row resolves to `'me'` - the signed-in device itself -
       // never the pre-existing owner.
       expect(meRows, hasLength(1));
       expect(meRows.single.name, 'Eva Janssen');
@@ -771,7 +771,7 @@ void main() {
       'corrupted JSON',
       (tester) async {
         // A corrupted/unparsable `thrive.registry` value (e.g. from a
-        // partial write) must not crash the app — loadRegistry() should
+        // partial write) must not crash the app - loadRegistry() should
         // swallow the decode error and behave as if no families exist.
         await pumpApp(
           tester,

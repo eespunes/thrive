@@ -4,7 +4,7 @@ const String kStorageKey = 'thrive.v3';
 const String kDefaultAccountKey = 'shared';
 
 /// Reserved key for the block that legacy `MonthData.income` entries migrate
-/// into (issue #137 — income is now just a block whose [Category.isIncome] is
+/// into (issue #137 - income is now just a block whose [Category.isIncome] is
 /// true). Kept stable so the migration in [MonthData.fromJson] and the income
 /// category injected on load line up.
 const String kIncomeBlockKey = 'income';
@@ -130,7 +130,7 @@ class Category {
   int? ownerMonthIdx;
 
   /// Whether this block *receives* money (income) rather than withdrawing it
-  /// (a normal expense). Issue #137 — income is just a block with a direction.
+  /// (a normal expense). Issue #137 - income is just a block with a direction.
   bool isIncome;
 
   /// Whether this block's amounts count towards savings in the statistics
@@ -244,23 +244,23 @@ class ExpenseItem {
   /// this item's resolved day moves off a Saturday/Sunday, and which way.
   /// `'none'` keeps the marker's day as-is, `'before'` moves to the last
   /// working day before the weekend (typical for salary), `'after'` moves to
-  /// the first working day after. Derived at render time — the stored
+  /// the first working day after. Derived at render time - the stored
   /// [marker] always stays the day the user actually meant (e.g. "24th").
   String shift;
 
   /// Discount card this item is (to be) paid with (epic #222). May point at
-  /// a card that was since deleted — the editor then shows the dangling
+  /// a card that was since deleted - the editor then shows the dangling
   /// "Card deleted" state until the user unlinks or repicks (#297).
   String? cardId;
 
   /// Day of the month this entry posts on (#288), replacing the free-text
-  /// [marker]. `null` means unscheduled — kept off the calendar and out of
+  /// [marker]. `null` means unscheduled - kept off the calendar and out of
   /// the projection (#290). [marker] is still written (derived) so older app
   /// versions in the same family workspace keep parsing a day.
   int? day;
 
   /// One-time "review" flag for legacy dayless income that the migration
-  /// kept on day 1 (#290) — the editor points it out once, then clears it.
+  /// kept on day 1 (#290) - the editor points it out once, then clears it.
   bool reviewDay;
 
   /// Transient (never serialized): true when the loaded JSON predates the
@@ -275,7 +275,7 @@ class ExpenseItem {
   bool exception;
 
   /// Member id of whoever created the entry (#300). Null on entries that
-  /// predate the field — rendered as "—".
+  /// predate the field - rendered as "-".
   String? createdBy;
 
   /// ISO date (yyyy-MM-dd) the entry was created (#300).
@@ -333,7 +333,7 @@ class ExpenseItem {
 
   factory ExpenseItem.fromJson(Map<String, dynamic> j) {
     // Issue #185: recurring propagation is now the default. Items saved
-    // before this field existed have no `recurring` key at all — migrate
+    // before this field existed have no `recurring` key at all - migrate
     // those to `true`. Items saved after this change always carry an
     // explicit `true`/`false`, so an intentional opt-out is preserved.
     final recurring = j.containsKey('recurring')
@@ -365,7 +365,7 @@ class ExpenseItem {
       cardId: (j['cardId'] as String?)?.trim().isNotEmpty == true
           ? (j['cardId'] as String).trim()
           : null,
-      // #288 migration: pre-migration items have no `day` key — parse the
+      // #288 migration: pre-migration items have no `day` key - parse the
       // free-text marker once ("24th" → 24); unparseable ("-", "") becomes
       // unscheduled. Post-migration items always carry the key, so an
       // explicit null (unscheduled) is preserved.
@@ -406,12 +406,12 @@ class MonthData {
   List<Account>? accountsSnapshot;
   List<String> seriesStops;
 
-  /// Series ids skipped in just this month (#293 "Skip this month only") —
+  /// Series ids skipped in just this month (#293 "Skip this month only") -
   /// the occurrence is removed and [_syncRecurringSeries] won't regenerate
   /// it, while the series continues in later months.
   List<String> seriesSkips;
 
-  /// Start balance on the 1st of this month (issue #199 — Money calendar).
+  /// Start balance on the 1st of this month (issue #199 - Money calendar).
   /// The running-balance projection and its lowest point are counted from
   /// here.
   double open;
@@ -513,7 +513,7 @@ List<Category> ensureIncomeCategory(
 /// One-time migration for legacy dayless income (#290): income used to be
 /// silently posted on day 1 by the Money calendar. The projection no longer
 /// assigns day 1 implicitly, so existing income entries whose marker carried
-/// no day keep their historical day 1 explicitly — flagged `reviewDay` so
+/// no day keep their historical day 1 explicitly - flagged `reviewDay` so
 /// the editor asks the user to confirm or unschedule it, once. Runs on every
 /// load; a no-op once all items carry an explicit day. Mutates [data].
 void migrateDaylessIncome(

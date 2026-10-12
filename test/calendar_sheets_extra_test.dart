@@ -18,7 +18,7 @@ Future<void> _openEditor(WidgetTester tester) async {
 }
 
 /// Scrolls one of the event editor's cards into view. The editor no longer
-/// has trays to open — every card is always on the page — so this only has to
+/// has trays to open - every card is always on the page - so this only has to
 /// bring the card on screen before the test touches its controls.
 Future<void> _openTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
@@ -223,7 +223,7 @@ void main() {
     expect(find.text('Work'), findsWidgets);
     expect(find.textContaining('1 member'), findsOneWidget);
 
-    // Delete from inside the studio — the counting confirm spells out that
+    // Delete from inside the studio - the counting confirm spells out that
     // events keep their times.
     await tester.tap(find.byKey(ValueKey('cats-row-${cat.id}')));
     await tester.pumpAndSettle();

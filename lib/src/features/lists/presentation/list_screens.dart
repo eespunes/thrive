@@ -65,7 +65,7 @@ TextStyle _lineTextStyle(bool done, _NoteInk n) => TextStyle(
 );
 
 /// The Lists tab as a fridge door (epic #302–#319): one scrolling wall of
-/// taped-up sticky notes — every line lives on its note; there are no
+/// taped-up sticky notes - every line lives on its note; there are no
 /// detail screens. One tap zone per verb: checkbox ticks, text edits,
 /// avatar assigns, ✎ edits the note.
 extension _ThriveListScreens on _ThriveHomeState {
@@ -116,7 +116,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     }
 
     // Deferred note builders so the builder-list only materialises what's
-    // on screen — a wall can hold 10+ notes with 50-line notes (#309).
+    // on screen - a wall can hold 10+ notes with 50-line notes (#309).
     // Task notes always precede shopping notes; a long-press drag re-pins
     // a note within its own kind.
     final notes = <(String kind, String id, Widget Function() w)>[];
@@ -170,7 +170,7 @@ extension _ThriveListScreens on _ThriveHomeState {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'Nothing with your name on it — or up for grabs.',
+                'Nothing with your name on it - or up for grabs.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12.5,
@@ -192,7 +192,7 @@ extension _ThriveListScreens on _ThriveHomeState {
     );
   }
 
-  /// List order / By person — a per-member preference; shopping
+  /// List order / By person - a per-member preference; shopping
   /// notes ignore it (#317).
   Widget _sortChips() {
     Widget chip(String key, String label) {
@@ -314,7 +314,7 @@ extension _ThriveListScreens on _ThriveHomeState {
       lines: [for (final it in rows) _shopLine(list, it, ink)],
       addLine: _NoteAddLine(
         key: ValueKey('note-add-${list.id}'),
-        hint: 'add — try “5x milk”',
+        hint: 'add - try “5x milk”',
         ink: ink,
         focusNode: list.id == openShopList ? shopQuickAddFocus : null,
         onAdd: (v) => addShopItem(list.id, v),

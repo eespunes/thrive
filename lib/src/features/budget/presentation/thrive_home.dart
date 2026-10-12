@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Root screen — a faithful Flutter port of the Thrive design `Component`.
+/// Root screen - a faithful Flutter port of the Thrive design `Component`.
 /// Holds all app state and renders the three screens (overview, stats,
 /// settings) plus the segmented header switcher.
 class ThriveHome extends StatefulWidget {
@@ -170,7 +170,7 @@ class ThriveDebugController {
 
   void deleteExpense(String catKey, String id) => _s.deleteExpense(catKey, id);
 
-  /// Session-only sync-failure markers for imported calendars (#330) — lets
+  /// Session-only sync-failure markers for imported calendars (#330) - lets
   /// tests drive the hub's amber "N failing" value without a real network.
   Set<String> get failedImportIds => _s.failedImportIds;
   void markImportFailed(String id) =>
@@ -349,19 +349,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   int year = 2026;
   int monthIdx = 5;
   String screen =
-      'overview'; // overview | calendar | list | stats — Finance tab's sub-view
+      'overview'; // overview | calendar | list | stats - Finance tab's sub-view
   String tab =
       'home'; // home | calendar | lists | finance | more | weekly | finsettings
-  String flowView = 'calendar'; // calendar | timeline — Money calendar sub-view
+  String flowView = 'calendar'; // calendar | timeline - Money calendar sub-view
 
   // Settings hub (#272): which card is expanded (one at a time, remembered
-  // for the session), plus session-local "future" toggles — visible homes
+  // for the session), plus session-local "future" toggles - visible homes
   // for not-yet-implemented preferences, never persisted.
   String? hubOpenCard;
   bool futureDark = false;
 
   /// Imported calendars whose last sync attempt failed this session (#330):
-  /// drives the hub's amber "N failing" value. Session-only — the data model
+  /// drives the hub's amber "N failing" value. Session-only - the data model
   /// is unchanged; a successful sync clears the id again.
   final Set<String> failedImportIds = <String>{};
 
@@ -381,7 +381,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // The [Workspace] in `workspaces[familyId]` is the SINGLE owner of this
   // data; these accessors read/write through to it. They used to be plain
   // fields aliasing the workspace's lists, which meant every family
-  // switch/leave/restore had to re-point 14 fields by hand — forgetting one
+  // switch/leave/restore had to re-point 14 fields by hand - forgetting one
   // (as the leave-family flow did) silently leaked one family's data into
   // another and uploaded it to the wrong family's cloud workspace.
   Workspace get _activeWs => workspaces.putIfAbsent(familyId, Workspace.empty);
@@ -417,7 +417,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<DiscountCard> get cards => _activeWs.cards;
   set cards(List<DiscountCard> v) => _activeWs.cards = v;
 
-  /// This member's Home board (epic #223) — PER-USER view state, stored on
+  /// This member's Home board (epic #223) - PER-USER view state, stored on
   /// the user profile, not the family. `null` means "never edited" (renders
   /// [defaultHomeBoard]); an explicit empty list is a deliberately emptied
   /// board and stays empty (issue #235).
@@ -435,7 +435,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Fridge-door wall view state (#317/#318). Per-member preferences: they
   /// persist to SharedPreferences keyed by member, never to the family
-  /// workspace — my sort order and folded notes are mine alone.
+  /// workspace - my sort order and folded notes are mine alone.
   String listSort = 'list'; // list | due | who
   final Set<String> foldedNotes = <String>{};
   String? _listPrefsLoadedFor;
@@ -447,7 +447,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   List<String> calCatFilter = []; // category id multi-filter
   List<String> layerFilter = ['appt', 'task', 'content']; // enabled layers
   /// The sections this person picked for their bottom bar (#365). Per-user,
-  /// never per-family — two members of one family have independent bars.
+  /// never per-family - two members of one family have independent bars.
   /// null means "never customised", which reads as [kDefaultNavTabs].
   List<String>? navTabs;
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
@@ -460,7 +460,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String? swipedId;
 
   /// Toast text streams through a notifier so showing/hiding it repaints only
-  /// the toast overlay via its ValueListenableBuilder — a `flash()` used to
+  /// the toast overlay via its ValueListenableBuilder - a `flash()` used to
   /// trigger two full-tree setState rebuilds per toast.
   final ValueNotifier<String?> _toastNotifier = ValueNotifier<String?>(null);
   String? get toast => _toastNotifier.value;
@@ -468,12 +468,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Write-status pill on the Settings v2 sub-page headers (#283): every
   /// mutation blips "Saving…" → "Saved ✓" once the server acknowledged it,
-  /// or "Not saved — offline" when it didn't (there is no offline queue).
+  /// or "Not saved - offline" when it didn't (there is no offline queue).
   final ValueNotifier<SettingsSyncStatus?> syncStatus =
       ValueNotifier<SettingsSyncStatus?>(null);
 
   /// Whether the last cloud save failed (offline / timed out / rejected):
-  /// flips the sync pill to "Not saved — offline" and shows the amber
+  /// flips the sync pill to "Not saved - offline" and shows the amber
   /// "Not saved" banners; cleared by the next successful save (retried with
   /// backoff). Always false in local/demo mode, where SharedPreferences
   /// writes are the durable store.
@@ -482,8 +482,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Timer? _syncClearTimer;
 
   /// Design `syncBlip()`: "Saving…" now; after 600 ms it settles to
-  /// "Saved ✓" — but only once the save was actually acknowledged (a save
-  /// still in flight settles when it finishes) — or "Not saved" when it
+  /// "Saved ✓" - but only once the save was actually acknowledged (a save
+  /// still in flight settles when it finishes) - or "Not saved" when it
   /// failed. Clears 1800 ms after settling.
   void syncBlip() {
     if (!mounted) return;
@@ -554,7 +554,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   String? _boundFamilyId;
 
   /// Per-family normalized copy of every workspace record the server (or the
-  /// local Firestore cache, which includes our own queued writes) holds —
+  /// local Firestore cache, which includes our own queued writes) holds -
   /// record key `<collection>/<docId>` → payload (see cloud_records.dart).
   /// It's the "last version this device knew": a persist writes only the
   /// fields where the in-memory workspace differs from it, and an incoming
@@ -578,7 +578,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Per-family guarded record keys (events, notes, lines) the user
   /// explicitly deleted and not yet deleted on the server. Only these may be
-  /// removed from the server — anything else missing locally is a sync
+  /// removed from the server - anything else missing locally is a sync
   /// glitch and is restored (see `unintendedDeletes`).
   final Map<String, Set<String>> _deleteIntents = {};
 
@@ -587,7 +587,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   final Map<String, Set<String>> _goneNotes = {};
 
   /// Changes not yet confirmed by the server (persisted on the device, so
-  /// they survive a restart) — reviewable in Settings → Unsaved changes.
+  /// they survive a restart) - reviewable in Settings → Unsaved changes.
   PendingChanges _pending = PendingChanges();
 
   /// Unsaved changes from a previous run, set aside in the user's staging
@@ -647,7 +647,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Timer? _saveRetryTimer;
   int _saveFailures = 0;
 
-  /// Debounce for refreshing the Android home-screen widgets (issue #252) —
+  /// Debounce for refreshing the Android home-screen widgets (issue #252) -
   /// the save itself is immediate.
   Timer? _widgetPushTimer;
 
@@ -668,7 +668,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Map<String, Workspace> workspaces = {};
 
   // In-memory-only cache of a family join password, kept only for the
-  // session that just typed it (create/join). Never persisted — cloud
+  // session that just typed it (create/join). Never persisted - cloud
   // families store only a salted hash server-side, and this avoids adding a
   // new persistent field just to remember a plaintext password. Keyed by
   // family id so switching families doesn't leak the wrong one.
@@ -733,7 +733,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   /// Back in the foreground: everything is reloaded from the server (there
-  /// is no offline copy — another member may have changed anything while we
+  /// is no offline copy - another member may have changed anything while we
   /// were away), dead streams are re-subscribed, an unsaved edit is retried,
   /// and subscribed (auto-sync) ICS imports are refreshed.
   @override
@@ -761,7 +761,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
   // coverage:ignore-end
 
-  /// Saves are immediate, so nothing is ever waiting on a timer — only the
+  /// Saves are immediate, so nothing is ever waiting on a timer - only the
   /// home-screen widget refresh is (issue #252): run it now, before the OS
   /// can kill the app.
   void _flushPersist() {
@@ -827,7 +827,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Marks boot complete: shows the shell, re-derives pending reminders and
   /// consumes any notification deep link that launched the app. Every boot
-  /// path must end through here — the ritual used to be copy-pasted per path
+  /// path must end through here - the ritual used to be copy-pasted per path
   /// and was easy to miss when adding a new one.
   void _finishBoot() {
     setState(() => ready = true);
@@ -837,7 +837,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Decodes a JSON object off the main isolate when it's big. A legacy
   /// un-migrated state blob can run multi-MB; decoding that synchronously
-  /// stalls the first frame. Small payloads decode inline — an isolate
+  /// stalls the first frame. Small payloads decode inline - an isolate
   /// round-trip costs more than the decode itself.
   Future<Map<String, dynamic>> _decodeJsonMap(String raw) async {
     if (raw.length < 64 * 1024) {
@@ -850,7 +850,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     _syncUserFromFirebaseAuth();
     _localSelfUidCache = await _localSelfUid();
-    // Per-device settings restore on EVERY boot path — cloud boots have no
+    // Per-device settings restore on EVERY boot path - cloud boots have no
     // v4 blob to carry them, and a local v4 restore later simply re-applies
     // the same values.
     _restoreDevicePrefs(prefs);
@@ -891,9 +891,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           );
           if (!mounted) return;
           _finishBoot();
-          // The local→cloud promotion — EVERY local family pushed (not just
+          // The local→cloud promotion - EVERY local family pushed (not just
           // the active one), the local pseudo-uid remapped to the Firebase
-          // uid, and local copies deleted only after the writes are queued —
+          // uid, and local copies deleted only after the writes are queued -
           // lives in [_persist]'s cloud branch, shared with the mid-session
           // sign-in path.
           await _persist();
@@ -985,7 +985,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     ]);
   }
 
-  /// Mirrors events into the Android system calendar — or clears the mirror
+  /// Mirrors events into the Android system calendar - or clears the mirror
   /// while the sync preference is off.
   void _syncDeviceCalendar() => DeviceCalendarSync.instance.syncEvents(
     deviceCalendarSyncEnabled ? events : const <CalendarEvent>[],
@@ -1000,7 +1000,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     flash(
       notificationsEnabled
           ? 'Reminders back on'
-          : 'Reminders off — nothing will ring',
+          : 'Reminders off - nothing will ring',
     );
   }
 
@@ -1044,8 +1044,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// This device's stable, globally-unique identity: the signed-in Firebase
   /// `uid` when cloud-backed, otherwise the persisted local pseudo-uid (see
   /// `_localSelfUid`). Every `FamilyMember` row that represents "you" uses
-  /// this as its `id` — there is no more `'me'` sentinel/alias, so the same
-  /// member row (and anything it authors — calendar attendees, task
+  /// this as its `id` - there is no more `'me'` sentinel/alias, so the same
+  /// member row (and anything it authors - calendar attendees, task
   /// assignees, etc.) resolves to the same real person on every device that
   /// shares the family, instead of ambiguously to "whoever's looking".
   /// Falls back to the legacy `'me'` sentinel only in the instant before
@@ -1083,7 +1083,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     workspaces.addAll(sectionWorkspaces);
     if (families.isNotEmpty && workspaces.isEmpty) {
       // A slim blob whose section keys are gone would silently resurrect
-      // every family with an empty workspace — and the next persist would
+      // every family with an empty workspace - and the next persist would
       // cement that loss. Fail the restore loudly instead.
       throw StateError('v4 blob lists families but no workspace was found');
     }
@@ -1130,7 +1130,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           Account.fromJson(Map<String, dynamic>.from(a as Map)),
       ];
     }
-    // Never allow an empty account list — downstream lookups assume at least
+    // Never allow an empty account list - downstream lookups assume at least
     // one account exists.
     if (accounts.isEmpty) accounts = defaultAccounts();
     if (saved['cats'] is List) {
@@ -1157,7 +1157,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Resolves `screen` (Finance tab's overview/stats sub-view) and `tab`
   /// (top-level nav) from a saved blob. `rawTab` is null for saves written
   /// before the 5-tab nav existed (or the v3 store, which never had a
-  /// concept of tabs) — in that case a legacy `screen: 'settings'` lands on
+  /// concept of tabs) - in that case a legacy `screen: 'settings'` lands on
   /// the More hub (its finance rows now open the Settings v2 sub-screens),
   /// and any other legacy screen keeps the user on the Finance tab where
   /// they left off instead of dropping them onto the new Home placeholder.
@@ -1210,7 +1210,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     return restored.isEmpty ? null : restored;
   }
 
-  /// A persisted id list as-is — an empty/missing value stays empty, which
+  /// A persisted id list as-is - an empty/missing value stays empty, which
   /// for [calFilter]/[calCatFilter] means "nothing switched off".
   List<String> _savedIdList(Object? raw) => <String>[
     for (final id in (raw as List? ?? const []))
@@ -1237,7 +1237,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   final Map<String, Map<String, String>> _localWsDigests = {};
 
   /// Saves the current state now: to Firestore when signed in (each create /
-  /// edit / delete goes to the server immediately — there is no local copy),
+  /// edit / delete goes to the server immediately - there is no local copy),
   /// else to local storage. Saves never overlap: one requested while another
   /// is in flight runs once right after it (coalescing a burst of edits).
   /// Completes with whether everything was saved.
@@ -1314,13 +1314,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // Per-DEVICE settings (reminders, device-calendar mirror, widget privacy,
     // active tab) live under their own small key on every persist. They never
     // ride the cloud user doc and are never deleted by the cloud-mode local
-    // wipe below — before this, they only lived inside the v4 blob, which
+    // wipe below - before this, they only lived inside the v4 blob, which
     // cloud mode deletes, so they silently reset on every cloud boot.
     await _persistDevicePrefs(prefs);
     if (_cloudBacked) {
       // Never push an EMPTY family set to the cloud. An empty in-memory
-      // `families` only occurs transiently — during sign-in (before cloudBoot
-      // has loaded them) and during sign-out (after they're cleared) — and
+      // `families` only occurs transiently - during sign-in (before cloudBoot
+      // has loaded them) and during sign-out (after they're cleared) - and
       // writing `familyIds: []` then would wipe the account's membership and
       // strand it on the onboarding gate next login (issue #128). Deliberate
       // "leave/delete my last family" flows update the user doc on their own.
@@ -1335,7 +1335,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         // this is the local→cloud promotion (fresh boot with a signed-in
         // user, or a mid-session sign-in). cloudPersist only writes the
         // ACTIVE family's docs, so pushing it and wiping local storage used
-        // to lose every OTHER local family forever — their ids lingered in
+        // to lose every OTHER local family forever - their ids lingered in
         // the user doc's `familyIds` with no `families/{id}` doc behind
         // them. Promote ALL of them (after remapping this device's local
         // pseudo-uid to the Firebase uid so the pre-sign-in "you" doesn't
@@ -1349,7 +1349,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       } else {
         if (!await _pushCloudState()) return false;
       }
-      // Delete the local copies only NOW — after the cloud writes committed
+      // Delete the local copies only NOW - after the cloud writes committed
       // (or were durably queued by the SDK's offline persistence). Deleting
       // first meant a failed/never-run cloud write destroyed the only copy.
       await prefs.remove(kStorageKeyV4);
@@ -1362,7 +1362,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // Sections FIRST, the slim meta blob last: if the process dies between
     // the two, the previous v4 (possibly still carrying legacy embedded
     // workspaces) remains loadable. The reverse order could leave a slim
-    // blob with no sections — losing every workspace. And only slim the
+    // blob with no sections - losing every workspace. And only slim the
     // blob once every section landed: a partially-migrated section set with
     // a slimmed blob would silently drop the failed sections.
     final ok = await _persistLocalWorkspaces(prefs);
@@ -1372,7 +1372,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     // Local/demo shared families: keep the registry's mirror of each
     // family current (issue: another local user who joined only ever saw
     // the workspace as it was at creation time). Best-effort: the registry
-    // embeds whole workspaces and can hit the web localStorage quota — the
+    // embeds whole workspaces and can hit the web localStorage quota - the
     // primary v4/section writes above are already safe.
     try {
       await _refreshLocalRegistry();
@@ -1390,7 +1390,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     'deviceCalendarSync': deviceCalendarSyncEnabled,
   };
 
-  /// Writes the per-device settings under [kDevicePrefsKey] — a key that
+  /// Writes the per-device settings under [kDevicePrefsKey] - a key that
   /// survives the cloud-mode wipe of v4/section storage.
   Future<void> _persistDevicePrefs(SharedPreferences prefs) async {
     try {
@@ -1416,7 +1416,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       final t = (m['tab'] ?? '').toString();
       if (kValidTabs.contains(t)) tab = t;
     } catch (_) {
-      /* corrupt prefs — keep the defaults */
+      /* corrupt prefs - keep the defaults */
     }
   }
 
@@ -1427,7 +1427,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   ///
   /// Returns whether EVERY section landed. During the one-time migration
   /// the legacy blob and the sections briefly coexist, which can overflow
-  /// web localStorage's quota — on a write failure the legacy blob is
+  /// web localStorage's quota - on a write failure the legacy blob is
   /// slimmed early to free its space and the write retried; if a section
   /// still can't be written, `false` keeps the caller from slimming a blob
   /// that is that section's only remaining copy.
@@ -1501,7 +1501,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         (byFam[fid] ??= {})[section] = map;
         (_localWsDigests[fid] ??= {})[section] = sectionDigest(map);
       } catch (_) {
-        /* skip a corrupt section — the rest of the workspace still loads */
+        /* skip a corrupt section - the rest of the workspace still loads */
       }
     }
     final out = <String, Workspace>{};
@@ -1520,7 +1520,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       'tab': tab,
       'layerFilter': layerFilter,
       if (navTabs != null) 'navTabs': navTabs,
-      // Per-user, never family-wide (#349) — which members/categories this
+      // Per-user, never family-wide (#349) - which members/categories this
       // person has switched off on their own calendar.
       if (calFilter.isNotEmpty) 'calFilter': calFilter,
       if (calCatFilter.isNotEmpty) 'calCatFilter': calCatFilter,
@@ -1579,7 +1579,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     cb?.call();
   }
 
-  /// Saves an edit right away ([_persist] — bursts coalesce while a save is
+  /// Saves an edit right away ([_persist] - bursts coalesce while a save is
   /// in flight) and refreshes the Android home-screen widgets shortly after
   /// (issue #252).
   void _schedulePersist() {
@@ -1781,7 +1781,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           if (month == null) continue;
           if (month.closed) continue;
           // #293 "Skip this month only": the occurrence was removed for just
-          // this month — don't regenerate it, but keep the series going.
+          // this month - don't regenerate it, but keep the series going.
           if (month.seriesSkips.contains(seriesId)) continue;
           final existing = occurrences
               .where((o) => o.year == yr && o.monthIdx == mIdx)
@@ -1980,7 +1980,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     mutate(() {
       final arr = data[year]?[kMonthKeys[monthIdx]]?.blocks[catKey];
       // An empty/missing block can happen when a concurrent snapshot replaced
-      // this month between render and tap — `arr.first` as an orElse would
+      // this month between render and tap - `arr.first` as an orElse would
       // itself throw on an empty list.
       if (arr == null) return;
       for (final it in arr) {
@@ -2212,7 +2212,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         !_resolvingFamilies &&
         !_cloudUnreachable;
     // The nav bar + FAB only make sense once the budget/family gates are
-    // all clear — same condition every gate below uses.
+    // all clear - same condition every gate below uses.
     final shellReady =
         ready &&
         !authOpen &&
@@ -2559,7 +2559,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                               color: isCalendar ? B.primary : B.muted,
                             ),
                           ],
-                          // A past month is view-only — say so quietly
+                          // A past month is view-only - say so quietly
                           // right next to the month label (design §2a).
                           if (isCalendar && calendarMonthIsPast) ...[
                             const SizedBox(width: 7),
@@ -3050,7 +3050,7 @@ class _Compute {
   /// Income-direction blocks, kept separate for the overview's income section.
   Iterable<_BlockCompute> get incomeBlocks => blocks.where((b) => b.isIncome);
 
-  /// Withdrawing (expense) blocks — everything that is not income.
+  /// Withdrawing (expense) blocks - everything that is not income.
   Iterable<_BlockCompute> get expenseBlocks => blocks.where((b) => !b.isIncome);
 }
 
@@ -3224,7 +3224,7 @@ class _SaveConflictDialog extends StatelessWidget {
             const SizedBox(height: 7),
             const Text(
               'You both changed the same thing at the same time. Your version '
-              'was saved — keep it, or switch to theirs.',
+              'was saved - keep it, or switch to theirs.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,

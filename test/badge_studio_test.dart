@@ -88,12 +88,12 @@ void main() {
                       saveEnabled: true,
                       onSave: () {},
                       deleteLabel:
-                          'Delete layer — its events move to another layer',
+                          'Delete layer - its events move to another layer',
                       onDelete: () => showCountingConfirmSheet(
                         ctx,
                         title: 'Delete "Workouts"?',
                         message:
-                            'It takes its 4 events with it — they move to '
+                            'It takes its 4 events with it - they move to '
                             'another layer.',
                         confirmLabel: 'Delete layer',
                         onConfirm: () => deleted++,
@@ -117,7 +117,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'It takes its 4 events with it — they move to another layer.',
+          'It takes its 4 events with it - they move to another layer.',
         ),
         findsOneWidget,
       );
@@ -234,7 +234,7 @@ void main() {
             ),
           ),
         );
-        // Closed by default; the link opens the free input — no emoji grids.
+        // Closed by default; the link opens the free input - no emoji grids.
         expect(
           find.byKey(const ValueKey('badge-stage-emoji-input')),
           findsNothing,
@@ -246,7 +246,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
         await tester.pump();
         expect(applied, isEmpty);
-        expect(toasts, ['Type an emoji first — any one your keyboard has']);
+        expect(toasts, ['Type an emoji first - any one your keyboard has']);
 
         // A ZWJ family emoji (11 UTF-16 code units) is kept whole.
         await tester.enterText(
@@ -338,7 +338,7 @@ void main() {
             home: SettingsSubScreen(
               title: 'Calendar layers',
               subtitle: 'Appointments, to-dos & content',
-              intro: 'Toggle or add layers — hold a row and drag to rearrange.',
+              intro: 'Toggle or add layers - hold a row and drag to rearrange.',
               footnote:
                   'Deleting a layer (inside its editor) moves its events to '
                   'another layer.',
@@ -367,7 +367,7 @@ void main() {
         );
         expect(find.text('Calendar layers'), findsOneWidget);
         expect(
-          find.text('Toggle or add layers — hold a row and drag to rearrange.'),
+          find.text('Toggle or add layers - hold a row and drag to rearrange.'),
           findsOneWidget,
         );
         expect(find.textContaining('moves its events'), findsOneWidget);

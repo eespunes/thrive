@@ -140,7 +140,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('RENT').first);
       await tester.pumpAndSettle();
-      expect(find.text('PAY DAY — WHICH DAY OF THE MONTH?'), findsOneWidget);
+      expect(find.text('PAY DAY - WHICH DAY OF THE MONTH?'), findsOneWidget);
       expect(find.text('No shift'), findsOneWidget);
       expect(find.text('Fri before'), findsOneWidget);
       expect(find.text('Mon after'), findsOneWidget);
@@ -158,7 +158,7 @@ void main() {
       final income = firstIncomeLabel(tester);
       await tester.tap(find.text(income).first);
       await tester.pumpAndSettle();
-      expect(find.text('DATE — WHICH DAY OF THE MONTH?'), findsOneWidget);
+      expect(find.text('DATE - WHICH DAY OF THE MONTH?'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
       await tester.pumpAndSettle();
     });

@@ -47,7 +47,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('iv-add-email')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Added as invited — remember to share the join details'),
+      find.text('Added as invited - remember to share the join details'),
       findsOneWidget,
     );
     final lisa = thriveDebug.curFamily()!.members.firstWhere(
@@ -105,7 +105,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
-    expect(find.text('Member saved — updated everywhere'), findsOneWidget);
+    expect(find.text('Member saved - updated everywhere'), findsOneWidget);
     expect(
       thriveDebug.curFamily()!.members.firstWhere((m) => m.id == lisaId).email,
       'lisab@email.com',
@@ -220,7 +220,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(thriveDebug.user!.name, 'Eva Smit');
     expect(
-      find.text('Name saved — mirrored to your member rows'),
+      find.text('Name saved - mirrored to your member rows'),
       findsOneWidget,
     );
     // The name mirrors onto the member row too (#274).
@@ -257,7 +257,7 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('profile-photo-remove')));
       await tester.pumpAndSettle();
-      expect(find.text('Photo removed — back to initials'), findsOneWidget);
+      expect(find.text('Photo removed - back to initials'), findsOneWidget);
       expect(find.byKey(const ValueKey('profile-photo-remove')), findsNothing);
       expect(thriveDebug.user!.photo, isNull);
     },

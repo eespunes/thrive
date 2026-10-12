@@ -53,7 +53,7 @@ service cloud.firestore {
 
       // A non-owner member removing exactly themselves from `memberUids`
       // (leaving the family): the new list is one shorter, is a subset of the
-      // old one, and no longer contains them — so the single removed uid can
+      // old one, and no longer contains them - so the single removed uid can
       // only be their own. Combined with `isMember()` (they were in the old
       // list) nobody can use this branch to evict anyone else.
       function isSelfRemovalOnly() {
@@ -64,11 +64,11 @@ service cloud.firestore {
       }
 
       // Keys a NON-OWNER member may touch on the shared doc: display fields,
-      // the (cosmetic — real authority is `ownerUid`) members list, the legacy
+      // the (cosmetic - real authority is `ownerUid`) members list, the legacy
       // single-doc `workspace` blob (kept until every client has migrated to
       // the workspace subcollection), post-join `joinProof` cleanup and the
       // update timestamps. Deliberately NOT included: `joinHash`, `joinSalt`,
-      // `joinScheme`, `memberUids`, `ownerUid`, `username` — a non-owner must
+      // `joinScheme`, `memberUids`, `ownerUid`, `username` - a non-owner must
       // never rotate the join credential or evict other members (only the
       // owner may, and self-removal goes through `isSelfRemovalOnly`).
       function memberSafeChange() {
@@ -101,7 +101,7 @@ service cloud.firestore {
           // and the update timestamps. Restricting the changed keys this way
           // keeps ownership, the username handle, the join hash and the shared
           // workspace immutable WITHOUT deep-comparing the (potentially large)
-          // workspace map — that comparison is both costly and brittle and was
+          // workspace map - that comparison is both costly and brittle and was
           // rejecting otherwise-valid joins into data-rich families (issue #127).
           && changedKeys().hasOnly([
                'memberUids', 'members', 'joinProof',
@@ -150,7 +150,7 @@ service cloud.firestore {
       }
 
       // Record version (`_v`): every save bumps it by exactly 1 (or leaves it
-      // unchanged — an app version that doesn't track it), so the app can
+      // unchanged - an app version that doesn't track it), so the app can
       // tell whether its save landed on the version it last saw and detect
       // concurrent edits. A write may never set it backwards or skip ahead.
       function versionOk() {
@@ -169,7 +169,7 @@ service cloud.firestore {
       //   notes/{id}/lines/{lineId}, cards/{id}.
       // Each doc carries its `familyId` so the app can load a whole collection
       // id with one collection-group query (rule below). A write must stamp
-      // this family's id — which also locks out outdated app versions that
+      // this family's id - which also locks out outdated app versions that
       // still write the old flat layout.
       match /{sub}/{document=**} {
         allow read, delete: if isFamilyMember();
@@ -196,7 +196,7 @@ service cloud.firestore {
     // Public handle resolver: maps a family `username` to its `familyId` so a
     // joining client can find the family doc to write to. This holds NO secret
     // material (the password hash lives only in the members-only family doc;
-    // `joinSalt` is public by design — a salt only needs to be unique, not
+    // `joinSalt` is public by design - a salt only needs to be unique, not
     // secret), so any signed-in user may `get` a handle they already know.
     // `list` is deliberately NOT granted (`allow read` would include it): the
     // join flow only ever does a targeted lookup, and enumerating the whole
@@ -216,7 +216,7 @@ service cloud.firestore {
 
       // Update must satisfy the same target-consistency rules as create: the
       // caller owns the CURRENT family, and if `familyId` is retargeted they
-      // must own the new family too and the handle must match its username —
+      // must own the new family too and the handle must match its username -
       // otherwise an owner of handle X could repoint it at someone else's
       // family to phish joins.
       allow update: if request.auth != null

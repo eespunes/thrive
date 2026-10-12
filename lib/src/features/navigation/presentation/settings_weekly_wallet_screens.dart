@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Weekly plan & wallet sub-pages (#282, `Settings v2.dc.html`).
 ///
-/// Weekly plan: seven weekday rows with an inline dinner field per day —
+/// Weekly plan: seven weekday rows with an inline dinner field per day -
 /// typing saves as you go (the fuller planner stays on the Weekly tab).
 /// Wallet: card rows → the existing full-brightness scannable card face
 /// (bottom sheet with barcode + Remove); add card via the scanner path.
@@ -68,7 +68,7 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
       offline: s.netOffline,
       title: 'Weekly plan',
       subtitle: 'Meals for the week',
-      intro: 'Dinner plan · $range — type straight in, it saves as you go.',
+      intro: 'Dinner plan · $range - type straight in, it saves as you go.',
       onToast: s.flash,
       children: [
         for (var i = 0; i < 7; i++)
@@ -148,7 +148,7 @@ class _WalletSubScreen extends StatelessWidget {
               'Everyone in $famName can use these at the till. '
               'Tap a card to show it.',
           footnote: s.cards.isEmpty
-              ? 'No cards yet — add one and the whole family can scan it.'
+              ? 'No cards yet - add one and the whole family can scan it.'
               : 'Brightness goes up automatically at the till.',
           onToast: s.flash,
           children: [

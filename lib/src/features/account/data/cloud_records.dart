@@ -5,11 +5,11 @@ part of 'package:family_money_management_app/main.dart';
 /// Firestore is treated as the family's DATABASE: every piece of shared data
 /// is a small document ("record"), the server's version is always adopted,
 /// and a device only ever writes the individual fields IT changed. That makes
-/// a stale device harmless — it can't push its old copy of anything it didn't
-/// touch — which is what lost a member's edits under the old whole-array
+/// a stale device harmless - it can't push its old copy of anything it didn't
+/// touch - which is what lost a member's edits under the old whole-array
 /// sections (a partner's phone with an old month re-uploaded it wholesale).
 ///
-/// Layout under `families/{fid}` — one readable tree per feature:
+/// Layout under `families/{fid}` - one readable tree per feature:
 /// - `settings/kitchen`                         kitchen wall options, stars
 /// - `finance/main`                             (container)
 ///   - `accounts/{key}` / `blocks/{key}`        accounts / budget categories
@@ -19,7 +19,7 @@ part of 'package:family_money_management_app/main.dart';
 ///     - `entries/{itemId}`                     one-off entries of that month
 ///     - `recurring/{itemId}`                   stored occurrences of a series
 ///       (paid, changed, closed month). Untouched auto-generated occurrences
-///       in open months are NOT stored — every device regenerates them (see
+///       in open months are NOT stored - every device regenerates them (see
 ///       [isDerivedSeriesCopy])
 /// - `calendar/main`                            (container)
 ///   - `layers/{id}` / `categories/{id}` / `imports/{id}`
@@ -37,7 +37,7 @@ part of 'package:family_money_management_app/main.dart';
 /// Every record also carries a version, `_v` ([kVersionField], +1 per save,
 /// enforced by firestore.rules) and who saved it last, `_by`. Edits are
 /// saved in a transaction against the current version, so a concurrent edit
-/// by someone else is merged (different fields) or reported (same field —
+/// by someone else is merged (different fields) or reported (same field -
 /// see [planVersionedSave]). Neither is part of the record's content.
 ///
 /// A record key is the document path relative to `families/{fid}`; its
@@ -144,7 +144,7 @@ const String kVersionField = '_v';
 /// Member id (uid) of whoever saved the document last.
 const String kUpdatedByField = '_by';
 
-/// The family a record belongs to (every record doc carries it — it's what
+/// The family a record belongs to (every record doc carries it - it's what
 /// the collection-group queries filter on). Never part of the payload.
 const String kFamilyIdField = 'familyId';
 
@@ -299,7 +299,7 @@ String? _seriesIdOf(ExpenseItem it) {
 }
 
 /// For every recurring series in [ws], the blocks holding one of its
-/// explicit anchors (a manual, non-exception, still-recurring occurrence) —
+/// explicit anchors (a manual, non-exception, still-recurring occurrence) -
 /// the items `_syncRecurringSeries` regenerates the series from.
 Map<String, Set<String>> seriesAnchorBlocks(Workspace ws) {
   final out = <String, Set<String>>{};
@@ -321,7 +321,7 @@ Map<String, Set<String>> seriesAnchorBlocks(Workspace ws) {
 /// occurrence of a recurring series: an open month's copy that was never
 /// paid, flagged or edited, whose series has an explicit anchor in that same
 /// block ([anchors], from [seriesAnchorBlocks]). Such a copy is fully derived
-/// from its anchor (same deterministic id on every device — see
+/// from its anchor (same deterministic id on every device - see
 /// `_syncRecurringSeries`), so it is never stored in Firestore; every device
 /// regenerates it locally. Copies in closed months are frozen history (never
 /// regenerated) and stay stored, as do copies of a series without an
@@ -381,7 +381,7 @@ String listItemKey(String listId, String itemId) =>
 String _noteKeyOfLine(String key) =>
     key.substring(0, key.indexOf('/$kLinesCol/'));
 
-/// Splits [ws] into its records (not yet normalized — see [normalizedRecords]).
+/// Splits [ws] into its records (not yet normalized - see [normalizedRecords]).
 /// Derived recurring copies ([isDerivedSeriesCopy]) are left out, and a
 /// budget item's `_order` counts only the items that ARE stored, so adding
 /// or dropping a derived copy never reorders (rewrites) the stored ones.
@@ -645,7 +645,7 @@ Map<String, dynamic> _stripInternal(Map<String, dynamic> m) => {
 
 /// Reassembles a [Workspace] from [records] (keys as in [workspaceRecords]).
 /// Unknown keys are ignored; items whose month is missing still load (the
-/// month is created); lines whose note is missing can't be represented —
+/// month is created); lines whose note is missing can't be represented -
 /// see [orphanListItems].
 Workspace workspaceFromRecords(Records records) {
   final j = <String, dynamic>{...?records[kKitchenKey]};
@@ -696,7 +696,7 @@ Workspace workspaceFromRecords(Records records) {
         (itemsByMonth['${ym.$1}|${ym.$2}'] ??= []).add(r);
         monthOf(ym.$1, ym.$2);
       case RecordKind.event || RecordKind.recurringEvent:
-        // One event, one doc — a stale copy left at an old path (moved
+        // One event, one doc - a stale copy left at an old path (moved
         // meanwhile) never duplicates it.
         events.putIfAbsent('${r['id']}', () => r);
       case RecordKind.mealDay:
@@ -774,7 +774,7 @@ Workspace workspaceFromRecords(Records records) {
 /// Normalized records embedded in legacy (pre-record) workspace section docs
 /// [legacyDocs] (docId → raw) and/or a legacy family-doc `workspace` [blob].
 /// Settings (accounts, categories, layers, kitchen) are only taken from the
-/// blob — legacy section docs never carried them.
+/// blob - legacy section docs never carried them.
 Records legacyRecords(Map<String, Map> legacyDocs, {Map? blob}) {
   final out = <String, Map<String, dynamic>>{};
   if (blob != null) {
@@ -930,7 +930,7 @@ Records rebaseRecords({
 
 /// Field paths that BOTH this device and someone else changed, to different
 /// values, since [o] (the version this device last saw): [n] is the server's
-/// current version, [l] this device's. Mirrors [rebaseValue]'s merge — maps
+/// current version, [l] this device's. Mirrors [rebaseValue]'s merge - maps
 /// recurse, so edits to different fields never conflict.
 List<List<String>> conflictPaths(
   Object? o,
@@ -957,7 +957,7 @@ List<List<String>> conflictPaths(
 /// version this device last saw), [server] (what the server holds right
 /// now, read inside the save's transaction) and [local] (this device's
 /// copy): the three-way [merged] record, the field-level [patch] taking
-/// [server] to it, and the [conflicts] — fields both sides changed, where
+/// [server] to it, and the [conflicts] - fields both sides changed, where
 /// this device's value wins (the caller tells the user and offers theirs).
 ({
   Map<String, dynamic> merged,
@@ -980,7 +980,7 @@ planVersionedSave({
 }
 
 /// [rec] with the value at every path in [paths] taken from [theirs] (or
-/// removed where [theirs] lacks it) — "use their version" of a conflict.
+/// removed where [theirs] lacks it) - "use their version" of a conflict.
 Map<String, dynamic> takeTheirs(
   Map<String, dynamic> rec,
   Map<String, dynamic> theirs,
@@ -1021,7 +1021,7 @@ String recordLabel(Map<String, dynamic> rec) {
   return '';
 }
 
-/// Lines in [view] whose note is in neither [view] nor [local] — e.g. the
+/// Lines in [view] whose note is in neither [view] nor [local] - e.g. the
 /// lines arrived before their note doc. [workspaceFromRecords] can't place
 /// them, so callers add these back to the local record set: they must never
 /// look "deleted locally" (and be deleted from the server), and must reappear
@@ -1047,8 +1047,8 @@ bool isListRecord(String key) {
 bool isGuardedRecord(String key) => isListRecord(key) || isEventRecord(key);
 
 /// The subset of [deletes] (keys in [base]) that would remove a guarded
-/// record ([isGuardedRecord]) nobody deleted: one whose key — or, for a list
-/// line, whose list — isn't in [intents]. A list or an event vanishing from
+/// record ([isGuardedRecord]) nobody deleted: one whose key - or, for a list
+/// line, whose list - isn't in [intents]. A list or an event vanishing from
 /// the in-memory workspace for any other reason (a stale copy, a reverted
 /// write, a rebase gone wrong) must never wipe it for the whole family;
 /// callers skip these deletes and restore the records locally instead.
@@ -1100,7 +1100,7 @@ const Set<String> _kIdentityKeys = {
 
 /// The record this device would hold at [key] had it never seen the server's
 /// doc: the model defaults for [local]'s identity (ordering fields are taken
-/// from [local] — order is never treated as an edit). A record absent from
+/// from [local] - order is never treated as an edit). A record absent from
 /// the base is rebased against this, so only fields this device really
 /// changed can override what another member already wrote.
 Map<String, dynamic> placeholderRecord(String key, Map<String, dynamic> local) {
@@ -1153,7 +1153,7 @@ Map<String, dynamic> createPayload(
 }
 
 /// The writes that take the server from [base] to [local]: creates (full
-/// doc), field-level updates and deletes — ONLY for records this device
+/// doc), field-level updates and deletes - ONLY for records this device
 /// changed. A record absent from [base] is never deleted, so data that hasn't
 /// loaded can't be wiped by omission.
 ({
@@ -1181,7 +1181,7 @@ planRecordWrites(Records base, Records local) {
 }
 
 /// True when [local] holds no family data at all (only the records of an
-/// empty workspace, equal to its defaults) — i.e. a placeholder `Workspace.empty()`
+/// empty workspace, equal to its defaults) - i.e. a placeholder `Workspace.empty()`
 /// for a family that hasn't loaded. Persisting that must never delete.
 bool recordsAreEmptyPlaceholder(Records local) {
   final empty = normalizedRecords(Workspace.empty());

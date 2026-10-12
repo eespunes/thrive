@@ -121,7 +121,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
             'Read-only ICS feeds. Chips control what each feed imports; '
             'tap a row to edit everything.',
         footnote:
-            'Only ICS/web links — Google or Apple account sync is on the '
+            'Only ICS/web links - Google or Apple account sync is on the '
             'roadmap. Removing a feed removes its events.',
         addPlaceholder: 'Paste an iCal link…',
         addLabel: 'Import',
@@ -195,7 +195,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
           key: ValueKey('imp-chip-vis-${cal.id}'),
           label: cal.visible ? '👁 Shown' : '🚫 Hidden',
           onTap: () {
-            // `cal` is mutated in place by the toggle — read it first.
+            // `cal` is mutated in place by the toggle - read it first.
             final wasVisible = cal.visible;
             s.toggleImportVisible(cal.id);
             s.flash(
@@ -295,7 +295,7 @@ class _ImportStudioState extends State<_ImportStudio> {
       context,
       title: 'Remove "${c.name}"?',
       message:
-          'It takes its $n event${n == 1 ? '' : 's'} with it — they '
+          'It takes its $n event${n == 1 ? '' : 's'} with it - they '
           'disappear from the calendar. You can add the link again anytime.',
       confirmLabel: 'Remove feed',
       onConfirm: () {
@@ -317,7 +317,7 @@ class _ImportStudioState extends State<_ImportStudio> {
       saveLabel: 'Save subscription',
       saveEnabled: !_saving && _url.text.trim().length > 4,
       onSave: () => unawaited(_save()),
-      deleteLabel: 'Remove this calendar — its events disappear',
+      deleteLabel: 'Remove this calendar - its events disappear',
       onDelete: _delete,
       children: [
         // Feeds carry a colour but no emoji/photo badge (the model is
@@ -402,7 +402,7 @@ class _ImportStudioState extends State<_ImportStudio> {
                     ),
                     child: Text(
                       failing
-                          ? '⚠ Sync failing — check the link'
+                          ? '⚠ Sync failing - check the link'
                           : '$n event${n == 1 ? '' : 's'} · '
                                 '${cal == null ? 'Synced' : s.importSyncLabel(cal)}',
                       style: TextStyle(
@@ -511,7 +511,7 @@ class _ImportStudioState extends State<_ImportStudio> {
               label: 'This is a holidays calendar',
               sub:
                   'Every day it lands on is tinted like a weekend in the '
-                  'month grid — school and bank holidays read as days off',
+                  'month grid - school and bank holidays read as days off',
               value: _holidays,
               onChanged: () => setState(() => _holidays = !_holidays),
               boxed: false,

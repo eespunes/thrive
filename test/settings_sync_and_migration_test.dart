@@ -16,7 +16,7 @@ void main() {
       await tapHubRow(tester, 'planning', 'more-callayers');
       expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
 
-      // Toggle a layer's visibility — a real queued write.
+      // Toggle a layer's visibility - a real queued write.
       await tester.tap(find.byKey(const ValueKey('layers-toggle-appt')));
       await tester.pump();
       expect(find.text('Saving…'), findsOneWidget);

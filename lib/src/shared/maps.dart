@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Turns a typed place into a real one: the universal Google Maps search URL.
 ///
-/// It is deliberately a search, not a pin — the app stores free text ("Sports
+/// It is deliberately a search, not a pin - the app stores free text ("Sports
 /// hall", "Dentist, Utrecht"), not coordinates, and a search is what resolves
 /// that text into an actual place on the map. The universal `api=1` link
 /// opens the Maps app when it's installed and the website when it isn't, on

@@ -58,7 +58,7 @@ Workspace _ws([DateTime? now]) {
       'label': 'Insurance',
       // Always strictly in the future *relative to the test clock* so it never
       // counts into dueToday. Must key off [now] (the fixed _testNow), not the
-      // real DateTime.now() — otherwise on days before _testNow's day it lands
+      // real DateTime.now() - otherwise on days before _testNow's day it lands
       // in the past and gets summed into dueToday.
       'marker': '${(now ?? DateTime.now()).day + 1}',
       'amount': 50,

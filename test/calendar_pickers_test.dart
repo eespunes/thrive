@@ -18,7 +18,7 @@ Future<void> _openEditor(WidgetTester tester) async {
 }
 
 /// A day later in today's month than today (falls back to an earlier day at
-/// month end) — always tappable in the material date-picker's initial month.
+/// month end) - always tappable in the material date-picker's initial month.
 DateTime _otherDayThisMonth() {
   final now = DateTime.now();
   return now.day < 28
@@ -41,7 +41,7 @@ Future<void> _pickDialogDay(WidgetTester tester, int day) async {
 }
 
 /// Scrolls one of the event editor's cards into view. The editor no longer
-/// has trays to open — every card is always on the page — so this only has to
+/// has trays to open - every card is always on the page - so this only has to
 /// bring the card on screen before the test touches its controls.
 Future<void> _openTray(WidgetTester tester, Key key) async {
   await tester.ensureVisible(find.byKey(key));
@@ -49,7 +49,7 @@ Future<void> _openTray(WidgetTester tester, Key key) async {
 }
 
 /// Scopes a text match to one editor card. The editor now carries a live
-/// "How it will look" preview, so a time or date also appears there — a bare
+/// "How it will look" preview, so a time or date also appears there - a bare
 /// find.text would match twice.
 Finder _inCard(String card, String text) => find.descendant(
   of: find.byKey(ValueKey('event-card-$card')),
@@ -64,7 +64,7 @@ void main() {
     await _openEditor(tester);
     await _openTray(tester, const ValueKey('event-card-when'));
 
-    // Start time — the custom dialog types-to-overwrite: entering digits
+    // Start time - the custom dialog types-to-overwrite: entering digits
     // replaces the selected value, no deleting needed, and two hour digits
     // hop to the minute field.
     await tester.tap(find.byKey(const ValueKey('event-time-start')));
@@ -83,7 +83,7 @@ void main() {
     // Start auto-set the end +1h (new event, end untouched).
     expect(_inCard('when', '15:30'), findsOneWidget);
 
-    // End time — out-of-range input clamps, confirming marks the end as
+    // End time - out-of-range input clamps, confirming marks the end as
     // manually set.
     await tester.tap(find.byKey(const ValueKey('event-time-end')));
     await tester.pumpAndSettle();

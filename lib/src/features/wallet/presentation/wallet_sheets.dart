@@ -12,7 +12,7 @@ extension _ThriveWalletSheets on _ThriveHomeState {
     _showSheet((ctx) => _CardScanSheet(state: this));
   }
 
-  /// Camera capture or gallery import — same pipeline and review step for
+  /// Camera capture or gallery import - same pipeline and review step for
   /// both (issues #225/#226). Kept for programmatic use; the sheet flow
   /// calls [importCardFromBytes] itself.
   // Drives the native image picker, so it can't run under flutter_test.
@@ -197,7 +197,7 @@ class _WalletSheetState extends State<_WalletSheet> {
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 30),
                               child: Text(
-                                'Snap a loyalty card once — everyone in the '
+                                'Snap a loyalty card once - everyone in the '
                                 'family can use it at the till.',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
@@ -311,7 +311,7 @@ class _CardScanSheetState extends State<_CardScanSheet> {
   late final TextEditingController _note = TextEditingController();
   String _type = 'barcode';
   late Color _color = kCardPalette.first;
-  // Family cards default to unassigned — an owner is opt-in via the picker.
+  // Family cards default to unassigned - an owner is opt-in via the picker.
   String? _ownerId;
 
   @override
@@ -365,7 +365,7 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         number: digitsOnly(_code.text),
         codeType: _type,
         color: _color,
-        // The photo is scan-time input only (number/colour sampling) — it is
+        // The photo is scan-time input only (number/colour sampling) - it is
         // never persisted, not even locally.
         photo: null,
         note: _note.text.trim(),

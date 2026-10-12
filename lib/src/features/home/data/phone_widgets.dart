@@ -3,8 +3,8 @@ part of 'package:family_money_management_app/main.dart';
 /// Android home-screen widgets (epic #224), mirroring the design's Turn-3
 /// section of `Home & nav options.dc.html`: the Dart side of the bridge.
 ///
-/// The pure pieces — payload building, the till-code PNG, the background
-/// widget-action mutations and the deep-link routing — live here and are
+/// The pure pieces - payload building, the till-code PNG, the background
+/// widget-action mutations and the deep-link routing - live here and are
 /// unit-tested. Only the thin `home_widget` plugin calls are
 /// coverage-ignored (they need the Android host).
 
@@ -23,7 +23,7 @@ const List<String> kPhoneWidgetProviders = [
 String widgetEur(double v, bool hide) => hide ? '€ ••••' : eur(v);
 
 /// Renders a card's till code as a PNG for the 2×2 loyalty widget
-/// (RemoteViews can only show bitmaps). Real, scannable symbology — same
+/// (RemoteViews can only show bitmaps). Real, scannable symbology - same
 /// pick as the in-app card face.
 Uint8List renderCardCodePng(DiscountCard card, {int scale = 3}) {
   final isQr = card.codeType == 'qr';
@@ -79,7 +79,7 @@ Map<String, dynamic>? phoneWidgetLoadWorkspaceJson(
         json.decode(prefs.getString(key)!) as Map,
       );
     } catch (_) {
-      // Skip a corrupt section — same tolerance as the app's restore.
+      // Skip a corrupt section - same tolerance as the app's restore.
     }
   }
   final fromSections = workspaceFromSections(sections);
@@ -166,7 +166,7 @@ bool applyPhoneWidgetAction(Map<String, dynamic>? ws, Uri uri) {
 }
 
 /// Rebuilds the widget payload from the slim v4 meta blob plus the active
-/// family's raw workspace JSON (from [phoneWidgetLoadWorkspaceJson]) — used
+/// family's raw workspace JSON (from [phoneWidgetLoadWorkspaceJson]) - used
 /// by the background isolate after [applyPhoneWidgetAction] so widgets
 /// refresh without the app running.
 Map<String, dynamic>? phoneWidgetPayloadFromV4(
@@ -429,7 +429,7 @@ extension _ThrivePhoneWidgets on _ThriveHomeState {
         await HomeWidget.updateWidget(androidName: provider);
       }
     } catch (_) {
-      // No widget host (tests, desktop) — nothing to update.
+      // No widget host (tests, desktop) - nothing to update.
     }
   }
 
@@ -453,7 +453,7 @@ extension _ThrivePhoneWidgets on _ThriveHomeState {
 /// Background entry point for in-widget actions (issue #252): mutates the
 /// active family's local workspace (per-section keys, with the legacy
 /// embedded-v4 map as fallback), rebuilds the payload and refreshes the
-/// widgets — all without opening the app. The app reconciles + syncs on
+/// widgets - all without opening the app. The app reconciles + syncs on
 /// next launch. In cloud mode local state is wiped, so there is nothing to
 /// mutate and the action is a no-op.
 // Runs in a headless isolate with live plugins.

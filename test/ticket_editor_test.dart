@@ -24,7 +24,7 @@ void main() {
     await openEditor(tester);
 
     // The editor is a scroll of labelled cards (design "Event & finance
-    // editors" 1a) — there are no trays to open, so every decision is
+    // editors" 1a) - there are no trays to open, so every decision is
     // readable at once.
     for (final card in [
       'kind',

@@ -6,7 +6,7 @@ Future<void> main() async {
   // paying sequential awaits before the first frame.
   await Future.wait([_lockPortraitOrientation(), _initFirebase()]);
   runApp(const ThriveApp());
-  // NotificationService.init parses the full timezone database — real CPU
+  // NotificationService.init parses the full timezone database - real CPU
   // that used to gate the first frame. Reminders aren't needed at first
   // paint, so it runs after it; every reminder-scheduling path awaits the
   // same memoised init() first, so nothing can race an uninitialised plugin.
@@ -34,7 +34,7 @@ Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp();
     try {
-      // App Check attests that requests come from a genuine app install —
+      // App Check attests that requests come from a genuine app install -
       // Firestore/Auth are otherwise callable by anything holding the (public)
       // API key. Debug builds use the debug provider (register its token in
       // the Firebase console for local dev). Enforcement is switched on
@@ -85,7 +85,7 @@ Future<void> _initFirebase() async {
 
 /// App-wide error channel. Any layer (widgets, cloud calls, actions) can push a
 /// message here and the popup rendered in [ThriveApp]'s `builder` shows it above
-/// every route — including modal bottom sheets and dialogs — until the user
+/// every route - including modal bottom sheets and dialogs - until the user
 /// dismisses it. This guarantees errors are never lost or left stuck silently.
 final ValueNotifier<String?> appErrorNotifier = ValueNotifier<String?>(null);
 

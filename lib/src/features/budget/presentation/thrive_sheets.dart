@@ -114,7 +114,7 @@ extension _ThriveSheets on _ThriveHomeState {
         final month = data[yr]?[kMonthKeys[mIdx]];
         if (month == null || month.closed) continue;
         // Per-month exceptions in later months survive an onward rewrite
-        // (#292) — a "future months" edit composes with an earlier "only
+        // (#292) - a "future months" edit composes with an earlier "only
         // this month" edit instead of silently erasing it.
         month.blocks[catKey]?.removeWhere(
           (it) =>
@@ -203,14 +203,14 @@ extension _ThriveSheets on _ThriveHomeState {
       } else if (mode == 'edit' && id != null) {
         final it = arr.where((x) => x.id == id).firstOrNull;
         if (it != null) {
-          // Issue #195: every item — recurring or not — always carries a
+          // Issue #195: every item - recurring or not - always carries a
           // stable `seriesId` from now on, so future months' copies (or a
           // future edit) can always be linked back to this one instead of
           // silently becoming an orphaned, unlinked duplicate.
           final seriesId = _seriesIdFor(it) ?? uid();
           _clearSeriesStop(seriesId, year, monthIdx);
           // Always strip this item (and any future/generated copies sharing
-          // its series) before re-adding the freshly edited one below — this
+          // its series) before re-adding the freshly edited one below - this
           // both applies the edit forward and, if `recurring` is now false,
           // stops future generation. Remove this item explicitly by id too,
           // since it may not yet carry `seriesId` (e.g. a legacy row being
@@ -240,7 +240,7 @@ extension _ThriveSheets on _ThriveHomeState {
           arr.add(it);
         }
       } else {
-        // Issue #195: give every newly created item — recurring or not — a
+        // Issue #195: give every newly created item - recurring or not - a
         // stable `seriesId` right away, so it can never end up as an
         // unlinked/orphaned duplicate later (the root cause of the legacy
         // production-data bug).
@@ -303,7 +303,7 @@ extension _ThriveSheets on _ThriveHomeState {
   }
 
   /// Moves an entry to another block (#294). For a recurring series the move
-  /// applies from the open month forward — occurrences in earlier months
+  /// applies from the open month forward - occurrences in earlier months
   /// stay where they were ("History stays where it was"); both blocks' caps
   /// recount immediately because they're derived from the moved items.
   void moveExpenseBlock(String fromCat, String toCat, String id) {
@@ -338,7 +338,7 @@ extension _ThriveSheets on _ThriveHomeState {
         m.blocks[fromCat]?.removeWhere((x) => x.id == id);
         m.blocks.putIfAbsent(toCat, () => <ExpenseItem>[]).add(item);
       }
-    }, () => flash('Moved to $toTitle — both caps recount from here'));
+    }, () => flash('Moved to $toTitle - both caps recount from here'));
   }
 
   void saveCap(String cat, String raw) {
@@ -521,7 +521,7 @@ class _SheetShell extends StatelessWidget {
     // Lift the sheet's content above the Android system navigation bar (3-button
     // or gesture): `padding.bottom` is the nav-bar inset with the keyboard
     // discounted, so it collapses to 0 when the keyboard is up (which the host
-    // already handles via `viewInsets.bottom`) — no double gap.
+    // already handles via `viewInsets.bottom`) - no double gap.
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
       decoration: const BoxDecoration(
@@ -1724,7 +1724,7 @@ class _CapSheetState extends State<_CapSheet> {
 /// Picks the visual for an account or budget block (issue #131): any emoji
 /// (curated quick-picks plus a free-form field for the rest) or an uploaded
 /// picture. Reports the choice through [onChanged]; the two are mutually
-/// exclusive — choosing one clears the other.
+/// exclusive - choosing one clears the other.
 class _GlyphPicker extends StatefulWidget {
   const _GlyphPicker({
     required this.emoji,

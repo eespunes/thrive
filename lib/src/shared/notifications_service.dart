@@ -182,7 +182,7 @@ class NotificationService implements NotificationScheduler {
           ? 'Starts tomorrow · $startStr'
           : 'Starts tomorrow';
     } else {
-      // Custom format: Xm, Xh, Xd — strip the unit suffix then parse the
+      // Custom format: Xm, Xh, Xd - strip the unit suffix then parse the
       // numeric prefix. An empty or non-numeric prefix falls to the fallback.
       if (reminder.length <= 1) {
         timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
@@ -311,7 +311,7 @@ class NotificationService implements NotificationScheduler {
     _lastSyncDigest = null;
     try {
       // The exact occurrence dates that were scheduled can't be re-derived
-      // from just the event id, so one pending-list scan is still needed —
+      // from just the event id, so one pending-list scan is still needed -
       // but the cancels run concurrently instead of serially.
       final pending = await _plugin.pendingNotificationRequests();
       await Future.wait([
@@ -332,7 +332,7 @@ class NotificationService implements NotificationScheduler {
     if (digest == _lastSyncDigest) return;
     try {
       // Only event reminders are cancelled (other notification kinds, e.g.
-      // task payloads, must survive), so cancelAll() isn't usable — but the
+      // task payloads, must survive), so cancelAll() isn't usable - but the
       // per-id cancels and per-event schedules run concurrently.
       final pending = await _plugin.pendingNotificationRequests();
       await Future.wait([
@@ -425,7 +425,7 @@ class NotificationService implements NotificationScheduler {
 }
 
 /// Set by [NotificationService._onTap] when a notification is tapped;
-/// consumed once by the app shell to deep-link into the relevant screen —
+/// consumed once by the app shell to deep-link into the relevant screen -
 /// handles both a foreground tap and a cold-start launch from a notification.
 final ValueNotifier<String?> pendingNotificationDeepLink =
     ValueNotifier<String?>(null);

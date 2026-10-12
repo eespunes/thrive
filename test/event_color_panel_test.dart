@@ -5,7 +5,7 @@ import 'helpers.dart';
 
 /// The event ticket keeps the app's single two-tab colour panel (Palette +
 /// RGB / Hex) after the Settings v2 editors moved to fixed badge-colour dot
-/// rows — this pins its behaviour where it still lives.
+/// rows - this pins its behaviour where it still lives.
 void main() {
   Future<void> openEventColourTray(WidgetTester tester) async {
     await pumpApp(tester, landOnDefaultTab: true);

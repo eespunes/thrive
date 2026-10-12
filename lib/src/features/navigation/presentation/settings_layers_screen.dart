@@ -49,7 +49,7 @@ class _CalendarLayersScreen extends StatelessWidget {
           title: 'Calendar layers',
           subtitle: 'Appointments, to-dos & content',
           intro:
-              'Toggle or add layers — hold a row and drag to rearrange. '
+              'Toggle or add layers - hold a row and drag to rearrange. '
               'A switched-off layer hides from the calendar; nothing is '
               'deleted.',
           footnote:
@@ -152,10 +152,10 @@ class _LayerStudioState extends State<_LayerStudio> {
       context,
       title: 'Delete "${l.label}"?',
       message: n == 0
-          ? 'It has no events — it just disappears from the calendar.'
+          ? 'It has no events - it just disappears from the calendar.'
           : (n == 1
-                ? 'It takes its 1 event with it — it moves to another layer.'
-                : 'It takes its $n events with it — they move to another '
+                ? 'It takes its 1 event with it - it moves to another layer.'
+                : 'It takes its $n events with it - they move to another '
                       'layer.'),
       confirmLabel: 'Delete layer',
       onConfirm: () {
@@ -176,7 +176,7 @@ class _LayerStudioState extends State<_LayerStudio> {
       saveEnabled: _label.trim().isNotEmpty,
       onSave: _save,
       deleteLabel: canDelete
-          ? 'Delete layer — its events move to another layer'
+          ? 'Delete layer - its events move to another layer'
           : null,
       onDelete: canDelete ? _delete : null,
       children: [

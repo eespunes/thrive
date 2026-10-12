@@ -32,7 +32,7 @@ extension _ThriveAccountsScreen on _ThriveHomeState {
   }
 
   /// Deletes [key], moving its open-month entries to the FIRST remaining
-  /// account (#328 — the legacy sheet moved them to the last).
+  /// account (#328 - the legacy sheet moved them to the last).
   void deleteAccountMigrating(String key) {
     if (accounts.length <= 1) return;
     final remaining = accounts.where((a) => a.key != key).toList();
@@ -50,7 +50,7 @@ extension _ThriveAccountsScreen on _ThriveHomeState {
           }
         }
       }
-    }, () => flash('Account deleted — entries moved'));
+    }, () => flash('Account deleted - entries moved'));
   }
 }
 
@@ -69,7 +69,7 @@ class _AccountsScreen extends StatelessWidget {
         title: 'Accounts',
         subtitle: 'Who pays from where',
         intro:
-            'Who pays from where — hold a row and drag to rearrange, '
+            'Who pays from where - hold a row and drag to rearrange, '
             'tap to edit.',
         footnote:
             'Deleting an account (inside its editor) moves its entries to '
@@ -183,7 +183,7 @@ class _AccountStudioState extends State<_AccountStudio> {
       context,
       title: 'Delete ${a.name}?',
       message: n == 0
-          ? 'No entries are paid from it — it just disappears.'
+          ? 'No entries are paid from it - it just disappears.'
           : 'Its $n entr${n == 1 ? 'y' : 'ies'} move to '
                 '${remaining.first.name}, the first remaining account.',
       confirmLabel: 'Delete account',
@@ -205,7 +205,7 @@ class _AccountStudioState extends State<_AccountStudio> {
       saveEnabled: _name.trim().isNotEmpty && _short.text.trim().isNotEmpty,
       onSave: _save,
       deleteLabel: canDelete
-          ? 'Delete account — entries move to the first remaining one'
+          ? 'Delete account - entries move to the first remaining one'
           : null,
       onDelete: canDelete ? _delete : null,
       children: [
@@ -230,7 +230,7 @@ class _AccountStudioState extends State<_AccountStudio> {
         studioTextField(
           key: const ValueKey('acc-short'),
           controller: _short,
-          hint: 'Short label — e.g. Eva',
+          hint: 'Short label - e.g. Eva',
           onChanged: (_) => setState(() {}),
         ),
         _ColorPickerPanel(

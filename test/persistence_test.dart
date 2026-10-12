@@ -95,7 +95,7 @@ void main() {
     await pumpApp(tester);
     await tester.tap(find.byKey(const ValueKey('month-chip')));
     await tester.pumpAndSettle();
-    // tap the next-year stepper (cright) then pick a month — exercises ensureYear
+    // tap the next-year stepper (cright) then pick a month - exercises ensureYear
     // for a brand-new year. The stepper is custom-painted; pick month for 2027 by
     // tapping right side. Fall back: just pick a month to exercise setYear.
     await tester.tap(find.text('Jul').first);

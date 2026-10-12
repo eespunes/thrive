@@ -129,13 +129,13 @@ void main() {
     await _openAddTo(tester, 'Income');
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), 'abc');
     await tester.pump();
-    expect(find.text('Numbers only — use a comma for cents.'), findsWidgets);
+    expect(find.text('Numbers only - use a comma for cents.'), findsWidgets);
     await tester.enterText(
       find.byKey(const ValueKey('entry-amount')),
       '1.250,00',
     );
     await tester.pump();
-    expect(find.text('Numbers only — use a comma for cents.'), findsNothing);
+    expect(find.text('Numbers only - use a comma for cents.'), findsNothing);
     expect(find.textContaining('income so far'), findsWidgets);
   });
 
@@ -164,7 +164,7 @@ void main() {
     await _openAddTo(tester, 'Home');
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '600');
     await tester.pump();
-    // eur() joins with a non-breaking space — match through the helper.
+    // eur() joins with a non-breaking space - match through the helper.
     expect(find.textContaining('% of ${eur(500, cents: false)}'), findsWidgets);
   });
 
@@ -185,7 +185,7 @@ void main() {
     await _tapKey(tester, 'entry-shift-after');
     expect(find.text('23rd → 24th'), findsOneWidget);
 
-    // 1 Aug 2026 is a Saturday — Fri-before would leave August: stays put.
+    // 1 Aug 2026 is a Saturday - Fri-before would leave August: stays put.
     await _tapKey(tester, 'entry-shift-before');
     await _tapKey(tester, 'entry-day-1');
     expect(find.textContaining('stays put'), findsOneWidget);
@@ -196,10 +196,10 @@ void main() {
 
     // Unscheduled toggle, both directions.
     await _tapKey(tester, 'entry-day-unscheduled');
-    expect(find.text('✓ Unscheduled — off the calendar'), findsOneWidget);
+    expect(find.text('✓ Unscheduled - off the calendar'), findsOneWidget);
     expect(find.text('Unscheduled'), findsOneWidget); // the badge
     await _tapKey(tester, 'entry-day-unscheduled');
-    expect(find.text('✓ Unscheduled — off the calendar'), findsNothing);
+    expect(find.text('✓ Unscheduled - off the calendar'), findsNothing);
   });
 
   testWidgets('repeat tray: toggle, stepper and year-strip end month (#291)', (
@@ -211,7 +211,7 @@ void main() {
     await _tapKey(tester, 'entry-section-repeat');
 
     await _tapKey(tester, 'entry-repeat-off');
-    expect(find.textContaining('One-off — only this June'), findsOneWidget);
+    expect(find.textContaining('One-off - only this June'), findsOneWidget);
     await _tapKey(tester, 'entry-repeat-on');
 
     await _tapKey(tester, 'entry-every-plus');
@@ -346,7 +346,7 @@ void main() {
     expect(find.text('💳 AH Bonus'), findsOneWidget);
     await _tapKey(tester, 'entry-stamp');
     // The rotated stamp became the paid toggle in the account card.
-    expect(find.text('Paid — it counts as settled'), findsOneWidget);
+    expect(find.text('Paid - it counts as settled'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     expect(thriveDebug.cards.single.timesUsed, 1);

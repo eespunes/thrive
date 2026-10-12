@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Global "Quick-Add" chooser (#162) — offered by the FAB on tabs that don't
+/// Global "Quick-Add" chooser (#162) - offered by the FAB on tabs that don't
 /// already have a smarter direct-to-editor shortcut (`calendar` opens the
 /// event editor directly, `lists` opens whatever list/shop editor is in
 /// view). From `home` (and any other tab) it shows this chooser so the user
@@ -12,7 +12,7 @@ extension _ThriveQuickAdd on _ThriveHomeState {
 
   /// Opens the task sheet for a to-do list the user picks. If there's
   /// exactly one list it's used directly; with none yet, prompts to create
-  /// one first — mirroring the Lists hub's own empty state.
+  /// one first - mirroring the Lists hub's own empty state.
   void quickAddTask() {
     void addTo(String id) {
       goTab('lists');
@@ -39,7 +39,7 @@ extension _ThriveQuickAdd on _ThriveHomeState {
     );
   }
 
-  /// Same idea as [quickAddTask], for shopping lists — lands on the picked
+  /// Same idea as [quickAddTask], for shopping lists - lands on the picked
   /// list's detail screen with the quick-add field focused.
   void quickAddShopItem() {
     void addTo(String id) {
@@ -68,7 +68,7 @@ extension _ThriveQuickAdd on _ThriveHomeState {
   }
 }
 
-/// "What would you like to add?" chooser — Event / Task / Shopping item.
+/// "What would you like to add?" chooser - Event / Task / Shopping item.
 class _QuickAddSheet extends StatelessWidget {
   const _QuickAddSheet({required this.state});
   final _ThriveHomeState state;
@@ -181,7 +181,7 @@ class _QuickAddSheet extends StatelessWidget {
           'Snap a loyalty card',
           state.openCardScan,
         ),
-        // Money joins the global quick add (#295) — the last missing
+        // Money joins the global quick add (#295) - the last missing
         // feature. Opens the entry ticket with the block picker first.
         _row(
           context,

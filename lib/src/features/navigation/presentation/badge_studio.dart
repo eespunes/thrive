@@ -11,7 +11,7 @@ part of 'package:family_money_management_app/main.dart';
 // ------------------------------------------------------------------ route
 
 /// Pushes a full-screen badge-studio page (editors are full screens, not
-/// popups — smaller interactions stay bottom sheets).
+/// popups - smaller interactions stay bottom sheets).
 Future<T?> pushBadgeStudio<T>(BuildContext context, WidgetBuilder builder) {
   return Navigator.of(context).push<T>(MaterialPageRoute(builder: builder));
 }
@@ -19,7 +19,7 @@ Future<T?> pushBadgeStudio<T>(BuildContext context, WidgetBuilder builder) {
 // --------------------------------------------------------------- scaffold
 
 /// Full-screen editor scaffold: ‹ back header (title + subtitle), scrolling
-/// form body, and the sticky footer — save pinned to the true bottom (the
+/// form body, and the sticky footer - save pinned to the true bottom (the
 /// content fades under it), tinted in the badge colour and disabled grey
 /// until valid; delete as a red text link UNDER save, never beside it.
 class BadgeStudioScaffold extends StatelessWidget {
@@ -40,13 +40,13 @@ class BadgeStudioScaffold extends StatelessWidget {
   final String title;
   final String? subtitle;
 
-  /// The item's colour — it tints its own editor (stage + save button).
+  /// The item's colour - it tints its own editor (stage + save button).
   final Color accent;
   final String saveLabel;
   final bool saveEnabled;
   final VoidCallback onSave;
 
-  /// Descriptive red link under save, e.g. "Delete layer — its events move
+  /// Descriptive red link under save, e.g. "Delete layer - its events move
   /// to another layer". Hidden when null (e.g. min-1 guard or a new item).
   final String? deleteLabel;
   final VoidCallback? onDelete;
@@ -237,7 +237,7 @@ Widget studioBackHeader({
 /// in the item's colour with the item's name written on it (inline editable,
 /// in that colour). Tapping the badge opens the photo picker; the "type an
 /// emoji" link opens a free input that accepts ANY OS emoji, multi-codepoint
-/// included — there are no fixed emoji grids anywhere.
+/// included - there are no fixed emoji grids anywhere.
 class BadgeStage extends StatefulWidget {
   const BadgeStage({
     super.key,
@@ -260,7 +260,7 @@ class BadgeStage extends StatefulWidget {
   /// Current emoji glyph; ignored while [picture] is set.
   final String? emoji;
 
-  /// Base64 picture — replaces the emoji on the badge when set.
+  /// Base64 picture - replaces the emoji on the badge when set.
   final String? picture;
 
   /// Shown when there is no picture and no emoji yet.
@@ -268,7 +268,7 @@ class BadgeStage extends StatefulWidget {
   final String namePlaceholder;
   final ValueChanged<String> onEmoji;
 
-  /// Tap on the badge — the caller opens its photo picker here.
+  /// Tap on the badge - the caller opens its photo picker here.
   final VoidCallback onPickPhoto;
   final ValueChanged<String>? onToast;
 
@@ -300,14 +300,14 @@ class _BadgeStageState extends State<BadgeStage> {
 
   void _toast(String msg) => widget.onToast?.call(msg);
 
-  /// Applies the typed emoji. Any single OS emoji is fine — flag/skin-tone/
+  /// Applies the typed emoji. Any single OS emoji is fine - flag/skin-tone/
   /// ZWJ sequences span many code units, so short inputs are kept whole and
   /// longer ones fall back to the first grapheme (mirrors the design's
   /// `mkApply`).
   void _applyEmoji() {
     final v = _emoji.text.trim();
     if (v.isEmpty) {
-      _toast('Type an emoji first — any one your keyboard has');
+      _toast('Type an emoji first - any one your keyboard has');
       return;
     }
     final g = v.length <= 8 ? v : v.characters.first;
@@ -447,7 +447,7 @@ class _BadgeStageState extends State<BadgeStage> {
                           horizontal: 13,
                           vertical: 11,
                         ),
-                        hintText: 'Type any emoji — your keyboard has them all',
+                        hintText: 'Type any emoji - your keyboard has them all',
                         hintStyle: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -625,7 +625,7 @@ Future<void> showCountingConfirmSheet(
 // -------------------------------------------------------- list conventions
 
 /// Standard sub-screen chrome (#324): ‹ back header, intro line, rows, an
-/// optional footnote, and the add pattern — a name input + Add at the bottom
+/// optional footnote, and the add pattern - a name input + Add at the bottom
 /// that creates the item with defaults; the caller then immediately opens
 /// its editor from [onAdd].
 class SettingsSubScreen extends StatefulWidget {
@@ -703,8 +703,8 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
               title: widget.title,
               subtitle: widget.subtitle,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              // The latest save's progress, or — while saves don't get
-              // through — "Offline · saved on phone".
+              // The latest save's progress, or - while saves don't get
+              // through - "Offline · saved on phone".
               trailing: widget.sync == null && widget.offline == null
                   ? null
                   : ListenableBuilder(

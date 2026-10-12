@@ -17,7 +17,7 @@ extension _ThriveSettingsShared on _ThriveHomeState {
             left: 20,
             right: 20,
             bottom: 24,
-            // The pill is purely informative — never swallow taps meant for
+            // The pill is purely informative - never swallow taps meant for
             // the save/delete footer underneath it.
             child: IgnorePointer(
               child: ValueListenableBuilder<String?>(

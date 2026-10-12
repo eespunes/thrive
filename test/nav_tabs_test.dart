@@ -72,7 +72,7 @@ void main() {
     expect(thriveDebug.navPickedTabs.length, kNavPickCount);
     expect(thriveDebug.navPickedTabs.contains('calendar'), isFalse);
 
-    // Close the sheet the way a person does — the bar behind it must have
+    // Close the sheet the way a person does - the bar behind it must have
     // changed.
     Navigator.of(tester.element(find.text('Your tab bar'))).pop();
     await tester.pumpAndSettle();
@@ -105,7 +105,7 @@ void main() {
     thriveDebug.setNavTabs(['finance', 'weekly', 'lists']);
     await tester.pumpAndSettle();
     // Settle the debounced persist, then boot the app again from what it
-    // wrote — the picks have to survive a cold start, not just a rebuild.
+    // wrote - the picks have to survive a cold start, not just a rebuild.
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     await pumpApp(tester, landOnDefaultTab: true);

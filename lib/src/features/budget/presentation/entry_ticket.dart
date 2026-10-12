@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// The money entry editor (design "Event & finance editors" 1b): the same
 /// card language as the event editor, in money vocabulary. A scroll of
-/// labelled white cards — one decision each — with the amount as the hero
+/// labelled white cards - one decision each - with the amount as the hero
 /// card, stating its effect on the block's cap in words.
 ///
 /// There is no preview strip here: a money entry has no visual form to check,
@@ -20,15 +20,15 @@ double? parseEntryAmount(String raw) {
   return n ?? double.nan;
 }
 
-/// Inline amount error (#287) — save is never silently dead. Returns `null`
+/// Inline amount error (#287) - save is never silently dead. Returns `null`
 /// when the amount is valid.
 String? entryAmountError(String raw) {
   final n = parseEntryAmount(raw);
   if (n == null) return 'Give it an amount.';
-  if (n.isNaN) return 'Numbers only — use a comma for cents.';
+  if (n.isNaN) return 'Numbers only - use a comma for cents.';
   if (n < 0) return "It can't be negative.";
   if (n == 0) {
-    return '€0 would be skipped by the calendar — give it a real amount.';
+    return '€0 would be skipped by the calendar - give it a real amount.';
   }
   return null;
 }
@@ -77,7 +77,7 @@ int? lastChargedMonthOrd(int anchorOrd, int endOrd, int every) {
   return anchorOrd + ((endOrd - anchorOrd) ~/ e) * e;
 }
 
-/// Plain-language repeat summary (#291) — always present under the tray.
+/// Plain-language repeat summary (#291) - always present under the tray.
 String entryRecurSummary({
   required bool recurring,
   required int every,
@@ -87,7 +87,7 @@ String entryRecurSummary({
   required int? endOrd,
 }) {
   final mn = kMonthsEn[anchorOrd % 12];
-  if (!recurring) return 'One-off — only this $mn.';
+  if (!recurring) return 'One-off - only this $mn.';
   var s =
       'Repeats ${every == 1
           ? 'every month'
@@ -106,7 +106,7 @@ String entryRecurSummary({
     s += ' · shifts to the Monday after weekends';
   }
   if (endBad) {
-    return '$s. That end date is before $mn — pick $mn ${anchorOrd ~/ 12} or later.';
+    return '$s. That end date is before $mn - pick $mn ${anchorOrd ~/ 12} or later.';
   }
   final lo = endOrd == null
       ? null
@@ -340,7 +340,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     _account = it?.account ?? (accs.isNotEmpty ? accs.first.key : '');
     if (it != null && accs.every((a) => a.key != it.account)) {
       // Account deleted elsewhere (#299): entries auto-reassign to the last
-      // remaining account — show the resolved chip with a one-time hint.
+      // remaining account - show the resolved chip with a one-time hint.
       _account = accs.isNotEmpty ? accs.last.key : '';
       _accountReassigned = true;
     }
@@ -385,7 +385,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     final ae = entryAmountError(_amount.text);
     if (ae != null) return ae;
     if (_payee.text.trim().isEmpty && _label.text.trim().isEmpty) {
-      return 'Add a company or a note — one is enough.';
+      return 'Add a company or a note - one is enough.';
     }
     if (_recurring && _endOrd != null && _endOrd! < _anchorOrd) {
       return 'The end date is before ${kMonthsEn[s.monthIdx]} ${s.year}.';
@@ -458,7 +458,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     if (s.isClosed()) {
       // Mid-edit close race (#298): refuse, keep the draft visible.
       setState(() {});
-      s.flash('${kMonthsEn[s.monthIdx]} is closed — reopen it from Money');
+      s.flash('${kMonthsEn[s.monthIdx]} is closed - reopen it from Money');
       return;
     }
     final reason = _reason;
@@ -546,7 +546,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
 
   // -------------------------------------------------------------- ticket
 
-  /// The amount card — the design's hero (1b): the figure itself, its error
+  /// The amount card - the design's hero (1b): the figure itself, its error
   /// line, and what it does to the block's cap stated in words. A money entry
   /// has no visual form to preview, so this card is what the event editor's
   /// preview strip is there: the consequence of what you just typed.
@@ -716,12 +716,12 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     return studioToggleRow(
       key: const ValueKey('entry-stamp'),
       label: 'Mark ${w.paid.toLowerCase()}',
-      sub: _paid ? '${w.paid} — it counts as settled' : 'Not yet settled',
+      sub: _paid ? '${w.paid} - it counts as settled' : 'Not yet settled',
       value: _paid,
       onChanged: () {
         if (_closed) {
           s.flash(
-            '${kMonthsEn[s.monthIdx]} is closed — the flag can\u2019t change',
+            '${kMonthsEn[s.monthIdx]} is closed - the flag can\u2019t change',
           );
           return;
         }
@@ -806,8 +806,8 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             ),
             child: Text(
               _day == null
-                  ? '✓ Unscheduled — off the calendar'
-                  : 'Unscheduled — keep it off the calendar',
+                  ? '✓ Unscheduled - off the calendar'
+                  : 'Unscheduled - keep it off the calendar',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -901,8 +901,8 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     final mn = kMonthsEn[s.monthIdx];
     if (_day == null) {
       return _kind == 'income'
-          ? 'Kept off the calendar, by choice — income no longer silently lands on the 1st. Pick a day to put it in the projection.'
-          : 'Kept off the calendar — shown in the “unscheduled” bucket and left out of the balance projection.';
+          ? 'Kept off the calendar, by choice - income no longer silently lands on the 1st. Pick a day to put it in the projection.'
+          : 'Kept off the calendar - shown in the “unscheduled” bucket and left out of the balance projection.';
     }
     final resolved = r!;
     const wdShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -916,9 +916,9 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     ).weekday;
     final rawWeekend = wdRaw == DateTime.saturday || wdRaw == DateTime.sunday;
     if (resolved.movedFrom != null) {
-      line += ' — the ${ordinal(_day!)} is a weekend';
+      line += ' - the ${ordinal(_day!)} is a weekend';
     } else if (_shift != 'none' && rawWeekend) {
-      line += ' — the shift would leave $mn, so it stays put';
+      line += ' - the shift would leave $mn, so it stays put';
     }
     if (_day! > daysInMonthOf(s.year, s.monthIdx)) {
       line += ' (day $_day clamped into $mn)';
@@ -933,7 +933,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     if (_day! >= 29) line += ' In shorter months it posts on the last day.';
     if (_reviewDay) {
       line =
-          'Migrated: this income was kept on the 1st — confirm the day or unschedule it. $line';
+          'Migrated: this income was kept on the 1st - confirm the day or unschedule it. $line';
     }
     return line;
   }
@@ -960,7 +960,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                 const ValueKey('entry-repeat-on'),
                 'Repeats',
                 _recurring,
-                // Toggling back on restores the prior cadence and end —
+                // Toggling back on restores the prior cadence and end -
                 // they're preserved, never cleared (#291).
                 () => setState(() => _recurring = true),
               ),
@@ -1057,7 +1057,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           ),
           const SizedBox(height: 7),
           const Text(
-            'Filled months get the bill. Tap a month to end the series there — tap it again to keep it going.',
+            'Filled months get the bill. Tap a month to end the series there - tap it again to keep it going.',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -1188,7 +1188,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           Padding(
             padding: const EdgeInsets.only(bottom: 9),
             child: Text(
-              'The original account was deleted — this entry moved to '
+              'The original account was deleted - this entry moved to '
               '${s.accByKey(_account).short}.',
               style: const TextStyle(
                 fontSize: 11.5,
@@ -1322,7 +1322,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     );
   }
 
-  /// Block tray (#294): move the entry — filtered to the same direction.
+  /// Block tray (#294): move the entry - filtered to the same direction.
   Widget _trayBlock() {
     final c = s.compute(s.monthIdx);
     final blocks = c.blocks
@@ -1356,7 +1356,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     );
   }
 
-  /// One labelled white card in the editor's scroll — the same shape the
+  /// One labelled white card in the editor's scroll - the same shape the
   /// event editor, the category editor and the import studio use.
   Widget _section(String id, String title, Widget child, {String? value}) {
     return Container(
@@ -1448,14 +1448,14 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     ),
   );
 
-  /// Read-only attribution line (#300): "Added by Erik · 12 Aug" or "—".
+  /// Read-only attribution line (#300): "Added by Erik · 12 Aug" or "-".
   Widget _addedBy() {
     final member = s
         .curFamily()
         ?.members
         .where((m) => m.id == _createdBy)
         .firstOrNull;
-    final who = member?.name ?? (_createdBy != null ? 'someone' : '—');
+    final who = member?.name ?? (_createdBy != null ? 'someone' : '-');
     String when = '';
     if (_createdAt != null) {
       final p = _createdAt!.split('-');
@@ -1519,7 +1519,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               border: Border.all(color: const Color(0xffd3e5f8)),
             ),
             child: Text(
-              'Part of a series — edits apply ${kMonthsEn[s.monthIdx]} onward, never backwards.',
+              'Part of a series - edits apply ${kMonthsEn[s.monthIdx]} onward, never backwards.',
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -1532,7 +1532,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
         _section('block', 'Budget block', _trayBlock()),
         _section(
           'day',
-          '${entryWords(_kind).dayHead} — which day of the month?',
+          '${entryWords(_kind).dayHead} - which day of the month?',
           _trayDay(),
           value: _dayValue,
         ),
@@ -1581,7 +1581,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED — this entry is a '
+              '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED - this entry is a '
               'snapshot. Reopen the month from Money to edit.',
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -1602,7 +1602,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           title,
           sub: _editing
               ? 'One card per decision'
-              : 'One card per decision — nothing hidden',
+              : 'One card per decision - nothing hidden',
           onConfirm: _submit,
           confirmEnabled: ready,
         ),
@@ -1687,7 +1687,7 @@ class _EntryScopeSheet extends StatelessWidget {
         _sheetHead(
           context,
           deleting ? 'Remove “$name”?' : 'Save changes to “$name”?',
-          'Past months are history — they never change.',
+          'Past months are history - they never change.',
         ),
         option(
           const ValueKey('entry-scope-month'),
@@ -1699,7 +1699,7 @@ class _EntryScopeSheet extends StatelessWidget {
         ),
         option(
           const ValueKey('entry-scope-onward'),
-          deleting ? '$mn onward — end the series' : '$mn $yr onward',
+          deleting ? '$mn onward - end the series' : '$mn $yr onward',
           deleting
               ? 'Earlier months stay in the books.'
               : 'Rewrites this and future months. Earlier months stay as they were.',

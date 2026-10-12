@@ -38,7 +38,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
     await tester.pumpAndSettle();
 
-    // DEDUCTIBLE sits on the 27th — a Saturday in June 2026. Open it from
+    // DEDUCTIBLE sits on the 27th - a Saturday in June 2026. Open it from
     // the timeline row and give it a "Friday before" weekend shift.
     final dedId = thriveDebug.findExpenseId('health', '', 'DEDUCTIBLE');
     expect(dedId, isNotNull);
@@ -47,7 +47,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(dedRow);
     await tester.pumpAndSettle();
-    expect(find.text('PAY DAY — WHICH DAY OF THE MONTH?'), findsOneWidget);
+    expect(find.text('PAY DAY - WHICH DAY OF THE MONTH?'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('entry-shift-before')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));

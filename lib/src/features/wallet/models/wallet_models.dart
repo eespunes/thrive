@@ -1,7 +1,7 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// Fallback swatches offered when no dominant colour could be sampled from
-/// the card photo (issue #225 — "palette fallback otherwise").
+/// the card photo (issue #225 - "palette fallback otherwise").
 const List<Color> kCardPalette = [
   B.primary,
   Color(0xff1684B4),
@@ -13,7 +13,7 @@ const List<Color> kCardPalette = [
 ];
 
 /// A family loyalty/discount card (epic #222). Lives on the family
-/// [Workspace] (`cards[]`) and syncs with it — except [photo], which stays
+/// [Workspace] (`cards[]`) and syncs with it - except [photo], which stays
 /// on-device (issue #234: card images never leave local storage).
 class DiscountCard {
   DiscountCard({
@@ -32,7 +32,7 @@ class DiscountCard {
 
   String id;
 
-  /// Shop name — always user-entered, never guessed (issue #225).
+  /// Shop name - always user-entered, never guessed (issue #225).
   String name;
 
   /// Card number, stored digits-only (issue #227).
@@ -41,7 +41,7 @@ class DiscountCard {
   /// `'barcode'` (1D, rendered as Code 128/EAN-13) or `'qr'`.
   String codeType;
 
-  /// Card face colour — sampled from the photo when it has a dominant hue,
+  /// Card face colour - sampled from the photo when it has a dominant hue,
   /// otherwise picked from [kCardPalette].
   Color color;
 
@@ -102,7 +102,7 @@ class DiscountCard {
   );
 }
 
-/// Keeps only the digits of [s] — card numbers are stored digits-only.
+/// Keeps only the digits of [s] - card numbers are stored digits-only.
 String digitsOnly(String s) => s.replaceAll(RegExp(r'[^0-9]'), '');
 
 /// Merges the local-only card photos of [local] into [incoming] by card id.

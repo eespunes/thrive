@@ -8,7 +8,7 @@
         android:letterSpacing="0.05" android:textColor="@color/widgetMuted"/>
     <TextView android:id="@+id/today_empty" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:paddingTop="8dp"
-        android:text="Nothing scheduled — enjoy the calm."
+        android:text="Nothing scheduled - enjoy the calm."
         android:textSize="11sp" android:textColor="@color/widgetMuted"/>
     <LinearLayout android:id="@+id/today_row_1" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:orientation="horizontal"

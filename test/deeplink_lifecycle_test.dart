@@ -88,7 +88,7 @@ void main() {
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
 
-    // Make an edit (saved immediately), then background and resume the app —
+    // Make an edit (saved immediately), then background and resume the app -
     // the lifecycle handlers must not lose or duplicate it.
     await tester.tap(find.byKey(const ValueKey('nav-calendar')));
     await tester.pumpAndSettle();

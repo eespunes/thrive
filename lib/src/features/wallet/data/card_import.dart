@@ -2,8 +2,8 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Pure image-analysis pipeline behind "import a card from a photo"
 /// (issues #225–#227): detects a QR code or an EAN-13 barcode in the photo
-/// and samples its dominant colour. Plain functions of the image bytes —
-/// no widget state, no I/O — so the whole importer is unit-tested.
+/// and samples its dominant colour. Plain functions of the image bytes -
+/// no widget state, no I/O - so the whole importer is unit-tested.
 
 /// What the importer managed to read from a card photo. [number] is null
 /// when no code was detected (the review sheet then falls back to manual
@@ -18,7 +18,7 @@ class CardScanResult {
   bool get colorSampled => color != null;
 }
 
-/// Runs the full detection pipeline on raw photo [bytes]. Never throws —
+/// Runs the full detection pipeline on raw photo [bytes]. Never throws -
 /// an undecodable image simply yields an empty result (issue #226: failures
 /// fall back to manual entry, not an error).
 CardScanResult analyzeCardImage(Uint8List bytes) {
@@ -61,7 +61,7 @@ String? _decodeQr(img.Image image) {
 }
 
 // EAN-13 digit encodings as run-length widths of the 4 alternating runs in
-// each 7-module digit (left digits start with a space, right with a bar —
+// each 7-module digit (left digits start with a space, right with a bar -
 // the widths are identical either way, which is all the matcher compares).
 const List<List<int>> _kEanL = [
   [3, 2, 1, 1],
@@ -92,7 +92,7 @@ const List<List<bool>> _kEanParity = [
 ];
 
 /// True when [digits] is a well-formed EAN-13 number (13 digits, valid
-/// check digit) — also decides which symbology the card face renders.
+/// check digit) - also decides which symbology the card face renders.
 bool isValidEan13(String digits) {
   if (digits.length != 13 || !RegExp(r'^[0-9]{13}$').hasMatch(digits)) {
     return false;
@@ -245,7 +245,7 @@ bool _isGuard(List<int> runs, int at, int count, double module) {
 /// Samples the photo's dominant hue: saturated pixels are bucketed by hue,
 /// and the winning bucket's average colour is returned when it clearly
 /// dominates. Null when the photo has no dominant hue (mostly white/grey
-/// cards) — the caller then offers the palette instead, never a random
+/// cards) - the caller then offers the palette instead, never a random
 /// colour (issue #225).
 Color? dominantColorOf(img.Image image) {
   const bins = 12;
@@ -294,7 +294,7 @@ Color? dominantColorOf(img.Image image) {
   }
   final n = counts[best];
   // A colour only counts as "dominant" when it covers a real share of the
-  // photo — otherwise the review sheet falls back to the palette.
+  // photo - otherwise the review sheet falls back to the palette.
   if (n < 24 || n / sampled < 0.06) return null;
   return Color.fromARGB(
     0xff,

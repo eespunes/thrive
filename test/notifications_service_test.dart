@@ -3,13 +3,13 @@
 // behind `NotificationScheduler` in widget tests (see calendar_test.dart
 // usages). Covers init, permission requests, event scheduling (including
 // recurring occurrences, exceptions, reminder-body formatting) and
-// cancellation — all the branches that don't fire in the higher-level widget
+// cancellation - all the branches that don't fire in the higher-level widget
 // tests because those substitute a fake scheduler.
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 // The plugin normally registers its method-channel platform implementation
 // via its own plugin registration, which doesn't run in plain `flutter test`
-// unit tests — so `FlutterLocalNotificationsPlatform.instance` is left
+// unit tests - so `FlutterLocalNotificationsPlatform.instance` is left
 // uninitialized unless set explicitly here. `flutter test` defaults
 // `defaultTargetPlatform` to Android, so the Android implementation is what
 // `resolvePlatformSpecificImplementation` needs to find.
@@ -223,7 +223,7 @@ void main() {
   test('scheduleEventReminder anchors the recurring occurrence window at '
       '"now", so a series started years ago still gets reminders', () async {
     // Regression: the window used to be [event.date, event.date + 24 months],
-    // which is entirely in the past for an old series — its reminders
+    // which is entirely in the past for an old series - its reminders
     // silently stopped after two years.
     await NotificationService.init();
     await NotificationService.instance.scheduleEventReminder(

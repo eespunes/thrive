@@ -39,7 +39,7 @@ Future<void> addLine(WidgetTester tester, String text) async {
 }
 
 /// Finds the single `GestureDetector` whose `ValueKey` starts with [prefix]
-/// (e.g. `task-check-`) — item ids are generated at runtime.
+/// (e.g. `task-check-`) - item ids are generated at runtime.
 Finder byKeyPrefix(String prefix) {
   return find.byWidgetPredicate(
     (w) =>
@@ -153,7 +153,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('×1'), findsOneWidget);
 
-    // − at ×1 crosses the line off — no confirm, but a 4s Undo (#319).
+    // − at ×1 crosses the line off - no confirm, but a 4s Undo (#319).
     await tester.tap(byKeyPrefix('shop-minus-'));
     await tester.pumpAndSettle();
     expect(find.text('Eggs'), findsNothing);
@@ -255,7 +255,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Who’s on it?'), findsOneWidget);
     expect(find.text('0 open'), findsWidgets); // fair-share loads
-    expect(find.text('Anyone — first to grab it'), findsOneWidget);
+    expect(find.text('Anyone - first to grab it'), findsOneWidget);
 
     await tester.tap(find.text('Eva Janssen'));
     await tester.pumpAndSettle();

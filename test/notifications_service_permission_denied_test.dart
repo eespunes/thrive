@@ -1,6 +1,6 @@
 // Split into its own file (a fresh process per `flutter test` file) because
 // `NotificationService`'s cached `_notificationsGranted` flag is a private
-// static with no test-visible reset hook — caching a denial here would leak
+// static with no test-visible reset hook - caching a denial here would leak
 // into every other test in `notifications_service_test.dart`.
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

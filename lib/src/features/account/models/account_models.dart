@@ -15,7 +15,7 @@ const String kBootIncompleteLegacyKey = 'thrive.bootIncomplete';
 
 /// Prefix for local per-workspace section keys:
 /// `thrive.ws.<familyId>.<sectionId>`, with section payloads exactly as
-/// [workspaceSections] builds them for Firestore — so an edit re-encodes
+/// [workspaceSections] builds them for Firestore - so an edit re-encodes
 /// only its own section instead of the whole multi-MB state.
 const String kWsSectionPrefix = 'thrive.ws.';
 
@@ -36,7 +36,7 @@ const List<Color> kMemberColors = [
 /// reachable even where a `uid` field would otherwise shadow it).
 String _genUid() => uid();
 
-/// Mirrors the design's `slug(s)` — a URL/username-safe family handle.
+/// Mirrors the design's `slug(s)` - a URL/username-safe family handle.
 String familySlug(String? s) {
   var out = (s ?? '')
       .toLowerCase()
@@ -47,11 +47,11 @@ String familySlug(String? s) {
   return out;
 }
 
-/// Mirrors the design's `validUsername(u)` — 3–24 chars, starts alphanumeric.
+/// Mirrors the design's `validUsername(u)` - 3–24 chars, starts alphanumeric.
 bool validFamilyUsername(String? u) =>
     RegExp(r'^[a-z0-9][a-z0-9_-]{2,23}$').hasMatch(u ?? '');
 
-/// Mirrors `initialsOf(name)` — up to two uppercase initials from a name.
+/// Mirrors `initialsOf(name)` - up to two uppercase initials from a name.
 String initialsOf(String? name) {
   final parts = (name ?? '')
       .trim()
@@ -129,7 +129,7 @@ class FamilyMember {
   /// Base64 uploaded avatar picture, if set.
   String? photo;
 
-  /// Emoji avatar (e.g. for a login-less kid profile) — mutually exclusive
+  /// Emoji avatar (e.g. for a login-less kid profile) - mutually exclusive
   /// with [photo]; shown instead of it, falling back to [initials] when
   /// neither is set.
   String? emoji;
@@ -201,7 +201,7 @@ class Family {
   /// Firebase Auth uid of the owner (cloud mode). `null` in local/demo mode.
   String? ownerUid;
 
-  /// Firebase Auth uids with access — the source of truth for sharing and the
+  /// Firebase Auth uids with access - the source of truth for sharing and the
   /// field Firestore security rules check for membership.
   List<String> memberUids;
 
@@ -256,7 +256,7 @@ class Workspace {
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
        weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
-       // A brand-new workspace starts with NO layers — the user builds their
+       // A brand-new workspace starts with NO layers - the user builds their
        // own set via "+ Add layer" (issue #203-#211). We only ever default
        // to the empty list here; callers that legitimately need the 3
        // built-ins pre-seeded (legacy-data backfill in [Workspace.fromJson],
@@ -278,7 +278,7 @@ class Workspace {
   List<ImportedCalendar> importedCalendars;
 
   /// User-customizable calendar layers (built-ins + any custom ones), in
-  /// display order. A brand-new workspace starts with none — the user adds
+  /// display order. A brand-new workspace starts with none - the user adds
   /// their own. [Workspace.fromJson] backfills the 3 legacy built-ins only
   /// when the `calendarLayers` key was never present in the saved data at
   /// all (i.e. saved by an app version before layers existed), so every
@@ -287,7 +287,7 @@ class Workspace {
   /// this feature and has no layers) stays empty.
   List<CalendarLayerDef> calendarLayers;
 
-  /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
+  /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse - only
   /// days with content need an entry.
   Map<String, DayPlan> weeklyPlan;
 
@@ -299,7 +299,7 @@ class Workspace {
   bool kitchenEnabled;
 
   /// Per-member "Picture mode" override for the Kitchen dashboard (large
-  /// image tile, no text — for pre-readers). Missing memberId means `false`.
+  /// image tile, no text - for pre-readers). Missing memberId means `false`.
   Map<String, bool> picMembers;
 
   /// Kitchen-dashboard layer visibility, independent from the phone
@@ -308,7 +308,7 @@ class Workspace {
   List<String> kitchenLayerFilter;
 
   /// Family loyalty/discount cards (epic #222). Never part of a fresh
-  /// family's seed data — new workspaces start with no cards.
+  /// family's seed data - new workspaces start with no cards.
   List<DiscountCard> cards;
 
   Map<String, dynamic> toJson() => {
@@ -453,7 +453,7 @@ class Workspace {
   }
 
   /// Builds a fresh, truly empty workspace: no accounts and no budget blocks.
-  /// A newly created family starts blank — the user adds their own accounts and
+  /// A newly created family starts blank - the user adds their own accounts and
   /// blocks from Settings (see issue #119).
   factory Workspace.empty() {
     final yearMap = <String, MonthData>{};
@@ -468,7 +468,7 @@ class Workspace {
   }
 }
 
-/// Mirrors the design's `seedFamily(user)` — creates the initial family with
+/// Mirrors the design's `seedFamily(user)` - creates the initial family with
 /// the user as owner plus one dummy member, so a new account isn't empty.
 /// [selfId] is the caller's own stable id (`myId`) for the owner's member row.
 Family seedFamily(String id, AppUser u, String selfId, {String? ownerUid}) {

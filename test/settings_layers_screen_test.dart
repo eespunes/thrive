@@ -103,7 +103,7 @@ void main() {
     await tester.pumpAndSettle();
     // The seed has 1 appointment event.
     expect(
-      find.text('It takes its 1 event with it — it moves to another layer.'),
+      find.text('It takes its 1 event with it - it moves to another layer.'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('counting-confirm-go')));

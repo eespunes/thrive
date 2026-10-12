@@ -93,8 +93,8 @@ void main() {
       );
       await _openKitchen(tester);
 
-      // Quick-add offers no emoji shortcut for a picture-mode member — a
-      // pre-reader's tile needs a real photo — and Add is blocked without
+      // Quick-add offers no emoji shortcut for a picture-mode member - a
+      // pre-reader's tile needs a real photo - and Add is blocked without
       // one (#334).
       await tester.tap(find.byKey(const ValueKey('kitchen-quick-add-fab')));
       await tester.pumpAndSettle();

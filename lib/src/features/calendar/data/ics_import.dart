@@ -51,7 +51,7 @@ Uri _parseIcsUri(String rawUrl) {
   // `webcal://` is a plain ICS feed served over http(s), same as any other
   // calendar-subscription link (ecal.com, Google, Apple all publish these).
   if (uri.scheme == 'webcal') uri = uri.replace(scheme: 'https');
-  // Auto-upgrade pasted `http://` links — feeds are only fetched over https
+  // Auto-upgrade pasted `http://` links - feeds are only fetched over https
   // so events never travel in cleartext.
   if (uri.scheme == 'http') uri = uri.replace(scheme: 'https');
   if (uri.scheme != 'https') {
@@ -60,7 +60,7 @@ Uri _parseIcsUri(String rawUrl) {
   return uri;
 }
 
-/// Maximum accepted ICS response size (5 MB) — see the check in
+/// Maximum accepted ICS response size (5 MB) - see the check in
 /// [fetchIcsEvents].
 const int _maxIcsBytes = 5 * 1024 * 1024;
 
@@ -75,10 +75,10 @@ class IcsImportException implements Exception {
 /// UID/SUMMARY/DESCRIPTION/LOCATION/DTSTART/DTEND out of each `VEVENT`.
 /// Covers what real-world ICS feeds (ecal.com, fotmob, and the major
 /// calendar providers) publish; recurrence rules and per-instance overrides
-/// are not expanded — each VEVENT becomes a single read-only occurrence.
+/// are not expanded - each VEVENT becomes a single read-only occurrence.
 ///
 /// A `VEVENT` commonly nests its own sub-components (`VALARM` reminders,
-/// most notably), which have their own `SUMMARY`/`DESCRIPTION` properties —
+/// most notably), which have their own `SUMMARY`/`DESCRIPTION` properties -
 /// those must NOT be captured as the event's own, so this tracks nesting
 /// depth and only reads properties at the top level directly inside VEVENT.
 List<ImportedCalendarEvent> parseIcsEvents(String ics) {
@@ -164,7 +164,7 @@ final RegExp _emojiPattern = RegExp(
 );
 
 /// Strips emoji (and their variation-selector/ZWJ glue) from imported event
-/// titles — some feeds decorate SUMMARY with decorative emoji we don't want
+/// titles - some feeds decorate SUMMARY with decorative emoji we don't want
 /// surfaced in the app's event list.
 String _stripEmoji(String v) => v
     .replaceAll(_emojiPattern, '')
@@ -176,7 +176,7 @@ final RegExp _urlPattern = RegExp(
   caseSensitive: false,
 );
 
-/// Removes URLs from imported event descriptions — some feeds (e.g.
+/// Removes URLs from imported event descriptions - some feeds (e.g.
 /// ticketing/streaming calendars) append a link into `DESCRIPTION` that we
 /// don't want surfaced as event notes.
 String _stripUrls(String v) => v
@@ -196,7 +196,7 @@ final RegExp _icsDatePattern = RegExp(
 ///   to local time so the event lands on the correct local day/hour.
 /// - Anything else (a bare local time, or a `TZID=...` time we don't have a
 ///   timezone database for) is treated as already being in the viewer's
-///   local time — the common case for feeds like ecal.com that publish in
+///   local time - the common case for feeds like ecal.com that publish in
 ///   the subscriber's timezone.
 DateTime? _parseIcsDate(String v) {
   final m = _icsDatePattern.firstMatch(v);

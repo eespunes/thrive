@@ -52,7 +52,7 @@ void main() {
     expect(find.textContaining('Withdraws · limit'), findsOneWidget);
   });
 
-  testWidgets('saving an entry at 90% of the cap nudges — unless warnings '
+  testWidgets('saving an entry at 90% of the cap nudges - unless warnings '
       'are off', (tester) async {
     await openBlocks(tester);
     // Give Food a €100 cap, then add a €95 entry.

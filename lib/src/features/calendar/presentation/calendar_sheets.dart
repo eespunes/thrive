@@ -55,7 +55,7 @@ String calendarRepeatLabel(CalendarEvent ev) {
   return '$base on $weekdays';
 }
 
-/// "New event" / "Edit event" sheet — title, all-day, date/time, location,
+/// "New event" / "Edit event" sheet - title, all-day, date/time, location,
 /// category, attendees, colour, reminder, repeat, notes. Ported from the
 /// design's `sheetEventEdit()`.
 extension _NullableList<T> on List<T> {
@@ -695,8 +695,8 @@ class _RecurDeleteSheet extends StatelessWidget {
 
 /// "Go to month" (design §2a): a 2-column grid of month cards carrying the
 /// month's event count under the current filters, plus a full-width
-/// gradient "Jump to today". Tapping a card travels there — selecting today
-/// for the current month, the 1st otherwise — and closes.
+/// gradient "Jump to today". Tapping a card travels there - selecting today
+/// for the current month, the 1st otherwise - and closes.
 class _CalMonthPickerSheet extends StatefulWidget {
   const _CalMonthPickerSheet({required this.state});
   final _ThriveHomeState state;
@@ -878,7 +878,7 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
   }
 }
 
-/// "What do you want to see?" (design §2a) — three chip groups: Layers,
+/// "What do you want to see?" (design §2a) - three chip groups: Layers,
 /// Categories (the appointment layers' categories) and Members. Chips are ON
 /// by default; switched off they grey out, strike through their label and
 /// dim their colour dot. Filters are per-user, never family-wide, and apply
@@ -1090,7 +1090,7 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
           child: Text(
             'Categories live inside their layer. Events for several people '
             'stay visible while any of them is on. Filters apply to the '
-            'month, the agenda, the day sheets and the kitchen wall — only '
+            'month, the agenda, the day sheets and the kitchen wall - only '
             'for you, not the family.',
             style: TextStyle(
               fontSize: 10.5,
@@ -1107,8 +1107,8 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
 }
 
 /// One day's events (design §2a `daySheet`): the day's title with its event
-/// count, full agenda rows from the shared builder, and — for today and
-/// future days only — a dashed "＋ Add on this day". A past day is
+/// count, full agenda rows from the shared builder, and - for today and
+/// future days only - a dashed "＋ Add on this day". A past day is
 /// view-only and says so.
 class _DayDetailSheet extends StatefulWidget {
   const _DayDetailSheet({required this.state, required this.iso});
@@ -1187,7 +1187,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
             padding: EdgeInsets.symmetric(vertical: 22),
             child: Center(
               child: Text(
-                'Nothing planned — enjoy the calm.',
+                'Nothing planned - enjoy the calm.',
                 key: ValueKey('day-sheet-empty'),
                 style: TextStyle(
                   fontSize: 12.5,
@@ -1222,7 +1222,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
               borderRadius: BorderRadius.circular(11),
             ),
             child: const Text(
-              'This day is in the past — view only.',
+              'This day is in the past - view only.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 11,

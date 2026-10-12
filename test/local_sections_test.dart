@@ -52,7 +52,7 @@ void main() {
     expect(thriveDebug.events.any((e) => e.title == 'Sectioned event'), isTrue);
   });
 
-  testWidgets('an edit is saved right away — no debounce, no flush', (
+  testWidgets('an edit is saved right away - no debounce, no flush', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);

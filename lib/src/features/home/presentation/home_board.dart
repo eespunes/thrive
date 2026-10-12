@@ -120,7 +120,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
 
   /// Slim board header under the shell greeting, shown only in edit mode:
   /// "Drag to reorder · only you see this" plus the teal "Done" pill
-  /// (design 1a). View mode has no header — long-pressing any widget
+  /// (design 1a). View mode has no header - long-pressing any widget
   /// enters edit mode (issue #236), so the pencil became redundant.
   Widget _homeBoardHeader() {
     return Row(
@@ -293,7 +293,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
                   ),
                 ),
               ),
-              // Size chip (issue #238) — only when more sizes exist.
+              // Size chip (issue #238) - only when more sizes exist.
               if (def.sizes.length > 1)
                 Positioned(
                   right: 10,
@@ -358,7 +358,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
     );
   }
 
-  /// "Hidden: A \u00b7 B \u00b7 C" — widgets not on the board (design 1a).
+  /// "Hidden: A \u00b7 B \u00b7 C" - widgets not on the board (design 1a).
   Widget _homeHiddenLine() {
     final placed = {for (final e in effectiveHomeBoard()) e.widgetId};
     final hidden = [

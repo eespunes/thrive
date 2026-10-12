@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// One placed widget on a member's Home board (epic #223): which widget,
 /// at which size, with which per-user options. The board itself is an
-/// ordered list of these, stored on the USER profile — the data the widgets
+/// ordered list of these, stored on the USER profile - the data the widgets
 /// show stays the shared family workspace.
 class BoardEntry {
   BoardEntry({
@@ -239,7 +239,7 @@ const List<HomeWidgetDef> kHomeWidgetCatalog = [
   HomeWidgetDef(
     id: 'divider',
     title: 'Divider / label',
-    sub: 'Free text — group a long board',
+    sub: 'Free text - group a long board',
     icon: 'filter',
     category: 'home',
     sizes: ['s'],
@@ -278,7 +278,7 @@ List<BoardEntry>? parseHomeBoard(dynamic raw) {
   return out;
 }
 
-/// The quick actions offered by the `quick_actions` widget (issue #243) —
+/// The quick actions offered by the `quick_actions` widget (issue #243) -
 /// the user picks four of these ids in the widget's options.
 const List<(String, String, String)> kHomeQuickActions = [
   ('add_expense', 'Add cost', 'plus'),

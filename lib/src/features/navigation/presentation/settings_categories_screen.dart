@@ -156,10 +156,10 @@ class _CategoryStudioState extends State<_CategoryStudio> {
       context,
       title: 'Delete "${c.name}"?',
       message: n == 0
-          ? 'Nothing uses this badge yet — it just disappears.'
+          ? 'Nothing uses this badge yet - it just disappears.'
           : (n == 1
-                ? 'Its 1 event keeps its time — it just loses the badge.'
-                : 'Its $n events keep their times — they just lose the '
+                ? 'Its 1 event keeps its time - it just loses the badge.'
+                : 'Its $n events keep their times - they just lose the '
                       'badge.'),
       confirmLabel: 'Delete category',
       onConfirm: () {
@@ -182,7 +182,7 @@ class _CategoryStudioState extends State<_CategoryStudio> {
       saveLabel: editing ? 'Save category' : 'Add category',
       saveEnabled: _name.trim().isNotEmpty,
       onSave: _save,
-      deleteLabel: editing ? 'Delete category — events keep their times' : null,
+      deleteLabel: editing ? 'Delete category - events keep their times' : null,
       onDelete: editing ? _delete : null,
       children: [
         BadgeStage(

@@ -4,7 +4,7 @@ part of 'package:family_money_management_app/main.dart';
 /// family-management page with member action sheets (#275), the three-state
 /// invite & share sheet (#278), the explicit leave/delete-family flows with
 /// the successor picker (#279), the hardened typed-DELETE account deletion
-/// (#280) — all rendered permission-aware (#273: show disabled, don't hide,
+/// (#280) - all rendered permission-aware (#273: show disabled, don't hide,
 /// except impossible affordances like self-demote).
 extension _ThriveFamilyScreens on _ThriveHomeState {
   // ------------------------------------------------------- permissions #273
@@ -55,7 +55,7 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
 
   // ------------------------------------------------------ member actions
   /// Bottom sheet of per-member actions (#275): edit / revoke invite / role
-  /// change / remove — disallowed ones render locked (🔒 + hint toast);
+  /// change / remove - disallowed ones render locked (🔒 + hint toast);
   /// impossible ones (self-demote, self-remove) don't render at all.
   Future<void> showMemberActionsSheet(String memberId) {
     return _showSheet((ctx) {
@@ -68,9 +68,9 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
       final loginless = isLoginlessMember(m);
       final invited = m.status == 'invited';
       final sub = loginless
-          ? 'Login-less member — anyone can manage them'
+          ? 'Login-less member - anyone can manage them'
           : invited
-          ? 'Invited — hasn’t joined yet'
+          ? 'Invited - hasn’t joined yet'
           : (m.role == 'owner' ? 'Owner of ${f.name}' : 'Member');
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -95,7 +95,7 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
               key: 'ma-revoke',
               label: 'Revoke invite',
               sub:
-                  'Removes the pending row — they can still join with the '
+                  'Removes the pending row - they can still join with the '
                   'username',
               danger: true,
               locked: !canRevokeInvite(m),
@@ -270,7 +270,7 @@ Widget _smallPillButton(
 }
 
 /// A name field with an explicit Save button that only appears when dirty
-/// (#274/#275 — replaces save-every-keystroke). Also commits on focus loss.
+/// (#274/#275 - replaces save-every-keystroke). Also commits on focus loss.
 class _ExplicitSaveField extends StatefulWidget {
   const _ExplicitSaveField({
     required this.fieldKey,
@@ -603,7 +603,7 @@ class _FamilyScreen extends StatelessWidget {
     final owner = s.amOwner();
     final candidates = s.successorCandidates(f);
     if (owner && candidates.isNotEmpty) {
-      // Owner leave: explicit successor picker — never a silent transfer.
+      // Owner leave: explicit successor picker - never a silent transfer.
       s._showSheet(
         (ctx) => _OwnerLeaveSheet(
           state: s,
@@ -618,7 +618,7 @@ class _FamilyScreen extends StatelessWidget {
         ? 'You’re the only account member, so the family and its data are '
               'deleted for everyone.'
         : (last
-              ? 'This is your last family — you’ll land back at the '
+              ? 'This is your last family - you’ll land back at the '
                     'create-or-join screen.'
               : 'Your items stay; you can be invited back anytime.');
     showCountingConfirmSheet(
@@ -740,7 +740,7 @@ class _FamilyScreen extends StatelessWidget {
                   const Padding(
                     padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
                     child: Text(
-                      'Only owners can manage members — tap a row to see '
+                      'Only owners can manage members - tap a row to see '
                       'your options.',
                       style: TextStyle(
                         fontSize: 10.5,
@@ -769,7 +769,7 @@ class _FamilyScreen extends StatelessWidget {
                         canInvite
                             ? s.openInviteSheet
                             : () => s.flash(
-                                'Only owners can add members — you can edit '
+                                'Only owners can add members - you can edit '
                                 'existing login-less members',
                               ),
                         key: const ValueKey('family-add-loginless'),
@@ -837,7 +837,7 @@ class _FamilyScreen extends StatelessWidget {
                           ),
                           Text(
                             'Deletes everything for all ${f.members.length} '
-                            'members — can’t be undone',
+                            'members - can’t be undone',
                             style: const TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
@@ -859,11 +859,11 @@ class _FamilyScreen extends StatelessWidget {
   String _leaveSub(_ThriveHomeState s, Family f) {
     if (s.amOwner()) {
       return s.successorCandidates(f).isNotEmpty
-          ? 'You’re the owner — pick who takes over'
-          : 'You’re the only account member — leaving deletes the family';
+          ? 'You’re the owner - pick who takes over'
+          : 'You’re the only account member - leaving deletes the family';
     }
     return s.families.length == 1
-        ? 'This is your last family — you’ll go back to the start'
+        ? 'This is your last family - you’ll go back to the start'
         : 'You can be invited back anytime';
   }
 
@@ -875,7 +875,7 @@ class _FamilyScreen extends StatelessWidget {
     final invited = m.status == 'invited';
     final loginless = s.isLoginlessMember(m);
     final sub = loginless
-        ? 'No login — managed by anyone'
+        ? 'No login - managed by anyone'
         : invited
         ? 'Invited · hasn’t joined yet'
         : (m.email.isNotEmpty ? m.email : 'Active member');
@@ -1014,7 +1014,7 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
         _sheetHead(
           context,
           'Leave ${f.name}?',
-          'You’re the owner. Choose who takes over before you go — this is '
+          'You’re the owner. Choose who takes over before you go - this is '
               'explicit now, not silent.',
         ),
         for (final m in candidates)
@@ -1086,7 +1086,7 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
               borderRadius: BorderRadius.circular(13),
             ),
             child: Text(
-              'Leave — ${succ?.name.split(' ').first ?? '…'} becomes owner',
+              'Leave - ${succ?.name.split(' ').first ?? '…'} becomes owner',
               style: const TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
@@ -1179,7 +1179,7 @@ class _InviteSheetState extends State<_InviteSheet> {
           _sheetHead(
             context,
             'Invite to ${f.name}',
-            'Three ways in — pick what fits.',
+            'Three ways in - pick what fits.',
           ),
           // ------------------------------------------- join-details card
           Container(
@@ -1273,7 +1273,7 @@ class _InviteSheetState extends State<_InviteSheet> {
           const Padding(
             padding: EdgeInsets.fromLTRB(2, 6, 2, 12),
             child: Text(
-              'Honest note: this only adds them as "invited" — Thrive '
+              'Honest note: this only adds them as "invited" - Thrive '
               'doesn’t send an email yet. Share the join details yourself.',
               style: TextStyle(
                 fontSize: 10.5,
@@ -1331,7 +1331,7 @@ class _InviteSheetState extends State<_InviteSheet> {
           const Padding(
             padding: EdgeInsets.fromLTRB(2, 6, 2, 14),
             child: Text(
-              'They appear everywhere but never sign in — anyone can '
+              'They appear everywhere but never sign in - anyone can '
               'manage them.',
               style: TextStyle(
                 fontSize: 10.5,
@@ -1379,7 +1379,7 @@ class _InviteSheetState extends State<_InviteSheet> {
       );
     }
     if (_hasPw) {
-      // Set, but only the salted hash survives — it can't be shown.
+      // Set, but only the salted hash survives - it can't be shown.
       return Container(
         key: const ValueKey('iv-pw-hidden'),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
@@ -1393,7 +1393,7 @@ class _InviteSheetState extends State<_InviteSheet> {
           runSpacing: 4,
           children: [
             const Text(
-              'A password is set, but Thrive only stores it scrambled — it '
+              'A password is set, but Thrive only stores it scrambled - it '
               'can’t be shown. Share it directly, or',
               style: TextStyle(
                 fontSize: 11,
@@ -1442,7 +1442,7 @@ class _InviteSheetState extends State<_InviteSheet> {
         runSpacing: 4,
         children: [
           const Text(
-            'No password — anyone with the username can join.',
+            'No password - anyone with the username can join.',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
@@ -1520,7 +1520,7 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
           context,
           'Set a new join password',
           'The old one stops working the moment you save. Passwords are '
-              'stored scrambled — only you’ll know this one.',
+              'stored scrambled - only you’ll know this one.',
         ),
         studioTextField(
           key: const ValueKey('rp-input'),

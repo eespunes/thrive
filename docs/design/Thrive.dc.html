@@ -256,11 +256,11 @@ class Component extends DCLogic {
       {id:cF,name:'Family',color:'#d97706',icon:'users',members:[me,erik,liv,sam]}
     ];
     ws.events=[
-      {id:uid(),title:'Dentist — Liv',date:T,allDay:false,start:'14:30',end:'15:15',location:'Tandartspraktijk Centrum',notes:'Bring insurance card',category:cH,color:'#e11d48',attendees:[liv,me],reminder:'1h',recur:'none',createdBy:me,exceptions:[]},
+      {id:uid(),title:'Dentist - Liv',date:T,allDay:false,start:'14:30',end:'15:15',location:'Tandartspraktijk Centrum',notes:'Bring insurance card',category:cH,color:'#e11d48',attendees:[liv,me],reminder:'1h',recur:'none',createdBy:me,exceptions:[]},
       {id:uid(),title:'Football practice',date:T,allDay:false,start:'18:00',end:'19:30',location:'Sportpark Oost',notes:'',category:cSp,color:'#0f9d6a',attendees:[sam],reminder:'1h',recur:'weekly',createdBy:erik,exceptions:[]},
       {id:uid(),title:'Family dinner',date:addDays(T,1),allDay:false,start:'18:30',end:'20:00',location:'Home',notes:'Oma & Opa visiting',category:cF,color:'#d97706',attendees:[me,erik,liv,sam],reminder:'1d',recur:'none',createdBy:me,exceptions:[]},
       {id:uid(),title:'Swimming lessons',date:addDays(T,2),allDay:false,start:'16:00',end:'16:45',location:'Zwembad De Golf',notes:'',category:cSp,color:'#0f9d6a',attendees:[liv,sam],reminder:'at',recur:'weekly',createdBy:me,exceptions:[]},
-      {id:uid(),title:'Erik — work trip',date:addDays(T,3),allDay:true,start:'',end:'',location:'Berlin',notes:'Back Friday evening',category:cW,color:'#7c3aed',attendees:[erik],reminder:'none',recur:'none',createdBy:erik,exceptions:[]},
+      {id:uid(),title:'Erik - work trip',date:addDays(T,3),allDay:true,start:'',end:'',location:'Berlin',notes:'Back Friday evening',category:cW,color:'#7c3aed',attendees:[erik],reminder:'none',recur:'none',createdBy:erik,exceptions:[]},
       {id:uid(),title:'Pay rent',date:isoOf(2026,7,1),allDay:true,start:'',end:'',location:'',notes:'',category:cF,color:'#d97706',attendees:[me],reminder:'1d',recur:'monthly',createdBy:me,exceptions:[]}
     ];
     ws.taskLists=[
@@ -530,7 +530,7 @@ class Component extends DCLogic {
           E('div',null,
             E('div',{style:{fontSize:'10px',fontWeight:800,letterSpacing:'2px',opacity:.78}},'FAMILY FINANCE'),
             E('div',{style:{fontSize:'25px',fontWeight:800,letterSpacing:'-.5px',lineHeight:1}},'Thrive'))),
-        E('div',{style:{fontSize:'21px',fontWeight:800,letterSpacing:'-.4px',lineHeight:1.25,maxWidth:'270px'}},'Every euro, every account — in sync for the whole family.')),
+        E('div',{style:{fontSize:'21px',fontWeight:800,letterSpacing:'-.4px',lineHeight:1.25,maxWidth:'270px'}},'Every euro, every account - in sync for the whole family.')),
       // form
       E('div',{style:{flex:1,padding:'24px 22px 30px'}},
         E('div',{style:{fontSize:'20px',fontWeight:800,letterSpacing:'-.3px',color:B.ink,marginBottom:'3px'}},reg?'Create your account':'Welcome back'),
@@ -664,7 +664,7 @@ class Component extends DCLogic {
     return E('div',{style:{overflowY:'auto'}},this.sheetHead('Invite someone','Give access to '+f.name),
       E('div',{style:{background:B.soft,border:'1px solid '+B.greenLine,borderRadius:'16px',padding:'4px 14px 12px',marginBottom:'14px'}},
         E('div',{style:{fontSize:'11px',fontWeight:800,letterSpacing:'.3px',color:B.deep,textTransform:'uppercase',padding:'12px 0 6px'}},'Join details'),
-        this.moreCredRow('Family username',f.username||'—',null,null),
+        this.moreCredRow('Family username',f.username||'-',null,null),
         pw?this.moreCredRow('Family password',show?pw:'\u2022'.repeat(pw.length),show?'eyeoff':'eye',()=>this.setF({_show:!show})):
           E('div',{key:'nopw',style:{padding:'4px 0 2px'}},
             E('div',{style:{fontSize:'10px',fontWeight:800,letterSpacing:'.4px',color:B.muted,textTransform:'uppercase'}},'Family password'),
@@ -712,7 +712,7 @@ class Component extends DCLogic {
     const delFamily=(owner&&fams.length>1)?E('button',{onClick:()=>this.askDelete(f.name,'This family and its entire budget workspace will be permanently removed.',()=>this.deleteFamily(f.id)),style:{appearance:'none',border:'1px solid '+B.redLine,background:'#fff',cursor:'pointer',width:'100%',color:B.red,fontSize:'12.5px',fontWeight:800,padding:'12px',borderRadius:'13px',marginTop:'4px',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}},ic('trash',15,2.2,B.red),'Delete this family'):null;
     const credCard=owner?E('div',{style:{background:'#fff',border:'1px solid '+B.line,borderRadius:'16px',padding:'4px 14px 12px',marginBottom:'13px'}},
       E('div',{style:{fontSize:'11px',fontWeight:800,letterSpacing:'.3px',color:B.soft2,textTransform:'uppercase',padding:'11px 0 4px'}},'Share to invite'),
-      [['Username',f.username],['Password',f.password||'—']].map((row,i)=>E('div',{key:row[0],style:{display:'flex',alignItems:'center',gap:'10px',padding:'9px 0',borderTop:i?'1px solid '+B.faint:'none'}},
+      [['Username',f.username],['Password',f.password||'-']].map((row,i)=>E('div',{key:row[0],style:{display:'flex',alignItems:'center',gap:'10px',padding:'9px 0',borderTop:i?'1px solid '+B.faint:'none'}},
         E('div',{style:{flex:1,minWidth:0}},E('div',{style:{fontSize:'10px',fontWeight:700,color:B.muted,textTransform:'uppercase'}},row[0]),E('div',{style:{fontSize:'14px',fontWeight:800,color:B.ink,fontFamily:'ui-monospace,Menlo,monospace',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},row[1])),
         E('button',{onClick:()=>this.copyText(row[1],row[0]+' copied'),style:{appearance:'none',border:'1px solid '+B.line,background:'#fff',cursor:'pointer',borderRadius:'9px',padding:'7px 11px',display:'inline-flex',alignItems:'center',gap:'5px',fontSize:'11px',fontWeight:800,color:B.deep,flex:'none'}},ic('copy',13,2.2,B.deep),'Copy'))),
       E('div',{style:{fontSize:'10.5px',fontWeight:600,color:B.muted,paddingTop:'4px'}},'Family members create an account, then Join with these.')):null;
@@ -770,7 +770,7 @@ class Component extends DCLogic {
   }
   closedBanner(){return E('div',{style:{display:'flex',alignItems:'center',gap:'10px',background:'#0f172a',color:'#fff',borderRadius:'16px',padding:'13px 15px',marginBottom:'14px'}},
     E('span',{style:{width:'30px',height:'30px',borderRadius:'9px',background:'rgba(255,255,255,.14)',display:'grid',placeItems:'center',flex:'none'}},ic('lock',16,2.2,'#fff')),
-    E('div',{style:{flex:1,minWidth:0}},E('div',{style:{fontSize:'13px',fontWeight:800}},'Month closed'),E('div',{style:{fontSize:'11px',fontWeight:600,opacity:.8}},'Locked — read only. Deleting a block elsewhere won’t change this month.')),
+    E('div',{style:{flex:1,minWidth:0}},E('div',{style:{fontSize:'13px',fontWeight:800}},'Month closed'),E('div',{style:{fontSize:'11px',fontWeight:600,opacity:.8}},'Locked - read only. Deleting a block elsewhere won’t change this month.')),
     E('button',{onClick:()=>this.reopenMonth(),style:{appearance:'none',border:'none',cursor:'pointer',background:'#fff',color:'#0f172a',fontSize:'12px',fontWeight:800,padding:'8px 13px',borderRadius:'10px',display:'inline-flex',alignItems:'center',gap:'6px',flex:'none'}},ic('unlock',14,2.4),'Reopen'));}
   sumUpCard(c){
     const good=c.balance>=0&&c.stillToPay===0;const mid=c.balance>=0;
@@ -1051,7 +1051,7 @@ class Component extends DCLogic {
     return null;
   }
   sheetCloseConfirm(){const c=this.compute(this.state.monthIdx);return E('div',null,this.sheetHead('Close this month?',MEN[this.state.monthIdx]+' '+this.state.year),
-    E('div',{style:{fontSize:'12.5px',fontWeight:600,color:B.soft2,lineHeight:1.55,marginBottom:'14px'}},'Closing locks every item, toggle and limit for this month — nothing can be added, edited or deleted until you reopen it. A snapshot of the current blocks is kept, so deleting or editing a block later won’t affect this closed month.'),
+    E('div',{style:{fontSize:'12.5px',fontWeight:600,color:B.soft2,lineHeight:1.55,marginBottom:'14px'}},'Closing locks every item, toggle and limit for this month - nothing can be added, edited or deleted until you reopen it. A snapshot of the current blocks is kept, so deleting or editing a block later won’t affect this closed month.'),
     E('div',{style:{display:'flex',gap:'9px',marginBottom:'16px'}},
       E('div',{style:{flex:1,background:B.faint,borderRadius:'12px',padding:'11px 12px'}},E('div',{style:{fontSize:'10px',fontWeight:800,color:B.muted,textTransform:'uppercase',marginBottom:'4px'}},'Balance'),E('div',{style:{fontSize:'15px',fontWeight:800,color:c.balance>=0?B.green:B.red}},eur(c.balance))),
       E('div',{style:{flex:1,background:B.faint,borderRadius:'12px',padding:'11px 12px'}},E('div',{style:{fontSize:'10px',fontWeight:800,color:B.muted,textTransform:'uppercase',marginBottom:'4px'}},'Still to pay'),E('div',{style:{fontSize:'15px',fontWeight:800,color:c.stillToPay>0?B.amberText:B.greenText}},eur(c.stillToPay)))),
@@ -1284,7 +1284,7 @@ class Component extends DCLogic {
     const cards=[];
     cards.push(this.homeCard('Today & upcoming','cal',()=>this.goTab('calendar'),
       todayEv.length?E('div',{style:{display:'flex',flexDirection:'column'}},todayEv.slice(0,3).map((o,i)=>this.miniEventRow(o,i>0)))
-      :E('div',{style:{padding:'14px 4px',textAlign:'center',fontSize:'12.5px',fontWeight:600,color:B.muted}},'Nothing scheduled — enjoy the calm.')));
+      :E('div',{style:{padding:'14px 4px',textAlign:'center',fontSize:'12.5px',fontWeight:600,color:B.muted}},'Nothing scheduled - enjoy the calm.')));
     cards.push(this.homeCard('Tasks due soon','tasklist',()=>this.goTab('lists'),
       dueSoon.length?E('div',{style:{display:'flex',flexDirection:'column'}},dueSoon.map((t,i)=>this.miniTaskRow(t,i>0)))
       :E('div',{style:{padding:'14px 4px',textAlign:'center',fontSize:'12.5px',fontWeight:600,color:B.muted}},'All caught up. Nice work!')));
@@ -1378,7 +1378,7 @@ class Component extends DCLogic {
       E('button',{onClick:()=>this.resetBoard(),style:{appearance:'none',border:'1px solid '+B.greenLine,background:'#fff',cursor:'pointer',borderRadius:'9px',padding:'6px 9px',fontSize:'11px',fontWeight:800,color:B.deep,flex:'none'}},'Reset')):null;
     return this.bodyWrap(E('div',{style:{display:'flex',flexDirection:'column',gap:'11px',paddingTop:'4px'}},
       editHint,rows,addBtn,
-      b.length?null:E('div',{key:'empty',style:{fontSize:'11.5px',fontWeight:600,color:B.muted,textAlign:'center',padding:'4px 10px',lineHeight:1.5}},'Your board is empty — add the widgets you want to see first thing.')));
+      b.length?null:E('div',{key:'empty',style:{fontSize:'11.5px',fontWeight:600,color:B.muted,textAlign:'center',padding:'4px 10px',lineHeight:1.5}},'Your board is empty - add the widgets you want to see first thing.')));
   }
   widgetShell(w,idx){const def=this.widgetDef(w.id);if(!def)return null;
     const body=this.widgetBody(w,def);
@@ -1450,13 +1450,13 @@ class Component extends DCLogic {
       return this.wCard(E('div',null,this.wLabel('Next bills',eur(c.stillToPay)),
         items.length?E('div',null,items.map((x,i)=>{const st=x.it.untilState;const col=st==='over'?B.red:(st==='soon'?B.amber:B.muted);
           return E('div',{key:x.it.id,style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:i?'1px solid '+B.faint:'none'}},
-            E('span',{style:{width:'44px',flex:'none',fontSize:'11px',fontWeight:800,color:col}},x.it.untilLabel||x.it.marker||'—'),
+            E('span',{style:{width:'44px',flex:'none',fontSize:'11px',fontWeight:800,color:col}},x.it.untilLabel||x.it.marker||'-'),
             E('span',{style:{flex:1,minWidth:0}},
               E('span',{style:{display:'block',fontSize:'12.5px',fontWeight:800,color:B.ink,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},x.it.label),
               E('span',{style:{display:'block',fontSize:'10.5px',fontWeight:600,color:B.soft2}},(this.accByKey(x.it.account)||{}).name||'')),
             E('span',{style:{fontSize:'12.5px',fontWeight:800,color:B.ink,flex:'none'}},eur(x.it.amount)),
             E('button',{onClick:(e)=>{e.stopPropagation();this.togglePaid(x.b.key,x.it.id);},style:{appearance:'none',border:'none',cursor:'pointer',background:i?'#fff':B.primary,color:i?B.soft2:'#fff',boxShadow:i?'inset 0 0 0 1px '+B.line:'none',fontSize:'10.5px',fontWeight:800,padding:'6px 10px',borderRadius:'8px',flex:'none'}},'Pay'));})
-        ):this.wEmpty('Nothing open — the month is settled.')),null);}
+        ):this.wEmpty('Nothing open - the month is settled.')),null);}
     if(w.id==='blocks'){const keys=o.keys&&o.keys.length?o.keys:c.blocks.slice(0,3).map(b=>b.key);
       const shown=c.blocks.filter(b=>keys.indexOf(b.key)>=0);
       return this.wCard(E('div',null,this.wLabel('Budget blocks','All',()=>this.goTab('finance')),
@@ -1488,7 +1488,7 @@ class Component extends DCLogic {
       return this.wStat('Pocket money',eur(tot-spent),'left of your '+eur(tot),B.ink);}
     if(w.id==='today'){const occ=this.boardEvents(big?13:6,!!o.mine).slice(0,big?6:3);
       return this.wCard(E('div',null,this.wLabel(o.mine?'My day':'Today & upcoming',occ.length?String(occ.length):null),
-        occ.length?E('div',null,occ.map((x,i)=>this.miniEventRow(x,i>0))):this.wEmpty('Nothing scheduled — enjoy the calm.')),null);}
+        occ.length?E('div',null,occ.map((x,i)=>this.miniEventRow(x,i>0))):this.wEmpty('Nothing scheduled - enjoy the calm.')),null);}
     if(w.id==='week'){const ws=startOfWeek(TODAY);const days=[];for(let k=0;k<7;k++)days.push(addDays(ws,k));
       const counts={};this.eventOccurrences(days[0],days[6]).forEach(x=>{counts[x.date]=(counts[x.date]||0)+1;});
       return this.wCard(E('div',null,this.wLabel('This week',this.weekRange(ws)),
@@ -1497,7 +1497,7 @@ class Component extends DCLogic {
           return E('span',{key:iso,style:{textAlign:'center'}},
             E('span',{style:{display:'block',fontSize:'10px',fontWeight:800,color:isT?B.primary:B.muted}},WD[(d.getUTCDay()+6)%7][0]),
             E('span',{style:{display:'block',height:'44px',borderRadius:'9px',background:bg,color:isT?'#fff':(n?B.deep:B.ink),marginTop:'5px',paddingTop:'6px',fontSize:'12px',fontWeight:800}},d.getUTCDate(),
-              E('span',{style:{display:'block',fontSize:'9px',fontWeight:700,opacity:.85,marginTop:'2px'}},n?n+' ev':'—')));})),
+              E('span',{style:{display:'block',fontSize:'9px',fontWeight:700,opacity:.85,marginTop:'2px'}},n?n+' ev':'-')));})),
         E('div',{style:{fontSize:'10px',fontWeight:700,color:B.muted,marginTop:'9px'}},'Shade = how full the day is')),()=>{this.setState({calView:'agenda',agendaDay:TODAY});this.goTab('calendar');});}
     if(w.id==='familyday'){const ms=this.members();const occ=this.eventOccurrences(TODAY,TODAY);
       return this.wCard(E('div',null,this.wLabel('Family day',prettyDate(TODAY)),
@@ -1592,7 +1592,7 @@ class Component extends DCLogic {
     const list=this.WIDGETS.filter(d=>(!kid||d.kid)&&(cat==='all'||d.cat===cat));
     return E('div',{style:{overflowY:'auto'}},
       this.sheetHead('Add a widget','Only on your home · '+placed.length+' of '+this.WIDGETS.length+' used'),
-      kid?E('div',{style:{background:B.soft,border:'1px solid '+B.greenLine,borderRadius:'12px',padding:'10px 12px',marginBottom:'12px',fontSize:'11.5px',fontWeight:700,color:B.deep}},'Kid profile — money widgets are not offered.'):null,
+      kid?E('div',{style:{background:B.soft,border:'1px solid '+B.greenLine,borderRadius:'12px',padding:'10px 12px',marginBottom:'12px',fontSize:'11.5px',fontWeight:700,color:B.deep}},'Kid profile - money widgets are not offered.'):null,
       E('div',{className:'thv-scroll',style:{display:'flex',gap:'7px',marginBottom:'14px',overflowX:'auto'}},
         cats.map(c2=>E('button',{key:c2[0],onClick:()=>this.setF({_cat:c2[0]}),style:{appearance:'none',cursor:'pointer',flex:'none',border:'1px solid '+(cat===c2[0]?B.primary:B.line),background:cat===c2[0]?B.primary:'#fff',color:cat===c2[0]?'#fff':B.soft2,fontSize:'12px',fontWeight:800,padding:'7px 13px',borderRadius:'999px'}},c2[1]))),
       E('div',{style:{display:'flex',flexDirection:'column',gap:'9px'}},
@@ -1869,7 +1869,7 @@ class Component extends DCLogic {
         this.mAvatar(t.assignee,'27px','50%'));
       return this.swipeWrap('task-'+t.id,()=>this.deleteTask(l.id,t.id),inner,t.title,'This task will be removed from '+l.name+'.');};
     return this.bodyWrap(E('div',{style:{marginTop:'12px'}},
-      open.length?E('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},open.map(row)):E('div',{style:{padding:'10px 4px 4px',fontSize:'12.5px',fontWeight:600,color:B.muted,textAlign:'center'}},'No open tasks — all done here.'),
+      open.length?E('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},open.map(row)):E('div',{style:{padding:'10px 4px 4px',fontSize:'12.5px',fontWeight:600,color:B.muted,textAlign:'center'}},'No open tasks - all done here.'),
       done.length?E('div',null,this.secLabel('Completed · '+done.length),E('div',{style:{display:'flex',flexDirection:'column',gap:'8px'}},done.map(row))):null,
       E('button',{onClick:()=>this.openTask(null,l.id),style:Object.assign({},this.addRow(),{marginTop:'14px'})},ic('plus',15,2.5),'Add task')));}
 
@@ -2058,7 +2058,7 @@ class Component extends DCLogic {
       this.primaryBtn('Create list',()=>{if(shopping)this.saveShopList(s._name);else this.saveTaskList(s._name,col);},!!(s._name||'').trim()));}
   sheetMeal(s){const labels={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',notes:'Notes'};const meal=this.state.meals[s.date]||{};const cur=s._val!=null?s._val:(meal[s.slot]||'');
     return E('div',null,this.sheetHead(labels[s.slot],prettyDate(s.date)),
-      this.field(labels[s.slot],s.slot==='notes'?this.inpArea(cur,(e)=>this.setF({_val:e.target.value}),'e.g. Sam has practice — quick dinner'):this.inp(cur,(e)=>this.setF({_val:e.target.value}),'e.g. Spaghetti bolognese')),
+      this.field(labels[s.slot],s.slot==='notes'?this.inpArea(cur,(e)=>this.setF({_val:e.target.value}),'e.g. Sam has practice - quick dinner'):this.inp(cur,(e)=>this.setF({_val:e.target.value}),'e.g. Spaghetti bolognese')),
       this.primaryBtn('Save',()=>this.saveMeal(s.date,s.slot,(cur||'').trim())),
       (meal[s.slot])?E('button',{onClick:()=>this.saveMeal(s.date,s.slot,''),style:{appearance:'none',border:'none',background:'transparent',cursor:'pointer',width:'100%',color:B.red,fontSize:'13px',fontWeight:800,padding:'13px 0 2px'}},'Clear'):null);}
   sheetQuickAdd(){const opt=(icon,title,sub,onClick,color)=>E('button',{key:title,onClick:onClick,style:{appearance:'none',border:'1px solid '+B.line,background:'#fff',cursor:'pointer',width:'100%',textAlign:'left',borderRadius:'15px',padding:'14px 15px',display:'flex',alignItems:'center',gap:'13px',marginBottom:'10px'}},

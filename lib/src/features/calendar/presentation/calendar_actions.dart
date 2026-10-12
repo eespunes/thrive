@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// An event occurrence on a given date — either a real [CalendarEvent]
+/// An event occurrence on a given date - either a real [CalendarEvent]
 /// (possibly a recurrence instance), an imported (read-only) event, or a
 /// task's due date (also read-only), each surfaced through a synthetic
 /// [CalendarEvent] for uniform rendering.
@@ -17,22 +17,22 @@ class CalendarOccurrence {
   /// First day of this occurrence.
   final String date;
 
-  /// Last day of this occurrence — equal to [date] unless this is a
+  /// Last day of this occurrence - equal to [date] unless this is a
   /// multi-day span (`ev.endDate`).
   final String spanEnd;
   final bool imported;
 
   /// True when the underlying to-do/content-style event (or, for a
   /// recurring event, this specific occurrence date) has been marked done.
-  /// A done occurrence is still returned/rendered — never filtered out —
+  /// A done occurrence is still returned/rendered - never filtered out -
   /// with a done visual treatment applied by the caller (strikethrough
   /// title + faded opacity), mirroring how completed tasks used to behave
   /// in Lists before Lists was decoupled from the calendar. Always false
   /// for plain appointments and imported events.
   final bool done;
 
-  /// Which calendar layer this occurrence belongs to — [ev.layerId]
-  /// directly (`appt`, `task`, `content`, or any custom layer id) — used
+  /// Which calendar layer this occurrence belongs to - [ev.layerId]
+  /// directly (`appt`, `task`, `content`, or any custom layer id) - used
   /// by the layer-toggle filter and to pick this occurrence's visuals.
   String get layer => ev.layerId;
 
@@ -43,13 +43,13 @@ class CalendarOccurrence {
 
   /// True when this occurrence is a to-do belonging to any layer other
   /// than the default `task`/`appt` layers (e.g. `content` or a custom
-  /// layer) — drives the "content-style" dashed-border card treatment.
+  /// layer) - drives the "content-style" dashed-border card treatment.
   bool get isContent => isTask && layer != kLayerTask;
 
   bool get isMultiDay => spanEnd.compareTo(date) > 0;
 
   /// True when this occurrence is a birthday/anniversary. Imported feed
-  /// events never become birthdays — they keep the read-only striped kind.
+  /// events never become birthdays - they keep the read-only striped kind.
   bool get isBirthday => !imported && ev.birthday;
 
   /// The one display kind this occurrence renders as on EVERY calendar
@@ -81,7 +81,7 @@ class CalendarOccurrence {
 enum CalEventKind { appointment, todo, birthday, imported }
 
 /// Renders a category's visual (issue: match the budget block emoji/picture
-/// picker) — an uploaded [EventCategory.picture] wins, then
+/// picker) - an uploaded [EventCategory.picture] wins, then
 /// [EventCategory.emoji], otherwise the legacy stroke [EventCategory.icon].
 /// Fills a fixed [size]x[size] box so it drops into icon-badge slots.
 Widget categoryGlyph(
@@ -149,7 +149,7 @@ const List<Color> kCatColors = [
 const List<Color> kEventColors = kCatColors;
 
 /// (label, colour) for each import provider. `google`/`apple` account sync
-/// isn't implemented (#161) — ICS/web-link is the only real import path.
+/// isn't implemented (#161) - ICS/web-link is the only real import path.
 const Map<String, (String, Color)> kImportProviders = {
   'ics': ('ICS / web link', Color(0xff0d9488)),
 };
@@ -217,14 +217,14 @@ String _shortDateIso(String iso) {
   return _displayDateIso(iso);
 }
 
-/// "Wed 26 Aug" — the day sheet's title (design §2a `gSelTitle`).
+/// "Wed 26 Aug" - the day sheet's title (design §2a `gSelTitle`).
 String _daySheetTitleIso(String iso) {
   final d = _parseIso(iso);
   return '${kKitchenWeekdaysShort[d.weekday - 1]} ${d.day} '
       '${kMonthsEn[d.month - 1].substring(0, 3)}';
 }
 
-/// "Wednesday 26 August" — the agenda's day heading (design §2a
+/// "Wednesday 26 August" - the agenda's day heading (design §2a
 /// `gAgTitle`, which prefixes "Today · " when it is today).
 String _agendaHeadingIso(String iso) {
   final d = _parseIso(iso);
@@ -232,7 +232,7 @@ String _agendaHeadingIso(String iso) {
       '${kMonthsEn[d.month - 1]}';
 }
 
-/// "Week 22" — used for the Agenda view's header subtitle instead of the
+/// "Week 22" - used for the Agenda view's header subtitle instead of the
 /// selected day's weekday/date, per ISO-8601 week numbering (weeks start on
 /// Monday; week 1 is the week containing the year's first Thursday).
 String _weekNumberLabelIso(String iso) {
@@ -362,7 +362,7 @@ List<String> recurringEventDates(
   }
   // Fixed day-interval recurrences (daily/weekly/custom "every N days") can
   // jump straight to the last occurrence on/before [rangeStart] instead of
-  // stepping one occurrence at a time from the series start — an old series
+  // stepping one occurrence at a time from the series start - an old series
   // would otherwise burn the whole iteration budget before reaching the
   // viewed range and silently vanish from it.
   final stepDays = switch (ev.recur) {
@@ -413,7 +413,7 @@ List<ImportedCalendarEvent> _applyImportPrefs(
 /// Rev-invalidated date index over the active family's events, so range
 /// queries ([_ThriveCalendarActions.eventOccurrences]) stop scanning every
 /// event: non-recurring events are bucketed by "yyyy-MM" month (a multi-day
-/// span registers in every month it touches), recurring series — always few —
+/// span registers in every month it touches), recurring series - always few -
 /// stay in one list every query still walks. Same invalidation contract as
 /// [_calWeekMemo]: the state revision plus an instance/family signature.
 ({
@@ -445,7 +445,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final recurring = <CalendarEvent>[];
     for (final ev in events) {
       if (ev.kitchenOrigin) continue;
-      // Malformed dates can't be bucketed — keep them on the always-scanned
+      // Malformed dates can't be bucketed - keep them on the always-scanned
       // list rather than dropping them.
       if (ev.recur != 'none' || ev.date.length < 7) {
         recurring.add(ev);
@@ -576,7 +576,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   /// THE single visibility gate every calendar surface runs an event
-  /// through — month, agenda, day sheets, the Home board AND the kitchen
+  /// through - month, agenda, day sheets, the Home board AND the kitchen
   /// wall (issue #342). Before this existed the kitchen re-implemented its
   /// own checks and quietly diverged.
   ///
@@ -584,13 +584,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// * the event's layer must be on in [layers] (the kitchen passes its own
   ///   [kitchenLayerFilter] here, the phone passes [layerFilter]);
   /// * if the event carries a category and a category filter is active,
-  ///   that category must be on — an uncategorised event is never hidden by
+  ///   that category must be on - an uncategorised event is never hidden by
   ///   a category filter;
   /// * an event with attendees stays visible while ANY of them is on; an
   ///   event with no attendees is never hidden by a member filter.
   ///
   /// [members]/[cats] default to the per-user [calFilter]/[calCatFilter]
-  /// (an EMPTY list means "nothing switched off" — everything passes).
+  /// (an EMPTY list means "nothing switched off" - everything passes).
   bool passes(
     CalendarEvent ev, {
     required List<String> layers,
@@ -641,7 +641,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   /// Expands recurring events (minus their `exceptions`), keeps multi-day
   /// spans as a single occurrence, and appends visible imported-calendar
-  /// events — all overlapping `[rangeStart, rangeEnd]` (inclusive, ISO
+  /// events - all overlapping `[rangeStart, rangeEnd]` (inclusive, ISO
   /// dates) and honouring the active member/category filters. Mirrors the
   /// design's `eventOccurrences()`.
   List<CalendarOccurrence> eventOccurrences(
@@ -652,16 +652,16 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     final flt = calFilter;
     final cflt = calCatFilter;
 
-    // Every layer's items — appointments, to-dos, content, or any custom
-    // layer — are just [CalendarEvent]s tagged with [CalendarEvent.layerId];
+    // Every layer's items - appointments, to-dos, content, or any custom
+    // layer - are just [CalendarEvent]s tagged with [CalendarEvent.layerId];
     // a to-do/content-style event that's been completed (`isDoneOn`) STAYS
-    // in view (never filtered out, like a deleted event would be) — it's
+    // in view (never filtered out, like a deleted event would be) - it's
     // tagged `done: true` instead, so the caller can render it with a done
     // visual treatment (strikethrough + faded) while keeping the
     // checkbox/tap-to-toggle interaction available.
     //
     // Candidates come from the month-bucket date index instead of a scan of
-    // every event — with thousands of one-off events, that scan dominated
+    // every event - with thousands of one-off events, that scan dominated
     // every month/day/home query.
     for (final ev in _eventsTouchingRange(rangeStart, rangeEnd)) {
       if (ev.kitchenOrigin) continue;
@@ -731,10 +731,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   /// If this is the workspace's very FIRST layer ever (i.e. [calendarLayers]
   /// was empty beforehand), every existing [CalendarEvent]/[EventCategory]
   /// is retroactively reassigned to it. This matters for families whose data
-  /// predates layers entirely — their events/categories only carry the
+  /// predates layers entirely - their events/categories only carry the
   /// model's implicit `'appt'` fallback [layerId], which no longer
   /// corresponds to any real [CalendarLayerDef] once a brand-new workspace
-  /// starts with zero layers — so nothing becomes orphaned/invisible the
+  /// starts with zero layers - so nothing becomes orphaned/invisible the
   /// moment layers go from "doesn't exist as a concept" to "exists" (mirrors
   /// [removeCalendarLayer]'s reassign-on-delete logic below).
   void addCalendarLayer({
@@ -773,7 +773,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   /// Updates an existing layer's label/icon/emoji/picture/colour in place
   /// (tapped from its row, mirroring how tapping a category opens it for
-  /// editing) — a no-op if [id] no longer exists.
+  /// editing) - a no-op if [id] no longer exists.
   void updateCalendarLayer({
     required String id,
     required String label,
@@ -848,7 +848,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   void setCalSel(String iso) => update(() => calSel = iso);
 
   /// Toggles a calendar layer (`appt|task|content`) on/off in [layerFilter].
-  /// At least one layer must stay enabled — a tap that would empty the list
+  /// At least one layer must stay enabled - a tap that would empty the list
   /// (removing the last remaining layer) is ignored.
   void toggleLayerFilter(String layerId) => mutate(() {
     if (layerFilter.contains(layerId)) {
@@ -860,13 +860,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     }
   });
 
-  /// Every family member id, in family order — the implicit "all on" set
+  /// Every family member id, in family order - the implicit "all on" set
   /// behind an empty [calFilter].
   List<String> allCalMemberIds() => [
     for (final m in curFamily()?.members ?? const <FamilyMember>[]) m.id,
   ];
 
-  /// Category ids offered by the filter sheet — those whose layer is on.
+  /// Category ids offered by the filter sheet - those whose layer is on.
   List<String> filterableCalCategoryIds() => [
     for (final c in eventCategories)
       if (layerFilter.contains(c.layerId)) c.id,
@@ -908,7 +908,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       for (final x in all)
         if (x == id || current.contains(x)) x,
     ];
-    // Everything back on — collapse to the canonical "nothing switched off".
+    // Everything back on - collapse to the canonical "nothing switched off".
     assign(next.length >= all.length ? <String>[] : next);
   }
 
@@ -929,7 +929,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     ),
   );
 
-  /// "Show all" in the filter sheet — every layer, category and member back
+  /// "Show all" in the filter sheet - every layer, category and member back
   /// on.
   void showAllCalFilters() => mutate(() {
     calFilter = [];
@@ -941,7 +941,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     ];
   });
 
-  /// How many chips are switched off across all three groups — drives the
+  /// How many chips are switched off across all three groups - drives the
   /// header funnel button's teal tint + dot (#344).
   int calFilterCount() {
     final layers = calendarLayers.isEmpty
@@ -995,7 +995,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   /// Looks up an occurrence's id across real and imported events. Real
-  /// events (of any layer — appointment, to-do, content, or custom) are
+  /// events (of any layer - appointment, to-do, content, or custom) are
   /// mutable; imported ones are synthesized read-only and can be viewed but
   /// never edited/deleted.
   ({CalendarEvent? ev, bool imported}) eventOrImportedById(String id) {
@@ -1021,7 +1021,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     toggleEventDone(o.ev.id, o.date);
   }
 
-  /// Toggles a [CalendarEvent]'s completion state directly — non-recurring
+  /// Toggles a [CalendarEvent]'s completion state directly - non-recurring
   /// events flip [CalendarEvent.done], recurring events flip only the
   /// occurrence on [dateIso] in [CalendarEvent.doneDates].
   void toggleEventDone(String id, String dateIso) {
@@ -1344,7 +1344,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
 
   // -------------------------------------------------------------- imports
   /// Imports a calendar from an ICS/web-link feed at [url] (e.g. an ecal.com
-  /// or other calendar-subscription link, RFC 5545) — the only supported
+  /// or other calendar-subscription link, RFC 5545) - the only supported
   /// import source; Google/Apple account sync is out of scope (#161).
   /// Returns a user-facing error message, or `null` on success.
   Future<String?> saveImport({
@@ -1500,7 +1500,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }
 
   /// Marks a feed as (or un-marks it from being) the family's holidays
-  /// calendar — see [ImportedCalendar.holidays].
+  /// calendar - see [ImportedCalendar.holidays].
   void toggleImportHolidays(String id) {
     mutate(() {
       for (final c in importedCalendars) {

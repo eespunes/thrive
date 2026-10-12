@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Statistics screen (issue #192) — the "Scorecard" design direction: a
+/// Statistics screen (issue #192) - the "Scorecard" design direction: a
 /// gradient net-result hero card, four quick stat tiles, an "in vs out"
 /// chart and a "where it went" category breakdown, switchable between
 /// Month / Year / All time scopes.
@@ -27,11 +27,11 @@ class _StatsMonth {
   final double receivedIncome;
   final double expenses;
 
-  /// Sum of `recurring` (issue #191) expense items for this month — used as
+  /// Sum of `recurring` (issue #191) expense items for this month - used as
   /// a proxy for "fixed" monthly costs vs one-off/flexible spending.
   final double fixed;
 
-  /// Sum of items in blocks flagged [Category.isSavings] for this month —
+  /// Sum of items in blocks flagged [Category.isSavings] for this month -
   /// the actual amount set aside, as opposed to merely unspent income.
   final double savings;
   final Map<String, double> cats;
@@ -73,7 +73,7 @@ class _StatsAgg {
   double get expectedNet => income - expenses;
   double get net => receivedIncome - expenses;
 
-  /// Share of income actually set aside in savings blocks (issue #192 fix —
+  /// Share of income actually set aside in savings blocks (issue #192 fix -
   /// previously this was leftover `net/income`, not real savings).
   double get rate => receivedIncome > 0 ? net / receivedIncome * 100 : 0;
 }

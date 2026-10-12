@@ -17,7 +17,7 @@ class DayPlan {
   String? dinner;
   String? note;
 
-  /// Whether this day has no meals and no note — safe to drop from the map.
+  /// Whether this day has no meals and no note - safe to drop from the map.
   bool get isEmpty =>
       (breakfast?.isEmpty ?? true) &&
       (lunch?.isEmpty ?? true) &&

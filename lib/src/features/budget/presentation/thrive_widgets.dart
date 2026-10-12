@@ -94,7 +94,7 @@ class _GradientColorPicker extends StatelessWidget {
 
   /// A clean, aligned grid mirroring the reference design: a grayscale row
   /// (white → black) on top, followed by hue rows that fade from soft/pastel
-  /// to deep/saturated — no staggered columns, so swatches line up neatly.
+  /// to deep/saturated - no staggered columns, so swatches line up neatly.
   List<List<Color>> _rows() {
     final grayscale = List.generate(_cols, (col) {
       final t = col / (_cols - 1);
@@ -687,7 +687,7 @@ class _SwipeRow extends StatefulWidget {
   final ValueChanged<bool> onOpenChanged;
 
   /// Matches [child]'s own corner radius so the sliding red "Delete" panel
-  /// stays clipped to the same rounded shape — otherwise it either peeks
+  /// stays clipped to the same rounded shape - otherwise it either peeks
   /// out from behind the child's rounded corners at rest, or shows sharp
   /// corners of its own once revealed.
   final double borderRadius;

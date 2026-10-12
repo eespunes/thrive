@@ -62,7 +62,7 @@ void main() {
     expect(first['endDate'], '2026-06-12');
     expect(sync.saving.value, isFalse);
 
-    // Same digest again — skipped without a second channel call.
+    // Same digest again - skipped without a second channel call.
     sync.syncEvents([_ev('e1', 'Trip', endDate: '2026-06-12')]);
     await tester.pump(const Duration(seconds: 3));
     await tester.pump();

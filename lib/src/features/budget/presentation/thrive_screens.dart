@@ -180,7 +180,7 @@ extension _ThriveScreens on _ThriveHomeState {
                   ),
                 ),
                 Text(
-                  'Locked — read only',
+                  'Locked - read only',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

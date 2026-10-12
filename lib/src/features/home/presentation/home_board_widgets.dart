@@ -378,14 +378,14 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
   /// Due-day label for a bill: "Today" (red) / "In Nd" (amber) / "12 Jul".
   (String, Color) _billDue(ExpenseItem it) {
     final day = int.tryParse(digitsOnly(it.marker));
-    if (day == null) return ('—', B.muted);
+    if (day == null) return ('-', B.muted);
     final today = DateTime.now().day;
     if (day <= today) return ('Today', B.red);
     if (day - today <= 3) return ('In ${day - today}d', B.amber);
     return ('$day ${kMonthsEn[monthIdx].substring(0, 3)}', B.muted);
   }
 
-  /// Design: "NEXT BILLS" rows — due label · title + account · amount ·
+  /// Design: "NEXT BILLS" rows - due label · title + account · amount ·
   /// Pay button (first one filled teal), payable in place (#244).
   Widget _wNextBills(BoardEntry e) {
     final locked = isClosed();
@@ -494,7 +494,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "BUDGET BLOCKS" rows — name, "€ spent / cap" coloured by how
+  /// Design: "BUDGET BLOCKS" rows - name, "€ spent / cap" coloured by how
   /// close to the limit, thin progress bar (green / amber / red).
   Widget _wBudgetBlocks(BoardEntry e) {
     final c = compute(monthIdx);
@@ -838,7 +838,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     return o.ev.attendees.any(mine.contains);
   }
 
-  /// Today + coming days, soonest first — the "Today & upcoming" source.
+  /// Today + coming days, soonest first - the "Today & upcoming" source.
   List<CalendarOccurrence> _homeUpcoming() {
     final today = todayIso();
     final horizon = _iso(DateTime.now().add(const Duration(days: 7)));
@@ -865,7 +865,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     return o.ev.allDay || o.ev.start.isEmpty ? day : '$day · ${o.ev.start}';
   }
 
-  /// Design: colour bar rows — title, "Today · 14:30", attendee avatar.
+  /// Design: colour bar rows - title, "Today · 14:30", attendee avatar.
   Widget _wToday(BoardEntry e) {
     final onlyMe = e.options['who'] == 'me';
     var events = _homeUpcoming();
@@ -1052,7 +1052,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "FAMILY DAY" — avatar + a chip per event (time + title in the
+  /// Design: "FAMILY DAY" - avatar + a chip per event (time + title in the
   /// event's colour); members with nothing show a muted "Free".
   Widget _wFamilyDay() {
     final members = curFamily()?.members ?? const <FamilyMember>[];
@@ -1181,7 +1181,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "Coming up 🎂" — next yearly-recurring event with its date and
+  /// Design: "Coming up 🎂" - next yearly-recurring event with its date and
   /// "in N days".
   Widget _wBirthdays() {
     final today = todayIso();
@@ -1213,7 +1213,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "IMPORTED CALENDARS" + "Manage" — colour dot, feed name,
+  /// Design: "IMPORTED CALENDARS" + "Manage" - colour dot, feed name,
   /// today's count, and the visibility eye acting in place.
   Widget _wImportedCals(BoardEntry e, int index) {
     final today = todayIso();
@@ -1297,7 +1297,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
   // ----------------------------------------------------------- Home life
 
   /// Design: icon header + count badge; checkbox rows with "List · due"
-  /// subs and assignee avatars — tick straight from Home (#244).
+  /// subs and assignee avatars - tick straight from Home (#244).
   Widget _wTasks(BoardEntry e) {
     final onlyMine = e.options['onlyMine'] == true;
     final mine = _homeCurrentUserMemberIds();
@@ -1489,7 +1489,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "MEALS · NEXT THREE DAYS" — Today/weekday label, the dinner,
+  /// Design: "MEALS · NEXT THREE DAYS" - Today/weekday label, the dinner,
   /// and a teal "Plan" action for unplanned days.
   Widget _wMeals(BoardEntry e) {
     final days = e.size == 'l' ? 5 : 3;
@@ -1559,7 +1559,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  /// Design: "CHORES & STARS" — avatar, name, progress bar, "N ⭐".
+  /// Design: "CHORES & STARS" - avatar, name, progress bar, "N ⭐".
   Widget _wChores() {
     final members = curFamily()?.members ?? const <FamilyMember>[];
     return _bCard(
@@ -1652,7 +1652,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     }
   }
 
-  /// Design: "QUICK ACTIONS" — a 2-column grid of soft-grey buttons.
+  /// Design: "QUICK ACTIONS" - a 2-column grid of soft-grey buttons.
   Widget _wQuickActions(BoardEntry e) {
     final chosen = [
       for (final a in (e.options['actions'] as List? ?? kDefaultQuickActions))

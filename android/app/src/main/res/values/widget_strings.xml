@@ -10,7 +10,7 @@
     <string name="widget_today_label">Thrive · Today</string>
     <string name="widget_today_desc">Today\'s events and your next to-do</string>
     <string name="widget_card_label">Thrive · Loyalty card</string>
-    <string name="widget_card_desc">Your card, ready for the till — even on the lock screen</string>
+    <string name="widget_card_desc">Your card, ready for the till - even on the lock screen</string>
     <string name="widget_quick_label">Thrive · Quick actions</string>
     <string name="widget_quick_desc">Cost · Scan · Event · List</string>
     <string name="widget_shopping_label">Thrive · Shopping list</string>

@@ -5,7 +5,7 @@ part of 'package:family_money_management_app/main.dart';
 /// mutations). Everything is a bottom sheet; this file holds the actions
 /// and the card face.
 extension _ThriveWallet on _ThriveHomeState {
-  /// Opens the wallet sheet. (Kept under the historical name — every entry
+  /// Opens the wallet sheet. (Kept under the historical name - every entry
   /// point routes through here.)
   void openWalletScreen() => _showSheet((ctx) => _WalletSheet(state: this));
 
@@ -57,7 +57,7 @@ extension _ThriveWallet on _ThriveHomeState {
     );
   }
 
-  /// "Scanned at the till" — bumps the use counter + last-used (issue #228).
+  /// "Scanned at the till" - bumps the use counter + last-used (issue #228).
   void logCardUse(String cardId, [String? msg]) {
     final c = cardById(cardId);
     if (c == null) return;
@@ -298,7 +298,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
   void initState() {
     super.initState();
     // NFR (issue #228): raise the screen brightness while the card face is
-    // open so till scanners read it. Best-effort — unsupported platforms
+    // open so till scanners read it. Best-effort - unsupported platforms
     // (web, tests) simply keep their brightness.
     unawaited(
       ScreenBrightness().setApplicationScreenBrightness(1.0).catchError((_) {}),
@@ -433,7 +433,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
     );
 
     final last = c.lastUsedMillis == null
-        ? '—'
+        ? '-'
         : cardLastUsedLabel(
             c.lastUsedMillis,
             DateTime.now(),

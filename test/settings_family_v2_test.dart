@@ -52,7 +52,7 @@ void main() {
 
     testWidgets(
       'member: rename read-only, invite locked, actions show 🔒 rows, no '
-      'delete-family — and no restart is needed after the role flip',
+      'delete-family - and no restart is needed after the role flip',
       (tester) async {
         await pumpApp(tester, prefs: settingsV2Prefs());
         await openFamilyPage(tester);
@@ -171,7 +171,7 @@ void main() {
       );
       // Login-less row: emoji avatar + "no login" pill.
       expect(find.text('NO LOGIN'), findsOneWidget);
-      expect(find.text('No login — managed by anyone'), findsOneWidget);
+      expect(find.text('No login - managed by anyone'), findsOneWidget);
       expect(find.text('🦊'), findsWidgets);
     });
 
@@ -334,7 +334,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('family-leave')));
       await tester.pumpAndSettle();
 
-      // The picker lists only active account members — never the invited row.
+      // The picker lists only active account members - never the invited row.
       expect(find.byKey(const ValueKey('succ-m2')), findsOneWidget);
       expect(find.byKey(const ValueKey('succ-m4')), findsOneWidget);
       expect(find.byKey(const ValueKey('succ-m3')), findsNothing);
@@ -342,7 +342,7 @@ void main() {
       // Pick the NON-default successor explicitly.
       await tester.tap(find.byKey(const ValueKey('succ-m4')));
       await tester.pumpAndSettle();
-      expect(find.text('Leave — Noor becomes owner'), findsOneWidget);
+      expect(find.text('Leave - Noor becomes owner'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('owner-leave-confirm')));
       await tester.pumpAndSettle();
 
@@ -369,7 +369,7 @@ void main() {
         await openFamilyPage(tester);
         expect(
           find.text(
-            'You’re the only account member — leaving deletes the family',
+            'You’re the only account member - leaving deletes the family',
           ),
           findsOneWidget,
         );
@@ -392,14 +392,14 @@ void main() {
       demoteMe();
       await openFamilyPage(tester);
       expect(
-        find.text('This is your last family — you’ll go back to the start'),
+        find.text('This is your last family - you’ll go back to the start'),
         findsOneWidget,
       );
       await tester.tap(find.byKey(const ValueKey('family-leave')));
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'This is your last family — you’ll land back at the '
+          'This is your last family - you’ll land back at the '
           'create-or-join screen.',
         ),
         findsOneWidget,

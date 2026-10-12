@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// A single money movement on a day of the Money calendar — an income or
+/// A single money movement on a day of the Money calendar - an income or
 /// expense item resolved onto a real day via the weekend rule. Ported from
 /// the design's `flowRow` row shape.
 class _FlowRow {
@@ -67,7 +67,7 @@ class _FlowDay {
   bool get hasItems => inRows.isNotEmpty || outRows.isNotEmpty;
 }
 
-/// The whole Money calendar screen model for the visible month — every day
+/// The whole Money calendar screen model for the visible month - every day
 /// of the month plus the projection derived from it. Ported from the
 /// design's `flowModel()`.
 class _FlowModel {
@@ -103,7 +103,7 @@ class _FlowModel {
 }
 
 /// The Money calendar screen (issue #199): a month-scoped view of money that
-/// has a date — a running-balance projection, a calendar/timeline of every
+/// has a date - a running-balance projection, a calendar/timeline of every
 /// in/out, and the items that still need a day. Ported from the design's
 /// `renderFlow()` / `flowModel()` / `flow*()` methods.
 extension _ThriveFlow on _ThriveHomeState {
@@ -150,10 +150,10 @@ extension _ThriveFlow on _ThriveHomeState {
     for (final b in c.blocks) {
       for (final r in b.items) {
         final it = r.item;
-        // The sheet import has several €0 placeholder rows — they carry no
+        // The sheet import has several €0 placeholder rows - they carry no
         // real money movement, so skip them entirely (issue #199).
         if (it.amount == 0) continue;
-        // #290: the entry's day is explicit now — income is never silently
+        // #290: the entry's day is explicit now - income is never silently
         // posted on the 1st anymore. Dayless entries of either direction go
         // to the labelled unscheduled bucket below (legacy dayless income
         // was migrated to an explicit, review-flagged day 1 on load).
@@ -1338,7 +1338,7 @@ class _FlowDaySheet extends StatelessWidget {
                 ),
               ),
             ),
-          // #295: the day sheet is no longer view-only — the tapped day
+          // #295: the day sheet is no longer view-only - the tapped day
           // pre-fills the pay day; the block is asked next.
           if (!locked)
             GestureDetector(

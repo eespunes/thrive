@@ -2,7 +2,7 @@ part of 'package:family_money_management_app/main.dart';
 
 /// The Settings v2 hub (#272, `Settings v2.dc.html`): a gradient hero
 /// (avatar · name · provider · family switcher pills) with four expanding
-/// cards — Planning, Money, Family, Account — whose closed state shows a
+/// cards - Planning, Money, Family, Account - whose closed state shows a
 /// live summary and whose rows carry their current value on the right.
 extension _ThriveMoreScreen on _ThriveHomeState {
   Widget _buildMore() {
@@ -19,7 +19,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Sections that aren't on this person's bar live here, one
-                // tap away (#365) — nothing becomes unreachable by unpicking
+                // tap away (#365) - nothing becomes unreachable by unpicking
                 // it. The card disappears when the bar holds everything.
                 if (navMoreSections.isNotEmpty) ...[
                   _hubSectionsCard(),
@@ -366,16 +366,16 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           key: 'hub-resetpw',
           label: 'Reset password',
           sub: u?.provider == 'google'
-              ? 'You sign in with Google — no password here'
+              ? 'You sign in with Google - no password here'
               : 'We’ll email you a reset link',
           disabled: u?.provider == 'google',
-          disHint: 'You sign in with Google — there’s no password to reset',
+          disHint: 'You sign in with Google - there’s no password to reset',
           onTap: openResetPasswordSheet,
         ),
         _hubRow(
           key: 'more-signout',
           label: 'Sign out',
-          sub: 'You stay in your families — nothing is deleted',
+          sub: 'You stay in your families - nothing is deleted',
           danger: true,
           bg: const Color(0xfffef7f7),
           noChev: true,
@@ -1020,7 +1020,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       flash('Reset link sent to $email');
     } catch (e) {
       debugPrint('[account] password reset failed: $e');
-      flash('Couldn’t send the link — try again later');
+      flash('Couldn’t send the link - try again later');
     }
   }
 }

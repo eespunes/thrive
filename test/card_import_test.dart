@@ -7,8 +7,8 @@ import 'package:image/image.dart' as img;
 
 // The pure photo-import pipeline (issues #225-#227): EAN-13 and QR
 // detection plus dominant-colour sampling, exercised on synthetically
-// rendered images. The barcodes are drawn by package:barcode — an
-// independent encoder — so the scanline decoder is tested against a
+// rendered images. The barcodes are drawn by package:barcode - an
+// independent encoder - so the scanline decoder is tested against a
 // known-good implementation, not itself.
 
 /// Renders [code] with [symbology] as black bars/modules on a white image

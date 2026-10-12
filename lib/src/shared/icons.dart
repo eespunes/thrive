@@ -169,7 +169,7 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M9 8h6'],
     ['path', 'M17 16h6'],
   ],
-  // Three narrowing bars — the calendar header's filter button (design
+  // Three narrowing bars - the calendar header's filter button (design
   // §2a), distinct from the solid 'filter' funnel used elsewhere.
   'funnel': [
     ['path', 'M4 6h16'],
@@ -328,7 +328,7 @@ const Map<String, List<List<Object>>> _kIcons = {
   ],
   // Calendar-view icons (#: the header switcher). A month is a calendar with
   // a GRID in it, an agenda is a calendar with ROWS in it, and the kitchen
-  // wall is the screen it runs on — three shapes that can't be mistaken for
+  // wall is the screen it runs on - three shapes that can't be mistaken for
   // each other at 16px, unlike the generic grid/list/columns they replace.
   'calmonth': [
     ['rect', 3, 4, 18, 18, 2],

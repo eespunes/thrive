@@ -77,7 +77,7 @@ abstract class ThriveWidgetProvider(private val widgetId: String) : HomeWidgetPr
   }
 }
 
-/** 4×2 / 4×4 Money widget — keeps the Thrive gradient (#255). */
+/** 4×2 / 4×4 Money widget - keeps the Thrive gradient (#255). */
 class MoneyWidgetProvider : ThriveWidgetProvider("money") {
   override fun onUpdate(
       context: Context,
@@ -216,7 +216,7 @@ class TodayWidgetProvider : ThriveWidgetProvider("today") {
   }
 }
 
-/** 2×2 Loyalty card widget — also placeable on the keyguard (#258). */
+/** 2×2 Loyalty card widget - also placeable on the keyguard (#258). */
 class CardWidgetProvider : ThriveWidgetProvider("card") {
   override fun onUpdate(
       context: Context,
@@ -260,7 +260,7 @@ class CardWidgetProvider : ThriveWidgetProvider("card") {
   }
 }
 
-/** 4×1 Quick actions — four independent deep links (#254). */
+/** 4×1 Quick actions - four independent deep links (#254). */
 class QuickActionsWidgetProvider : ThriveWidgetProvider("quick_actions") {
   override fun onUpdate(
       context: Context,
@@ -282,7 +282,7 @@ class QuickActionsWidgetProvider : ThriveWidgetProvider("quick_actions") {
   }
 }
 
-/** 4×2 Shopping list — "+" opens the app on that list (#254). */
+/** 4×2 Shopping list - "+" opens the app on that list (#254). */
 class ShoppingWidgetProvider : ThriveWidgetProvider("shopping") {
   override fun onUpdate(
       context: Context,

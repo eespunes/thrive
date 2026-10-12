@@ -14,7 +14,7 @@ const List<(String, String, String)> kNavSections = [
 ];
 
 /// How many of [kNavSections] the bar holds. Home + 3 picks + More = 5, the
-/// bar the app has always had — customisation changes WHICH three, never how
+/// bar the app has always had - customisation changes WHICH three, never how
 /// many, so the bar's shape is the same for everyone.
 const int kNavPickCount = 3;
 
@@ -28,7 +28,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
   /// so a stale or hand-edited value can never produce a short bar.
   List<String> get navPickedTabs => sanitiseNavTabs(navTabs);
 
-  /// Sections that didn't make the bar. They are not lost — More lists them.
+  /// Sections that didn't make the bar. They are not lost - More lists them.
   List<String> get navMoreSections => [
     for (final (key, _, _) in kNavSections)
       if (!navPickedTabs.contains(key)) key,
@@ -36,7 +36,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
 
   void setNavTabs(List<String> picked) {
     // `_persist()` writes the per-user state locally and, when the account is
-    // cloud-backed, pushes the user doc — the same path layerFilter takes.
+    // cloud-backed, pushes the user doc - the same path layerFilter takes.
     update(() => navTabs = sanitiseNavTabs(picked));
     unawaited(_persist());
   }
@@ -69,7 +69,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
 
   /// The badge on a tab: a count of what is waiting for THIS person, or null
   /// for a section that has nothing to nag about. Deliberately only the two
-  /// sections with a real "needs you" number — a badge that just counts
+  /// sections with a real "needs you" number - a badge that just counts
   /// what exists teaches people to ignore badges.
   int? navTabBadge(String key) {
     switch (key) {
@@ -242,7 +242,7 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
           fixed: true,
           trailing: _tag('Fixed'),
         ),
-        // Reorder only applies to the picked rows — an unpicked section has
+        // Reorder only applies to the picked rows - an unpicked section has
         // no position in the bar to drag.
         ReorderableListView(
           key: const ValueKey('nav-edit-picked'),
@@ -250,7 +250,7 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
           physics: const NeverScrollableScrollPhysics(),
           buildDefaultDragHandles: false,
           // onReorderItem hands over the index AFTER the removal, so the
-          // insert is a plain move — no off-by-one to correct.
+          // insert is a plain move - no off-by-one to correct.
           onReorderItem: (oldIndex, newIndex) {
             s.moveNavTab(oldIndex, newIndex);
             setState(() {});

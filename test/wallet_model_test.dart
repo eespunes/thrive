@@ -31,7 +31,7 @@ void main() {
     expect(back.timesUsed, 3);
   });
 
-  test('toJson(includePhoto: false) drops the photo — cloud payloads', () {
+  test('toJson(includePhoto: false) drops the photo - cloud payloads', () {
     final j = _card(photo: 'aGk=').toJson(includePhoto: false);
     expect(j.containsKey('photo'), isFalse);
   });

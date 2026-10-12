@@ -2,7 +2,7 @@ import 'package:family_money_management_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// #262 — nth-weekday monthly repeats: data model round-trip and the
+// #262 - nth-weekday monthly repeats: data model round-trip and the
 // occurrence expansion, including "last X" in short months.
 
 CalendarEvent _ev({int nth = 1, int weekday = 1, String date = '2026-09-01'}) =>

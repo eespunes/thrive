@@ -226,7 +226,7 @@ void main() {
           find.byKey(ValueKey('agenda-appt-surface-feed_w1-$today')),
         );
         final deco = surface.decoration! as BoxDecoration;
-        // Plain fill in the category's colour — no stripes.
+        // Plain fill in the category's colour - no stripes.
         expect(deco.gradient, isNull);
         expect(deco.color, catColor);
       },
@@ -271,7 +271,7 @@ void main() {
 
   // ------------------------------------------------- #340 month anatomy
   group('event anatomy: month cells', () {
-    testWidgets('a multi-day run paints one continuous ribbon — rounded only '
+    testWidgets('a multi-day run paints one continuous ribbon - rounded only '
         'at its real ends, titled only on its first day', (tester) async {
       debugNowOverride = () => DateTime(2026, 6, 15);
       addTearDown(() => debugNowOverride = null);
@@ -356,7 +356,7 @@ void main() {
       final tall = barsOnToday();
       expect(tall, greaterThan(1));
 
-      // A shorter phone gets fewer rows — and says so instead of overflowing.
+      // A shorter phone gets fewer rows - and says so instead of overflowing.
       await setScreenHeight(tester, 640);
       final short = barsOnToday();
       expect(short, lessThan(tall));
@@ -796,14 +796,14 @@ void main() {
         await _goToCalendar(tester);
         await _setView(tester, 'agenda');
         expect(
-          find.text('Nothing scheduled — enjoy the calm.'),
+          find.text('Nothing scheduled - enjoy the calm.'),
           findsOneWidget,
         );
 
         await _setView(tester, 'month');
         await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
         await tester.pumpAndSettle();
-        expect(find.text('Nothing planned — enjoy the calm.'), findsOneWidget);
+        expect(find.text('Nothing planned - enjoy the calm.'), findsOneWidget);
       },
     );
   });

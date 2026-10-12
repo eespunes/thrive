@@ -13,14 +13,14 @@ final Map<
 >
 _calWeekMemo = {};
 
-/// Birthday kind palette (design §3a) — cream fill, amber rule, amber-brown
+/// Birthday kind palette (design §3a) - cream fill, amber rule, amber-brown
 /// ink. Shared by every surface so a birthday looks identical everywhere.
 const Color kBirthdayCream = Color(0xfffdf1d8);
 const Color kBirthdayAmber = Color(0xffd97706);
 const Color kBirthdayInk = Color(0xff92610c);
 const Color kBirthdaySubInk = Color(0xffb18a45);
 
-/// Imported-feed stripes — "not ours": read-only, tap opens details. The
+/// Imported-feed stripes - "not ours": read-only, tap opens details. The
 /// stripes take the event's OWN colour, which for an imported feed is its
 /// assigned category's (see `importedSyntheticEvent`), so a feed reads as its
 /// category everywhere; it's the stripe pattern, not a grey, that says
@@ -84,7 +84,7 @@ Color _stripeLift(Color base) => Color.lerp(
   .16,
 )!;
 
-/// The resolved display anatomy of one occurrence on one day — the single
+/// The resolved display anatomy of one occurrence on one day - the single
 /// source every calendar surface paints from (epic #343).
 class _EvAnatomy {
   const _EvAnatomy({
@@ -111,7 +111,7 @@ class _EvAnatomy {
   /// Title with its ↻ / ⇩ affixes already applied, in that order.
   final String title;
 
-  /// The title WITHOUT the ↻ recurrence mark (⇩ stays — read-only is worth
+  /// The title WITHOUT the ↻ recurrence mark (⇩ stays - read-only is worth
   /// the character). Month bars use this: they lead with the event's category
   /// glyph instead, which says more in the same space than a repeat mark
   /// repeated on every occurrence.
@@ -155,7 +155,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   static const int _calendarPageCenter = 10000;
 
   /// The calendar header's right-hand controls (design §2a): three inline
-  /// view buttons — month / agenda / kitchen — and the funnel filter
+  /// view buttons - month / agenda / kitchen - and the funnel filter
   /// button. There is no second toolbar and no view-picker sheet: the three
   /// buttons ARE the switcher.
   Widget _calHeaderActions() {
@@ -237,7 +237,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       children: [
         _deviceCalendarSavingIndicator(),
         for (final (value, _, icon) in kCalViews) viewBtn(value, icon),
-        // The kitchen wall is a full-screen route, not a `calView` — the
+        // The kitchen wall is a full-screen route, not a `calView` - the
         // chef button is greyed while the wall is switched off, and tapping
         // it then re-enables it (as the old picker sheet row did).
         squareBtn(
@@ -366,7 +366,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   /// Wraps the month pager in the calendar's card chrome, with a single
   /// weekday-letter header row genuinely fixed above the swipeable page
-  /// content — as a true `Column` sibling rather than a `Stack`/`Positioned`
+  /// content - as a true `Column` sibling rather than a `Stack`/`Positioned`
   /// overlay on top of it. Each month page (`_calMonth`) only renders its
   /// week rows, so there is no second, non-sticky copy of the header able to
   /// surface (crossed by event bars) while paging horizontally between
@@ -448,7 +448,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   /// time has already passed are the ones dropped. Timed occurrences starting
   /// before the current clock time are demoted behind everything else; the
   /// kept set is then put back in its original (start-time) order so the cell
-  /// still reads chronologically. All-day/untimed bars are never demoted —
+  /// still reads chronologically. All-day/untimed bars are never demoted -
   /// they have no hour to be past.
   static List<CalendarOccurrence> _monthBarsPreferUpcoming(
     List<CalendarOccurrence> bars,
@@ -470,7 +470,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     if (upcoming.isEmpty || upcoming.length >= bars.length) return bars;
     final shownUpcoming = upcoming.take(maxBars).toList();
     // Any slot the upcoming events leave over goes to the most recent past
-    // ones — the 11:00 that just finished beats the 08:00 nobody cares about.
+    // ones - the 11:00 that just finished beats the 08:00 nobody cares about.
     final past = [
       for (final o in bars.reversed)
         if (isPast(o)) o,
@@ -486,7 +486,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 
   /// Every occurrence touching a month page's 42-day grid, bucketed by the
-  /// ISO day it should paint on — a multi-day run appears in every cell it
+  /// ISO day it should paint on - a multi-day run appears in every cell it
   /// crosses so each cell can draw its own segment of the continuous
   /// ribbon. Memoised per grid (see [_calWeekMemo]).
   Map<String, List<CalendarOccurrence>> _monthOccurrencesByDay(
@@ -520,7 +520,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return memo.byDay;
   }
 
-  /// A past month is view-only (design §2a) — its day sheets lose the add
+  /// A past month is view-only (design §2a) - its day sheets lose the add
   /// button and the header carries the amber PAST pill.
   bool _calMonthIsPast(String anchor) {
     final d = _parseIso(anchor);
@@ -565,7 +565,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               ),
             ),
           ),
-        // Month travel is swipe-only — there are deliberately no ‹ › arrows
+        // Month travel is swipe-only - there are deliberately no ‹ › arrows
         // and no Today button in the header (design §2a).
         const Padding(
           key: ValueKey('cal-swipe-hint'),
@@ -614,13 +614,13 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   // Measured heights of the pieces a month cell stacks. Each is the widget's
   // own laid-out height (text line + padding + margin), rounded UP where the
-  // variants differ, so the fill maths can only ever under-fill — never
+  // variants differ, so the fill maths can only ever under-fill - never
   // overflow the cell.
   static const double _kMonthDayNumberH = 26; // 20 dot + 4 top pad + 2 gap
   static const double _kMonthBarH = 15; // 13 bar + 2 margin
   static const double _kMonthMoreH = 12; // the "+N" line
 
-  /// The laid-out height of [o]'s banner — the three variants pad differently.
+  /// The laid-out height of [o]'s banner - the three variants pad differently.
   double _monthBannerHeight(CalendarOccurrence o, String iso) {
     final a = _evAnatomy(o, iso);
     if (a.kind == CalEventKind.birthday) return 15.2; // 9.2 + 2 pad + 4 margin
@@ -645,7 +645,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final weekend = d.weekday >= 6 || holiday;
     final fade = ghost ? .4 : 1.0;
 
-    // A to-do is always a bar, never a banner — its dotted outline and ▢ are
+    // A to-do is always a bar, never a banner - its dotted outline and ▢ are
     // the point, and app to-dos are all-day by nature (design §3a).
     final banners = [
       for (final o in occ)
@@ -672,7 +672,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         // Tapping a ghost day travels to its month first, then opens it
-        // (design §2a) — it used to open the sheet without travelling.
+        // (design §2a) - it used to open the sheet without travelling.
         if (ghost) update(() => calAnchor = iso);
         setCalSel(iso);
         openDayDetail(iso);
@@ -683,7 +683,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         clipBehavior: Clip.antiAlias,
         // How many bars fit isn't a fixed number: a tall phone's cell holds
         // more rows than a short one's, so the cell measures itself and
-        // fills the space it actually has (never past it — an overflowing
+        // fills the space it actually has (never past it - an overflowing
         // Column would throw).
         child: LayoutBuilder(
           builder: (context, c) {
@@ -701,14 +701,14 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             var shownBars = bars.take(fits(0)).toList();
             var more = hiddenBanners + bars.length - shownBars.length;
             // Only give up a row to "+N more" when something is actually
-            // hidden — and re-measure, since that row may cost a bar.
+            // hidden - and re-measure, since that row may cost a bar.
             if (more > 0) {
               shownBars = bars.take(fits(_kMonthMoreH)).toList();
               more = hiddenBanners + bars.length - shownBars.length;
             }
             // `bars` is already in start-time order (_compareMonthCell). When
             // they don't all fit, today's cell sheds the ones whose hour has
-            // already gone before it sheds what's still coming — a 09:00
+            // already gone before it sheds what's still coming - a 09:00
             // that's over is worth less than an 18:00 that isn't.
             if (isToday && shownBars.length < bars.length) {
               shownBars = _monthBarsPreferUpcoming(
@@ -799,7 +799,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         color: isTodo ? a.color.withValues(alpha: .13) : a.color,
         borderRadius: BorderRadius.circular(4),
       ),
-      // A categorised event leads with its category's glyph — the one mark on
+      // A categorised event leads with its category's glyph - the one mark on
       // the bar that says what the event IS. It replaces the ↻ that used to
       // prefix every single recurring occurrence.
       child: _monthLabel(
@@ -882,7 +882,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   /// The label every month bar/banner paints: the event's category glyph (when
   /// it has one) hard against the name, then the name itself. The glyph is
-  /// exactly one text line tall, so adding it never changes a row's height —
+  /// exactly one text line tall, so adding it never changes a row's height -
   /// see the `_kMonth*H` constants the cell fills against.
   Widget _monthLabel(
     String text, {
@@ -1233,7 +1233,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return out;
   }
 
-  /// Which section an occurrence belongs to — kind wins over layer so a
+  /// Which section an occurrence belongs to - kind wins over layer so a
   /// birthday, a to-do and an imported event always land in their own
   /// section whatever layer they were filed under.
   String _agendaSectionIdFor(CalendarOccurrence o) {
@@ -1288,8 +1288,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         child: Center(
           child: Text(
             layerFilter.isEmpty
-                ? 'No layers enabled — turn one on to see its agenda.'
-                : 'Nothing scheduled — enjoy the calm.',
+                ? 'No layers enabled - turn one on to see its agenda.'
+                : 'Nothing scheduled - enjoy the calm.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12.5,
@@ -1322,7 +1322,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   // ------------------------------------------------- event display anatomy
   // One rule set for every calendar surface (epic #343, design §3a): the
   // month cell bar, the agenda/day-sheet row and the kitchen pill are three
-  // projections of the SAME resolved anatomy — kind, category colour,
+  // projections of the SAME resolved anatomy - kind, category colour,
   // category icon, recurrence, run length and attendees. No surface may
   // introduce its own colour or wording; add it here instead.
 
@@ -1386,7 +1386,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }) {
     switch (a.kind) {
       case CalEventKind.todo:
-        // An empty checkbox square — tickable in place (design §3a).
+        // An empty checkbox square - tickable in place (design §3a).
         return GestureDetector(
           key: ValueKey('event-check-${o.ev.id}-${o.date}'),
           behavior: HitTestBehavior.opaque,
@@ -1518,7 +1518,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     }
   }
 
-  /// THE full agenda/day-sheet row for any occurrence of any kind — the
+  /// THE full agenda/day-sheet row for any occurrence of any kind - the
   /// design's `evRowFull()`. Every other surface is a projection of this.
   Widget _evRowFull(
     CalendarOccurrence o, {
@@ -1643,7 +1643,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               : null,
           child: Row(
             children: [
-              // Fixed-width so titles align down a column — but it gives
+              // Fixed-width so titles align down a column - but it gives
               // way rather than overflowing in a very narrow one.
               Flexible(
                 child: Container(
@@ -1752,7 +1752,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   }
 }
 
-/// A dotted rounded-rect border painted as a [foregroundDecoration] — the
+/// A dotted rounded-rect border painted as a [foregroundDecoration] - the
 /// to-do kind's outline on every calendar surface (design §3a: "dashed
 /// outline + a real checkbox"), from month-cell bars to agenda rows and
 /// kitchen pills.

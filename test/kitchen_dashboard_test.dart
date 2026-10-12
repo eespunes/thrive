@@ -8,7 +8,7 @@ import 'package:family_money_management_app/main.dart';
 
 import 'helpers.dart';
 
-/// Same shape as `calendar_test.dart`'s `calendarPrefs` — a two-member family
+/// Same shape as `calendar_test.dart`'s `calendarPrefs` - a two-member family
 /// ('me' / 'erik') with a given set of calendar events seeded on the shared
 /// workspace, so the kitchen dashboard has real per-member occurrences to
 /// render.
@@ -407,8 +407,8 @@ void main() {
       landOnDefaultTab: true,
     );
     final state = tester.state(find.byType(ThriveHome, skipOffstage: false));
-    // The phone's layer filter doesn't reach the wall — it has its own
-    // `kitchenLayerFilter` — so the appointment stays.
+    // The phone's layer filter doesn't reach the wall - it has its own
+    // `kitchenLayerFilter` - so the appointment stays.
     (state as dynamic).layerFilter = ['task'];
 
     await _openKitchenDashboard(tester);
@@ -692,7 +692,7 @@ void main() {
 
     expect(filledStars(), 0);
 
-    // Tapping a star does nothing — the row is not a rating control.
+    // Tapping a star does nothing - the row is not a rating control.
     await tester.tap(find.byKey(const ValueKey('kitchen-star-erik-3')));
     await tester.pumpAndSettle();
     expect(filledStars(), 0);
@@ -959,7 +959,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // The title field is always shown; the photo step only appears for a
-    // picture-mode assignee, and offers a real photo — never an emoji.
+    // picture-mode assignee, and offers a real photo - never an emoji.
     expect(find.byType(TextField), findsOneWidget);
     expect(
       find.byKey(const ValueKey('kitchen-add-photo-choose')),

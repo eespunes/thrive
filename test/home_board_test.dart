@@ -70,7 +70,7 @@ void seedRichWorkspace() {
   });
 }
 
-/// Long-presses the first board widget — the only way into edit mode now
+/// Long-presses the first board widget - the only way into edit mode now
 /// that the header pencil is gone (issue #236).
 Future<void> enterHomeEdit(WidgetTester tester) async {
   await tester.longPress(

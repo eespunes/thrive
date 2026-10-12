@@ -73,7 +73,7 @@ class PendingChange {
   /// The record as this device wants it ([PendingOp.save] only).
   Map<String, dynamic>? record;
 
-  /// The server's version this change was made from — null when the record
+  /// The server's version this change was made from - null when the record
   /// is new (it didn't exist on the server).
   final Map<String, dynamic>? serverRecord;
 
@@ -220,8 +220,8 @@ class PendingChanges {
   }
 }
 
-/// Re-applies unsaved [changes] onto [local] — this device's records, freshly
-/// built from the [server]'s current data (after a restart) — so the next
+/// Re-applies unsaved [changes] onto [local] - this device's records, freshly
+/// built from the [server]'s current data (after a restart) - so the next
 /// save sends them:
 /// - a delete is applied if the record still exists (its key is returned in
 ///   `deletes`, the explicit delete intents); else it's already done;
@@ -308,7 +308,7 @@ applyPendingChanges({
 }
 
 /// Records that are mere containers (a year / month folder, the calendar /
-/// finance roots) — never shown as an unsaved change of their own.
+/// finance roots) - never shown as an unsaved change of their own.
 bool isContainerRecord(String key) => switch (recordKind(key)) {
   RecordKind.finance ||
   RecordKind.calendar ||

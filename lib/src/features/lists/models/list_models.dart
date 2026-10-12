@@ -26,7 +26,7 @@ class ListTask {
   bool done;
 
   /// Family member id this task is assigned to, or `null` for unassigned
-  /// ("Anyone — first to grab it").
+  /// ("Anyone - first to grab it").
   String? assignee;
 
   /// Due date as `yyyy-mm-dd`, or `null` for "Someday" (fridge door #315).
@@ -63,7 +63,7 @@ class ListTask {
   );
 }
 
-/// A shared to-do list — the `TO-DO` list type in the unified Lists module.
+/// A shared to-do list - the `TO-DO` list type in the unified Lists module.
 class TaskList {
   TaskList({
     required this.id,
@@ -145,7 +145,7 @@ class ShopItem {
   );
 }
 
-/// A shared shopping list — the `SHOPPING` list type in the unified Lists
+/// A shared shopping list - the `SHOPPING` list type in the unified Lists
 /// module.
 class ShoppingList {
   ShoppingList({

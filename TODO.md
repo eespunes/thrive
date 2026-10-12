@@ -1,4 +1,4 @@
-# Thrive — Family Management Roadmap (Phase 3)
+# Thrive - Family Management Roadmap (Phase 3)
 
 Prioritized backlog for evolving Thrive from a finance manager into a full family
 management app. **Design source of truth:** Claude Design → `Thrive.dc.html`
@@ -13,35 +13,35 @@ Epic: **#148**.
 
 ## Priority order
 
-### P0 — Foundations (block everything else)
+### P0 - Foundations (block everything else)
 
 | # | Issue | Blocks |
 | --- | --- | --- |
 | #149 | App-shell / nav refactor (Home · Calendar · Lists · Finance · More + Quick-Add FAB) | all modules |
 | #150 | Shared-family data model + Firestore collections & rules | all modules |
-| #151 | Design spec (✅ delivered — `Thrive.dc.html`) | all modules (provides UI) |
+| #151 | Design spec (✅ delivered - `Thrive.dc.html`) | all modules (provides UI) |
 
-### P1 — Core modules
+### P1 - Core modules
 
 | # | Issue | Blocked by |
 | --- | --- | --- |
-| #159 | Lists module hub — unified to-do & shopping | #149, #150 |
-| #152 | Calendar — month / week / agenda views | #149, #150 |
-| #153 | Calendar — create/edit events (recurrence, attendees, category, reminders) | #150, #152, #160 |
+| #159 | Lists module hub - unified to-do & shopping | #149, #150 |
+| #152 | Calendar - month / week / agenda views | #149, #150 |
+| #153 | Calendar - create/edit events (recurrence, attendees, category, reminders) | #150, #152, #160 |
 | #155 | Lists · to-do tasks (assignee, due date, check-off) | #159, #150 |
 | #156 | Lists · shopping items (quick add, qty, check-off) | #159, #150 |
 | #158 | Home dashboard (today & upcoming, tasks, shopping, meal) | #149, #152, #155, #156, #157, #162 |
 
-### P2 — Depends on core modules
+### P2 - Depends on core modules
 
 | # | Issue | Blocked by |
 | --- | --- | --- |
 | #160 | Calendar event categories (icons, colours & management) | #150, #163 |
 | #162 | Global Quick-Add (event / task / shopping item) | #149, #153, #155, #156 |
-| #157 | Weekly plan — meals (breakfast/lunch/dinner) & notes | #149, #150 |
+| #157 | Weekly plan - meals (breakfast/lunch/dinner) & notes | #149, #150 |
 | #154 | Event & task reminders / notifications | #150, #153, #155 |
 | #163 | "More" hub + Profile screen | #149 |
-| #161 | Import external calendars (Google / Apple / ICS) — read-only | #150, #152, #163 |
+| #161 | Import external calendars (Google / Apple / ICS) - read-only | #150, #152, #163 |
 
 ---
 
@@ -75,8 +75,8 @@ Epic: **#148**.
 
 ## New surfaces the design added (not in the original backlog)
 
-- **#159** — Lists is **one** tab for to-do **and** shopping (was two separate stories/tabs).
-- **#160** — event **categories** (icon + colour).
-- **#161** — **import** external calendars (read-only) — previously out-of-scope, now in scope.
-- **#162** — global **Quick-Add** FAB.
-- **#163** — **More** hub + dedicated **profile** screen.
+- **#159** - Lists is **one** tab for to-do **and** shopping (was two separate stories/tabs).
+- **#160** - event **categories** (icon + colour).
+- **#161** - **import** external calendars (read-only) - previously out-of-scope, now in scope.
+- **#162** - global **Quick-Add** FAB.
+- **#163** - **More** hub + dedicated **profile** screen.

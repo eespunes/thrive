@@ -53,7 +53,7 @@ void main() {
 
     // The Settings v2 wallet sub-page (#282) with no cards yet.
     expect(find.textContaining('can use these at the till'), findsOneWidget);
-    expect(find.textContaining('No cards yet — add one'), findsOneWidget);
+    expect(find.textContaining('No cards yet - add one'), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-sub-add')), findsOneWidget);
 
     // "＋ Add a card" hands over to the pick stage of the scan sheet

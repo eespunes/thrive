@@ -1,7 +1,7 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// Top-level nav tab keys, as validated on restore. Every section exists
-/// whether or not it is on this person's bar (#365) — unpicking one moves it
+/// whether or not it is on this person's bar (#365) - unpicking one moves it
 /// into More, it never stops being a destination, so a persisted tab stays
 /// valid after a bar change instead of falling back to a blank screen.
 const Set<String> kValidTabs = {
@@ -14,11 +14,11 @@ const Set<String> kValidTabs = {
 };
 
 /// The 5-tab bottom nav bar, the Quick-Add FAB, the "More" hub, and the
-/// per-tab title/sub-header dispatch — ported from the design's
+/// per-tab title/sub-header dispatch - ported from the design's
 /// `renderNav()` / `renderFab()` / `renderMore()` / `tabMeta()` / `goTab()`.
 extension _ThriveAppShell on _ThriveHomeState {
   /// Switches the active top-level tab. Mirrors `goTab()` in the design.
-  /// Opening a screen reloads its data from the server (throttled — see
+  /// Opening a screen reloads its data from the server (throttled - see
   /// `reloadFromServer`), so it never shows a stale copy.
   void goTab(String t) {
     update(() {
@@ -44,8 +44,8 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   /// The bottom bar (design `Nav options` 2a): Home, the three sections this
-  /// person picked, then More. The 1a ergonomics — a 52x34 pill behind the
-  /// active icon, always-on labels, a badge slot per tab — apply to whatever
+  /// person picked, then More. The 1a ergonomics - a 52x34 pill behind the
+  /// active icon, always-on labels, a badge slot per tab - apply to whatever
   /// the picks happen to be. Long-pressing anywhere on the bar opens the
   /// editor, which is the only way the bar advertises that it's editable.
   Widget _buildNav() {
@@ -217,7 +217,7 @@ extension _ThriveAppShell on _ThriveHomeState {
         );
       case 'lists':
         // Fridge door (#302): live "4 notes · 7 things to do", recounted
-        // under the Just-me filter — unassigned tasks stay everyone's
+        // under the Just-me filter - unassigned tasks stay everyone's
         // (#307); shopping notes only count under Everyone.
         final mine = taskFilter == 'me';
         var notes = 0;
@@ -254,7 +254,7 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   /// Sub-header row for non-finance tabs. `lists` shows a back-to-"All
-  /// lists" row when a list is open, else the all/assigned-to-me filter —
+  /// lists" row when a list is open, else the all/assigned-to-me filter -
   /// mirroring `tabSubHeader(tab)`.
   Widget? _tabSubHeader(String t) {
     if (t == 'lists') {

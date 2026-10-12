@@ -52,7 +52,7 @@ class _KitchenWallScreen extends StatelessWidget {
           subtitle: 'The shared tablet screen',
           intro:
               'Layers and picture mode for the shared tablet. The wall’s '
-              'on/off switch lives on the calendar’s view switcher — it’s '
+              'on/off switch lives on the calendar’s view switcher - it’s '
               '${s.kitchenEnabled ? 'on' : 'off'} right now.',
           footnote:
               'At least one layer stays visible. Photo tile uses the '

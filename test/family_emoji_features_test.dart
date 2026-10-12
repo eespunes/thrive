@@ -26,7 +26,7 @@ Future<void> _openJoinSheet(WidgetTester tester) async {
 }
 
 void main() {
-  group('issue #132 — demo family removed', () {
+  group('issue #132 - demo family removed', () {
     testWidgets('the join sheet no longer advertises the demo family', (
       tester,
     ) async {
@@ -53,7 +53,7 @@ void main() {
     });
   });
 
-  group('issue #133 — leaving a family', () {
+  group('issue #133 - leaving a family', () {
     testWidgets('a member can leave a family they joined', (tester) async {
       await pumpApp(tester, prefs: joinableFamilyPrefs());
       // Join the seeded family as a regular member.
@@ -118,7 +118,7 @@ void main() {
 
       // Owner of fam_main (which has an active member) sees both buttons; the
       // leave button is rendered above the delete button. The owner can always
-      // delete a family — even their only one (issue #133 follow-up).
+      // delete a family - even their only one (issue #133 follow-up).
       expect(find.byKey(const ValueKey('family-leave')), findsOneWidget);
       expect(find.byKey(const ValueKey('family-delete')), findsOneWidget);
     });
@@ -140,7 +140,7 @@ void main() {
     });
   });
 
-  group('issue #131 — emoji / picture for accounts & blocks', () {
+  group('issue #131 - emoji / picture for accounts & blocks', () {
     Future<void> typeStageEmoji(WidgetTester tester, String emoji) async {
       await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-link')));
       await tester.pumpAndSettle();
@@ -224,7 +224,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('badge-stage-emoji-use')));
       await tester.pump();
       expect(
-        find.text('Type an emoji first — any one your keyboard has'),
+        find.text('Type an emoji first - any one your keyboard has'),
         findsOneWidget,
       );
     });

@@ -2,13 +2,13 @@ part of 'package:family_money_management_app/main.dart';
 
 /// Pure (de)serialization layer between the in-memory models and the
 /// Firestore family documents. Everything here is a plain function of its
-/// inputs — no widget state, no I/O — so the persistence core is unit-tested
+/// inputs - no widget state, no I/O - so the persistence core is unit-tested
 /// (see test/workspace_sections_test.dart) instead of living untestably
 /// inside the app shell.
 
-/// Family metadata document — everything EXCEPT the workspace, which lives
+/// Family metadata document - everything EXCEPT the workspace, which lives
 /// in the `workspace` subcollection (one doc per section) so a budget edit
-/// no longer rewrites — and re-downloads, on every member's device — the
+/// no longer rewrites - and re-downloads, on every member's device - the
 /// whole multi-MB family blob.
 // FieldValue.serverTimestamp() needs the Firestore platform plumbing, so this
 // builder is only exercised against a live backend.
@@ -63,7 +63,7 @@ Map<String, Map<String, dynamic>> workspaceSections(
     if (ws.picMembers.isNotEmpty) 'picMembers': ws.picMembers,
     'kitchenLayerFilter': ws.kitchenLayerFilter,
   },
-  // Per-year event docs — emitted for LOCAL persistence only. The cloud path
+  // Per-year event docs - emitted for LOCAL persistence only. The cloud path
   // passes includeEvents:false and stores events per-doc (see the doc comment
   // above and _persistFamilyEvents). Legacy cloud events_*/events docs are read
   // once by [workspaceFromSections] to seed the per-event migration.
@@ -74,7 +74,7 @@ Map<String, Map<String, dynamic>> workspaceSections(
       },
   // One doc per discount card (`card_<id>`) instead of a single `cards` doc
   // holding the whole array, so two members editing DIFFERENT cards can't
-  // overwrite each other. Card photos are local-only (issue #234) — the synced
+  // overwrite each other. Card photos are local-only (issue #234) - the synced
   // payload never carries them, so they stay on the family's devices.
   for (final c in ws.cards) 'card_${c.id}': c.toJson(includePhoto: false),
   // One doc per task/shopping list. taskLists and shoppingLists are separate id
@@ -168,7 +168,7 @@ Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
           months.forEach((mk, mv) => year.putIfAbsent(mk.toString(), () => mv));
         }
       } else {
-        // Per-month `budget_<year>_<month>` doc — wins over the legacy month.
+        // Per-month `budget_<year>_<month>` doc - wins over the legacy month.
         data.putIfAbsent(
           rest.substring(0, sep),
           () => {},

@@ -133,7 +133,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('imports-row-imp1')));
     await tester.pumpAndSettle();
     expect(
-      find.text('Remove this calendar — its events disappear'),
+      find.text('Remove this calendar - its events disappear'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('studio-delete')));

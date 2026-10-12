@@ -3,7 +3,7 @@ part of 'package:family_money_management_app/main.dart';
 /// Settings → Unsaved changes (see [PendingChanges]):
 /// - changes this phone is still trying to save (retry / discard), and
 /// - changes left unsaved by a previous run, set aside in the user's staging
-///   area in Firestore — kept out of the family's data until applied or
+///   area in Firestore - kept out of the family's data until applied or
 ///   discarded.
 extension _ThrivePendingChanges on _ThriveHomeState {
   void openPendingChangesScreen() {
@@ -35,7 +35,7 @@ extension _ThrivePendingChanges on _ThriveHomeState {
       return;
     }
     if (r.failed) {
-      flash('Couldn’t save yet — will keep trying', tone: ToastTone.retry);
+      flash('Couldn’t save yet - will keep trying', tone: ToastTone.retry);
       return;
     }
     final gone = r.gone;
@@ -169,7 +169,7 @@ extension _ThrivePendingChanges on _ThriveHomeState {
     if (ok && _pending.isEmpty) {
       flash('All changes saved');
     } else {
-      flash('Couldn’t save yet — will keep trying', tone: ToastTone.retry);
+      flash('Couldn’t save yet - will keep trying', tone: ToastTone.retry);
     }
   }
 }
@@ -372,7 +372,7 @@ Widget _changeTile(PendingChange c, {double size = 36}) {
   );
 }
 
-/// "**Added** note item" — the verb in its colour.
+/// "**Added** note item" - the verb in its colour.
 Widget _verbLine(PendingChange c, {String? tail, double fontSize = 12.5}) {
   final verb = pendingChangeVerb(c);
   return Text.rich(
@@ -647,7 +647,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         const SizedBox(width: 10),
         const Expanded(
           child: Text(
-            'You’re offline — changes are kept on this phone',
+            'You’re offline - changes are kept on this phone',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
@@ -782,7 +782,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 2),
           child: Text(
-            'Retrying automatically — nothing to do. Tap a change to '
+            'Retrying automatically - nothing to do. Tap a change to '
             'discard it.',
             style: TextStyle(
               fontSize: 12.5,
@@ -1134,7 +1134,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                       Expanded(
                         child: Text(
                           'Not in ${possessive(fam)} data yet. Only you can '
-                          'see these — Apply to add them on top of the latest '
+                          'see these - Apply to add them on top of the latest '
                           'version.',
                           style: const TextStyle(
                             fontSize: 12.5,
@@ -1544,7 +1544,7 @@ class _DiscardSheet extends StatelessWidget {
   }
 }
 
-/// "You have unsaved changes" — shown once per session when changes were set
+/// "You have unsaved changes" - shown once per session when changes were set
 /// aside, offering to review them.
 class _UnsavedChangesDialog extends StatelessWidget {
   const _UnsavedChangesDialog({

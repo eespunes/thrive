@@ -1,15 +1,15 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// The event editor (design "Event & finance editors" 1a): a scroll of
-/// labelled white cards — one card per decision, chips instead of dropdowns,
-/// delete at the very end — above which a pinned "How it will look" strip
+/// labelled white cards - one card per decision, chips instead of dropdowns,
+/// delete at the very end - above which a pinned "How it will look" strip
 /// paints the draft with the calendar's own month, agenda and kitchen
 /// builders. Same anatomy as the category editor and the import studio.
 ///
 /// It replaces the WYSIWYG ticket: colour and layer are still judged from a
 /// live preview, but nothing is hidden behind a tray any more.
 
-/// Plain-language repeat summary (#267) — the same phrase month/agenda rows
+/// Plain-language repeat summary (#267) - the same phrase month/agenda rows
 /// render, so the tray's summary and the calendar always agree.
 String repeatPhrase(CalendarEvent ev) {
   const weekdayNames = [
@@ -94,7 +94,7 @@ String reminderRingLine(CalendarEvent ev) {
 }
 
 extension _ThriveTicketEditor on _ThriveHomeState {
-  /// Opens the event editor — the single event-editing surface.
+  /// Opens the event editor - the single event-editing surface.
   void openTicketEditor(CalendarEvent? ev, [String? date]) {
     _showSheet(
       (ctx) => _TicketEditorSheet(state: this, event: ev, date: date ?? calSel),
@@ -389,7 +389,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   // ------------------------------------------------------------- preview
 
   /// The draft as a throwaway event, so the preview can paint it with the
-  /// SAME builders the calendar uses. Never saved, never added to `events` —
+  /// SAME builders the calendar uses. Never saved, never added to `events` -
   /// its id is deliberately unlike any real one so the strip can't collide
   /// with the grid behind the sheet.
   CalendarEvent _previewEvent() => CalendarEvent(
@@ -799,7 +799,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
             ),
             const SizedBox(width: 7),
             // Birthdays/anniversaries are their own display kind on every
-            // calendar surface (#339) — cream + cake, never a time.
+            // calendar surface (#339) - cream + cake, never a time.
             KeyedSubtree(
               key: const ValueKey('event-kind-birthday'),
               child: _chip(null, 'Birthday', _birthday, () {
@@ -1066,7 +1066,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     );
   }
 
-  /// Repeat tray (#267) — design 2a: "Does it happen again?" first.
+  /// Repeat tray (#267) - design 2a: "Does it happen again?" first.
   Widget _trayRepeat() {
     final repeats = _recur != 'none';
     final weekly =
@@ -1345,7 +1345,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     );
   }
 
-  /// Reminder tray (#268) — design 2a: "Want a heads-up?" first.
+  /// Reminder tray (#268) - design 2a: "Want a heads-up?" first.
   Widget _trayReminder() {
     final remind = _reminder != 'none';
     final ring = reminderRingLine(_draft());
@@ -1435,7 +1435,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           ),
         ),
         // Checking the place is the real one belongs HERE, while you are
-        // still typing it — not after saving.
+        // still typing it - not after saving.
         if (_location.text.trim().isNotEmpty)
           Align(
             alignment: Alignment.centerLeft,
@@ -1487,7 +1487,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     );
   }
 
-  /// One labelled white card in the editor's scroll — the design's shape,
+  /// One labelled white card in the editor's scroll - the design's shape,
   /// the same one the category editor and the import studio already use.
   Widget _card(String id, String title, Widget child) => KeyedSubtree(
     key: ValueKey('event-card-$id'),
@@ -1514,7 +1514,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           _editing ? 'Edit event' : 'New event',
           sub: _editing
               ? 'One card per decision'
-              : 'One card per decision — nothing hidden',
+              : 'One card per decision - nothing hidden',
           onConfirm: _submit,
           confirmEnabled: valid,
         ),
@@ -1581,7 +1581,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
 
 /// Hour/minute entry dialog replacing the Material time picker's input mode:
 /// tapping the hour or the minute selects its whole value, so typing digits
-/// simply overwrites — no deleting first. Two digits in the hour auto-advance
+/// simply overwrites - no deleting first. Two digits in the hour auto-advance
 /// to the minute; values clamp to 0–23 / 0–59.
 class _TimeInputDialog extends StatefulWidget {
   const _TimeInputDialog({required this.title, required this.initial});

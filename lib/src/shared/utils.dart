@@ -4,7 +4,7 @@ enum UntilState { soon, future, ended }
 
 int _uidCounter = 0;
 
-/// Mirrors `uid()` — short unique id.
+/// Mirrors `uid()` - short unique id.
 String uid() {
   _uidCounter++;
   final rand = math.Random().nextInt(1 << 31).toRadixString(36);
@@ -61,7 +61,7 @@ String? normalizeRecurringEndDate(Object? v) {
   return d == null ? null : _isoDate(d);
 }
 
-/// Mirrors `num(v)` — tolerant number parsing.
+/// Mirrors `num(v)` - tolerant number parsing.
 double parseNum(Object? v) {
   if (v is num) return v.isNaN ? 0 : v.toDouble();
   if (v is String) {
@@ -86,7 +86,7 @@ double parseNum(Object? v) {
   return 0;
 }
 
-/// Mirrors `eur(n,cents)` — European currency formatting with thin nbsp.
+/// Mirrors `eur(n,cents)` - European currency formatting with thin nbsp.
 String eur(num? value, {bool cents = true}) {
   var n = (value ?? 0).toDouble();
   if (n.isNaN) n = 0;
@@ -106,7 +106,7 @@ String eur(num? value, {bool cents = true}) {
 String eurBare(num? value, {bool cents = true}) =>
     eur(value, cents: cents).replaceFirst('\u20ac\u00A0', '');
 
-/// Mirrors `markerShow(v)` — hides pure serial numbers / placeholders.
+/// Mirrors `markerShow(v)` - hides pure serial numbers / placeholders.
 String markerShow(Object? v) {
   if (v == null) return '';
   final s = v.toString().trim();
@@ -114,7 +114,7 @@ String markerShow(Object? v) {
   return s == '-' ? '' : s;
 }
 
-/// Mirrors `untilLabel(v)` — normalizes an "until" value to MM-YY.
+/// Mirrors `untilLabel(v)` - normalizes an "until" value to MM-YY.
 String? untilLabel(Object? v) {
   final d = _dateFromUntil(v);
   if (d == null) return null;
@@ -135,7 +135,7 @@ UntilState untilState(String? label, int mIdx, int year) {
   return UntilState.future;
 }
 
-/// Mirrors `accForLabel(label)` — heuristics that route a row to an account.
+/// Mirrors `accForLabel(label)` - heuristics that route a row to an account.
 String accForLabel(String? label) {
   final u = (label ?? '').toUpperCase();
   if (u.contains('EVA')) return 'eva';
@@ -182,7 +182,7 @@ String ordinal(int n) {
 
 /// Resolves the marker day of an item onto an actual day of [year]/[monthIdx]
 /// (0-based), applying the weekend rule described by [shift] (`'none'` |
-/// `'before'` | `'after'`). Never crosses a month boundary — clamps at the
+/// `'before'` | `'after'`). Never crosses a month boundary - clamps at the
 /// 1st/last day instead. `movedFrom` carries the original day when the rule
 /// moved it, else `null`. Mirrors `resolveDay(day,shift)`.
 ({int day, int? movedFrom}) resolveMoneyDay(

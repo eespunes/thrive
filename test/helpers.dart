@@ -15,8 +15,8 @@ final Map<String, Object> _signedInUser = {
     'initials': 'EJ',
     'provider': 'google',
   }),
-  // Pins this device's local (no-Firebase) self id — normally a random
-  // generated id (see `kLocalSelfUidKey`/`myId`) — to the stable, readable
+  // Pins this device's local (no-Firebase) self id - normally a random
+  // generated id (see `kLocalSelfUidKey`/`myId`) - to the stable, readable
   // literal `'me'`, so existing tests can keep asserting against a fixed id
   // for "the signed-in user" instead of a fresh random one every run.
   'flutter.$kLocalSelfUidKey': 'me',
@@ -67,7 +67,7 @@ Map<String, Object> joinableFamilyPrefs() {
 /// `signedIn: false` to exercise the auth gate.
 ///
 /// The app's real default landing tab is Home (issue #149), but almost every
-/// existing test assumes it lands directly on the Finance/Overview screen —
+/// existing test assumes it lands directly on the Finance/Overview screen -
 /// so by default this helper navigates to the Finance tab right after boot,
 /// once the 5-tab shell is actually showing (it's a no-op behind the auth/
 /// onboarding gates). Pass `landOnDefaultTab: true` to see the real Home
@@ -185,7 +185,7 @@ Future<void> tapHubRow(WidgetTester tester, String card, String rowKey) async {
 Future<void> holdDragReorder(WidgetTester tester, Finder row, double dy) async {
   final gesture = await tester.startGesture(tester.getCenter(row));
   await tester.pump(const Duration(milliseconds: 400));
-  // Stepped moves with pumps in between — a single jump can slip past the
+  // Stepped moves with pumps in between - a single jump can slip past the
   // ReorderableListView's drag recognizer.
   const steps = 8;
   for (var i = 0; i < steps; i++) {

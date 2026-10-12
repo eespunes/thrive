@@ -70,7 +70,7 @@ extension _ThriveBlocksScreen on _ThriveHomeState {
   }
 
   /// Deletes block [key], moving its open-month entries into
-  /// [blockDeleteFallback] — closed months keep their history (#329
+  /// [blockDeleteFallback] - closed months keep their history (#329
   /// "its entries move elsewhere", vs. the legacy sheet which dropped them).
   void deleteBlockMigrating(String key) {
     if (cats.length <= 1) return;
@@ -92,7 +92,7 @@ extension _ThriveBlocksScreen on _ThriveHomeState {
           m.caps.remove(key);
         }
       }
-    }, () => flash('Block deleted — entries moved to ${fallback.title}'));
+    }, () => flash('Block deleted - entries moved to ${fallback.title}'));
   }
 }
 
@@ -127,7 +127,7 @@ class _BudgetBlocksScreen extends StatelessWidget {
         title: 'Budget blocks',
         subtitle: 'The columns of the monthly budget',
         intro:
-            'The columns of the monthly budget — hold a row and drag to '
+            'The columns of the monthly budget - hold a row and drag to '
             'rearrange, tap to edit.',
         addPlaceholder: 'New block name…',
         emptyAddHint: 'Type a name first',
@@ -300,7 +300,7 @@ class _BlockStudioState extends State<_BlockStudio> {
       saveEnabled: _title.trim().isNotEmpty,
       onSave: _save,
       deleteLabel: canDelete
-          ? 'Delete block — its entries move elsewhere'
+          ? 'Delete block - its entries move elsewhere'
           : null,
       onDelete: canDelete ? _delete : null,
       children: [
@@ -402,7 +402,7 @@ class _BlockStudioState extends State<_BlockStudio> {
           studioTextField(
             key: const ValueKey('block-limit'),
             controller: _cap,
-            hint: 'Monthly limit (optional) — no limit',
+            hint: 'Monthly limit (optional) - no limit',
             keyboardType: TextInputType.number,
             margin: const EdgeInsets.only(bottom: 8),
           ),

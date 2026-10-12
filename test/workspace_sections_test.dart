@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 // These are the invariants the sync engine relies on: a lossless
 // sections round-trip, digest stability for unchanged payloads, and the
 // meta digest ignoring server-managed fields. Models are built via
-// fromJson — the same path real section payloads take.
+// fromJson - the same path real section payloads take.
 
 Workspace _sampleWorkspace() {
   final month = MonthData();
@@ -89,7 +89,7 @@ void main() {
       final rebuilt = workspaceFromSections(workspaceSections(ws));
       expect(rebuilt, isNotNull);
       // JSON equality is the contract: what one device uploads is exactly
-      // what another reassembles — except card photos, which deliberately
+      // what another reassembles - except card photos, which deliberately
       // never travel through the cloud (issue #234), and events, which now live
       // in the per-event `events` subcollection rather than section docs.
       // Restore/align both, then compare.
@@ -184,7 +184,7 @@ void main() {
       'events are per-year docs LOCALLY but excluded for the CLOUD path',
       () {
         // Local persistence (default) keeps events sharded per year in section
-        // docs — single device, no concurrent-write conflict.
+        // docs - single device, no concurrent-write conflict.
         final local = workspaceSections(_sampleWorkspace());
         expect(local.containsKey('events_2026'), isTrue);
         // includeEvents:false drops the per-year event docs.

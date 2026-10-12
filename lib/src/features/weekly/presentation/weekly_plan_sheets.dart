@@ -1,6 +1,6 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// "Edit meal" sheet — a single free-text field for one meal slot on one
+/// "Edit meal" sheet - a single free-text field for one meal slot on one
 /// day. Ported from the design's weekly-plan meal editor.
 class _MealEditSheet extends StatefulWidget {
   const _MealEditSheet({
@@ -81,7 +81,7 @@ class _MealEditSheetState extends State<_MealEditSheet> {
   }
 }
 
-/// "Day note" sheet — a shared free-text note for one day.
+/// "Day note" sheet - a shared free-text note for one day.
 class _DayNoteSheet extends StatefulWidget {
   const _DayNoteSheet({
     required this.state,

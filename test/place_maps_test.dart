@@ -19,7 +19,7 @@ void main() {
       expect(uri.path, '/maps/search/');
       expect(uri.queryParameters['api'], '1');
       expect(uri.queryParameters['query'], 'Sports hall, Utrecht');
-      // Encoded, not raw — a place with spaces and commas must survive.
+      // Encoded, not raw - a place with spaces and commas must survive.
       expect(uri.toString(), contains('Sports+hall'));
     });
 
@@ -61,7 +61,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     await _goToCalendar(tester);
-    // The day sheet, then the event's row — the view sheet is where a saved
+    // The day sheet, then the event's row - the view sheet is where a saved
     // place is read (openEvent() is the editor).
     await tester.tap(find.byKey(ValueKey('cal-day-bg-${todayIso()}')));
     await tester.pumpAndSettle();
@@ -89,7 +89,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
 
-    // Nothing typed yet — nothing to find.
+    // Nothing typed yet - nothing to find.
     expect(find.byKey(const ValueKey('event-open-in-maps')), findsNothing);
 
     await tester.ensureVisible(find.byKey(const ValueKey('event-card-place')));
