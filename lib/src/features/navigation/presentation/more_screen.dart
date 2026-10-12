@@ -275,6 +275,21 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       title: 'Account',
       summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
       rows: [
+        ValueListenableBuilder<int>(
+          valueListenable: pendingChangesTick,
+          builder: (context, _, _) {
+            final n = visiblePendingChanges.length;
+            return _hubRow(
+              key: 'hub-pending',
+              label: 'Unsaved changes',
+              sub: 'Waiting to reach Thrive',
+              val: n == 0 ? 'All saved' : '$n unsaved',
+              warnVal: n > 0,
+              goodVal: n == 0,
+              onTap: openPendingChangesScreen,
+            );
+          },
+        ),
         _hubRow(
           key: 'hub-notifications',
           label: 'Notifications',

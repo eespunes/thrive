@@ -236,7 +236,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// security rules treat as the source of truth — rather than the per-user
   /// `familyIds` mirror, which is written best-effort and could lag a create or
   /// join and strand an existing member on the onboarding gate (issue #128).
+  ///
+  /// Unsaved changes from a previous run ([PendingChanges]) are then
+  /// re-applied onto what was loaded, and sent ([_replayPendingChanges]).
   Future<bool> cloudBoot(String meUid) async {
+    final ok = await _cloudBootLoad(meUid);
+    if (ok) await _replayPendingChanges(meUid);
+    return ok;
+  }
+
+  Future<bool> _cloudBootLoad(String meUid) async {
     const server = GetOptions(source: Source.server);
     // The user-doc read and the membership query are independent — run them
     // concurrently to save a round-trip.
@@ -359,6 +368,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return;
     }
     final versions = _cloudVersions.putIfAbsent(fid, () => {});
+    final hadNotes = col == kNotesCol
+        ? {
+            for (final k in base.keys)
+              if (inCol(k)) k,
+          }
+        : const <String>{};
     if (full) {
       base.removeWhere((k, _) => inCol(k));
       versions.removeWhere((k, _) => inCol(k));
@@ -386,6 +401,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         base[key] = rec;
         versions[key] = recordVersion(raw);
       }
+    }
+    // Notes deleted on the server: lines still filed under them (added while
+    // the note was being deleted) are deleted too — see _localRecords.
+    for (final k in hadNotes) {
+      if (!base.containsKey(k)) _goneNotes.putIfAbsent(fid, () => {}).add(k);
     }
     // A cache answer only proves the collection's contents when it has docs
     // (an empty cache may simply never have synced it).
@@ -429,6 +449,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final after = _serverView(fid);
     final localWs = workspaces[fid];
     Workspace next;
+    var lostEdits = const <Map<String, dynamic>>[];
+    var pendingDropped = false;
     if (!hadBase || localWs == null) {
       // Nothing of this family was loaded before: adopt the server wholesale
       // (a placeholder workspace's defaults must never win over real data).
@@ -439,8 +461,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           if (!jsonEquals(before[k], after[k])) k,
       };
       if (changed.isEmpty) return;
-      final local = normalizedRecords(localWs);
-      local.addAll(orphanListItems(before, local));
+      final local = _localRecords(fid, localWs, before);
       final oldBase = {...before};
       final inflight = _inflightCreates[fid] ?? const <String, int>{};
       final keep = <String>{};
@@ -475,6 +496,27 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
               : placeholderRecord(k, local[k]!);
         }
       }
+      // Our unsaved edits of records another member deleted: dropped (a
+      // deletion always wins — see rebaseRecords), and the user is told.
+      lostEdits = [
+        for (final k in changed)
+          if (oldBase.containsKey(k) &&
+              !after.containsKey(k) &&
+              !keep.contains(k) &&
+              local.containsKey(k) &&
+              !jsonEquals(local[k], oldBase[k]))
+            local[k]!,
+      ];
+      // Deleted on the server: our pending delete is done, our pending edit
+      // is moot (a pending create stays — it's being sent).
+      for (final k in changed) {
+        if (after.containsKey(k)) continue;
+        final c = _pending['$fid|$k'];
+        if (c != null && !(c.op == PendingOp.save && c.serverRecord == null)) {
+          _pending.remove(c.id);
+          pendingDropped = true;
+        }
+      }
       final merged = rebaseRecords(
         oldBase: oldBase,
         newBase: after,
@@ -497,6 +539,43 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       update(() {});
       _rescheduleReminders();
     }
+    if (pendingDropped) _pendingChanged();
+    if (lostEdits.isNotEmpty) _notifyDeletedMeanwhile(lostEdits);
+  }
+
+  /// Tells the user their unsaved edits of [records] were dropped because
+  /// another member deleted them.
+  void _notifyDeletedMeanwhile(List<Map<String, dynamic>> records) {
+    if (!mounted || records.isEmpty) return;
+    final label = recordLabel(records.first);
+    flash(
+      records.length > 1
+          ? '${records.length} items you were editing were deleted by '
+                'another member'
+          : label.isEmpty
+          ? 'An item you were editing was deleted by another member'
+          : '\u201C$label\u201D was deleted by another member',
+    );
+  }
+
+  /// Record [key] of [fid] was deleted on the server while this device's
+  /// edit ([rec]) was being saved: the deletion wins — drop it here too.
+  void _dropDeletedRecord(String fid, String key, Map<String, dynamic> rec) {
+    _cloudBase[fid]?.remove(key);
+    _cloudVersions[fid]?.remove(key);
+    if (_pending.remove('$fid|$key')) _pendingChanged();
+    final ws = workspaces[fid];
+    if (ws != null) {
+      final local = _localRecords(fid, ws)..remove(key);
+      final next = workspaceFromRecords(local);
+      mergeCardPhotos(next.cards, ws.cards);
+      _applyingCloudSnapshot = true;
+      workspaces[fid] = next;
+      if (fid == familyId) _adoptActiveWorkspace();
+      _applyingCloudSnapshot = false;
+      if (mounted) update(() {});
+    }
+    _notifyDeletedMeanwhile([rec]);
   }
 
   /// Meta-doc fields this app owns, normalized through the model.
@@ -820,14 +899,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
               fid,
               () => _ingestRecordSnapshot(fid, col, snap, full: full),
             );
-            // A member's deletion (or another member's ack) may have just
-            // arrived: acknowledge it / finish it.
-            if (col == kEventsCol || col == kRecurringCol) {
-              _reconcileEventDeletions(fid);
-            }
-            if (col == kNotesCol || col == kLinesCol) {
-              _scheduleNoteDeletionWork(fid);
-            }
             unawaited(_migrateLegacyData(fid));
           }, onError: (Object e) => _onFamilyStreamError(fid, col, e)),
         );
@@ -887,9 +958,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           update(() {});
           _rescheduleReminders();
         }
-        // Membership changes who still has to acknowledge a deletion.
-        _reconcileEventDeletions(fid);
-        _scheduleNoteDeletionWork(fid);
       }, onError: (Object e) => _onFamilyStreamError(fid, 'family', e));
     } catch (e) {
       debugPrint('[cloud] family stream failed: $e');
@@ -907,6 +975,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
       ok = await _persistFamily(f, workspaces[f.id] ?? Workspace.empty());
+    }
+    // Unsaved changes of other families (e.g. replayed after a restart) are
+    // retried with the active one's.
+    final others = {
+      for (final c in _pending.all)
+        if (c.familyId != f?.id) c.familyId,
+    };
+    for (final o in families.where((x) => others.contains(x.id))) {
+      final ws = workspaces[o.id];
+      if (ws != null && !await _persistFamily(o, ws)) ok = false;
     }
     // Best-effort, bounded mirror write.
     await _recordMembership(meUid);
@@ -978,15 +1056,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (base == null) return;
     final loaded = _cloudLoaded[fid] ?? const <String>{};
     final view = _serverView(fid);
-    final local = normalizedRecords(ws);
-    local.addAll(orphanListItems(view, local));
+    final local = _localRecords(fid, ws, view);
     final legacyPending = _hasLegacyData(fid);
+    final intents = _deleteIntents[fid] ?? <String>{};
+    final gone = _goneNotes[fid] ?? const <String>{};
+    bool deliberate(String k) =>
+        intents.contains(k) ||
+        (recordKind(k) == RecordKind.line &&
+            (intents.contains(_noteKeyOfLine(k)) ||
+                gone.contains(_noteKeyOfLine(k))));
     // Safety net: a placeholder `Workspace.empty()` (a family that hasn't
-    // finished loading) must never be written over real data.
+    // finished loading) must never be written over real data. Deleting the
+    // family's last note / event is not that.
     if (recordsAreEmptyPlaceholder(local) &&
         (!kRecordCollections.every(loaded.contains) ||
             legacyPending ||
-            base.keys.any((k) => !local.containsKey(k)))) {
+            base.keys.any((k) => !local.containsKey(k) && !deliberate(k)))) {
       debugPrint('[cloud] SKIPPED persist for $fid: workspace not loaded');
       return;
     }
@@ -996,6 +1081,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final ops = <void Function(WriteBatch)>[];
     final rollbacks = <void Function()>[];
     final created = <String>[];
+    // Unsaved-changes journal entries this batch settles once acknowledged.
+    final sent = <(String, int)>[];
     plan.creates.forEach((key, rec) {
       // Records still held by legacy docs are created by the migration.
       if (legacyPending && view.containsKey(key)) return;
@@ -1008,12 +1095,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       if (kContainerCollections.contains(col) && !loaded.contains(col)) {
         return;
       }
-      // A deleted event never comes back, even from a copy edited meanwhile.
-      if (isEventRecord(key) &&
-          rec['deletion'] == null &&
-          (_deletedEventIds[fid]?.contains('${rec['id']}') ?? false)) {
-        return;
-      }
       // Merge-safe even when the doc exists but hasn't reached this device
       // (see createPayload), so this never waits for the collection to load
       // — the create is sent to the server right away.
@@ -1023,104 +1104,33 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       );
       base[key] = rec;
       created.add(key);
+      sent.add((key, _journal(fid, key, rec, null, now)));
       // By value: the local echo may already have replaced the object.
       rollbacks.add(() {
         if (jsonEquals(base[key], rec)) base.remove(key);
       });
     });
-    final intents = _deleteIntents[fid] ?? <String>{};
     // Undone (the record is back) — no longer a delete.
     intents.removeWhere(local.containsKey);
-    // Deleted notes / lines (and lines of a deleted note) are hidden locally
-    // but stay on the server until every member acknowledged — their
-    // absence here is not a delete. planListDeletions handles them.
-    bool hiddenNote(String k) {
-      final rec = base[k];
-      if (isListTombstone(k, rec)) return true;
-      if (rec == null || recordKind(k) != RecordKind.line) return false;
-      final listKey = _noteKeyOfLine(k);
-      return isListTombstone(listKey, base[listKey]);
-    }
-
-    final deletes = [
-      for (final k in plan.deletes)
-        if (!hiddenNote(k)) k,
-    ];
-    final unintended = unintendedDeletes(base, deletes, intents, local: local);
-    final noteDeletes = <String>[];
-    void hardDelete(String key) {
+    // Lines left under a note another member deleted go with it.
+    final unintended = unintendedDeletes(base, plan.deletes, {
+      ...intents,
+      ...gone,
+    }, local: local);
+    for (final key in plan.deletes) {
+      if (unintended.containsKey(key)) continue;
       ops.add((b) => b.delete(_recordRef(fid, key)));
       final prev = base.remove(key)!;
       final intent = intents.remove(key);
+      sent.add((key, _journal(fid, key, null, prev, now)));
       rollbacks.add(() {
         base.putIfAbsent(key, () => prev);
         if (intent) intents.add(key);
       });
     }
-
-    for (final key in deletes) {
-      if (unintended.containsKey(key)) continue;
-      // An unpinned note / crossed-off line is only marked deleted.
-      if (isListRecord(key)) {
-        noteDeletes.add(key);
-      } else {
-        hardDelete(key);
-      }
-    }
-    final me = myId;
-    final notes = planListDeletions(
-      base: base,
-      deletes: noteDeletes,
-      me: me,
-      members: _memberUidsOf(fid),
-      now: now,
-    );
-    notes.purge.forEach(hardDelete);
-    void markDeleted(String key, Map<String, dynamic> rec, Object field) {
-      final prev = base[key]!;
-      base[key] = rec;
-      final intent = intents.remove(key);
-      final deletion = rec['deletion'] as Map;
-      acks.add(
-        _recordRef(fid, key)
-            .update({
-              field is FieldPath ? field : FieldPath(const ['deletion']):
-                  field is FieldPath ? (deletion['acks'] as Map)[me] : deletion,
-              ..._versionBump(now),
-            })
-            .timeout(kCloudOpTimeout)
-            .catchError((Object e) {
-              // Already deleted for good: nothing left to mark.
-              if (e is FirebaseException && e.code == 'not-found') return;
-              debugPrint('[cloud] deleting $key failed for $fid: $e');
-              if (jsonEquals(base[key], rec)) base[key] = prev;
-              if (intent) intents.add(key);
-              throw e;
-            }),
-      );
-    }
-
-    notes.tombstone.forEach((key, rec) => markDeleted(key, rec, 'deletion'));
-    notes.ack.forEach(
-      (key, rec) => markDeleted(key, rec, FieldPath(['deletion', 'acks', me])),
-    );
     // Spent (or moot: never reached the server) intents.
     intents.removeWhere((k) => !base.containsKey(k));
     if (unintended.isNotEmpty) _restoreGuardedRecords(fid, local, unintended);
-    // A note / line deleted by someone else stays deleted even if this device
-    // edited it meanwhile; only the deleter's own undo brings it back.
-    final settled = {...notes.tombstone.keys, ...notes.ack.keys};
-    final deletedMeanwhile = {
-      for (final key in plan.updates.keys)
-        if (settled.contains(key) ||
-            notes.purge.contains(key) ||
-            (isListTombstone(key, base[key]) &&
-                (base[key]!['deletion'] as Map)['by'] != me))
-          key,
-    };
-    if (deletedMeanwhile.isNotEmpty) {
-      _dropDeletedNotes(fid, local, deletedMeanwhile);
-    }
     if (ops.isNotEmpty) {
       final inflight = _inflightCreates.putIfAbsent(fid, () => {});
       for (final k in created) {
@@ -1141,7 +1151,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         _commitInChunks(ops)
             .timeout(kCloudOpTimeout)
             .then(
-              (_) => settle(),
+              (_) {
+                settle();
+                _settleJournal(fid, sent);
+              },
               onError: (Object e) {
                 debugPrint('[cloud] record commit failed for $fid: $e');
                 for (final r in rollbacks) {
@@ -1154,16 +1167,19 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       );
     }
     plan.updates.forEach((key, _) {
-      if (deletedMeanwhile.contains(key)) return;
       final prev = base[key]!;
       final rec = local[key]!;
       base[key] = rec;
       final inflight = _inflightUpdates.putIfAbsent(fid, () => {});
       // The oldest unacknowledged version is what we last saw from the server.
       inflight.putIfAbsent(key, () => prev);
+      final seq = _journal(fid, key, rec, prev, now);
       acks.add(
         _versionedUpdate(fid, key, prev, rec, now).then(
-          (_) => inflight.remove(key),
+          (_) {
+            inflight.remove(key);
+            _settleJournal(fid, [(key, seq)]);
+          },
           onError: (Object e) {
             debugPrint('[cloud] update of $key failed for $fid: $e');
             inflight.remove(key);
@@ -1175,15 +1191,26 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     });
   }
 
+  /// This device's records of [fid] ([ws]), plus lines the server holds
+  /// whose note hasn't arrived yet (see [orphanListItems]) — except lines of
+  /// a note that was deleted: those are deleted too.
+  Records _localRecords(String fid, Workspace ws, [Records? view]) {
+    final local = normalizedRecords(ws);
+    final gone = _goneNotes[fid] ?? const <String>{};
+    orphanListItems(view ?? _serverView(fid), local).forEach((k, v) {
+      if (!gone.contains(_noteKeyOfLine(k))) local[k] = v;
+    });
+    return local;
+  }
+
   /// Saves this device's edit of record [key] ([prev] → [rec]) inside a
   /// transaction against the version on the server right now:
   /// - nobody else saved since [prev] → only our changed fields are written;
   /// - someone else saved meanwhile → three-way merge (their changes to other
   ///   fields are kept); a field both changed keeps ours, and the user is
   ///   told and offered theirs ([_onSaveConflict]).
-  /// The version goes up by exactly one. A record deleted meanwhile follows
-  /// the usual rules (a deleted event / note / line stays deleted; anything
-  /// else is recreated by the edit).
+  /// The version goes up by exactly one. A record deleted meanwhile stays
+  /// deleted: the edit is dropped ([_dropDeletedRecord]).
   Future<void> _versionedUpdate(
     String fid,
     String key,
@@ -1245,16 +1272,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           );
         }, timeout: kCloudOpTimeout);
     if (result.missing) {
-      // A deleted event / note / line stays deleted, even if we edited it.
-      if (isEventRecord(key)) {
-        _deletedEventIds.putIfAbsent(fid, () => {}).add('${rec['id']}');
-        return;
-      }
-      if (isListRecord(key)) return;
-      // Deleted by another member meanwhile: our edit recreates it.
-      await ref
-          .set(_createBody(fid, key, rec, now), SetOptions(merge: true))
-          .timeout(kCloudOpTimeout);
+      // Deleted by another member meanwhile: the deletion wins over our edit.
+      _dropDeletedRecord(fid, key, rec);
       return;
     }
     _cloudVersions.putIfAbsent(fid, () => {})[key] = result.version;
@@ -1329,8 +1348,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   ) {
     final ws = workspaces[fid];
     if (ws == null || !mounted) return;
-    final local = normalizedRecords(ws);
-    local.addAll(orphanListItems(_serverView(fid), local));
+    final local = _localRecords(fid, ws);
     final cur = local[key];
     if (cur == null) return;
     local[key] = takeTheirs(cur, theirs, paths);
@@ -1386,12 +1404,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
                 fid,
                 () => _ingestRecordSnapshot(fid, col, snap, full: true),
               );
-              if (col == kEventsCol || col == kRecurringCol) {
-                _reconcileEventDeletions(fid);
-              }
-              if (col == kNotesCol || col == kLinesCol) {
-                _scheduleNoteDeletionWork(fid);
-              }
             })
             .catchError((Object e) {
               _lastServerReload.remove('$fid/$col');
@@ -1416,19 +1428,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (mounted) update(() {});
   }
 
-  /// Drops notes / lines ([keys]) another member deleted from [fid]'s
-  /// in-memory workspace ([local]), even though this device edited them.
-  void _dropDeletedNotes(String fid, Records local, Iterable<String> keys) {
-    final current = workspaces[fid];
-    final next = workspaceFromRecords(
-      {...local}..removeWhere((k, _) => keys.contains(k)),
-    );
-    mergeCardPhotos(next.cards, current?.cards ?? const []);
-    workspaces[fid] = next;
-    if (fid == familyId) _adoptActiveWorkspace();
-    if (mounted) update(() {});
-  }
-
   /// Records that the user deliberately unpinned list [listId] in the
   /// active family: its doc and lines may be deleted from the server on the
   /// next persist.
@@ -1444,36 +1443,161 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         .add(listItemKey(listId, itemId));
   }
 
-  /// Signed-in members (uids) of family [fid].
-  List<String> _memberUidsOf(String fid) {
-    for (final f in families) {
-      if (f.id == fid) return f.memberUids;
-    }
-    return const [];
-  }
+  // ------------------------------------------------ unsaved changes
+  /// The device key of [uid]'s unsaved-changes journal.
+  String _pendingKey(String uid) => '$kPendingChangesKey.$uid';
 
-  /// Schedules a persist when this device has to acknowledge (or finish) a
-  /// note / line deletion in the active family [fid].
-  void _scheduleNoteDeletionWork(String fid) {
-    final base = _cloudBase[fid];
-    if (fid != familyId || base == null || !mounted) return;
-    final work = planListDeletions(
-      base: base,
-      deletes: const [],
-      me: myId,
-      members: _memberUidsOf(fid),
-      now: 0,
+  /// Journals a write of [key] in [fid] ([rec]; null = delete) made from the
+  /// server's [prev] (null = new record). Returns the send's sequence number.
+  int _journal(
+    String fid,
+    String key,
+    Map<String, dynamic>? rec,
+    Map<String, dynamic>? prev,
+    int now,
+  ) {
+    final seq = _pending.record(
+      fid,
+      key,
+      record: rec,
+      serverRecord: prev,
+      now: now,
     );
-    if (work.tombstone.isNotEmpty ||
-        work.ack.isNotEmpty ||
-        work.purge.isNotEmpty) {
-      _schedulePersist();
+    _pendingChanged();
+    return seq;
+  }
+
+  /// The server acknowledged the writes [sent] (key, sequence) of [fid].
+  void _settleJournal(String fid, Iterable<(String, int)> sent) {
+    var any = false;
+    for (final (key, seq) in sent) {
+      if (_pending.settle(fid, key, seq)) any = true;
+    }
+    if (any) _pendingChanged();
+  }
+
+  /// Saves the journal to its own device document and refreshes the review
+  /// screen.
+  void _pendingChanged() {
+    pendingChangesTick.value++;
+    final uid = _firebaseUid();
+    if (uid == null) return;
+    final key = _pendingKey(uid);
+    final body = _pending.isEmpty ? null : json.encode(_pending.toJson(uid));
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((p) => body == null ? p.remove(key) : p.setString(key, body))
+          .then(
+            (_) {},
+            onError: (Object e) {
+              debugPrint('[cloud] saving unsaved changes failed: $e');
+            },
+          ),
+    );
+  }
+
+  /// Loads [uid]'s journal and re-applies its changes onto the families just
+  /// loaded from the server (see [applyPendingChanges]); the next persist
+  /// sends them. Changes already on the server are forgotten; edits of
+  /// records another member deleted meanwhile are dropped (the user is told).
+  Future<void> _replayPendingChanges(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingKey(uid));
+    var journal = PendingChanges();
+    if (raw != null) {
+      try {
+        journal = PendingChanges.fromJson(json.decode(raw), uid);
+      } catch (e) {
+        debugPrint('[cloud] unreadable unsaved changes: $e');
+      }
+    }
+    _pending = journal;
+    final mine = {for (final f in families) f.id};
+    for (final c in journal.all) {
+      if (!mine.contains(c.familyId)) journal.remove(c.id);
+    }
+    final lost = <PendingChange>[];
+    for (final fid in {for (final c in journal.all) c.familyId}) {
+      final ws = workspaces[fid];
+      if (ws == null || _cloudBase[fid] == null) continue;
+      final r = applyPendingChanges(
+        server: _serverView(fid),
+        local: _localRecords(fid, ws),
+        changes: journal.forFamily(fid),
+      );
+      _deleteIntents.putIfAbsent(fid, () => {}).addAll(r.deletes);
+      for (final c in [...r.settled, ...r.lost]) {
+        journal.remove(c.id);
+      }
+      lost.addAll(r.lost);
+      if (r.pending.isEmpty) continue;
+      final next = workspaceFromRecords(r.local);
+      mergeCardPhotos(next.cards, ws.cards);
+      workspaces[fid] = next;
+      if (fid == familyId) _adoptActiveWorkspace();
+    }
+    _pendingChanged();
+    if (lost.isNotEmpty) {
+      _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
+    }
+    if (!journal.isEmpty) {
+      debugPrint('[cloud] replaying ${journal.length} unsaved change(s)');
+      // After boot finishes binding; sends every family with changes.
+      scheduleMicrotask(_schedulePersist);
     }
   }
 
-  /// Records that every member acknowledged the deletion of event [eventId]
-  /// in family [fid]: its doc may now be deleted from the server.
-  void _markEventPurged(String fid, String eventId) {
+  /// Discards the unsaved change [id]: the record goes back to the server's
+  /// version (a new record is removed, a deleted one restored).
+  void discardPendingChange(String id) => _discardPending([id]);
+
+  /// Discards every unsaved change.
+  void discardAllPendingChanges() =>
+      _discardPending([for (final c in _pending.all) c.id]);
+
+  void _discardPending(List<String> ids) {
+    final byFamily = <String, List<PendingChange>>{};
+    for (final id in ids) {
+      final c = _pending[id];
+      if (c != null) (byFamily[c.familyId] ??= []).add(c);
+    }
+    for (final MapEntry(key: fid, value: changes) in byFamily.entries) {
+      final ws = workspaces[fid];
+      final local = ws == null ? null : _localRecords(fid, ws);
+      final base = _cloudBase[fid];
+      final view = _serverView(fid);
+      for (final c in changes) {
+        _pending.remove(c.id);
+        _deleteIntents[fid]?.remove(c.key);
+        _inflightCreates[fid]?.remove(c.key);
+        if (local == null) continue;
+        // What the server holds now (else what it held when we changed it).
+        final server = view[c.key] ?? c.serverRecord;
+        if (server == null) {
+          local.remove(c.key);
+          // An optimistic create: the server never confirmed it.
+          if (base != null && !view.containsKey(c.key)) base.remove(c.key);
+        } else {
+          local[c.key] = Map<String, dynamic>.from(jsonClone(server) as Map);
+          if (base != null) base[c.key] = local[c.key]!;
+        }
+      }
+      if (ws != null && local != null) {
+        final next = workspaceFromRecords(local);
+        mergeCardPhotos(next.cards, ws.cards);
+        workspaces[fid] = next;
+        if (fid == familyId) _adoptActiveWorkspace();
+      }
+    }
+    _pendingChanged();
+    if (mounted) update(() {});
+    _rescheduleReminders();
+    _schedulePersist();
+  }
+
+  /// Records that the user deleted event [eventId] in family [fid]: its
+  /// doc(s) may be deleted from the server on the next persist.
+  void _markEventDeleted(String fid, String eventId) {
     _deleteIntents
         .putIfAbsent(fid, () => {})
         .addAll(eventKeysById(_cloudBase[fid] ?? const {}, eventId));

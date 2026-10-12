@@ -185,6 +185,10 @@ class ThriveDebugController {
       _s._applyingCloudSnapshot = value;
   void flash(String msg) => _s.flash(msg);
 
+  /// The unsaved-changes journal, so tests can seed entries to review.
+  PendingChanges get pendingChanges => _s._pending;
+  void pendingChangesChanged() => _s.pendingChangesTick.value++;
+
   /// Sync/offline indicator plumbing (#283), so tests can read the pill
   /// state and simulate the offline queue without a real backend.
   ValueNotifier<SettingsSyncStatus?> get syncStatus => _s.syncStatus;
@@ -219,7 +223,6 @@ class ThriveDebugController {
   String get familyId => _s.familyId;
   String get myId => _s.myId;
   List<CalendarEvent> get events => _s.events;
-  List<CalendarEvent> get deletedEvents => _s._activeWs.deletedEvents;
   void deleteEvent(String id, String scope, [String? date]) =>
       _s.deleteEvent(id, scope, date);
   List<TaskList> get taskLists => _s.taskLists;
@@ -546,19 +549,22 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Families whose legacy docs are being migrated right now.
   final Set<String> _legacyMigrating = {};
 
-  /// Per-family guarded record keys this device explicitly deleted and not
-  /// yet deleted on the server: lists/lines the user unpinned or crossed off,
-  /// and events whose deletion every member acknowledged. Only these lists,
-  /// lines and events may be removed from the server — see
-  /// `unintendedDeletes`. A list/line delete is only a deletion marker until
-  /// every member acknowledged it (`planListDeletions`).
+  /// Per-family guarded record keys (events, notes, lines) the user
+  /// explicitly deleted and not yet deleted on the server. Only these may be
+  /// removed from the server — anything else missing locally is a sync
+  /// glitch and is restored (see `unintendedDeletes`).
   final Map<String, Set<String>> _deleteIntents = {};
 
-  /// Per-family ids of events a member deleted that this device has seen
-  /// (still a tombstone, or already purged). A deletion always wins: an edit
-  /// made meanwhile never brings one of these back — see
-  /// `_reconcileEventDeletions`.
-  final Map<String, Set<String>> _deletedEventIds = {};
+  /// Per-family note keys deleted on the server since this device saw them:
+  /// lines still filed under them are deleted too.
+  final Map<String, Set<String>> _goneNotes = {};
+
+  /// Changes not yet confirmed by the server (persisted on the device, so
+  /// they survive a restart) — reviewable in Settings → Unsaved changes.
+  PendingChanges _pending = PendingChanges();
+
+  /// Bumped whenever [_pending] changes (drives the review screen).
+  final ValueNotifier<int> pendingChangesTick = ValueNotifier(0);
 
   /// Per-family record keys this device has created on the server whose
   /// write isn't acknowledged yet. The SDK reverting such a write (e.g. a
@@ -1253,7 +1259,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (_saveFailures == 1) {
         showError(
           'Couldn\u2019t save your latest changes \u2014 no connection. '
-          'Keep the app open; retrying\u2026',
+          'They\u2019re kept on this phone and saved when you\u2019re back online.',
         );
       }
       final seconds = (5 << (_saveFailures - 1).clamp(0, 4)).clamp(5, 60);

@@ -52,10 +52,10 @@ Future<void> _initFirebase() async {
       // has no provider configured).
       debugPrint('App Check activation failed: $e');
     }
-    // No offline data: Firestore is the only copy of family data. The disk
-    // cache is off, so every screen shows what the server holds and an edit
-    // is either saved on the server or visibly "Not saved" — never parked in
-    // a device-local queue that can be lost or replayed stale. Must be set
+    // No Firestore offline cache: every screen shows what the server holds.
+    // Edits that haven't reached the server are kept in the app's own
+    // unsaved-changes journal (reviewable in Settings) and replayed onto the
+    // current server version when back online. Must be set
     // before the first Firestore call; the cache older versions left on
     // disk is wiped (a no-op once it's gone).
     try {

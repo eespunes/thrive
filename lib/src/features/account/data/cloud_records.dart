@@ -454,12 +454,7 @@ Records workspaceRecords(Workspace ws) {
       '_order': i,
     });
   }
-  // Tombstones are event docs too (with a `deletion` marker). A deletion
-  // wins should an id ever be in both lists (edited while being deleted).
-  final events = <String, CalendarEvent>{
-    for (final e in [...ws.events, ...ws.deletedEvents]) e.id: e,
-  };
-  for (final e in events.values) {
+  for (final e in ws.events) {
     final key = eventRecordKey(e);
     if (recordKind(key) == RecordKind.event) {
       out[key.substring(0, key.indexOf('/$kEventsCol/'))] = {};
@@ -530,15 +525,10 @@ int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 /// every comparison go through this, so serialization details (key order,
 /// int-vs-double, defaults a model fills in) never read as a change.
 Map<String, dynamic>? normalizeRecord(String key, Map raw) {
-  final rec = _normalizeRecord(key, raw);
-  // A deleted note / line keeps its deletion marker (see planListDeletions).
-  final d = raw['deletion'];
-  if (rec != null && d is Map && isListRecord(key)) {
-    rec['deletion'] = EventDeletion.fromJson(
-      Map<String, dynamic>.from(d),
-    ).toJson();
-  }
-  return rec;
+  // Older versions only marked deleted events / notes / lines (`deletion`)
+  // instead of deleting them: those are gone.
+  if (raw['deletion'] is Map && isGuardedRecord(key)) return null;
+  return _normalizeRecord(key, raw);
 }
 
 Map<String, dynamic>? _normalizeRecord(String key, Map raw) {
@@ -678,9 +668,6 @@ Workspace workspaceFromRecords(Records records) {
 
   for (final key in records.keys.toList()..sort()) {
     final r = records[key]!;
-    // Deleted notes / lines stay on the server until every member acked;
-    // they're never shown.
-    if (isListTombstone(key, r)) continue;
     final p = key.split('/');
     final kind = recordKind(key);
     switch (kind) {
@@ -710,13 +697,8 @@ Workspace workspaceFromRecords(Records records) {
         monthOf(ym.$1, ym.$2);
       case RecordKind.event || RecordKind.recurringEvent:
         // One event, one doc — a stale copy left at an old path (moved
-        // meanwhile) never duplicates it; a deletion wins.
-        final id = '${r['id']}';
-        final prev = events[id];
-        if (prev == null ||
-            (prev['deletion'] == null && r['deletion'] != null)) {
-          events[id] = r;
-        }
+        // meanwhile) never duplicates it.
+        events.putIfAbsent('${r['id']}', () => r);
       case RecordKind.mealDay:
         weekly['${r['_key'] ?? '${p[1]}-${p[3]}-${p[5]}'}'] = _stripInternal(r);
       case RecordKind.note:
@@ -927,6 +909,11 @@ Records rebaseRecords({
 }) {
   final out = <String, Map<String, dynamic>>{...local};
   for (final k in changed) {
+    // Deleted on the server: a deletion always wins over a pending edit.
+    if (oldBase.containsKey(k) && !newBase.containsKey(k)) {
+      out.remove(k);
+      continue;
+    }
     final v = rebaseValue(
       oldBase[k] ?? kAbsent,
       newBase[k] ?? kAbsent,
@@ -1042,7 +1029,6 @@ String recordLabel(Map<String, dynamic> rec) {
 Records orphanListItems(Records view, Records local) => {
   for (final e in view.entries)
     if (recordKind(e.key) == RecordKind.line &&
-        e.value['deletion'] == null &&
         !local.containsKey(e.key) &&
         !view.containsKey(_noteKeyOfLine(e.key)) &&
         !local.containsKey(_noteKeyOfLine(e.key)))
@@ -1055,93 +1041,9 @@ bool isListRecord(String key) {
   return k == RecordKind.note || k == RecordKind.line;
 }
 
-/// Whether [rec] at [key] is a deleted note / line awaiting every member's
-/// acknowledgement (hidden everywhere — see [planListDeletions]).
-bool isListTombstone(String key, Map<String, dynamic>? rec) =>
-    rec != null && rec['deletion'] is Map && isListRecord(key);
-
-/// Like a deleted [CalendarEvent], a deleted note or line isn't removed from
-/// the server right away: the deleting device marks it (`deletion: {by, at,
-/// acks}`), every member's device hides it and acknowledges it, and the
-/// last acknowledgement deletes it. Given the server [base] and the
-/// note/line keys this device ([me]) explicitly deleted ([deletes]), this
-/// plans:
-/// - [tombstone]: records to mark deleted — [deletes], plus any live line
-///   of a deleted note (a line added while the note was being deleted: the
-///   deletion wins);
-/// - [ack]: deleted records [me] hasn't acknowledged yet, with [me] added;
-/// - [purge]: deleted records every one of [members] has acknowledged
-///   (counting [me]) — delete these from the server. With no known members
-///   [me] is the only one.
-({Records tombstone, Records ack, List<String> purge}) planListDeletions({
-  required Records base,
-  required Iterable<String> deletes,
-  required String me,
-  required Iterable<String> members,
-  required int now,
-}) {
-  final required = {...members};
-  if (required.isEmpty) required.add(me);
-  Map<String, dynamic> marked(Map<String, dynamic> rec) => {
-    ...rec,
-    'deletion': {
-      'by': me,
-      'at': now,
-      'acks': {me: now},
-    },
-  };
-  final tombstone = <String, Map<String, dynamic>>{
-    for (final k in deletes)
-      if (isListRecord(k) && base[k] != null && !isListTombstone(k, base[k]))
-        k: marked(base[k]!),
-  };
-  base.forEach((k, rec) {
-    if (recordKind(k) != RecordKind.line ||
-        isListTombstone(k, rec) ||
-        tombstone.containsKey(k)) {
-      return;
-    }
-    final listKey = _noteKeyOfLine(k);
-    if (tombstone.containsKey(listKey) ||
-        isListTombstone(listKey, base[listKey])) {
-      tombstone[k] = marked(rec);
-    }
-  });
-  final ack = <String, Map<String, dynamic>>{};
-  base.forEach((k, rec) {
-    if (!isListTombstone(k, rec)) return;
-    final acks = (rec['deletion'] as Map)['acks'];
-    if (acks is Map && acks.containsKey(me)) return;
-    final d = Map<String, dynamic>.from(rec['deletion'] as Map);
-    ack[k] = {
-      ...rec,
-      'deletion': {
-        ...d,
-        'acks': {...?(acks as Map?), me: now},
-      },
-    };
-  });
-  final purge = <String>[];
-  for (final e in [...tombstone.entries, ...ack.entries]) {
-    final acks = (e.value['deletion'] as Map)['acks'] as Map;
-    if (required.every(acks.containsKey)) purge.add(e.key);
-  }
-  base.forEach((k, rec) {
-    if (!isListTombstone(k, rec) || ack.containsKey(k)) return;
-    final acks = (rec['deletion'] as Map)['acks'];
-    if (acks is Map && required.every(acks.containsKey)) purge.add(k);
-  });
-  for (final k in purge) {
-    tombstone.remove(k);
-    ack.remove(k);
-  }
-  return (tombstone: tombstone, ack: ack, purge: purge);
-}
-
-/// Lists, their lines and calendar events are only ever deleted from the
-/// server when this device explicitly asked for it (see [unintendedDeletes]):
-/// the user unpinned the note / crossed off the line, or every member
-/// acknowledged an event's deletion ([planEventTombstones]).
+/// Notes, their lines and calendar events are only ever deleted from the
+/// server when the user explicitly deleted them on this device (see
+/// [unintendedDeletes]); deleting a note deletes its lines with it.
 bool isGuardedRecord(String key) => isListRecord(key) || isEventRecord(key);
 
 /// The subset of [deletes] (keys in [base]) that would remove a guarded

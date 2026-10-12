@@ -299,6 +299,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _legacyBlob.clear();
     _metaBase.clear();
     _legacyMigrating.clear();
+    _deleteIntents.clear();
+    _goneNotes.clear();
+    // The device copy stays (per user): it's replayed on their next sign-in.
+    _pending = PendingChanges();
+    pendingChangesTick.value++;
     _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {
       unawaited(GoogleSignIn.instance.signOut());
