@@ -204,16 +204,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // -------------------------------------------------------- (de)serialize
   // The pure serialization/digest layer lives in workspace_sections.dart,
   // where it is unit-tested without a widget tree or a live backend.
-  /// One of the family's record collections (see cloud_records.dart).
-  CollectionReference<Map<String, dynamic>> _recordCol(
-    String fid,
-    String col,
-  ) => _familyDocRef(fid).collection(col);
+  /// Every record of family [fid] in the collections with id [col], at any
+  /// depth (one collection-group query — see cloud_records.dart).
+  Query<Map<String, dynamic>> _recordQuery(String fid, String col) =>
+      FirebaseFirestore.instance
+          .collectionGroup(col)
+          .where(kFamilyIdField, isEqualTo: fid);
 
-  DocumentReference<Map<String, dynamic>> _recordRef(String fid, String key) {
-    final (col, id) = splitRecordKey(key);
-    return _recordCol(fid, col).doc(id);
-  }
+  DocumentReference<Map<String, dynamic>> _recordRef(String fid, String key) =>
+      FirebaseFirestore.instance.doc('$kFamiliesCollection/$fid/$key');
 
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
@@ -329,7 +328,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await Future.wait([
       for (final fid in fids)
         for (final col in kRecordCollections)
-          _recordCol(fid, col)
+          _recordQuery(fid, col)
               .get(const GetOptions(source: Source.server))
               .timeout(kCloudOpTimeout)
               .then((snap) {
@@ -342,9 +341,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Folds a record-collection snapshot into the family's server state
-  /// ([_cloudBase] / [_legacyDocs]) and marks the collection loaded. [full]
-  /// replaces the collection wholesale (boot reads, a listener's first
-  /// snapshot); otherwise only `docChanges` apply.
+  /// ([_cloudBase]) and marks the collection loaded. [full] replaces the
+  /// collection wholesale (boot reads, a listener's first snapshot);
+  /// otherwise only `docChanges` apply.
   void _ingestRecordSnapshot(
     String fid,
     String col,
@@ -353,43 +352,32 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }) {
     final base = _cloudBase.putIfAbsent(fid, () => {});
     final fromCache = snap.metadata.isFromCache;
+    bool inCol(String k) => recordSource(k) == col;
     // An empty CACHE answer for a collection we already hold data for is a
     // cold/partial cache, not "everything was deleted" — wait for the server.
-    if (full &&
-        fromCache &&
-        snap.docs.isEmpty &&
-        base.keys.any((k) => k.startsWith('$col/'))) {
+    if (full && fromCache && snap.docs.isEmpty && base.keys.any(inCol)) {
       return;
     }
-    final legacy = _legacyDocs.putIfAbsent(fid, () => {});
     final versions = _cloudVersions.putIfAbsent(fid, () => {});
     if (full) {
-      base.removeWhere((k, _) => k.startsWith('$col/'));
-      versions.removeWhere((k, _) => k.startsWith('$col/'));
-      if (col == kWorkspaceCol) legacy.clear();
+      base.removeWhere((k, _) => inCol(k));
+      versions.removeWhere((k, _) => inCol(k));
     }
+    final prefix = '$kFamiliesCollection/$fid/';
     final changes = full
-        ? [for (final d in snap.docs) (d.id, d.data())]
+        ? [for (final d in snap.docs) (d.reference.path, d.data())]
         : [
             for (final c in snap.docChanges)
               (
-                c.doc.id,
+                c.doc.reference.path,
                 c.type == DocumentChangeType.removed ? null : c.doc.data(),
               ),
           ];
-    for (final (id, raw) in changes) {
-      final key = recordKey(col, id);
-      if (col == kWorkspaceCol) {
-        if (raw != null && isLegacyWorkspaceDoc(id, raw)) {
-          legacy[id] = Map<String, dynamic>.from(raw)
-            ..remove('updatedAtMillis')
-            ..remove('updatedAt')
-            ..remove(kVersionField)
-            ..remove(kUpdatedByField);
-        } else {
-          legacy.remove(id);
-        }
-      }
+    for (final (path, raw) in changes) {
+      // The query filters on `familyId`; a doc filed under another family
+      // is never this family's.
+      if (!path.startsWith(prefix)) continue;
+      final key = path.substring(prefix.length);
       final rec = raw == null ? null : normalizeRecord(key, raw);
       if (rec == null) {
         base.remove(key);
@@ -407,22 +395,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Everything the server holds for [fid] as records: the current-format
-  /// records, plus records still embedded in legacy docs / the legacy blob
+  /// records, plus records still embedded in the legacy family-doc blob
   /// (current-format records win on a clash).
   Records _serverView(String fid) {
     final base = _cloudBase[fid] ?? const <String, Map<String, dynamic>>{};
-    final docs = _legacyDocs[fid] ?? const <String, Map<String, dynamic>>{};
-    final hasWsDocs =
-        docs.isNotEmpty ||
-        base.keys.any((k) => k.startsWith('$kWorkspaceCol/'));
-    // The blob only counts for a family that never got workspace docs.
-    final blob = hasWsDocs ? null : _legacyBlob[fid];
-    if (docs.isEmpty && blob == null) return base;
-    return {...legacyRecords(docs, blob: blob), ...base};
+    // The blob only counts for a family that never got record docs.
+    final blob = base.isNotEmpty ? null : _legacyBlob[fid];
+    if (blob == null) return base;
+    return {...legacyRecords(const {}, blob: blob), ...base};
   }
 
-  bool _hasLegacyData(String fid) =>
-      (_legacyDocs[fid]?.isNotEmpty ?? false) || _legacyBlob[fid] != null;
+  bool _hasLegacyData(String fid) => _legacyBlob[fid] != null;
 
   /// Builds [fid]'s workspace from the server state alone.
   Workspace _workspaceFromCloud(String fid) =>
@@ -482,9 +465,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         // month, a doc another member created with the same id): rebase it
         // against the model defaults, so only fields we really edited win.
         if (!before.containsKey(k) && local.containsKey(k)) {
-          // Settings are never created while unloaded, so a local copy the
-          // server hadn't confirmed is a placeholder: the server's wins.
-          oldBase[k] = k == recordKey(kWorkspaceCol, 'settings')
+          // Kitchen settings are never created while unloaded, so a local
+          // copy the server hadn't confirmed is a placeholder: theirs wins.
+          oldBase[k] = k == kKitchenKey
               ? local[k]!
               : placeholderRecord(k, local[k]!);
         }
@@ -526,15 +509,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _markFreshCloudFamily(String fid) {
     _cloudBase[fid] = {};
     _cloudLoaded[fid] = {...kRecordCollections};
-    _legacyDocs.remove(fid);
     _legacyBlob.remove(fid);
   }
 
-  /// One-time migration of [fid]'s pre-record data (whole-array workspace
-  /// docs, embedded `blocks`/`tasks`/`items` arrays, the single-doc
-  /// `workspace` blob) into one document per item. Records are created from
+  /// One-time migration of [fid]'s pre-record data (the single-doc
+  /// `workspace` blob on the family doc) into one document per item. Records are created from
   /// this device's current copy (so edits/deletes made meanwhile survive),
-  /// and only once every create landed are the legacy docs removed. Runs
+  /// and only once every create landed is the blob removed. Runs
   /// once all collections are loaded, so nothing already migrated (by
   /// another member) is overwritten. Idempotent; retried on failure.
   Future<void> _migrateLegacyData(String fid) async {
@@ -576,42 +557,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         rethrow;
       }
 
-      final docs = Map<String, Map<String, dynamic>>.from(
-        _legacyDocs[fid] ?? const {},
-      );
-      final blob = _legacyBlob[fid];
-      final cleanup = <void Function(WriteBatch)>[];
-      docs.forEach((id, raw) {
-        final ref = _recordCol(fid, kWorkspaceCol).doc(id);
-        if (legacyDocIsWholeDoc(id)) {
-          cleanup.add((b) => b.delete(ref));
-          return;
-        }
-        final rec = base[recordKey(kWorkspaceCol, id)];
-        cleanup.add(
-          (b) => b.update(ref, {
-            for (final k in kLegacyWorkspaceKeys)
-              if (raw.containsKey(k)) k: FieldValue.delete(),
-            if (rec != null && rec['_blocks'] != null)
-              '_blocks': rec['_blocks'],
-            'updatedAtMillis': now,
-          }),
-        );
-      });
-      if (blob != null) {
-        cleanup.add(
-          (b) =>
-              b.update(_familyDocRef(fid), {'workspace': FieldValue.delete()}),
-        );
-      }
-      await _commitInChunks(cleanup);
-      final left = _legacyDocs[fid];
-      if (left != null) {
-        for (final id in docs.keys) {
-          left.remove(id);
-        }
-      }
-      if (blob != null) _legacyBlob.remove(fid);
+      await _familyDocRef(fid).update({'workspace': FieldValue.delete()});
+      _legacyBlob.remove(fid);
       debugPrint(
         '[cloud] migrated ${creates.length} legacy record(s) for $fid',
       );
@@ -640,18 +587,19 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   /// The merge-safe body for creating record [key] (see [createPayload]).
   /// Where the collection is known to lack the doc, container docs are
-  /// written whole (a fresh family's settings, a new month's block order).
+  /// written whole (a fresh family's kitchen settings, a new month's block
+  /// order). Always tagged with the family (see [kFamilyIdField]).
   Map<String, dynamic> _createBody(
     String fid,
     String key,
     Map<String, dynamic> rec,
     int now,
   ) {
-    final wsKnown = _cloudLoaded[fid]?.contains(kWorkspaceCol) ?? false;
-    final body = key == recordKey(kWorkspaceCol, 'settings') && wsKnown
+    final known = _cloudLoaded[fid]?.contains(recordSource(key)) ?? false;
+    final body = key == kKitchenKey && known
         ? rec
-        : createPayload(key, rec, includeBlocks: wsKnown);
-    return {...body, ..._versionBump(now)};
+        : createPayload(key, rec, includeBlocks: known);
+    return {...body, kFamilyIdField: fid, ..._versionBump(now)};
   }
 
   /// Bookkeeping fields every record write carries: one more save
@@ -862,7 +810,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       for (final col in kRecordCollections) {
         var first = true;
         _recordSubs.add(
-          _recordCol(fid, col).snapshots().listen((snap) {
+          _recordQuery(fid, col).snapshots().listen((snap) {
             final full = first;
             first = false;
             _onCloudChange(
@@ -871,8 +819,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
             );
             // A member's deletion (or another member's ack) may have just
             // arrived: acknowledge it / finish it.
-            if (col == kEventsCol) _reconcileEventDeletions(fid);
-            if (col == kListItemsCol || col == kWorkspaceCol) {
+            if (col == kEventsCol || col == kRecurringCol) {
+              _reconcileEventDeletions(fid);
+            }
+            if (col == kNotesCol || col == kLinesCol) {
               _scheduleNoteDeletionWork(fid);
             }
             unawaited(_migrateLegacyData(fid));
@@ -1033,16 +983,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (recordsAreEmptyPlaceholder(local) &&
         (!kRecordCollections.every(loaded.contains) ||
             legacyPending ||
-            base.keys.any((k) => k != recordKey(kWorkspaceCol, 'settings')))) {
+            base.keys.any((k) => !local.containsKey(k)))) {
       debugPrint('[cloud] SKIPPED persist for $fid: workspace not loaded');
       return;
     }
     final plan = planRecordWrites(base, local);
-    final legacyIds = _legacyDocs[fid]?.keys.toSet() ?? const <String>{};
-    bool blocked(String key) {
-      final (col, id) = splitRecordKey(key);
-      return col == kWorkspaceCol && legacyIds.contains(id);
-    }
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final ops = <void Function(WriteBatch)>[];
@@ -1051,19 +996,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     plan.creates.forEach((key, rec) {
       // Records still held by legacy docs are created by the migration.
       if (legacyPending && view.containsKey(key)) return;
-      // Container docs (settings, months, card meta) are placeholders until
-      // the workspace collection has loaded — never write those. A list is
-      // only ever in memory because a member pinned it, so it's written
-      // right away: its lines are, and a list doc that never reached the
-      // durable write queue is lost on the next restart.
-      final (col, id) = splitRecordKey(key);
-      if (col == kWorkspaceCol &&
-          !id.startsWith('list_') &&
-          !loaded.contains(kWorkspaceCol)) {
+      // Container docs (settings, months, accounts, cards, ...) are
+      // placeholders until their collection has loaded — never write those.
+      // A note is only ever in memory because a member pinned it, so it's
+      // written right away: its lines are, and a note doc that never reached
+      // the durable write queue is lost on the next restart.
+      final col = recordSource(key);
+      if (kContainerCollections.contains(col) && !loaded.contains(col)) {
         return;
       }
       // A deleted event never comes back, even from a copy edited meanwhile.
-      if (col == kEventsCol &&
+      if (isEventRecord(key) &&
           rec['deletion'] == null &&
           (_deletedEventIds[fid]?.contains('${rec['id']}') ?? false)) {
         return;
@@ -1091,8 +1034,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     bool hiddenNote(String k) {
       final rec = base[k];
       if (isListTombstone(k, rec)) return true;
-      if (rec == null || splitRecordKey(k).$1 != kListItemsCol) return false;
-      final listKey = listMetaKey('${rec['_kind']}', '${rec['_list']}');
+      if (rec == null || recordKind(k) != RecordKind.line) return false;
+      final listKey = _noteKeyOfLine(k);
       return isListTombstone(listKey, base[listKey]);
     }
 
@@ -1100,7 +1043,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       for (final k in plan.deletes)
         if (!hiddenNote(k)) k,
     ];
-    final unintended = unintendedDeletes(base, deletes, intents);
+    final unintended = unintendedDeletes(base, deletes, intents, local: local);
     final noteDeletes = <String>[];
     void hardDelete(String key) {
       ops.add((b) => b.delete(_recordRef(fid, key)));
@@ -1113,7 +1056,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
 
     for (final key in deletes) {
-      if (blocked(key) || unintended.containsKey(key)) continue;
+      if (unintended.containsKey(key)) continue;
       // An unpinned note / crossed-off line is only marked deleted.
       if (isListRecord(key)) {
         noteDeletes.add(key);
@@ -1208,7 +1151,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       );
     }
     plan.updates.forEach((key, _) {
-      if (blocked(key) || deletedMeanwhile.contains(key)) return;
+      if (deletedMeanwhile.contains(key)) return;
       final prev = base[key]!;
       final rec = local[key]!;
       base[key] = rec;
@@ -1300,7 +1243,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         }, timeout: kCloudOpTimeout);
     if (result.missing) {
       // A deleted event / note / line stays deleted, even if we edited it.
-      if (splitRecordKey(key).$1 == kEventsCol) {
+      if (isEventRecord(key)) {
         _deletedEventIds.putIfAbsent(fid, () => {}).add('${rec['id']}');
         return;
       }
@@ -1427,7 +1370,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final gen = _persistGeneration;
     await Future.wait([
       for (final col in due)
-        _recordCol(fid, col)
+        _recordQuery(fid, col)
             .get(const GetOptions(source: Source.server))
             .timeout(kCloudOpTimeout)
             .then((snap) {
@@ -1440,8 +1383,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
                 fid,
                 () => _ingestRecordSnapshot(fid, col, snap, full: true),
               );
-              if (col == kEventsCol) _reconcileEventDeletions(fid);
-              if (col == kListItemsCol || col == kWorkspaceCol) {
+              if (col == kEventsCol || col == kRecurringCol) {
+                _reconcileEventDeletions(fid);
+              }
+              if (col == kNotesCol || col == kLinesCol) {
                 _scheduleNoteDeletionWork(fid);
               }
             })
@@ -1481,21 +1426,19 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (mounted) update(() {});
   }
 
-  /// Records that the user deliberately unpinned list [listId] ([kind]
-  /// `task`/`shop`) in the active family: its doc and lines may be deleted
-  /// from the server on the next persist.
-  void _markListDeleted(String kind, String listId) {
-    _deleteIntents
-        .putIfAbsent(familyId, () => {})
-        .add(listMetaKey(kind, listId));
+  /// Records that the user deliberately unpinned list [listId] in the
+  /// active family: its doc and lines may be deleted from the server on the
+  /// next persist.
+  void _markListDeleted(String listId) {
+    _deleteIntents.putIfAbsent(familyId, () => {}).add(listMetaKey(listId));
   }
 
   /// Records that the user deliberately crossed off line [itemId] of list
   /// [listId] in the active family.
-  void _markListItemDeleted(String kind, String listId, String itemId) {
+  void _markListItemDeleted(String listId, String itemId) {
     _deleteIntents
         .putIfAbsent(familyId, () => {})
-        .add(listItemKey(kind, listId, itemId));
+        .add(listItemKey(listId, itemId));
   }
 
   /// Signed-in members (uids) of family [fid].
@@ -1528,7 +1471,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Records that every member acknowledged the deletion of event [eventId]
   /// in family [fid]: its doc may now be deleted from the server.
   void _markEventPurged(String fid, String eventId) {
-    _deleteIntents.putIfAbsent(fid, () => {}).add(eventRecordKey(eventId));
+    _deleteIntents
+        .putIfAbsent(fid, () => {})
+        .addAll(eventKeysById(_cloudBase[fid] ?? const {}, eventId));
   }
 
   Future<void> _writeUserDoc(String meUid) async {
@@ -1911,7 +1856,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     try {
       final snaps = await Future.wait([
         for (final col in kRecordCollections)
-          _recordCol(fid, col).get().timeout(kCloudOpTimeout),
+          _recordQuery(fid, col).get().timeout(kCloudOpTimeout),
       ]);
       await _commitInChunks([
         for (final snap in snaps)
@@ -1923,7 +1868,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await _familyDocRef(fid).delete();
     _cloudBase.remove(fid);
     _cloudLoaded.remove(fid);
-    _legacyDocs.remove(fid);
     _legacyBlob.remove(fid);
     _metaBase.remove(fid);
   }

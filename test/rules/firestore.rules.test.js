@@ -246,127 +246,128 @@ describe('family creation', () => {
   });
 });
 
-describe('workspace subcollection', () => {
-  const wsRef = (d, id = 'budget') =>
-    doc(d, 'families', FAM, 'workspace', id);
-  beforeEach(async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget'),
-        { years: {} });
-      await setDoc(
-        doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget_2026_Mei'),
-        { caps: {}, blocks: { home: [{ id: 'a' }] } });
-    });
-  });
-  it('member can read and write', async () => {
-    await assertSucceeds(getDoc(wsRef(db(MEMBER))));
-    await assertSucceeds(setDoc(wsRef(db(MEMBER)), { years: { 2026: {} } }));
-  });
-  it('rejects writes that embed item arrays (outdated app versions)', async () => {
-    await assertFails(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
-      caps: {}, blocks: { home: [] },
-    }));
-    await assertFails(setDoc(wsRef(db(MEMBER), 'list_task_l1'), {
-      name: 'Chores', tasks: [],
-    }));
-    await assertFails(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
-      caps: { home: 100 },
-    }));
-  });
-  it('allows the migration to strip legacy arrays', async () => {
-    const { deleteField } = await import('firebase/firestore');
-    await assertSucceeds(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
-      blocks: deleteField(), _blocks: ['home'],
-    }));
-    await assertSucceeds(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
-      caps: {}, _blocks: ['home'],
-    }));
-    await assertSucceeds(deleteDoc(wsRef(db(MEMBER), 'budget')));
-  });
-  it('non-member cannot read or write', async () => {
-    await assertFails(getDoc(wsRef(db(OTHER))));
-    await assertFails(setDoc(wsRef(db(OTHER)), { hacked: true }));
-  });
-  it('unauthenticated cannot read', async () => {
-    await assertFails(getDoc(wsRef(db(null))));
-  });
-});
+// Record docs below the family doc, one per layout shape.
+const RECORD_PATHS = [
+  'settings/kitchen',
+  'finance/main',
+  'finance/main/accounts/shared',
+  'finance/main/blocks/home',
+  'finance/main/recurring/rent',
+  'finance/main/months/2026-05',
+  'finance/main/months/2026-05/entries/a',
+  'finance/main/months/2026-05/recurring/rent',
+  'calendar/main',
+  'calendar/main/layers/l1',
+  'calendar/main/categories/c1',
+  'calendar/main/imports/i1',
+  'calendar/main/recurring/ev1',
+  'calendar/main/months/2026-05',
+  'calendar/main/months/2026-05/events/ev2',
+  'meals/2026',
+  'meals/2026/months/05',
+  'meals/2026/months/05/days/04',
+  'notes/l1',
+  'notes/l1/lines/t1',
+  'cards/k1',
+];
+const recRef = (d, path, fam = FAM) =>
+  doc(d, 'families', fam, ...path.split('/'));
 
-describe('events subcollection', () => {
-  const evRef = (d) => doc(d, 'families', FAM, 'events', 'ev1');
-  beforeEach(async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'families', FAM, 'events', 'ev1'),
-        { title: 'Dentist', date: '2026-03-02' });
-    });
-  });
-  it('member can read and write', async () => {
-    await assertSucceeds(getDoc(evRef(db(MEMBER))));
-    await assertSucceeds(setDoc(evRef(db(MEMBER)), { title: 'Doctor' }));
-  });
-  it('non-member cannot read or write', async () => {
-    await assertFails(getDoc(evRef(db(OTHER))));
-    await assertFails(setDoc(evRef(db(OTHER)), { hacked: true }));
-  });
-  it('unauthenticated cannot read', async () => {
-    await assertFails(getDoc(evRef(db(null))));
-  });
-});
-
-describe('per-item collections', () => {
-  for (const [col, id] of [
-    ['budgetItems', '2026_Mei_a'],
-    ['listItems', 'task_l1_t1'],
-    ['weekly', '2026-05-04'],
-  ]) {
-    it(`${col}: members only`, async () => {
-      await assertSucceeds(setDoc(doc(db(MEMBER), 'families', FAM, col, id),
-        { label: 'x' }));
-      await assertSucceeds(updateDoc(doc(db(OWNER), 'families', FAM, col, id),
-        { paid: true }));
-      await assertSucceeds(getDoc(doc(db(MEMBER), 'families', FAM, col, id)));
-      await assertFails(getDoc(doc(db(OTHER), 'families', FAM, col, id)));
-      await assertFails(setDoc(doc(db(OTHER), 'families', FAM, col, id),
-        { label: 'hacked' }));
-      await assertSucceeds(deleteDoc(doc(db(MEMBER), 'families', FAM, col, id)));
+describe('family records', () => {
+  for (const path of RECORD_PATHS) {
+    it(`${path}: members only, stamped with familyId`, async () => {
+      await assertSucceeds(setDoc(recRef(db(MEMBER), path),
+        { familyId: FAM, label: 'x' }));
+      await assertSucceeds(updateDoc(recRef(db(OWNER), path), { paid: true }));
+      await assertSucceeds(getDoc(recRef(db(MEMBER), path)));
+      await assertFails(getDoc(recRef(db(OTHER), path)));
+      await assertFails(getDoc(recRef(db(null), path)));
+      await assertFails(setDoc(recRef(db(OTHER), path),
+        { familyId: FAM, label: 'hacked' }));
+      await assertSucceeds(deleteDoc(recRef(db(MEMBER), path)));
     });
   }
+  it('rejects writes without (or with another) familyId', async () => {
+    await assertFails(setDoc(recRef(db(MEMBER), 'cards/k2'), { label: 'x' }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'cards/k2'),
+      { familyId: 'fam2', label: 'x' }));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(recRef(ctx.firestore(), 'cards/k3'), { familyId: FAM });
+    });
+    await assertFails(updateDoc(recRef(db(MEMBER), 'cards/k3'),
+      { familyId: 'fam2' }));
+  });
+  it('outdated app versions cannot write the old flat layout', async () => {
+    await assertFails(setDoc(recRef(db(MEMBER), 'workspace/settings'),
+      { accounts: [] }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'budgetItems/2026_Mei_a'),
+      { label: 'x' }));
+  });
+  it('members may delete leftover legacy docs', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(recRef(ctx.firestore(), 'workspace/settings'), { a: 1 });
+    });
+    await assertSucceeds(deleteDoc(recRef(db(MEMBER), 'workspace/settings')));
+  });
+});
+
+describe('collection-group record queries', () => {
+  beforeEach(async () => {
+    await seed({ ...baseFamily, memberUids: [OTHER], ownerUid: OTHER }, 'fam2');
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const f = ctx.firestore();
+      await setDoc(recRef(f, 'finance/main/recurring/rent'), { familyId: FAM });
+      await setDoc(recRef(f, 'calendar/main/recurring/ev1'), { familyId: FAM });
+      await setDoc(recRef(f, 'meals/2026/months/05/days/04'), { familyId: FAM });
+      await setDoc(recRef(f, 'cards/x', 'fam2'), { familyId: 'fam2' });
+    });
+  });
+  const q = async (d, col, fam) => {
+    const { collectionGroup, query, where, getDocs } =
+      await import('firebase/firestore');
+    return getDocs(query(collectionGroup(d, col), where('familyId', '==', fam)));
+  };
+  it('a member can load a collection id across the hierarchy', async () => {
+    const snap = await assertSucceeds(q(db(MEMBER), 'recurring', FAM));
+    if (snap.size !== 2) throw new Error(`expected 2, got ${snap.size}`);
+    await assertSucceeds(q(db(OWNER), 'days', FAM));
+  });
+  it('cannot query another family', async () => {
+    await assertFails(q(db(MEMBER), 'cards', 'fam2'));
+    await assertFails(q(db(OTHER), 'recurring', FAM));
+    await assertFails(q(db(null), 'recurring', FAM));
+  });
+  it('an unfiltered collection-group query is rejected', async () => {
+    const { collectionGroup, getDocs } = await import('firebase/firestore');
+    await assertFails(getDocs(collectionGroup(db(MEMBER), 'cards')));
+  });
 });
 
 describe('record version (_v)', () => {
-  const recRef = (d, col, id) => doc(d, 'families', FAM, col, id);
-  for (const [col, id] of [
-    ['events', 'ev_v'],
-    ['budgetItems', '2026_Mei_v'],
-    ['listItems', 'task_l1_v'],
-    ['weekly', '2026-05-11'],
-    ['workspace', 'settings'],
-  ]) {
-    it(`${col}: creates at 1 (or no version)`, async () => {
+  for (const path of ['calendar/main/recurring/ev_v',
+    'finance/main/months/2026-05/entries/v', 'notes/l1/lines/v',
+    'meals/2026/months/05/days/11', 'settings/kitchen']) {
+    it(`${path}: creates at 1 (or no version)`, async () => {
       const { increment } = await import('firebase/firestore');
-      await assertSucceeds(setDoc(recRef(db(MEMBER), col, id),
-        { title: 'a', _v: increment(1) }, { merge: true }));
-      await assertSucceeds(setDoc(recRef(db(MEMBER), col, `${id}_legacy`),
-        { title: 'a' }));
-      await assertFails(setDoc(recRef(db(MEMBER), col, `${id}_skip`),
-        { title: 'a', _v: 5 }));
-      await assertFails(setDoc(recRef(db(MEMBER), col, `${id}_str`),
-        { title: 'a', _v: '1' }));
+      const r = (suffix) => recRef(db(MEMBER), path + suffix);
+      await assertSucceeds(setDoc(r(''),
+        { familyId: FAM, title: 'a', _v: increment(1) }, { merge: true }));
+      await assertSucceeds(setDoc(r('_legacy'), { familyId: FAM, title: 'a' }));
+      await assertFails(setDoc(r('_skip'), { familyId: FAM, title: 'a', _v: 5 }));
+      await assertFails(setDoc(r('_str'), { familyId: FAM, title: 'a', _v: '1' }));
     });
-    it(`${col}: each save bumps by exactly 1 or keeps it`, async () => {
+    it(`${path}: each save bumps by exactly 1 or keeps it`, async () => {
       await env.withSecurityRulesDisabled(async (ctx) => {
-        await setDoc(recRef(ctx.firestore(), col, id), { title: 'a', _v: 3 });
+        await setDoc(recRef(ctx.firestore(), path),
+          { familyId: FAM, title: 'a', _v: 3 });
       });
-      await assertSucceeds(updateDoc(recRef(db(MEMBER), col, id),
-        { title: 'b', _v: 4 }));
+      const r = recRef(db(MEMBER), path);
+      await assertSucceeds(updateDoc(r, { title: 'b', _v: 4 }));
       // An app version that doesn't track versions leaves it unchanged.
-      await assertSucceeds(updateDoc(recRef(db(MEMBER), col, id),
-        { title: 'c' }));
-      await assertFails(updateDoc(recRef(db(MEMBER), col, id),
-        { title: 'd', _v: 3 }));
-      await assertFails(updateDoc(recRef(db(MEMBER), col, id),
-        { title: 'd', _v: 6 }));
-      await assertSucceeds(deleteDoc(recRef(db(MEMBER), col, id)));
+      await assertSucceeds(updateDoc(r, { title: 'c' }));
+      await assertFails(updateDoc(r, { title: 'd', _v: 3 }));
+      await assertFails(updateDoc(r, { title: 'd', _v: 6 }));
+      await assertSucceeds(deleteDoc(r));
     });
   }
 });

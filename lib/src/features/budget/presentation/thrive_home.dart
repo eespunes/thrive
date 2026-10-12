@@ -537,11 +537,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// collection, so an unloaded one can't be overwritten blind.
   final Map<String, Set<String>> _cloudLoaded = {};
 
-  /// Per-family pre-record workspace docs still on the server (whole-array
-  /// `budget_*`/`lists`/`cards`/`weekly`/`events*` docs, or current ids still
-  /// embedding `blocks`/`tasks`/`items`), docId → raw payload.
-  final Map<String, Map<String, Map<String, dynamic>>> _legacyDocs = {};
-
   /// Per-family legacy single-doc `workspace` blob still on the meta doc.
   final Map<String, Map<String, dynamic>> _legacyBlob = {};
 

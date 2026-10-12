@@ -13,14 +13,14 @@ void main() {
     });
 
     test('version bookkeeping never reads as record content', () {
-      final a = normalizeRecord('events/e1', {
+      final a = normalizeRecord('calendar/main/recurring/e1', {
         'id': 'e1',
         'title': 'Dentist',
         kVersionField: 3,
         kUpdatedByField: 'uid-a',
         'updatedAtMillis': 1,
       });
-      final b = normalizeRecord('events/e1', {
+      final b = normalizeRecord('calendar/main/recurring/e1', {
         'id': 'e1',
         'title': 'Dentist',
         kVersionField: 9,
@@ -187,10 +187,14 @@ void main() {
   });
 
   test('tabCollections maps each screen to the data it shows', () {
-    expect(tabCollections('finance'), [kWorkspaceCol, kBudgetItemsCol]);
-    expect(tabCollections('calendar'), [kWorkspaceCol, kEventsCol]);
-    expect(tabCollections('lists'), [kWorkspaceCol, kListItemsCol]);
-    expect(tabCollections('weekly'), [kWorkspaceCol, kWeeklyCol]);
+    expect(tabCollections('finance'), containsAll([kAccountsCol, kEntriesCol]));
+    expect(tabCollections('finance'), isNot(contains(kNotesCol)));
+    expect(
+      tabCollections('calendar'),
+      containsAll([kEventsCol, kRecurringCol]),
+    );
+    expect(tabCollections('lists'), containsAll([kNotesCol, kLinesCol]));
+    expect(tabCollections('weekly'), containsAll([kMealsCol, kDaysCol]));
     expect(tabCollections('home'), kRecordCollections);
     expect(tabCollections('more'), kRecordCollections);
   });

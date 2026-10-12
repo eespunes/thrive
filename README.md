@@ -76,11 +76,21 @@ users can share one budget:
 - `users/{uid}` — per-user profile + the families they belong to.
 - `families/{familyId}` — family metadata (name, members, join hash);
   `memberUids` drives access.
-- `families/{familyId}/workspace/{section}` — the shared workspace split into
-  small per-section documents (settings, events, lists, weekly plan, one doc
-  per budget year, one per imported calendar). Edits upload only the changed
-  section; families created before the split migrate automatically on their
-  first edit.
+- Below `families/{familyId}`, one document per record in a readable
+  hierarchy (layout documented in
+  `lib/src/features/account/data/cloud_records.dart`):
+  - `settings/kitchen`
+  - `finance/main/{accounts,blocks,recurring}/{id}`,
+    `finance/main/months/{YYYY-MM}/{entries,recurring}/{id}`
+  - `calendar/main/{layers,categories,imports,recurring}/{id}`,
+    `calendar/main/months/{YYYY-MM}/events/{id}`
+  - `meals/{YYYY}/months/{MM}/days/{DD}`
+  - `notes/{id}/lines/{lineId}`, `cards/{id}`
+
+  Every record stores `familyId`; the app loads each collection name with one
+  collection-group query (`where familyId == …`, indexes in
+  `firestore.indexes.json`) and uploads only changed fields of changed
+  records.
 - `family_handles/{username}` — public handle resolver (family username →
   `familyId`, plus the non-secret random `joinSalt`). Readable by any
   signed-in user; writable only by the family owner, and only for a handle

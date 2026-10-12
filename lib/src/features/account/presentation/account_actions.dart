@@ -296,7 +296,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _boundFamilyId = null;
     _cloudBase.clear();
     _cloudLoaded.clear();
-    _legacyDocs.clear();
     _legacyBlob.clear();
     _metaBase.clear();
     _legacyMigrating.clear();

@@ -9,18 +9,30 @@ part of 'package:family_money_management_app/main.dart';
 /// touch — which is what lost a member's edits under the old whole-array
 /// sections (a partner's phone with an old month re-uploaded it wholesale).
 ///
-/// Layout under `families/{fid}` (collection → one doc per ...):
-/// - `workspace/settings`            accounts, categories, layers, kitchen
-/// - `workspace/budget_<y>_<month>`  budget month fields (caps, closed, ...)
-/// - `workspace/list_task_<id>` / `list_shop_<id>`  list name/colour/emoji
-/// - `workspace/card_<id>`           discount card (photo never synced)
-/// - `workspace/import_<id>`         imported (ICS) calendar
-/// - `budgetItems/<y>_<month>_<id>`  budget entry (+ `_year/_month/_block/_order`);
-///   untouched auto-generated recurring copies in open months are NOT stored
-///   — every device regenerates them (see [isDerivedSeriesCopy])
-/// - `listItems/<kind>_<list>_<id>`  task / shopping item (+ `_list/_kind/_order`)
-/// - `weekly/<date>`                 weekly-plan day
-/// - `events/<id>`                   calendar event
+/// Layout under `families/{fid}` — one readable tree per feature:
+/// - `settings/kitchen`                         kitchen wall options, stars
+/// - `finance/main`                             (container)
+///   - `accounts/{key}` / `blocks/{key}`        accounts / budget categories
+///   - `recurring/{itemId}`                     recurring entries (series
+///     anchors; `_month` = the month they start in)
+///   - `months/{2026-10}`                       month fields (caps, closed, ...)
+///     - `entries/{itemId}`                     one-off entries of that month
+///     - `recurring/{itemId}`                   stored occurrences of a series
+///       (paid, changed, closed month). Untouched auto-generated occurrences
+///       in open months are NOT stored — every device regenerates them (see
+///       [isDerivedSeriesCopy])
+/// - `calendar/main`                            (container)
+///   - `layers/{id}` / `categories/{id}` / `imports/{id}`
+///   - `recurring/{eventId}`                    repeating events
+///   - `months/{2026-10}/events/{eventId}`      one-off events, by start month
+/// - `meals/{2026}/months/{10}/days/{12}`       weekly-plan day
+/// - `notes/{listId}` (+ `lines/{lineId}`)      task / shopping list and lines
+/// - `cards/{cardId}`                           discount card (photo never synced)
+///
+/// Collection names are fixed wherever the app needs every document at once,
+/// so each one loads with a single collection-group query; every document
+/// carries [kFamilyIdField] for that query (and the security rules). Fields
+/// starting with `_` are technical (order, block, kind).
 ///
 /// Every record also carries a version, `_v` ([kVersionField], +1 per save,
 /// enforced by firestore.rules) and who saved it last, `_by`. Edits are
@@ -28,49 +40,99 @@ part of 'package:family_money_management_app/main.dart';
 /// by someone else is merged (different fields) or reported (same field —
 /// see [planVersionedSave]). Neither is part of the record's content.
 ///
-/// A record key is `<collection>/<docId>`. Everything here is a plain function
-/// of its inputs (unit-tested in test/cloud_records_test.dart).
+/// A record key is the document path relative to `families/{fid}`; its
+/// SOURCE is the collection id it lives in ([recordSource]). Everything here
+/// is a plain function of its inputs (unit-tested in
+/// test/cloud_records_test.dart).
 
-const String kWorkspaceCol = 'workspace';
+const String kSettingsCol = 'settings';
+const String kFinanceCol = 'finance';
+const String kAccountsCol = 'accounts';
+const String kBlocksCol = 'blocks';
+const String kRecurringCol = 'recurring';
+const String kMonthsCol = 'months';
+const String kEntriesCol = 'entries';
+const String kCalendarCol = 'calendar';
+const String kLayersCol = 'layers';
+const String kCategoriesCol = 'categories';
+const String kImportsCol = 'imports';
 const String kEventsCol = 'events';
-const String kBudgetItemsCol = 'budgetItems';
-const String kListItemsCol = 'listItems';
-const String kWeeklyCol = 'weekly';
+const String kMealsCol = 'meals';
+const String kDaysCol = 'days';
+const String kNotesCol = 'notes';
+const String kLinesCol = 'lines';
+const String kCardsCol = 'cards';
 
-/// Every per-family collection holding workspace records.
+/// Every collection id holding workspace records. Each is loaded (and
+/// listened to) as one collection-group query filtered on [kFamilyIdField];
+/// a shared id (`recurring`, `months`) returns every such collection, and
+/// [recordKind] tells them apart by path.
 const List<String> kRecordCollections = [
-  kWorkspaceCol,
+  kSettingsCol,
+  kFinanceCol,
+  kAccountsCol,
+  kBlocksCol,
+  kRecurringCol,
+  kMonthsCol,
+  kEntriesCol,
+  kCalendarCol,
+  kLayersCol,
+  kCategoriesCol,
+  kImportsCol,
   kEventsCol,
-  kBudgetItemsCol,
-  kListItemsCol,
-  kWeeklyCol,
+  kMealsCol,
+  kDaysCol,
+  kNotesCol,
+  kLinesCol,
+  kCardsCol,
 ];
 
 /// The record collections a top-level tab shows, reloaded from the server
 /// when that tab is opened (Home and More summarize everything).
 List<String> tabCollections(String tab) => switch (tab) {
-  'finance' => const [kWorkspaceCol, kBudgetItemsCol],
-  'calendar' => const [kWorkspaceCol, kEventsCol],
-  'lists' => const [kWorkspaceCol, kListItemsCol],
-  'weekly' => const [kWorkspaceCol, kWeeklyCol],
+  'finance' => const [
+    kSettingsCol,
+    kFinanceCol,
+    kAccountsCol,
+    kBlocksCol,
+    kRecurringCol,
+    kMonthsCol,
+    kEntriesCol,
+  ],
+  'calendar' => const [
+    kSettingsCol,
+    kCalendarCol,
+    kLayersCol,
+    kCategoriesCol,
+    kImportsCol,
+    kRecurringCol,
+    kMonthsCol,
+    kEventsCol,
+  ],
+  'lists' => const [kSettingsCol, kNotesCol, kLinesCol],
+  'weekly' => const [kSettingsCol, kMealsCol, kMonthsCol, kDaysCol],
   _ => kRecordCollections,
 };
 
-/// Top-level keys that only the pre-record (whole-array) workspace docs carry.
-/// Their presence marks a doc as legacy; firestore.rules rejects writes that
-/// would (re)introduce them, so an out-of-date app can't push stale arrays.
-const List<String> kLegacyWorkspaceKeys = [
-  'blocks',
-  'income',
-  'tasks',
-  'items',
-  'months',
-  'cards',
-  'taskLists',
-  'shoppingLists',
-  'weeklyPlan',
-  'events',
-];
+/// Containers whose records are only written once their collection loaded
+/// (a placeholder's defaults must never be created over real data).
+const Set<String> kContainerCollections = {
+  kSettingsCol,
+  kFinanceCol,
+  kAccountsCol,
+  kBlocksCol,
+  kMonthsCol,
+  kCalendarCol,
+  kLayersCol,
+  kCategoriesCol,
+  kImportsCol,
+  kMealsCol,
+  kCardsCol,
+};
+
+const String kKitchenKey = 'settings/kitchen';
+const String kFinanceKey = 'finance/main';
+const String kCalendarKey = 'calendar/main';
 
 typedef Records = Map<String, Map<String, dynamic>>;
 
@@ -82,14 +144,17 @@ const String kVersionField = '_v';
 /// Member id (uid) of whoever saved the document last.
 const String kUpdatedByField = '_by';
 
+/// The family a record belongs to (every record doc carries it — it's what
+/// the collection-group queries filter on). Never part of the payload.
+const String kFamilyIdField = 'familyId';
+
 /// The [kVersionField] of raw document [raw] (0 when it never had one).
 int recordVersion(Map? raw) => _int(raw?[kVersionField]) ?? 0;
 
-String recordKey(String col, String docId) => '$col/$docId';
-
-(String col, String docId) splitRecordKey(String key) {
-  final i = key.indexOf('/');
-  return (key.substring(0, i), key.substring(i + 1));
+/// The collection id record [key] lives in (its last collection segment).
+String recordSource(String key) {
+  final parts = key.split('/');
+  return parts.length < 2 ? '' : parts[parts.length - 2];
 }
 
 /// A Firestore-legal document id derived from [raw] (no `/`, not `.`/`..`).
@@ -99,13 +164,122 @@ String safeDocId(String raw) {
   return s;
 }
 
+/// What a record key points at.
+enum RecordKind {
+  kitchen,
+  finance,
+  account,
+  block,
+  seriesAnchor,
+  financeMonth,
+  entry,
+  seriesCopy,
+  calendar,
+  layer,
+  eventCategory,
+  import,
+  recurringEvent,
+  calendarMonth,
+  event,
+  mealsYear,
+  mealsMonth,
+  mealDay,
+  note,
+  line,
+  card,
+  unknown,
+}
+
+/// The [RecordKind] of [key] (by path shape).
+RecordKind recordKind(String key) {
+  final p = key.split('/');
+  switch (p.length) {
+    case 2:
+      return switch ((p[0], p[1])) {
+        (kSettingsCol, 'kitchen') => RecordKind.kitchen,
+        (kFinanceCol, 'main') => RecordKind.finance,
+        (kCalendarCol, 'main') => RecordKind.calendar,
+        (kMealsCol, _) => RecordKind.mealsYear,
+        (kNotesCol, _) => RecordKind.note,
+        (kCardsCol, _) => RecordKind.card,
+        _ => RecordKind.unknown,
+      };
+    case 4:
+      if (p[0] == kFinanceCol && p[1] == 'main') {
+        return switch (p[2]) {
+          kAccountsCol => RecordKind.account,
+          kBlocksCol => RecordKind.block,
+          kRecurringCol => RecordKind.seriesAnchor,
+          kMonthsCol => RecordKind.financeMonth,
+          _ => RecordKind.unknown,
+        };
+      }
+      if (p[0] == kCalendarCol && p[1] == 'main') {
+        return switch (p[2]) {
+          kLayersCol => RecordKind.layer,
+          kCategoriesCol => RecordKind.eventCategory,
+          kImportsCol => RecordKind.import,
+          kRecurringCol => RecordKind.recurringEvent,
+          kMonthsCol => RecordKind.calendarMonth,
+          _ => RecordKind.unknown,
+        };
+      }
+      if (p[0] == kMealsCol && p[2] == kMonthsCol) return RecordKind.mealsMonth;
+      if (p[0] == kNotesCol && p[2] == kLinesCol) return RecordKind.line;
+      return RecordKind.unknown;
+    case 6:
+      if (p[0] == kFinanceCol && p[1] == 'main' && p[2] == kMonthsCol) {
+        return switch (p[4]) {
+          kEntriesCol => RecordKind.entry,
+          kRecurringCol => RecordKind.seriesCopy,
+          _ => RecordKind.unknown,
+        };
+      }
+      if (p[0] == kCalendarCol &&
+          p[1] == 'main' &&
+          p[2] == kMonthsCol &&
+          p[4] == kEventsCol) {
+        return RecordKind.event;
+      }
+      if (p[0] == kMealsCol && p[2] == kMonthsCol && p[4] == kDaysCol) {
+        return RecordKind.mealDay;
+      }
+      return RecordKind.unknown;
+  }
+  return RecordKind.unknown;
+}
+
+/// Whether record [key] is a calendar event (repeating or one-off).
+bool isEventRecord(String key) {
+  final k = recordKind(key);
+  return k == RecordKind.event || k == RecordKind.recurringEvent;
+}
+
+/// `2026-10` for year [year] and month key [monthKey] (see [kMonthKeys]).
+String monthDocId(int year, String monthKey) {
+  final i = kMonthKeys.indexOf(monthKey);
+  return '$year-${i < 0 ? safeDocId(monthKey) : '${i + 1}'.padLeft(2, '0')}';
+}
+
+/// The (year, month key) of a [monthDocId], or null when malformed.
+(int, String)? parseMonthDocId(String id) {
+  final sep = id.indexOf('-');
+  if (sep <= 0) return null;
+  final y = int.tryParse(id.substring(0, sep));
+  if (y == null) return null;
+  final rest = id.substring(sep + 1);
+  final m = int.tryParse(rest);
+  if (m != null && m >= 1 && m <= kMonthKeys.length && rest.length == 2) {
+    return (y, kMonthKeys[m - 1]);
+  }
+  return (y, rest);
+}
+
+final RegExp _kRecordDateRe = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
 // ------------------------------------------------------------ build records
 
-Map<String, dynamic> _settingsPayload(Workspace ws) => {
-  'accounts': ws.accounts.map((a) => a.toJson()).toList(),
-  'cats': ws.cats.map((c) => c.toJson()).toList(),
-  'eventCategories': ws.eventCategories.map((c) => c.toJson()).toList(),
-  'calendarLayers': ws.calendarLayers.map((l) => l.toJson()).toList(),
+Map<String, dynamic> _kitchenPayload(Workspace ws) => {
   if (ws.starsMap.isNotEmpty) 'starsMap': ws.starsMap,
   'kitchenEnabled': ws.kitchenEnabled,
   if (ws.picMembers.isNotEmpty) 'picMembers': ws.picMembers,
@@ -164,94 +338,185 @@ bool isDerivedSeriesCopy(
   return sid != null && (anchors[sid]?.contains(block) ?? false);
 }
 
+/// Record key of budget item [it] stored in month [monthId]: a series
+/// anchor lives in `finance/main/recurring`, an occurrence of a series in
+/// the month's `recurring`, anything else in the month's `entries`.
+String budgetItemKey(ExpenseItem it, String monthId) {
+  final id = safeDocId(it.id);
+  if (it.generated || it.exception) {
+    return '$kFinanceKey/$kMonthsCol/$monthId/$kRecurringCol/$id';
+  }
+  if (it.recurring) return '$kFinanceKey/$kRecurringCol/$id';
+  return '$kFinanceKey/$kMonthsCol/$monthId/$kEntriesCol/$id';
+}
+
+/// The month doc id (`2026-10`) a calendar event's [date] falls in.
+String _eventMonthId(String date) {
+  final m = _kRecordDateRe.firstMatch(date);
+  return m == null ? 'undated' : '${m.group(1)}-${m.group(2)}';
+}
+
+/// Record key of calendar event [e]: repeating events live in
+/// `calendar/main/recurring`, one-off ones under the month they start in.
+String eventRecordKey(CalendarEvent e) {
+  final id = safeDocId(e.id);
+  if (e.recur != 'none') return '$kCalendarKey/$kRecurringCol/$id';
+  return '$kCalendarKey/$kMonthsCol/${_eventMonthId(e.date)}/$kEventsCol/$id';
+}
+
+/// Every key in [records] holding calendar event [eventId].
+List<String> eventKeysById(Records records, String eventId) => [
+  for (final e in records.entries)
+    if (isEventRecord(e.key) && '${e.value['id']}' == eventId) e.key,
+];
+
+/// Record key of a note (task / shopping list) [listId].
+String listMetaKey(String listId) => '$kNotesCol/${safeDocId(listId)}';
+
+/// Record key of line [itemId] of note [listId].
+String listItemKey(String listId, String itemId) =>
+    '${listMetaKey(listId)}/$kLinesCol/${safeDocId(itemId)}';
+
+/// The note key a line [key] belongs to.
+String _noteKeyOfLine(String key) =>
+    key.substring(0, key.indexOf('/$kLinesCol/'));
+
 /// Splits [ws] into its records (not yet normalized — see [normalizedRecords]).
 /// Derived recurring copies ([isDerivedSeriesCopy]) are left out, and a
 /// budget item's `_order` counts only the items that ARE stored, so adding
 /// or dropping a derived copy never reorders (rewrites) the stored ones.
 Records workspaceRecords(Workspace ws) {
   final out = <String, Map<String, dynamic>>{};
-  out[recordKey(kWorkspaceCol, 'settings')] = _settingsPayload(ws);
+  // Ids are unique in practice; never let a duplicate collapse two records
+  // into one doc.
+  String put(String key, Map<String, dynamic> rec) {
+    var k = key;
+    while (out.containsKey(k)) {
+      k = '$k~';
+    }
+    out[k] = rec;
+    return k;
+  }
+
+  out[kKitchenKey] = _kitchenPayload(ws);
+  out[kFinanceKey] = {};
+  for (final (i, a) in ws.accounts.indexed) {
+    put('$kFinanceKey/$kAccountsCol/${safeDocId(a.key)}', {
+      ...a.toJson(),
+      '_order': i,
+    });
+  }
+  for (final (i, c) in ws.cats.indexed) {
+    put('$kFinanceKey/$kBlocksCol/${safeDocId(c.key)}', {
+      ...c.toJson(),
+      '_order': i,
+    });
+  }
   final anchors = seriesAnchorBlocks(ws);
   for (final y in ws.data.entries) {
     for (final m in y.value.entries) {
-      out[recordKey(kWorkspaceCol, 'budget_${y.key}_${m.key}')] = _monthPayload(
-        m.value,
-      );
+      final monthId = monthDocId(y.key, m.key);
+      out['$kFinanceKey/$kMonthsCol/$monthId'] = _monthPayload(m.value);
       for (final b in m.value.blocks.entries) {
         final stored = [
           for (final it in b.value)
             if (!isDerivedSeriesCopy(it, m.value, b.key, anchors)) it,
         ];
         for (final (i, it) in stored.indexed) {
-          var id = safeDocId('${y.key}_${m.key}_${it.id}');
-          // Ids are unique in practice; never let a duplicate collapse two
-          // entries into one doc.
-          while (out.containsKey(recordKey(kBudgetItemsCol, id))) {
-            id = '$id~';
-          }
-          out[recordKey(kBudgetItemsCol, id)] = {
+          final key = budgetItemKey(it, monthId);
+          put(key, {
             ...it.toJson(),
-            '_year': y.key,
-            '_month': m.key,
+            if (recordKind(key) == RecordKind.seriesAnchor) '_month': monthId,
             '_block': b.key,
             '_order': i,
-          };
+          });
         }
       }
     }
   }
-  void listItems(String kind, String listId, List<Map<String, dynamic>> xs) {
-    for (final (i, x) in xs.indexed) {
-      var id = safeDocId('${kind}_${listId}_${x['id']}');
-      while (out.containsKey(recordKey(kListItemsCol, id))) {
-        id = '$id~';
-      }
-      out[recordKey(kListItemsCol, id)] = {
+
+  out[kCalendarKey] = {};
+  for (final (i, l) in ws.calendarLayers.indexed) {
+    put('$kCalendarKey/$kLayersCol/${safeDocId(l.id)}', {
+      ...l.toJson(),
+      '_order': i,
+    });
+  }
+  for (final (i, c) in ws.eventCategories.indexed) {
+    put('$kCalendarKey/$kCategoriesCol/${safeDocId(c.id)}', {
+      ...c.toJson(),
+      '_order': i,
+    });
+  }
+  for (final (i, cal) in ws.importedCalendars.indexed) {
+    put('$kCalendarKey/$kImportsCol/${safeDocId(cal.id)}', {
+      ...cal.toJson(),
+      '_order': i,
+    });
+  }
+  // Tombstones are event docs too (with a `deletion` marker). A deletion
+  // wins should an id ever be in both lists (edited while being deleted).
+  final events = <String, CalendarEvent>{
+    for (final e in [...ws.events, ...ws.deletedEvents]) e.id: e,
+  };
+  for (final e in events.values) {
+    final key = eventRecordKey(e);
+    if (recordKind(key) == RecordKind.event) {
+      out[key.substring(0, key.indexOf('/$kEventsCol/'))] = {};
+    }
+    out[key] = e.toJson();
+  }
+
+  for (final e in ws.weeklyPlan.entries) {
+    final m = _kRecordDateRe.firstMatch(e.key);
+    final (y, mo, d) = m == null
+        ? ('undated', '00', safeDocId(e.key))
+        : (m.group(1)!, m.group(2)!, m.group(3)!);
+    out['$kMealsCol/$y'] = {};
+    out['$kMealsCol/$y/$kMonthsCol/$mo'] = {};
+    put('$kMealsCol/$y/$kMonthsCol/$mo/$kDaysCol/$d', {
+      ...e.value.toJson(),
+      if (m == null) '_key': e.key,
+    });
+  }
+
+  void note(
+    int order,
+    Map<String, dynamic> meta,
+    String type,
+    String kind,
+    List<Map<String, dynamic>> lines,
+  ) {
+    final key = put(listMetaKey('${meta['id']}'), {
+      ...meta,
+      'type': type,
+      '_order': order,
+    });
+    for (final (i, x) in lines.indexed) {
+      put('$key/$kLinesCol/${safeDocId('${x['id']}')}', {
         ...x,
         '_kind': kind,
-        '_list': listId,
         '_order': i,
-      };
+      });
     }
   }
 
   for (final (i, l) in ws.taskLists.indexed) {
-    out[recordKey(kWorkspaceCol, 'list_task_${l.id}')] = {
-      ...l.toJson()..remove('tasks'),
-      '_order': i,
-    };
-    listItems('task', l.id, [for (final t in l.tasks) t.toJson()]);
+    note(i, l.toJson()..remove('tasks'), 'tasks', 'task', [
+      for (final t in l.tasks) t.toJson(),
+    ]);
   }
   for (final (i, l) in ws.shoppingLists.indexed) {
-    out[recordKey(kWorkspaceCol, 'list_shop_${l.id}')] = {
-      ...l.toJson()..remove('items'),
-      '_order': i,
-    };
-    listItems('shop', l.id, [for (final it in l.items) it.toJson()]);
+    note(i, l.toJson()..remove('items'), 'shopping', 'shop', [
+      for (final it in l.items) it.toJson(),
+    ]);
   }
   // Card photos are local-only (issue #234) and never synced.
   for (final (i, c) in ws.cards.indexed) {
-    out[recordKey(kWorkspaceCol, 'card_${c.id}')] = {
+    put('$kCardsCol/${safeDocId(c.id)}', {
       ...c.toJson(includePhoto: false),
       '_order': i,
-    };
-  }
-  for (final (i, cal) in ws.importedCalendars.indexed) {
-    out[recordKey(kWorkspaceCol, 'import_${cal.id}')] = {
-      'calendar': cal.toJson(),
-      'order': i,
-    };
-  }
-  for (final e in ws.weeklyPlan.entries) {
-    out[recordKey(kWeeklyCol, safeDocId(e.key))] = {
-      ...e.value.toJson(),
-      '_key': e.key,
-    };
-  }
-  // Tombstones are event docs too (with a `deletion` marker). A deletion
-  // wins should an id ever be in both lists (edited while being deleted).
-  for (final e in [...ws.events, ...ws.deletedEvents]) {
-    out[eventRecordKey(e.id)] = e.toJson();
+    });
   }
   return out;
 }
@@ -277,91 +542,97 @@ Map<String, dynamic>? normalizeRecord(String key, Map raw) {
 }
 
 Map<String, dynamic>? _normalizeRecord(String key, Map raw) {
-  final (col, id) = splitRecordKey(key);
+  final kind = recordKind(key);
   final j = Map<String, dynamic>.from(raw)
     ..remove('updatedAtMillis')
     ..remove('updatedAt')
     ..remove(kVersionField)
-    ..remove(kUpdatedByField);
-  switch (col) {
-    case kEventsCol:
-      return CalendarEvent.fromJson(j).toJson();
-    case kBudgetItemsCol:
-      final y = _int(j['_year']);
-      final m = j['_month']?.toString();
+    ..remove(kUpdatedByField)
+    ..remove(kFamilyIdField);
+  final order = _int(j['_order']) ?? 0;
+  switch (kind) {
+    case RecordKind.kitchen:
+      return _kitchenPayload(Workspace.fromJson({...j, 'data': const {}}));
+    case RecordKind.finance ||
+        RecordKind.calendar ||
+        RecordKind.calendarMonth ||
+        RecordKind.mealsYear ||
+        RecordKind.mealsMonth:
+      return {};
+    case RecordKind.account:
+      return {...Account.fromJson(j).toJson(), '_order': order};
+    case RecordKind.block:
+      return {...Category.fromJson(j).toJson(), '_order': order};
+    case RecordKind.seriesAnchor || RecordKind.entry || RecordKind.seriesCopy:
       final b = j['_block']?.toString();
-      if (y == null || m == null || b == null) return null;
+      final m = j['_month']?.toString();
+      if (b == null || (kind == RecordKind.seriesAnchor && m == null)) {
+        return null;
+      }
       return {
         ...ExpenseItem.fromJson(j).toJson(),
-        '_year': y,
-        '_month': m,
+        if (kind == RecordKind.seriesAnchor) '_month': m,
         '_block': b,
-        '_order': _int(j['_order']) ?? 0,
+        '_order': order,
       };
-    case kListItemsCol:
-      final kind = j['_kind']?.toString();
-      final list = j['_list']?.toString();
-      if (list == null || (kind != 'task' && kind != 'shop')) return null;
+    case RecordKind.financeMonth:
+      final month = MonthData.fromJson(j..remove('blocks'));
       return {
-        ...(kind == 'task'
-            ? ListTask.fromJson(j).toJson()
-            : ShopItem.fromJson(j).toJson()),
-        '_kind': kind,
-        '_list': list,
-        '_order': _int(j['_order']) ?? 0,
+        ..._monthPayload(month),
+        '_blocks': j['_blocks'] is List
+            ? [for (final k in j['_blocks'] as List) k.toString()]
+            : const <String>[],
       };
-    case kWeeklyCol:
-      return {...DayPlan.fromJson(j).toJson(), '_key': j['_key'] ?? id};
-    case kWorkspaceCol:
-      if (id == 'settings') {
-        return _settingsPayload(Workspace.fromJson({...j, 'data': const {}}));
-      }
-      if (id.startsWith('budget_')) {
-        final rest = id.substring('budget_'.length);
-        if (!rest.contains('_')) return null; // legacy `budget_<year>`
-        final blocks = j.remove('blocks');
-        j.remove('income');
-        final month = MonthData.fromJson(j);
-        return {
-          ..._monthPayload(month),
-          '_blocks': j['_blocks'] is List
-              ? [for (final k in j['_blocks'] as List) k.toString()]
-              : blocks is Map
-              ? [for (final k in blocks.keys) k.toString()]
-              : const <String>[],
-        };
-      }
-      if (id.startsWith('list_task_')) {
+    case RecordKind.layer:
+      return {...CalendarLayerDef.fromJson(j).toJson(), '_order': order};
+    case RecordKind.eventCategory:
+      return {...EventCategory.fromJson(j).toJson(), '_order': order};
+    case RecordKind.import:
+      return {...ImportedCalendar.fromJson(j).toJson(), '_order': order};
+    case RecordKind.event || RecordKind.recurringEvent:
+      return CalendarEvent.fromJson(j).toJson();
+    case RecordKind.mealDay:
+      return {
+        ...DayPlan.fromJson(j).toJson(),
+        if (j['_key'] != null) '_key': '${j['_key']}',
+      };
+    case RecordKind.note:
+      final type = j['type'];
+      if (type == 'tasks') {
         return {
           ...TaskList.fromJson({...j, 'tasks': const []}).toJson()
             ..remove('tasks'),
-          '_order': ?_int(j['_order']),
+          'type': type,
+          '_order': order,
         };
       }
-      if (id.startsWith('list_shop_')) {
+      if (type == 'shopping') {
         return {
           ...ShoppingList.fromJson({...j, 'items': const []}).toJson()
             ..remove('items'),
-          '_order': ?_int(j['_order']),
-        };
-      }
-      if (id.startsWith('card_')) {
-        return {
-          ...DiscountCard.fromJson(j).toJson(includePhoto: false),
-          '_order': ?_int(j['_order']),
-        };
-      }
-      if (id.startsWith('import_') && j['calendar'] is Map) {
-        return {
-          'calendar': ImportedCalendar.fromJson(
-            Map<String, dynamic>.from(j['calendar'] as Map),
-          ).toJson(),
-          'order': _int(j['order']) ?? 0,
+          'type': type,
+          '_order': order,
         };
       }
       return null;
+    case RecordKind.line:
+      final k = j['_kind'];
+      if (k != 'task' && k != 'shop') return null;
+      return {
+        ...(k == 'task'
+            ? ListTask.fromJson(j).toJson()
+            : ShopItem.fromJson(j).toJson()),
+        '_kind': k,
+        '_order': order,
+      };
+    case RecordKind.card:
+      return {
+        ...DiscountCard.fromJson(j).toJson(includePhoto: false),
+        '_order': order,
+      };
+    case RecordKind.unknown:
+      return null;
   }
-  return null;
 }
 
 /// [workspaceRecords] of [ws], every record normalized.
@@ -384,60 +655,89 @@ Map<String, dynamic> _stripInternal(Map<String, dynamic> m) => {
 
 /// Reassembles a [Workspace] from [records] (keys as in [workspaceRecords]).
 /// Unknown keys are ignored; items whose month is missing still load (the
-/// month is created); items whose list is missing can't be represented —
+/// month is created); lines whose note is missing can't be represented —
 /// see [orphanListItems].
 Workspace workspaceFromRecords(Records records) {
-  final j = <String, dynamic>{
-    ...?records[recordKey(kWorkspaceCol, 'settings')],
-  };
+  final j = <String, dynamic>{...?records[kKitchenKey]};
+  final accounts = <Map<String, dynamic>>[];
+  final cats = <Map<String, dynamic>>[];
+  final layers = <Map<String, dynamic>>[];
+  final eventCats = <Map<String, dynamic>>[];
   final months = <int, Map<String, Map<String, dynamic>>>{};
   final itemsByMonth = <String, List<Map<String, dynamic>>>{};
-  final taskLists = <Map<String, dynamic>>[];
-  final shopLists = <Map<String, dynamic>>[];
-  final listItems = <String, List<Map<String, dynamic>>>{};
+  final taskLists = <(String, Map<String, dynamic>)>[];
+  final shopLists = <(String, Map<String, dynamic>)>[];
+  final lines = <String, List<Map<String, dynamic>>>{};
   final cards = <Map<String, dynamic>>[];
   final imports = <Map<String, dynamic>>[];
   final weekly = <String, dynamic>{};
-  final events = <Map<String, dynamic>>[];
+  final events = <String, Map<String, dynamic>>{};
+
+  void monthOf(int y, String mk) =>
+      months.putIfAbsent(y, () => {}).putIfAbsent(mk, () => {});
 
   for (final key in records.keys.toList()..sort()) {
     final r = records[key]!;
     // Deleted notes / lines stay on the server until every member acked;
     // they're never shown.
     if (isListTombstone(key, r)) continue;
-    final (col, id) = splitRecordKey(key);
-    switch (col) {
-      case kEventsCol:
-        events.add(r);
-      case kBudgetItemsCol:
-        final y = _int(r['_year']);
-        if (y == null) continue;
-        (itemsByMonth['$y|${r['_month']}'] ??= []).add(r);
-        months
-            .putIfAbsent(y, () => {})
-            .putIfAbsent('${r['_month']}', () => <String, dynamic>{});
-      case kListItemsCol:
-        (listItems['${r['_kind']}|${r['_list']}'] ??= []).add(r);
-      case kWeeklyCol:
-        weekly['${r['_key'] ?? id}'] = _stripInternal(r);
-      case kWorkspaceCol:
-        if (id.startsWith('budget_')) {
-          final rest = id.substring('budget_'.length);
-          final sep = rest.indexOf('_');
-          final y = sep < 0 ? null : int.tryParse(rest.substring(0, sep));
-          if (y == null) continue;
-          months.putIfAbsent(y, () => {})[rest.substring(sep + 1)] = r;
-        } else if (id.startsWith('list_task_')) {
-          taskLists.add(r);
-        } else if (id.startsWith('list_shop_')) {
-          shopLists.add(r);
-        } else if (id.startsWith('card_')) {
-          cards.add(r);
-        } else if (id.startsWith('import_') && r['calendar'] is Map) {
-          imports.add(r);
+    final p = key.split('/');
+    final kind = recordKind(key);
+    switch (kind) {
+      case RecordKind.account:
+        accounts.add(r);
+      case RecordKind.block:
+        cats.add(r);
+      case RecordKind.layer:
+        layers.add(r);
+      case RecordKind.eventCategory:
+        eventCats.add(r);
+      case RecordKind.import:
+        imports.add(r);
+      case RecordKind.card:
+        cards.add(r);
+      case RecordKind.financeMonth:
+        final ym = parseMonthDocId(p[3]);
+        if (ym == null) continue;
+        monthOf(ym.$1, ym.$2);
+        months[ym.$1]![ym.$2] = r;
+      case RecordKind.seriesAnchor || RecordKind.entry || RecordKind.seriesCopy:
+        final ym = parseMonthDocId(
+          kind == RecordKind.seriesAnchor ? '${r['_month']}' : p[3],
+        );
+        if (ym == null) continue;
+        (itemsByMonth['${ym.$1}|${ym.$2}'] ??= []).add(r);
+        monthOf(ym.$1, ym.$2);
+      case RecordKind.event || RecordKind.recurringEvent:
+        // One event, one doc — a stale copy left at an old path (moved
+        // meanwhile) never duplicates it; a deletion wins.
+        final id = '${r['id']}';
+        final prev = events[id];
+        if (prev == null ||
+            (prev['deletion'] == null && r['deletion'] != null)) {
+          events[id] = r;
         }
+      case RecordKind.mealDay:
+        weekly['${r['_key'] ?? '${p[1]}-${p[3]}-${p[5]}'}'] = _stripInternal(r);
+      case RecordKind.note:
+        if (r['type'] == 'tasks') taskLists.add((key, r));
+        if (r['type'] == 'shopping') shopLists.add((key, r));
+      case RecordKind.line:
+        (lines[_noteKeyOfLine(key)] ??= []).add(r);
+      default:
+        break;
     }
   }
+
+  List<Map<String, dynamic>> sorted(List<Map<String, dynamic>> xs) => [
+    for (final x in xs..sort((a, b) => _byOrder(a, b, '_order')))
+      _stripInternal(x),
+  ];
+
+  j['accounts'] = sorted(accounts);
+  j['cats'] = sorted(cats);
+  j['calendarLayers'] = sorted(layers);
+  j['eventCategories'] = sorted(eventCats);
 
   final data = <String, dynamic>{};
   for (final y in months.keys.toList()..sort()) {
@@ -464,64 +764,35 @@ Workspace workspaceFromRecords(Records records) {
   j['data'] = data;
 
   List<Map<String, dynamic>> lists(
-    List<Map<String, dynamic>> metas,
-    String kind,
+    List<(String, Map<String, dynamic>)> metas,
     String itemsKey,
   ) {
-    metas.sort((a, b) => _byOrder(a, b, '_order'));
+    metas.sort((a, b) => _byOrder(a.$2, b.$2, '_order'));
     return [
-      for (final l in metas)
+      for (final (key, l) in metas)
         {
-          ..._stripInternal(l),
-          itemsKey: [
-            for (final it
-                in (listItems['$kind|${l['id']}'] ?? [])
-                  ..sort((a, b) => _byOrder(a, b, '_order')))
-              _stripInternal(it),
-          ],
+          ..._stripInternal(l)..remove('type'),
+          itemsKey: sorted(lines[key] ?? []),
         },
     ];
   }
 
-  j['taskLists'] = lists(taskLists, 'task', 'tasks');
-  j['shoppingLists'] = lists(shopLists, 'shop', 'items');
-  cards.sort((a, b) => _byOrder(a, b, '_order'));
-  j['cards'] = [for (final c in cards) _stripInternal(c)];
-  imports.sort((a, b) => _byOrder(a, b, 'order'));
-  j['importedCalendars'] = [for (final c in imports) c['calendar']];
+  j['taskLists'] = lists(taskLists, 'tasks');
+  j['shoppingLists'] = lists(shopLists, 'items');
+  j['cards'] = sorted(cards);
+  j['importedCalendars'] = sorted(imports);
   j['weeklyPlan'] = weekly;
-  j['events'] = events;
+  // Id order: stable no matter which month/recurring doc holds an event.
+  j['events'] = [for (final id in events.keys.toList()..sort()) events[id]!];
   return Workspace.fromJson(j);
 }
 
 // --------------------------------------------------------- legacy documents
 
-/// True when workspace doc [id] is (or still embeds) the pre-record format:
-/// a whole-array doc (`events*`, `lists`, `cards`, `weekly`, `budget_<year>`)
-/// or a current id still carrying an embedded array (`blocks`, `tasks`, ...).
-bool isLegacyWorkspaceDoc(String id, Map raw) {
-  if (id == 'events' || id.startsWith('events_')) return true;
-  if (id == 'lists' || id == 'cards' || id == 'weekly') return true;
-  if (id.startsWith('budget_') &&
-      !id.substring('budget_'.length).contains('_')) {
-    return true;
-  }
-  return id != 'settings' && kLegacyWorkspaceKeys.any(raw.containsKey);
-}
-
-/// Whether legacy doc [id] is dropped whole on migration (vs. only having its
-/// legacy array fields removed because its id is reused by a current record).
-bool legacyDocIsWholeDoc(String id) =>
-    id == 'events' ||
-    id.startsWith('events_') ||
-    id == 'lists' ||
-    id == 'cards' ||
-    id == 'weekly' ||
-    (id.startsWith('budget_') && !id.substring('budget_'.length).contains('_'));
-
-/// Normalized records embedded in legacy workspace docs [legacyDocs] (docId →
-/// raw) and/or a legacy family-doc `workspace` [blob]. The settings record is
-/// only taken from the blob (legacy section docs never carried settings).
+/// Normalized records embedded in legacy (pre-record) workspace section docs
+/// [legacyDocs] (docId → raw) and/or a legacy family-doc `workspace` [blob].
+/// Settings (accounts, categories, layers, kitchen) are only taken from the
+/// blob — legacy section docs never carried them.
 Records legacyRecords(Map<String, Map> legacyDocs, {Map? blob}) {
   final out = <String, Map<String, dynamic>>{};
   if (blob != null) {
@@ -536,7 +807,15 @@ Records legacyRecords(Map<String, Map> legacyDocs, {Map? blob}) {
     });
     if (ws != null) {
       final recs = normalizedRecords(ws)
-        ..remove(recordKey(kWorkspaceCol, 'settings'));
+        ..removeWhere(
+          (k, _) => const {
+            RecordKind.kitchen,
+            RecordKind.account,
+            RecordKind.block,
+            RecordKind.layer,
+            RecordKind.eventCategory,
+          }.contains(recordKind(k)),
+        );
       out.addAll(recs);
     }
   }
@@ -755,41 +1034,25 @@ String recordLabel(Map<String, dynamic> rec) {
   return '';
 }
 
-/// List items in [view] whose list is in neither [view] nor [local] — e.g. the
-/// items arrived before their list doc. [workspaceFromRecords] can't place
+/// Lines in [view] whose note is in neither [view] nor [local] — e.g. the
+/// lines arrived before their note doc. [workspaceFromRecords] can't place
 /// them, so callers add these back to the local record set: they must never
 /// look "deleted locally" (and be deleted from the server), and must reappear
-/// once their list arrives.
+/// once their note arrives.
 Records orphanListItems(Records view, Records local) => {
   for (final e in view.entries)
-    if (splitRecordKey(e.key).$1 == kListItemsCol &&
+    if (recordKind(e.key) == RecordKind.line &&
         e.value['deletion'] == null &&
         !local.containsKey(e.key) &&
-        !view.containsKey(_listKeyOf(e.value)) &&
-        !local.containsKey(_listKeyOf(e.value)))
+        !view.containsKey(_noteKeyOfLine(e.key)) &&
+        !local.containsKey(_noteKeyOfLine(e.key)))
       e.key: e.value,
 };
 
-String _listKeyOf(Map<String, dynamic> item) =>
-    listMetaKey('${item['_kind']}', '${item['_list']}');
-
-/// Record key of a list's container doc ([kind] is `task` or `shop`).
-String listMetaKey(String kind, String listId) =>
-    recordKey(kWorkspaceCol, 'list_${kind}_$listId');
-
-/// Record key of one list line (as built by [workspaceRecords]).
-String listItemKey(String kind, String listId, String itemId) =>
-    recordKey(kListItemsCol, safeDocId('${kind}_${listId}_$itemId'));
-
-/// Record key of calendar event [eventId] (as built by [workspaceRecords]).
-String eventRecordKey(String eventId) =>
-    recordKey(kEventsCol, safeDocId(eventId));
-
 /// Whether [key] is a note (task / shopping list) or one of its lines.
 bool isListRecord(String key) {
-  final (col, id) = splitRecordKey(key);
-  return col == kListItemsCol ||
-      (col == kWorkspaceCol && id.startsWith('list_'));
+  final k = recordKind(key);
+  return k == RecordKind.note || k == RecordKind.line;
 }
 
 /// Whether [rec] at [key] is a deleted note / line awaiting every member's
@@ -833,12 +1096,12 @@ bool isListTombstone(String key, Map<String, dynamic>? rec) =>
         k: marked(base[k]!),
   };
   base.forEach((k, rec) {
-    if (splitRecordKey(k).$1 != kListItemsCol ||
+    if (recordKind(k) != RecordKind.line ||
         isListTombstone(k, rec) ||
         tombstone.containsKey(k)) {
       return;
     }
-    final listKey = _listKeyOf(rec);
+    final listKey = _noteKeyOfLine(k);
     if (tombstone.containsKey(listKey) ||
         isListTombstone(listKey, base[listKey])) {
       tombstone[k] = marked(rec);
@@ -879,8 +1142,7 @@ bool isListTombstone(String key, Map<String, dynamic>? rec) =>
 /// server when this device explicitly asked for it (see [unintendedDeletes]):
 /// the user unpinned the note / crossed off the line, or every member
 /// acknowledged an event's deletion ([planEventTombstones]).
-bool isGuardedRecord(String key) =>
-    isListRecord(key) || splitRecordKey(key).$1 == kEventsCol;
+bool isGuardedRecord(String key) => isListRecord(key) || isEventRecord(key);
 
 /// The subset of [deletes] (keys in [base]) that would remove a guarded
 /// record ([isGuardedRecord]) nobody deleted: one whose key — or, for a list
@@ -888,11 +1150,21 @@ bool isGuardedRecord(String key) =>
 /// the in-memory workspace for any other reason (a stale copy, a reverted
 /// write, a rebase gone wrong) must never wipe it for the whole family;
 /// callers skip these deletes and restore the records locally instead.
+///
+/// A record [local] still holds under another key (an event whose date or
+/// repetition changed, so its path did) has merely moved: its old doc may go.
 Records unintendedDeletes(
   Records base,
   Iterable<String> deletes,
-  Set<String> intents,
-) {
+  Set<String> intents, {
+  Records local = const {},
+}) {
+  String group(String key) =>
+      isEventRecord(key) ? 'event' : '${recordKind(key)}';
+  final moved = {
+    for (final e in local.entries)
+      if (isGuardedRecord(e.key)) '${group(e.key)}|${e.value['id']}',
+  };
   bool intended(String key) {
     var k = key;
     while (k.endsWith('~')) {
@@ -900,9 +1172,11 @@ Records unintendedDeletes(
     }
     if (intents.contains(key) || intents.contains(k)) return true;
     final rec = base[key];
-    return splitRecordKey(key).$1 == kListItemsCol &&
-        rec != null &&
-        intents.contains(_listKeyOf(rec));
+    if (rec != null && moved.contains('${group(key)}|${rec['id']}')) {
+      return true;
+    }
+    return recordKind(key) == RecordKind.line &&
+        intents.contains(_noteKeyOfLine(key));
   }
 
   return {
@@ -914,11 +1188,11 @@ Records unintendedDeletes(
 /// Fields that identify where a record lives; always written on create.
 const Set<String> _kIdentityKeys = {
   'id',
-  '_year',
+  'key',
+  'type',
   '_month',
   '_block',
   '_kind',
-  '_list',
   '_key',
 };
 
@@ -928,9 +1202,8 @@ const Set<String> _kIdentityKeys = {
 /// the base is rebased against this, so only fields this device really
 /// changed can override what another member already wrote.
 Map<String, dynamic> placeholderRecord(String key, Map<String, dynamic> local) {
-  final settingsKey = recordKey(kWorkspaceCol, 'settings');
-  if (key == settingsKey) {
-    return normalizedRecords(Workspace.empty())[settingsKey]!;
+  if (key == kKitchenKey) {
+    return normalizedRecords(Workspace.empty())[kKitchenKey]!;
   }
   Map<String, dynamic> d;
   try {
@@ -955,7 +1228,7 @@ Map<String, dynamic> placeholderRecord(String key, Map<String, dynamic> local) {
 
 /// The doc body for CREATING [local] at [key] with `SetOptions(merge: true)`:
 /// identity + ordering fields and every field that differs from
-/// [placeholderRecord]. Doc ids can be shared across devices (a weekly day,
+/// [placeholderRecord]. Doc ids can be shared across devices (a meal day,
 /// a budget month, a generated recurring item), so a create may land on a
 /// doc another member already wrote; this writes only what this device
 /// actually set and leaves their other fields intact. Reading it back yields
@@ -1005,8 +1278,8 @@ planRecordWrites(Records base, Records local) {
   return (creates: creates, updates: updates, deletes: deletes);
 }
 
-/// True when [local] holds no family data at all (only the settings record,
-/// equal to an empty workspace's) — i.e. a placeholder `Workspace.empty()`
+/// True when [local] holds no family data at all (only the records of an
+/// empty workspace, equal to its defaults) — i.e. a placeholder `Workspace.empty()`
 /// for a family that hasn't loaded. Persisting that must never delete.
 bool recordsAreEmptyPlaceholder(Records local) {
   final empty = normalizedRecords(Workspace.empty());

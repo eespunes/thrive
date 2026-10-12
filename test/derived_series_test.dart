@@ -35,7 +35,7 @@ void main() {
     ws.data[2026]!['Oktober']!.blocks['home']!.single.paid = true;
 
     final stored = normalizedRecords(ws);
-    final budgetKeys = stored.keys.where((k) => k.startsWith('budgetItems/'));
+    final budgetKeys = stored.keys.where((k) => k.startsWith('finance/main/recurring/') || k.contains('/recurring/') && k.startsWith('finance/main/months/'));
     expect(budgetKeys, hasLength(2)); // the anchor + the paid copy
 
     final loaded = thriveDebug.syncRecurringSeries(
