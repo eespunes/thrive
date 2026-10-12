@@ -370,6 +370,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
   /// the family switcher pills. Mirrors the design's hub hero.
   Widget _hubHero() {
     final u = user;
+    final identity = u == null ? null : profileAvatarIdentity(u);
     return Container(
       decoration: const BoxDecoration(gradient: B.grad),
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
@@ -387,15 +388,15 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                     borderRadius: BorderRadius.circular(16),
                     color: Colors.white.withValues(alpha: .22),
                     border: Border.all(
-                      color: u?.color ?? Colors.white,
+                      color: identity?.color ?? Colors.white,
                       width: 2,
                     ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: avatarNode(
-                    photo: u?.photo,
-                    initials: u?.initials ?? '?',
-                    color: u?.color,
+                    photo: identity?.photo,
+                    initials: identity?.initials ?? '?',
+                    color: identity?.color,
                     size: 44,
                     radius: 14,
                     fs: 15,
