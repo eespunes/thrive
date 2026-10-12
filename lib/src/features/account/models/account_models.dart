@@ -6,19 +6,11 @@ part of 'package:family_money_management_app/main.dart';
 /// load).
 const String kStorageKeyV4 = 'thrive.v4';
 
-/// Count of consecutive launches that died before boot completed:
-/// incremented at Firebase init, reset to 0 when boot finishes. Two or more
-/// in a row means the previous runs likely died on the Firestore SQLite
-/// cache feeding boot a row too big for Android's ~2MB CursorWindow (a
-/// legacy un-migrated family's single `workspace` blob), which is fatal and
-/// un-catchable from Dart — the breaker then clears the local cache so boot
-/// falls back to a clean server read. A single incomplete boot (one crash,
-/// or the user killing the app mid-boot) is forgiven: clearing on every one
-/// forced the next launch to re-read everything over the network, a
-/// multi-second cold start.
+/// Retired crash-loop breaker counter (it wiped the Firestore disk cache,
+/// which no longer exists); only removed at init now.
 const String kBootFailStreakKey = 'thrive.bootFailStreak';
 
-/// Legacy boolean predecessor of [kBootFailStreakKey]; removed at init.
+/// Retired predecessor of [kBootFailStreakKey]; removed at init.
 const String kBootIncompleteLegacyKey = 'thrive.bootIncomplete';
 
 /// Prefix for local per-workspace section keys:
@@ -120,8 +112,17 @@ class FamilyMember {
     this.uid,
     this.photo,
     this.emoji,
-    this.role = 'member', // 'owner' | 'member'
+    this.role = 'member', // 'owner' | 'member' | 'kid'
     this.status = 'active', // 'active' | 'invited'
+    this.loginMethod,
+    this.loginEmail,
+    this.managed = false,
+    this.linkedBy,
+    this.linkedAt,
+    this.kidSetBy,
+    this.kidSetAt,
+    this.accessChange,
+    this.signedOutAt,
   });
 
   String id;
@@ -144,6 +145,39 @@ class FamilyMember {
   String role;
   String status;
 
+  /// How a login an admin gave this kid profile signs in: `'google'` or
+  /// `'email'` (Flow B). `null` for an account the person made themselves.
+  String? loginMethod;
+
+  /// The sign-in email of that admin-given login (lowercased).
+  String? loginEmail;
+
+  /// An email & password login admins created and control (they hold the
+  /// password; the kid can't change it).
+  bool managed;
+
+  /// First name of the admin who gave the login, and when (millis).
+  String? linkedBy;
+  int? linkedAt;
+
+  /// First name of the admin who made this account a kid, and when (millis).
+  String? kidSetBy;
+  int? kidSetAt;
+
+  /// The last access change an admin made (`to`: `'kid'`/`'full'`, `by`,
+  /// `byId`, `at`), shown once on the person's own device.
+  Map<String, dynamic>? accessChange;
+
+  /// When an admin last signed this login out everywhere (millis).
+  int? signedOutAt;
+
+  /// A Google account an admin linked that hasn't signed in yet.
+  bool get loginPending =>
+      loginMethod == 'google' && (uid == null || uid!.isEmpty);
+
+  /// Whether a real login backs this member.
+  bool get hasLogin => uid != null && uid!.isNotEmpty;
+
   FamilyMember copy() => FamilyMember(
     id: id,
     name: name,
@@ -155,6 +189,15 @@ class FamilyMember {
     emoji: emoji,
     role: role,
     status: status,
+    loginMethod: loginMethod,
+    loginEmail: loginEmail,
+    managed: managed,
+    linkedBy: linkedBy,
+    linkedAt: linkedAt,
+    kidSetBy: kidSetBy,
+    kidSetAt: kidSetAt,
+    accessChange: accessChange == null ? null : {...accessChange!},
+    signedOutAt: signedOutAt,
   );
 
   Map<String, dynamic> toJson() => {
@@ -168,6 +211,15 @@ class FamilyMember {
     if (emoji != null) 'emoji': emoji,
     'role': role,
     'status': status,
+    if (loginMethod != null) 'loginMethod': loginMethod,
+    if (loginEmail != null) 'loginEmail': loginEmail,
+    if (managed) 'managed': true,
+    if (linkedBy != null) 'linkedBy': linkedBy,
+    if (linkedAt != null) 'linkedAt': linkedAt,
+    if (kidSetBy != null) 'kidSetBy': kidSetBy,
+    if (kidSetAt != null) 'kidSetAt': kidSetAt,
+    if (accessChange != null) 'accessChange': accessChange,
+    if (signedOutAt != null) 'signedOutAt': signedOutAt,
   };
 
   factory FamilyMember.fromJson(Map<String, dynamic> j) => FamilyMember(
@@ -181,7 +233,23 @@ class FamilyMember {
     emoji: (j['emoji'] as String?)?.isNotEmpty == true ? j['emoji'] : null,
     role: (j['role'] ?? 'member').toString(),
     status: (j['status'] ?? 'active').toString(),
+    loginMethod: _optString(j['loginMethod']),
+    loginEmail: _optString(j['loginEmail']),
+    managed: j['managed'] == true,
+    linkedBy: _optString(j['linkedBy']),
+    linkedAt: (j['linkedAt'] as num?)?.toInt(),
+    kidSetBy: _optString(j['kidSetBy']),
+    kidSetAt: (j['kidSetAt'] as num?)?.toInt(),
+    accessChange: j['accessChange'] is Map
+        ? Map<String, dynamic>.from(j['accessChange'] as Map)
+        : null,
+    signedOutAt: (j['signedOutAt'] as num?)?.toInt(),
   );
+}
+
+String? _optString(Object? v) {
+  final s = v?.toString();
+  return s == null || s.isEmpty ? null : s;
 }
 
 /// A family workspace. Mirrors the design's `family` object.
@@ -194,9 +262,11 @@ class Family {
     this.picture,
     this.ownerUid,
     List<String>? memberUids,
-    Map<String, String>? kidEmails,
+    List<String>? adminUids,
+    Map<String, String>? kidUids,
   }) : memberUids = memberUids ?? <String>[],
-       kidEmails = kidEmails ?? <String, String>{};
+       adminUids = adminUids ?? <String>[],
+       kidUids = kidUids ?? <String, String>{};
 
   String id;
   String name;
@@ -215,10 +285,20 @@ class Family {
   /// field Firestore security rules check for membership.
   List<String> memberUids;
 
-  /// Child users the security rules restrict: lowercased login email → kid
-  /// member id. Owner-managed (see [deriveKidEmails]); Firestore rules only
-  /// let the owner change it.
-  Map<String, String> kidEmails;
+  /// Uids of members with admin rights besides the owner (who always is
+  /// one). Only the owner changes it (enforced by firestore.rules).
+  List<String> adminUids;
+
+  /// Logins restricted to kid access: uid → kid member id. The source of
+  /// truth for the security rules; admins change it.
+  Map<String, String> kidUids;
+
+  /// Whether login [uid] may manage kids' access and logins.
+  bool isAdminUid(String? uid) =>
+      uid != null &&
+      uid.isNotEmpty &&
+      !kidUids.containsKey(uid) &&
+      (uid == ownerUid || adminUids.contains(uid));
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -227,7 +307,8 @@ class Family {
     if (picture != null) 'picture': picture,
     if (ownerUid != null) 'ownerUid': ownerUid,
     'memberUids': memberUids,
-    if (kidEmails.isNotEmpty) 'kidEmails': kidEmails,
+    if (adminUids.isNotEmpty) 'adminUids': adminUids,
+    if (kidUids.isNotEmpty) 'kidUids': kidUids,
     'members': members.map((m) => m.toJson()).toList(),
   };
 
@@ -240,9 +321,10 @@ class Family {
     memberUids: [
       for (final u in (j['memberUids'] as List? ?? [])) u.toString(),
     ],
-    kidEmails: {
-      if (j['kidEmails'] is Map)
-        for (final e in (j['kidEmails'] as Map).entries)
+    adminUids: [for (final u in (j['adminUids'] as List? ?? [])) u.toString()],
+    kidUids: {
+      if (j['kidUids'] is Map)
+        for (final e in (j['kidUids'] as Map).entries)
           e.key.toString(): e.value.toString(),
     },
     members: [
@@ -251,14 +333,6 @@ class Family {
     ],
   );
 }
-
-/// The `kidEmails` map the owner publishes for [members]: every kid profile
-/// with an email, so the rules can restrict that login once it joins.
-Map<String, String> deriveKidEmails(List<FamilyMember> members) => {
-  for (final m in members)
-    if (m.role == 'kid' && m.email.trim().isNotEmpty)
-      m.email.trim().toLowerCase(): m.id,
-};
 
 /// Per-family budget workspace: its own accounts, blocks and month data.
 /// Switching family swaps the whole workspace, mirroring the design.
@@ -301,6 +375,7 @@ class Workspace {
   Map<int, Map<String, MonthData>> data;
   List<TaskList> taskLists;
   List<ShoppingList> shoppingLists;
+
   List<CalendarEvent> events;
   List<EventCategory> eventCategories;
   List<ImportedCalendar> importedCalendars;
@@ -396,9 +471,19 @@ class Workspace {
       for (final l in (j['shoppingLists'] as List? ?? []))
         ShoppingList.fromJson(Map<String, dynamic>.from(l as Map)),
     ];
+    // Data saved by older versions may still hold deleted events (with a
+    // `deletion` marker, or in `deletedEvents`): those are gone for good.
+    final deletedIds = {
+      for (final e in [
+        ...(j['events'] as List? ?? const []),
+        ...(j['deletedEvents'] as List? ?? const []),
+      ])
+        if (e is Map && e['deletion'] is Map) '${e['id']}',
+    };
     final events = <CalendarEvent>[
-      for (final e in (j['events'] as List? ?? []))
-        CalendarEvent.fromJson(Map<String, dynamic>.from(e as Map)),
+      for (final e in (j['events'] as List? ?? const []))
+        if (!deletedIds.contains('${(e as Map)['id']}'))
+          CalendarEvent.fromJson(Map<String, dynamic>.from(e)),
     ];
     final eventCategories = <EventCategory>[
       for (final c in (j['eventCategories'] as List? ?? []))

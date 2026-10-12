@@ -77,7 +77,8 @@ extension _ThriveWallet on _ThriveHomeState {
   /// (issue #232). Income blocks don't take part.
   List<(Category, ExpenseItem)> unpaidItemsThisMonth() {
     final m = data[year]?[kMonthKeys[monthIdx]];
-    if (m == null) return const [];
+    // Growable: callers sort the result in place (e.g. Home "Next bills").
+    if (m == null) return [];
     return [
       for (final c in cats.where((c) => !c.isIncome))
         for (final it in m.blocks[c.key] ?? const <ExpenseItem>[])

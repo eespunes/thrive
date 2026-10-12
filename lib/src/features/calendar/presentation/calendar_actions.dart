@@ -1072,6 +1072,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }) {
     final wasEditing = id != null;
     final existing = id == null ? null : eventById(id);
+    // Another member deleted it while it was being edited: the deletion wins.
+    if (wasEditing && existing == null) {
+      flash('This event was deleted');
+      return;
+    }
     CalendarEvent? saved;
     mutate(() {
       final effectiveColor = catById(category)?.color ?? color;
@@ -1188,6 +1193,11 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     required String occurrenceDate,
     required CalendarEvent edited,
   }) {
+    // Another member deleted it while it was being edited: the deletion wins.
+    if (eventById(id) == null) {
+      flash('This event was deleted');
+      return;
+    }
     var changed = false;
     CalendarEvent? rescheduleOriginal;
     CalendarEvent? rescheduleNew;
@@ -1261,14 +1271,14 @@ extension _ThriveCalendarActions on _ThriveHomeState {
         updated = ev;
       } else if (scope == 'future' && ev.recur != 'none' && date != null) {
         if (date == ev.date) {
-          events.removeWhere((x) => x.id == id);
+          _removeEvent(ev);
           removedSeries = true;
         } else {
           ev.endDate = _addDaysIso(date, -1);
           updated = ev;
         }
       } else {
-        events.removeWhere((x) => x.id == id);
+        _removeEvent(ev);
         removedSeries = true;
       }
     }, () => flash('Event deleted'));
@@ -1278,6 +1288,13 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       NotificationService.instance.scheduleEventReminder(updated!);
     }
     if (changed) _syncDeviceCalendar();
+  }
+
+  /// The ONLY way an event leaves the calendar: an explicit delete by this
+  /// user. Its doc(s) are deleted from the server on the next persist.
+  void _removeEvent(CalendarEvent ev) {
+    events.removeWhere((x) => x.id == ev.id);
+    _markEventDeleted(familyId, ev.id);
   }
 
   // ---------------------------------------------------------- categories

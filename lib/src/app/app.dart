@@ -48,35 +48,30 @@ Future<void> _initFirebase() async {
             : const AppleDeviceCheckProvider(),
       );
     } catch (e) {
-      // App Check is defense-in-depth; never block startup on it (e.g. web
-      // has no provider configured).
+      // App Check is defense-in-depth; never block startup on it. (Web never
+      // gets here: it ships no Firebase config, so initializeApp throws and
+      // the app runs in local/demo mode.)
       debugPrint('App Check activation failed: $e');
     }
-    // Crash-loop breaker: if the last TWO launches never finished booting,
-    // the local Firestore cache itself may be what's killing boot (see
-    // kBootFailStreakKey) — clear it before the first query touches it.
-    // Server data is unaffected; boot simply re-reads over the network.
+    // No Firestore offline cache: every screen shows what the server holds.
+    // Edits that haven't reached the server are kept in the app's own
+    // unsaved-changes journal; after a restart they're set aside in the
+    // user's own staging area, to apply or discard in Settings. Must be set
+    // before the first Firestore call; the cache older versions left on
+    // disk is wiped (a no-op once it's gone).
+    try {
+      final db = FirebaseFirestore.instance;
+      db.settings = const Settings(persistenceEnabled: false);
+      await db.clearPersistence();
+    } catch (e) {
+      debugPrint('[boot] could not clear the Firestore cache: $e');
+    }
+    // Retired crash-loop breaker (it existed to wipe that cache).
     try {
       final prefs = await SharedPreferences.getInstance();
-      final streak = prefs.getInt(kBootFailStreakKey) ?? 0;
-      if (streak >= 2) {
-        await FirebaseFirestore.instance.clearPersistence();
-        debugPrint(
-          '[boot] $streak incomplete boots in a row — cleared Firestore cache',
-        );
-      }
-      await prefs.setInt(kBootFailStreakKey, streak + 1);
+      unawaited(prefs.remove(kBootFailStreakKey));
       unawaited(prefs.remove(kBootIncompleteLegacyKey));
-    } catch (e) {
-      debugPrint('[boot] crash-loop breaker failed: $e');
-    }
-    // Offline persistence is ON (the default). It used to be disabled because
-    // the single multi-MB family `workspace` blob overflowed Android's ~2MB
-    // CursorWindow (`SQLiteBlobTooBigException`); the workspace now lives in
-    // small per-section docs (`families/{id}/workspace/{section}`), so cached
-    // reads and offline edits work again. (A legacy family doc still carrying
-    // its old giant `workspace` blob shrinks on that family's first
-    // post-migration persist, which drops the blob from the meta doc.)
+    } catch (_) {}
   } on FirebaseException catch (e) {
     debugPrint('Firebase init failed (${e.code}): ${e.message}');
   } on PlatformException catch (e) {

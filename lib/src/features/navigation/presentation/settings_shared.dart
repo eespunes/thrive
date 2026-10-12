@@ -54,55 +54,31 @@ extension _ThriveSettingsShared on _ThriveHomeState {
   // coverage:ignore-end
 }
 
-/// Write status surfaced on the sub-page headers (#283).
-enum SettingsSyncStatus { saving, saved, queued }
+/// Write status surfaced as a status chip (#283, #401).
+enum SettingsSyncStatus {
+  saving,
+  saved,
 
-/// The design's `syncPill`: "Saving…" / "Saved ✓" in green, "Queued —
-/// offline" in amber. Rendered in the header's trailing slot.
-Widget settingsSyncPill(SettingsSyncStatus status) {
-  final queued = status == SettingsSyncStatus.queued;
-  return Container(
-    key: const ValueKey('sync-pill'),
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-    decoration: BoxDecoration(
-      color: queued ? B.amberSoft : B.greenSoft,
-      borderRadius: BorderRadius.circular(999),
-    ),
-    child: Text(
-      switch (status) {
-        SettingsSyncStatus.saving => 'Saving…',
-        SettingsSyncStatus.saved => 'Saved ✓',
-        SettingsSyncStatus.queued => 'Queued — offline',
-      },
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w800,
-        color: queued ? B.amberText : B.greenText,
-      ),
-    ),
-  );
+  /// The save didn't reach the server: it waits on this phone.
+  queued,
+
+  /// Changes waiting on this phone are being saved.
+  syncing;
+
+  StatusChipKind get chipKind => switch (this) {
+    saving => StatusChipKind.saving,
+    saved => StatusChipKind.saved,
+    queued => StatusChipKind.offline,
+    syncing => StatusChipKind.syncing,
+  };
 }
 
-/// The design's offline strip: shown under the header on sub-pages while the
-/// cloud can't be reached — writes queue and sync when back online.
-Widget settingsOfflineBanner() => Container(
-  key: const ValueKey('offline-banner'),
-  width: double.infinity,
-  margin: const EdgeInsets.only(bottom: 8),
-  padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
-  decoration: BoxDecoration(
-    color: B.amberSoft,
-    borderRadius: BorderRadius.circular(10),
-  ),
-  child: const Text(
-    'Offline — changes queue and sync when you’re back',
-    textAlign: TextAlign.center,
-    style: TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w800,
-      color: B.amberText,
-    ),
-  ),
+/// The compact light status chip in a sub-page header's trailing slot.
+Widget settingsSyncPill(SettingsSyncStatus status) => StatusChip(
+  key: const ValueKey('sync-pill'),
+  kind: status.chipKind,
+  text: statusChipText(status.chipKind, count: syncingChangeCount),
+  compact: true,
 );
 
 /// The standard settings-list row (`Settings v2.dc.html` `row()`): grey

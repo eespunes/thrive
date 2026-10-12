@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
 
-// Child users: a kid profile converted into a signed-in user. They only see
+// Kid accounts: a login restricted to kid access. They only see
 // their own events and lists, a read-only meal plan, and never money,
 // discount cards or the kitchen wall.
 
@@ -66,43 +66,6 @@ void _makeMeKid() {
 }
 
 void main() {
-  group('claimableKidRow', () {
-    FamilyMember row(
-      String id, {
-      String role = 'kid',
-      String? uid,
-      String email = '',
-    }) => FamilyMember(
-      id: id,
-      name: id,
-      email: email,
-      initials: 'X',
-      color: const Color(0xff0E9A8D),
-      role: role,
-      uid: uid,
-    );
-
-    test('claims a login-less kid row with the matching email', () {
-      final members = [
-        row('owner', role: 'owner', uid: 'u1', email: 'mum@x.com'),
-        row('kid1', email: 'Nora@X.com '),
-      ];
-      expect(claimableKidRow(members, 'nora@x.com')?.id, 'kid1');
-    });
-
-    test('never claims members, owners or kids that already have a login', () {
-      final members = [
-        row('m', role: 'member', email: 'a@x.com'),
-        row('o', role: 'owner', email: 'b@x.com'),
-        row('k', uid: 'taken', email: 'c@x.com'),
-      ];
-      expect(claimableKidRow(members, 'a@x.com'), isNull);
-      expect(claimableKidRow(members, 'b@x.com'), isNull);
-      expect(claimableKidRow(members, 'c@x.com'), isNull);
-      expect(claimableKidRow(members, ''), isNull);
-    });
-  });
-
   test('lists round-trip their creator', () {
     final t = TaskList.fromJson(
       TaskList(
@@ -119,42 +82,101 @@ void main() {
     expect(s.createdBy, 'k');
   });
 
-  group('server-side kid scoping data', () {
-    test('kidEmails lists kid profiles with an email, lowercased', () {
-      FamilyMember m(String id, String role, String email) => FamilyMember(
-        id: id,
-        name: id,
-        email: email,
-        initials: 'X',
-        color: const Color(0xff0E9A8D),
-        role: role,
-      );
-      expect(
-        deriveKidEmails([
-          m('o', 'owner', 'mum@x.com'),
-          m('k1', 'kid', ' Nora@X.com'),
-          m('k2', 'kid', ''),
-          m('p', 'member', 'dad@x.com'),
-        ]),
-        {'nora@x.com': 'k1'},
-      );
-    });
-
-    test('kidEmails round-trips on the family', () {
+  group('kid account data', () {
+    test('admins and kid logins round-trip on the family', () {
       final f = Family(
         id: 'f',
         name: 'F',
         members: [],
-        kidEmails: {'nora@x.com': 'k1'},
+        ownerUid: 'o',
+        adminUids: ['a'],
+        kidUids: {'k-uid': 'k1'},
       );
-      expect(Family.fromJson(f.toJson()).kidEmails, {'nora@x.com': 'k1'});
-      expect(
-        Family(id: 'f', name: 'F', members: []).toJson(),
-        isNot(contains('kidEmails')),
-      );
+      final back = Family.fromJson(f.toJson());
+      expect(back.adminUids, ['a']);
+      expect(back.kidUids, {'k-uid': 'k1'});
+      final plain = Family(id: 'f', name: 'F', members: []).toJson();
+      expect(plain, isNot(contains('adminUids')));
+      expect(plain, isNot(contains('kidUids')));
     });
 
-    test('list items carry their list owner for the rules', () {
+    test('the owner and listed admins are admins, kids never are', () {
+      final f = Family(
+        id: 'f',
+        name: 'F',
+        members: [],
+        ownerUid: 'o',
+        adminUids: ['a', 'k-uid'],
+        kidUids: {'k-uid': 'k1'},
+      );
+      expect(f.isAdminUid('o'), isTrue);
+      expect(f.isAdminUid('a'), isTrue);
+      expect(f.isAdminUid('m'), isFalse);
+      expect(f.isAdminUid('k-uid'), isFalse);
+      expect(f.isAdminUid(null), isFalse);
+    });
+
+    test('member login fields round-trip and default to none', () {
+      final m = FamilyMember(
+        id: 'k1',
+        name: 'Liv',
+        email: '',
+        initials: 'L',
+        color: const Color(0xff0E9A8D),
+        role: 'kid',
+        uid: 'k-uid',
+        loginMethod: 'email',
+        loginEmail: 'eva+liv@janssen.nl',
+        managed: true,
+        linkedBy: 'Eva',
+        linkedAt: 1,
+        kidSetBy: 'Eva',
+        kidSetAt: 2,
+        accessChange: {'to': 'kid', 'by': 'Eva', 'byId': 'o', 'at': 3},
+        signedOutAt: 4,
+      );
+      final back = FamilyMember.fromJson(m.toJson());
+      expect(back.loginMethod, 'email');
+      expect(back.loginEmail, 'eva+liv@janssen.nl');
+      expect(back.managed, isTrue);
+      expect(back.linkedBy, 'Eva');
+      expect(back.linkedAt, 1);
+      expect(back.kidSetBy, 'Eva');
+      expect(back.kidSetAt, 2);
+      expect(back.accessChange?['to'], 'kid');
+      expect(back.signedOutAt, 4);
+      expect(back.copy().toJson(), m.toJson());
+      expect(back.hasLogin, isTrue);
+      expect(back.loginPending, isFalse);
+
+      final plain = FamilyMember(
+        id: 'x',
+        name: 'X',
+        email: '',
+        initials: 'X',
+        color: const Color(0xff0E9A8D),
+      ).toJson();
+      for (final k in ['loginMethod', 'managed', 'accessChange']) {
+        expect(plain, isNot(contains(k)));
+      }
+    });
+
+    test('a linked Google account without a uid is pending', () {
+      final m = FamilyMember(
+        id: 'k2',
+        name: 'Daan',
+        email: '',
+        initials: 'D',
+        color: const Color(0xff0E9A8D),
+        role: 'kid',
+        loginMethod: 'google',
+        loginEmail: 'daan@gmail.com',
+      );
+      expect(m.loginPending, isTrue);
+      expect(m.hasLogin, isFalse);
+    });
+
+    test('list lines live under their note (scoped by the note owner)', () {
       final ws = Workspace.empty()
         ..taskLists = [
           TaskList(
@@ -166,17 +188,14 @@ void main() {
           ),
         ];
       final recs = normalizedRecords(ws);
-      final item = recs.entries
-          .firstWhere((e) => e.key.startsWith('$kListItemsCol/'))
-          .value;
-      expect(item['_listOwner'], 'kid-uid');
-      // The marker is internal: it never leaks back into the model.
-      final back = workspaceFromRecords(recs);
-      expect(back.taskLists.single.createdBy, 'kid-uid');
-      expect(
-        back.taskLists.single.tasks.single.toJson(),
-        isNot(contains('_listOwner')),
+      final note = recs.entries.firstWhere(
+        (e) => recordKind(e.key) == RecordKind.note,
       );
+      expect(note.value['createdBy'], 'kid-uid');
+      final line = recs.keys.firstWhere(
+        (k) => recordKind(k) == RecordKind.line,
+      );
+      expect(line.startsWith('${note.key}/$kLinesCol/'), isTrue);
     });
   });
 

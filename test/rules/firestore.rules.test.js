@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import assert from 'node:assert/strict';
 import {
   initializeTestEnvironment,
   assertSucceeds,
@@ -13,7 +12,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, where, getDocs,
+  collection, getDocs, query, where,
 } from 'firebase/firestore';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -248,198 +247,130 @@ describe('family creation', () => {
   });
 });
 
-describe('workspace subcollection', () => {
-  const wsRef = (d, id = 'budget') =>
-    doc(d, 'families', FAM, 'workspace', id);
-  beforeEach(async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget'),
-        { years: {} });
-      await setDoc(
-        doc(ctx.firestore(), 'families', FAM, 'workspace', 'budget_2026_Mei'),
-        { caps: {}, blocks: { home: [{ id: 'a' }] } });
-    });
-  });
-  it('member can read and write', async () => {
-    await assertSucceeds(getDoc(wsRef(db(MEMBER))));
-    await assertSucceeds(setDoc(wsRef(db(MEMBER)), { years: { 2026: {} } }));
-  });
-  it('rejects writes that embed item arrays (outdated app versions)', async () => {
-    await assertFails(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
-      caps: {}, blocks: { home: [] },
-    }));
-    await assertFails(setDoc(wsRef(db(MEMBER), 'list_task_l1'), {
-      name: 'Chores', tasks: [],
-    }));
-    await assertFails(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
-      caps: { home: 100 },
-    }));
-  });
-  it('allows the migration to strip legacy arrays', async () => {
-    const { deleteField } = await import('firebase/firestore');
-    await assertSucceeds(updateDoc(wsRef(db(MEMBER), 'budget_2026_Mei'), {
-      blocks: deleteField(), _blocks: ['home'],
-    }));
-    await assertSucceeds(setDoc(wsRef(db(MEMBER), 'budget_2026_Juni'), {
-      caps: {}, _blocks: ['home'],
-    }));
-    await assertSucceeds(deleteDoc(wsRef(db(MEMBER), 'budget')));
-  });
-  it('non-member cannot read or write', async () => {
-    await assertFails(getDoc(wsRef(db(OTHER))));
-    await assertFails(setDoc(wsRef(db(OTHER)), { hacked: true }));
-  });
-  it('unauthenticated cannot read', async () => {
-    await assertFails(getDoc(wsRef(db(null))));
-  });
-});
+// Record docs below the family doc, one per layout shape.
+const RECORD_PATHS = [
+  'settings/kitchen',
+  'finance/main',
+  'finance/main/accounts/shared',
+  'finance/main/blocks/home',
+  'finance/main/recurring/rent',
+  'finance/main/months/2026-05',
+  'finance/main/months/2026-05/entries/a',
+  'finance/main/months/2026-05/recurring/rent',
+  'calendar/main',
+  'calendar/main/layers/l1',
+  'calendar/main/categories/c1',
+  'calendar/main/imports/i1',
+  'calendar/main/recurring/ev1',
+  'calendar/main/months/2026-05',
+  'calendar/main/months/2026-05/events/ev2',
+  'meals/2026',
+  'meals/2026/months/05',
+  'meals/2026/months/05/days/04',
+  'notes/l1',
+  'notes/l1/lines/t1',
+  'cards/k1',
+];
+const recRef = (d, path, fam = FAM) =>
+  doc(d, 'families', fam, ...path.split('/'));
 
-describe('events subcollection', () => {
-  const evRef = (d) => doc(d, 'families', FAM, 'events', 'ev1');
-  beforeEach(async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'families', FAM, 'events', 'ev1'),
-        { title: 'Dentist', date: '2026-03-02' });
-    });
-  });
-  it('member can read and write', async () => {
-    await assertSucceeds(getDoc(evRef(db(MEMBER))));
-    await assertSucceeds(setDoc(evRef(db(MEMBER)), { title: 'Doctor' }));
-  });
-  it('non-member cannot read or write', async () => {
-    await assertFails(getDoc(evRef(db(OTHER))));
-    await assertFails(setDoc(evRef(db(OTHER)), { hacked: true }));
-  });
-  it('unauthenticated cannot read', async () => {
-    await assertFails(getDoc(evRef(db(null))));
-  });
-});
-
-describe('per-item collections', () => {
-  for (const [col, id] of [
-    ['budgetItems', '2026_Mei_a'],
-    ['listItems', 'task_l1_t1'],
-    ['weekly', '2026-05-04'],
-  ]) {
-    it(`${col}: members only`, async () => {
-      await assertSucceeds(setDoc(doc(db(MEMBER), 'families', FAM, col, id),
-        { label: 'x' }));
-      await assertSucceeds(updateDoc(doc(db(OWNER), 'families', FAM, col, id),
-        { paid: true }));
-      await assertSucceeds(getDoc(doc(db(MEMBER), 'families', FAM, col, id)));
-      await assertFails(getDoc(doc(db(OTHER), 'families', FAM, col, id)));
-      await assertFails(setDoc(doc(db(OTHER), 'families', FAM, col, id),
-        { label: 'hacked' }));
-      await assertSucceeds(deleteDoc(doc(db(MEMBER), 'families', FAM, col, id)));
+describe('family records', () => {
+  for (const path of RECORD_PATHS) {
+    it(`${path}: members only, stamped with familyId`, async () => {
+      await assertSucceeds(setDoc(recRef(db(MEMBER), path),
+        { familyId: FAM, label: 'x' }));
+      await assertSucceeds(updateDoc(recRef(db(OWNER), path), { paid: true }));
+      await assertSucceeds(getDoc(recRef(db(MEMBER), path)));
+      await assertFails(getDoc(recRef(db(OTHER), path)));
+      await assertFails(getDoc(recRef(db(null), path)));
+      await assertFails(setDoc(recRef(db(OTHER), path),
+        { familyId: FAM, label: 'hacked' }));
+      await assertSucceeds(deleteDoc(recRef(db(MEMBER), path)));
     });
   }
+  it('rejects writes without (or with another) familyId', async () => {
+    await assertFails(setDoc(recRef(db(MEMBER), 'cards/k2'), { label: 'x' }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'cards/k2'),
+      { familyId: 'fam2', label: 'x' }));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(recRef(ctx.firestore(), 'cards/k3'), { familyId: FAM });
+    });
+    await assertFails(updateDoc(recRef(db(MEMBER), 'cards/k3'),
+      { familyId: 'fam2' }));
+  });
+  it('outdated app versions cannot write the old flat layout', async () => {
+    await assertFails(setDoc(recRef(db(MEMBER), 'workspace/settings'),
+      { accounts: [] }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'budgetItems/2026_Mei_a'),
+      { label: 'x' }));
+  });
+  it('members may delete leftover legacy docs', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(recRef(ctx.firestore(), 'workspace/settings'), { a: 1 });
+    });
+    await assertSucceeds(deleteDoc(recRef(db(MEMBER), 'workspace/settings')));
+  });
 });
 
-describe('child users (kidEmails)', () => {
-  const KID = 'kid-uid';
-  const KID_EMAIL = 'nora@example.com';
-  const KID_MEMBER = 'm-kid';
-  const kidDb = () => env
-    .authenticatedContext(KID, { email: 'Nora@Example.com' })
-    .firestore();
-  const sub = (d, col, id) => doc(d, 'families', FAM, col, id);
-  const put = (col, id, data) => env.withSecurityRulesDisabled(
-    (ctx) => setDoc(doc(ctx.firestore(), 'families', FAM, col, id), data));
-
+describe('collection-group record queries', () => {
   beforeEach(async () => {
-    await seed({
-      ...baseFamily,
-      memberUids: [OWNER, MEMBER, KID],
-      kidEmails: { [KID_EMAIL]: KID_MEMBER },
+    await seed({ ...baseFamily, memberUids: [OTHER], ownerUid: OTHER }, 'fam2');
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const f = ctx.firestore();
+      await setDoc(recRef(f, 'finance/main/recurring/rent'), { familyId: FAM });
+      await setDoc(recRef(f, 'calendar/main/recurring/ev1'), { familyId: FAM });
+      await setDoc(recRef(f, 'meals/2026/months/05/days/04'), { familyId: FAM });
+      await setDoc(recRef(f, 'cards/x', 'fam2'), { familyId: 'fam2' });
     });
-    await put('workspace', 'settings', { calendarLayers: [] });
-    await put('workspace', 'budget_2026_Mei', { caps: {} });
-    await put('workspace', 'card_c1', { name: 'Club card' });
-    await put('workspace', 'list_task_mine', { name: 'Homework', createdBy: KID });
-    await put('workspace', 'list_task_other', { name: 'Chores', createdBy: MEMBER });
-    await put('listItems', 'task_mine_t1', { title: 'Maths', _list: 'mine', _listOwner: KID });
-    await put('listItems', 'task_other_t1', { title: 'Dishes', _list: 'other', _listOwner: MEMBER });
-    await put('budgetItems', '2026_Mei_a', { label: 'Rent' });
-    await put('weekly', '2026-05-04', { dinner: 'Soup' });
-    await put('events', 'ev-attend', { title: 'Football', attendees: [KID_MEMBER] });
-    await put('events', 'ev-own', { title: 'Party', attendees: [], createdBy: KID });
-    await put('events', 'ev-other', { title: 'Parents evening', attendees: [MEMBER], createdBy: MEMBER });
   });
-
-  it('a kid never reads budgets, cards or other people\'s data', async () => {
-    const d = kidDb();
-    await assertFails(getDoc(sub(d, 'budgetItems', '2026_Mei_a')));
-    await assertFails(getDocs(collection(d, 'families', FAM, 'budgetItems')));
-    await assertFails(getDoc(sub(d, 'workspace', 'budget_2026_Mei')));
-    await assertFails(getDoc(sub(d, 'workspace', 'card_c1')));
-    await assertFails(getDoc(sub(d, 'workspace', 'list_task_other')));
-    await assertFails(getDoc(sub(d, 'listItems', 'task_other_t1')));
-    await assertFails(getDoc(sub(d, 'events', 'ev-other')));
-    await assertFails(getDocs(collection(d, 'families', FAM, 'events')));
-    await assertFails(getDocs(collection(d, 'families', FAM, 'workspace')));
+  const q = async (d, col, fam) => {
+    const { collectionGroup, query, where, getDocs } =
+      await import('firebase/firestore');
+    return getDocs(query(collectionGroup(d, col), where('familyId', '==', fam)));
+  };
+  it('a member can load a collection id across the hierarchy', async () => {
+    const snap = await assertSucceeds(q(db(MEMBER), 'recurring', FAM));
+    if (snap.size !== 2) throw new Error(`expected 2, got ${snap.size}`);
+    await assertSucceeds(q(db(OWNER), 'days', FAM));
   });
-
-  it('a kid reads their own world through scoped queries', async () => {
-    const d = kidDb();
-    const col = (c) => collection(d, 'families', FAM, c);
-    await assertSucceeds(getDoc(sub(d, 'workspace', 'settings')));
-    const lists = await assertSucceeds(
-      getDocs(query(col('workspace'), where('createdBy', '==', KID))));
-    assert.deepEqual(lists.docs.map((x) => x.id), ['list_task_mine']);
-    const items = await assertSucceeds(
-      getDocs(query(col('listItems'), where('_listOwner', '==', KID))));
-    assert.deepEqual(items.docs.map((x) => x.id), ['task_mine_t1']);
-    const attending = await assertSucceeds(getDocs(query(col('events'),
-      where('attendees', 'array-contains', KID_MEMBER))));
-    assert.deepEqual(attending.docs.map((x) => x.id), ['ev-attend']);
-    const created = await assertSucceeds(
-      getDocs(query(col('events'), where('createdBy', '==', KID))));
-    assert.deepEqual(created.docs.map((x) => x.id), ['ev-own']);
-    await assertSucceeds(getDocs(col('weekly')));
+  it('cannot query another family', async () => {
+    await assertFails(q(db(MEMBER), 'cards', 'fam2'));
+    await assertFails(q(db(OTHER), 'recurring', FAM));
+    await assertFails(q(db(null), 'recurring', FAM));
   });
-
-  it('a kid writes only their own events, lists and items', async () => {
-    const d = kidDb();
-    await assertSucceeds(setDoc(sub(d, 'events', 'ev-new'),
-      { title: 'Swim', attendees: [KID_MEMBER], createdBy: KID }));
-    await assertSucceeds(updateDoc(sub(d, 'events', 'ev-attend'), { done: true }));
-    await assertFails(updateDoc(sub(d, 'events', 'ev-other'), { title: 'x' }));
-    await assertFails(updateDoc(sub(d, 'events', 'ev-attend'),
-      { attendees: [MEMBER] }));
-    await assertFails(deleteDoc(sub(d, 'events', 'ev-other')));
-
-    await assertSucceeds(setDoc(sub(d, 'workspace', 'list_shop_new'),
-      { name: 'Wishlist', createdBy: KID }));
-    await assertFails(setDoc(sub(d, 'workspace', 'list_shop_x'),
-      { name: 'Sneaky', createdBy: MEMBER }));
-    await assertFails(updateDoc(sub(d, 'workspace', 'list_task_other'),
-      { name: 'Mine now', createdBy: KID }));
-    await assertFails(updateDoc(sub(d, 'workspace', 'settings'), { x: 1 }));
-    await assertFails(setDoc(sub(d, 'workspace', 'card_c2'),
-      { name: 'Card', createdBy: KID }));
-
-    await assertSucceeds(setDoc(sub(d, 'listItems', 'task_mine_t2'),
-      { title: 'Reading', _list: 'mine', _listOwner: KID }));
-    await assertFails(setDoc(sub(d, 'listItems', 'task_other_t2'),
-      { title: 'x', _list: 'other', _listOwner: MEMBER }));
-
-    await assertFails(setDoc(sub(d, 'weekly', '2026-05-04'), { dinner: 'Cake' }));
-    await assertFails(setDoc(sub(d, 'budgetItems', '2026_Mei_b'), { label: 'x' }));
+  it('an unfiltered collection-group query is rejected', async () => {
+    const { collectionGroup, getDocs } = await import('firebase/firestore');
+    await assertFails(getDocs(collectionGroup(db(MEMBER), 'cards')));
   });
+});
 
-  it('only the owner manages kidEmails', async () => {
-    await assertFails(updateDoc(famRef(kidDb()), { kidEmails: {} }));
-    await assertFails(updateDoc(famRef(db(MEMBER)), { kidEmails: {} }));
-    await assertSucceeds(updateDoc(famRef(db(OWNER)), { kidEmails: {} }));
-  });
-
-  it('full members are unaffected by kidEmails', async () => {
-    const d = db(MEMBER);
-    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'budgetItems')));
-    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'events')));
-    await assertSucceeds(getDocs(collection(d, 'families', FAM, 'workspace')));
-    await assertSucceeds(setDoc(sub(d, 'weekly', '2026-05-04'), { dinner: 'x' }));
-  });
+describe('record version (_v)', () => {
+  for (const path of ['calendar/main/recurring/ev_v',
+    'finance/main/months/2026-05/entries/v', 'notes/l1/lines/v',
+    'meals/2026/months/05/days/11', 'settings/kitchen']) {
+    it(`${path}: creates at 1 (or no version)`, async () => {
+      const { increment } = await import('firebase/firestore');
+      const r = (suffix) => recRef(db(MEMBER), path + suffix);
+      await assertSucceeds(setDoc(r(''),
+        { familyId: FAM, title: 'a', _v: increment(1) }, { merge: true }));
+      await assertSucceeds(setDoc(r('_legacy'), { familyId: FAM, title: 'a' }));
+      await assertFails(setDoc(r('_skip'), { familyId: FAM, title: 'a', _v: 5 }));
+      await assertFails(setDoc(r('_str'), { familyId: FAM, title: 'a', _v: '1' }));
+    });
+    it(`${path}: each save bumps by exactly 1 or keeps it`, async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(recRef(ctx.firestore(), path),
+          { familyId: FAM, title: 'a', _v: 3 });
+      });
+      const r = recRef(db(MEMBER), path);
+      await assertSucceeds(updateDoc(r, { title: 'b', _v: 4 }));
+      // An app version that doesn't track versions leaves it unchanged.
+      await assertSucceeds(updateDoc(r, { title: 'c' }));
+      await assertFails(updateDoc(r, { title: 'd', _v: 3 }));
+      await assertFails(updateDoc(r, { title: 'd', _v: 6 }));
+      await assertSucceeds(deleteDoc(r));
+    });
+  }
 });
 
 describe('family_handles', () => {
@@ -458,13 +389,24 @@ describe('family_handles', () => {
       familyId: FAM,
     }));
   });
-  it('any signed-in user can read; unauthenticated cannot', async () => {
+  it('any signed-in user can get a known handle; unauthenticated cannot', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
         { familyId: FAM });
     });
     await assertSucceeds(getDoc(doc(db(OTHER), 'family_handles', 'thefam')));
     await assertFails(getDoc(doc(db(null), 'family_handles', 'thefam')));
+  });
+  it('nobody can list (enumerate) the handles collection', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
+        { familyId: FAM, joinSalt: 'salt' });
+    });
+    await assertFails(getDocs(collection(db(OTHER), 'family_handles')));
+    await assertFails(getDocs(collection(db(OWNER), 'family_handles')));
+    await assertFails(getDocs(query(collection(db(OTHER), 'family_handles'),
+      where('familyId', '==', FAM))));
+    await assertFails(getDocs(collection(db(null), 'family_handles')));
   });
   it('owner can delete their handle; non-owner cannot', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -473,5 +415,155 @@ describe('family_handles', () => {
     });
     await assertFails(deleteDoc(doc(db(MEMBER), 'family_handles', 'thefam')));
     await assertSucceeds(deleteDoc(doc(db(OWNER), 'family_handles', 'thefam')));
+  });
+});
+
+describe('kid accounts and admins', () => {
+  const KID = 'kid-uid';
+  const KID_ID = 'kid-member';
+  const ADMIN = 'admin-uid';
+  const kidFamily = {
+    ...baseFamily,
+    memberUids: [OWNER, MEMBER, ADMIN, KID],
+    adminUids: [ADMIN],
+    kidUids: { [KID]: KID_ID },
+  };
+  beforeEach(async () => {
+    await seed(kidFamily);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const f = ctx.firestore();
+      await setDoc(recRef(f, 'settings/kitchen'), { familyId: FAM });
+      await setDoc(recRef(f, 'calendar/main'), { familyId: FAM });
+      await setDoc(recRef(f, 'calendar/main/layers/l1'), { familyId: FAM });
+      await setDoc(recRef(f, 'calendar/main/months/2026-05/events/mine'),
+        { familyId: FAM, attendees: [KID_ID], createdBy: OWNER });
+      await setDoc(recRef(f, 'calendar/main/months/2026-05/events/made'),
+        { familyId: FAM, attendees: [], createdBy: KID });
+      await setDoc(recRef(f, 'calendar/main/months/2026-05/events/other'),
+        { familyId: FAM, attendees: ['m2'], createdBy: OWNER });
+      await setDoc(recRef(f, 'calendar/main/recurring/rep'),
+        { familyId: FAM, attendees: [KID_ID] });
+      await setDoc(recRef(f, 'finance/main/recurring/rent'), { familyId: FAM });
+      await setDoc(recRef(f, 'finance/main/accounts/a'), { familyId: FAM });
+      await setDoc(recRef(f, 'cards/c'), { familyId: FAM });
+      await setDoc(recRef(f, 'meals/2026/months/05/days/04'), { familyId: FAM });
+      await setDoc(recRef(f, 'notes/kn'), { familyId: FAM, createdBy: KID });
+      await setDoc(recRef(f, 'notes/kn/lines/l'), { familyId: FAM });
+      await setDoc(recRef(f, 'notes/on'), { familyId: FAM, createdBy: OWNER });
+      await setDoc(recRef(f, 'notes/on/lines/l'), { familyId: FAM });
+    });
+  });
+  const cg = async (d, col, ...filters) => {
+    const { collectionGroup } = await import('firebase/firestore');
+    return getDocs(query(collectionGroup(d, col),
+      where('familyId', '==', FAM), ...filters));
+  };
+
+  it('a kid reads the kid-safe docs and only their own events and lists', async () => {
+    const k = db(KID);
+    for (const p of ['settings/kitchen', 'calendar/main',
+      'calendar/main/layers/l1', 'calendar/main/months/2026-05/events/mine',
+      'calendar/main/months/2026-05/events/made', 'calendar/main/recurring/rep',
+      'meals/2026/months/05/days/04', 'notes/kn', 'notes/kn/lines/l']) {
+      await assertSucceeds(getDoc(recRef(k, p)));
+    }
+    for (const p of ['calendar/main/months/2026-05/events/other',
+      'finance/main/recurring/rent', 'finance/main/accounts/a', 'cards/c',
+      'notes/on', 'notes/on/lines/l']) {
+      await assertFails(getDoc(recRef(k, p)));
+    }
+  });
+
+  it('a kid can run the scoped collection-group queries only', async () => {
+    const k = db(KID);
+    for (const col of ['settings', 'calendar', 'layers', 'meals', 'days']) {
+      await assertSucceeds(cg(k, col));
+    }
+    const att = await assertSucceeds(
+      cg(k, 'events', where('attendees', 'array-contains', KID_ID)));
+    if (att.size !== 1) throw new Error(`expected 1, got ${att.size}`);
+    await assertSucceeds(cg(k, 'events', where('createdBy', '==', KID)));
+    await assertSucceeds(
+      cg(k, 'recurring', where('attendees', 'array-contains', KID_ID)));
+    await assertSucceeds(cg(k, 'notes', where('createdBy', '==', KID)));
+    await assertSucceeds(getDocs(collection(k, 'families', FAM, 'notes/kn/lines')));
+    for (const col of ['events', 'recurring', 'notes', 'accounts', 'cards',
+      'months', 'entries', 'lines']) {
+      await assertFails(cg(k, col));
+    }
+    await assertFails(getDocs(collection(k, 'families', FAM, 'notes/on/lines')));
+  });
+
+  it('a kid writes only their own events and lists', async () => {
+    const k = db(KID);
+    await assertSucceeds(setDoc(
+      recRef(k, 'calendar/main/months/2026-06/events/new'),
+      { familyId: FAM, createdBy: KID, attendees: [] }));
+    await assertSucceeds(updateDoc(
+      recRef(k, 'calendar/main/months/2026-05/events/mine'), { title: 'x' }));
+    await assertFails(updateDoc(
+      recRef(k, 'calendar/main/months/2026-05/events/other'), { title: 'x' }));
+    // Taking themselves off an event they don't own is not allowed.
+    await assertFails(updateDoc(
+      recRef(k, 'calendar/main/months/2026-05/events/mine'), { attendees: [] }));
+    await assertSucceeds(setDoc(recRef(k, 'notes/new'),
+      { familyId: FAM, createdBy: KID }));
+    await assertSucceeds(setDoc(recRef(k, 'notes/kn/lines/l2'),
+      { familyId: FAM }));
+    await assertFails(setDoc(recRef(k, 'notes/on/lines/l2'), { familyId: FAM }));
+    await assertFails(setDoc(recRef(k, 'notes/spoof'),
+      { familyId: FAM, createdBy: OWNER }));
+    await assertFails(updateDoc(recRef(k, 'settings/kitchen'), { a: 1 }));
+    await assertFails(setDoc(recRef(k, 'meals/2026/months/05/days/05'),
+      { familyId: FAM }));
+    await assertFails(setDoc(recRef(k, 'finance/main/accounts/b'),
+      { familyId: FAM }));
+  });
+
+  it('a kid cannot lift their own restriction or change family settings', async () => {
+    const k = famRef(db(KID));
+    await assertFails(updateDoc(k, { kidUids: {} }));
+    await assertFails(updateDoc(k, { adminUids: [ADMIN, KID] }));
+    await assertFails(updateDoc(k, { name: 'Renamed' }));
+    await assertSucceeds(updateDoc(k, { members: [] }));
+  });
+
+  it('full members still read everything; kids are not admins', async () => {
+    await assertSucceeds(getDoc(recRef(db(MEMBER), 'cards/c')));
+    await assertSucceeds(cg(db(MEMBER), 'events'));
+  });
+
+  it('admins turn kid access on and off; plain members cannot', async () => {
+    await assertSucceeds(updateDoc(famRef(db(ADMIN)),
+      { kidUids: { [KID]: KID_ID, [MEMBER]: 'm' } }));
+    await assertSucceeds(updateDoc(famRef(db(OWNER)), { kidUids: {} }));
+    await assertFails(updateDoc(famRef(db(MEMBER)),
+      { kidUids: { [KID]: KID_ID } }));
+  });
+
+  it('only the owner names admins', async () => {
+    await assertSucceeds(updateDoc(famRef(db(OWNER)),
+      { adminUids: [ADMIN, MEMBER] }));
+    await assertFails(updateDoc(famRef(db(ADMIN)), { adminUids: [] }));
+  });
+
+  it('the owner is never a kid and a kid is never an admin', async () => {
+    await assertFails(updateDoc(famRef(db(ADMIN)),
+      { kidUids: { [KID]: KID_ID, [OWNER]: 'o' } }));
+    await assertFails(updateDoc(famRef(db(OWNER)),
+      { adminUids: [ADMIN, KID] }));
+    await assertFails(updateDoc(famRef(db(ADMIN)),
+      { kidUids: { [KID]: KID_ID, [ADMIN]: 'a' } }));
+  });
+
+  it('a kid can still leave the family', async () => {
+    const { arrayRemove } = await import('firebase/firestore');
+    await assertSucceeds(updateDoc(famRef(db(KID)),
+      { memberUids: arrayRemove(KID) }));
+  });
+
+  it('nobody reads or writes kid_links from the client', async () => {
+    await assertFails(getDoc(doc(db(OWNER), 'kid_links', 'a@b.c')));
+    await assertFails(setDoc(doc(db(OWNER), 'kid_links', 'a@b.c'), { x: 1 }));
   });
 });

@@ -261,6 +261,22 @@ void main() {
     expect(find.byKey(const ValueKey('home-add-widget')), findsOneWidget);
   });
 
+  testWidgets('Home renders when the current month has no budget data', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    // E.g. a cloud boot that loaded no family data: the Next bills widget
+    // used to sort a const empty list and red-screen the dashboard.
+    thriveDebug.mutateState(() {
+      thriveDebug.homeBoard = [BoardEntry(widgetId: 'next_bills')];
+      thriveDebug.data.clear();
+    });
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('NEXT BILLS'), findsOneWidget);
+    expect(find.text('Nothing open.'), findsOneWidget);
+  });
+
   testWidgets('a task created in Lists shows up in Tasks due soon', (
     tester,
   ) async {

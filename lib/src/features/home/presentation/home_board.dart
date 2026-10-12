@@ -17,7 +17,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
   }
 
   /// Whether the signed-in user's member row is a kid profile (issue #245),
-  /// or the family doc's `kidEmails` lists this login (what the security
+  /// or the family doc's `kidUids` lists this login (what the security
   /// rules enforce).
   bool amIKidProfile() {
     if (_isKidFamily(familyId)) return true;

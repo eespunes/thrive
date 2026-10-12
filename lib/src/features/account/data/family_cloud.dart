@@ -33,8 +33,9 @@ const String kLocalSelfUidKey = 'thrive.localSelfUid';
 const String kDevicePrefsKey = 'thrive.deviceprefs.v1';
 
 /// Upper bound for any single cloud round-trip (Firestore write/read). Awaiting a Firestore write resolves only once the backend acks
-/// it, so with offline persistence a dropped connection would otherwise hang
-/// the UI forever. Bounding every await turns that into a recoverable error.
+/// it, so a dropped connection would otherwise hang the UI forever (the SDK
+/// keeps unacknowledged writes in memory). Bounding every await turns that
+/// into a "Not saved" state that is retried.
 const Duration kCloudOpTimeout = Duration(seconds: 12);
 
 /// Salted SHA-256 of a family join password (legacy v1 scheme, and the local
@@ -51,6 +52,17 @@ String hashFamilyPassword(String password, String salt) {
 /// more expensive while still costing the client well under a second, and
 /// only on the rare create/join flows.
 const int kJoinHashIterations = 30000;
+
+/// Minimum length for a NEW family join password (create / reset). A family's
+/// `joinSalt` is readable by any signed-in user, so the password is the only
+/// thing standing between a handle and a self-join; 4 characters was cheap to
+/// brute-force (#364). Existing families keep their current password.
+const int kMinFamilyPasswordLength = 8;
+
+/// Error shown when a new family join password is shorter than
+/// [kMinFamilyPasswordLength].
+const String kFamilyPasswordTooShort =
+    'Password must be at least $kMinFamilyPasswordLength characters';
 
 /// v2 join-password hash: SHA-256 chained [kJoinHashIterations] times over a
 /// RANDOM per-family salt (stored on the public handle doc as `joinSalt` —
@@ -171,6 +183,20 @@ Future<Workspace> buildSampleWorkspace() async {
   );
 }
 
+/// The server couldn't be reached (offline / timed out). There is no local
+/// copy to fall back to, so callers show a "can't connect" state instead.
+class CloudUnreachable implements Exception {
+  const CloudUnreachable(this.cause);
+  final Object cause;
+  @override
+  String toString() => 'CloudUnreachable($cause)';
+}
+
+/// How long a collection reloaded on opening a screen stays fresh: the
+/// realtime listeners keep it current meanwhile, so tab-hopping doesn't
+/// re-read (and pay for) every document each time.
+const Duration kScreenReloadMinInterval = Duration(seconds: 15);
+
 /// Cloud + local persistence for the families↔users relationship.
 extension _ThriveFamilyCloud on _ThriveHomeState {
   // Cloud document refs + (de)serialization helpers are only exercised against
@@ -189,16 +215,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   // -------------------------------------------------------- (de)serialize
   // The pure serialization/digest layer lives in workspace_sections.dart,
   // where it is unit-tested without a widget tree or a live backend.
-  /// One of the family's record collections (see cloud_records.dart).
-  CollectionReference<Map<String, dynamic>> _recordCol(
-    String fid,
-    String col,
-  ) => _familyDocRef(fid).collection(col);
+  /// Every record of family [fid] in the collections with id [col], at any
+  /// depth (one collection-group query — see cloud_records.dart).
+  Query<Map<String, dynamic>> _recordQuery(String fid, String col) =>
+      FirebaseFirestore.instance
+          .collectionGroup(col)
+          .where(kFamilyIdField, isEqualTo: fid);
 
-  DocumentReference<Map<String, dynamic>> _recordRef(String fid, String key) {
-    final (col, id) = splitRecordKey(key);
-    return _recordCol(fid, col).doc(id);
-  }
+  DocumentReference<Map<String, dynamic>> _recordRef(String fid, String key) =>
+      FirebaseFirestore.instance.doc('$kFamiliesCollection/$fid/$key');
 
   Family _familyFromDoc(String fid, Map<String, dynamic> doc) {
     final fam = Family.fromJson({...doc, 'id': fid});
@@ -210,60 +235,47 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   // requires a live Firestore backend.
   // ----------------------------------------------------------- boot
-  /// Loads the signed-in user's families from Firestore. Returns true when the
-  /// user already belongs to a family (or legacy state was migrated), false when
-  /// brand new.
+  /// Loads the signed-in user's families from the SERVER (there is no
+  /// local cache). Returns true when the user already belongs to a family
+  /// (or legacy state was migrated), false when brand new.
+  ///
+  /// Throws [CloudUnreachable] when the server couldn't be reached at all:
+  /// an offline launch must never be mistaken for "no family yet" (which
+  /// would show the create/join gate to an existing member).
   ///
   /// Membership is read from the families' own `memberUids` — the same field the
   /// security rules treat as the source of truth — rather than the per-user
   /// `familyIds` mirror, which is written best-effort and could lag a create or
   /// join and strand an existing member on the onboarding gate (issue #128).
+  ///
+  /// Unsaved changes from a previous run ([PendingChanges]) are then set
+  /// aside in the user's staging area, out of the family data
+  /// ([_stagePendingChanges]).
   Future<bool> cloudBoot(String meUid) async {
-    // Cache-first: with offline persistence on, a warm boot is served
-    // entirely from the local Firestore cache — zero network round-trips
-    // before the first frame. The snapshot listeners bound straight after
-    // (bindCloudSync) deliver the authoritative server state and reconcile
-    // any drift. A fresh install, a fresh sign-in or a cache wiped by the
-    // crash-loop breaker has nothing cached, and boot falls through to the
-    // network path below.
-    try {
-      const cacheOnly = GetOptions(source: Source.cache);
-      final cachedUserData = await _userDocRef(meUid)
-          .get(cacheOnly)
-          .then<Map<String, dynamic>?>((d) => d.data())
-          .catchError((Object _) => null);
-      final snap = await _familiesCol()
-          .where('memberUids', arrayContains: meUid)
-          .get(cacheOnly);
-      final docs = <MapEntry<String, Map<String, dynamic>>>[
-        for (final d in snap.docs) MapEntry(d.id, d.data()),
-      ];
-      if (docs.isNotEmpty) {
-        _noteKidStatuses(docs);
-        await _fetchAllRecords([
-          for (final d in docs) d.key,
-        ], source: Source.cache);
-        _applyFamilyDocs(meUid, docs, cachedUserData);
-        if (families.isNotEmpty) return true;
-      }
-    } catch (e) {
-      debugPrint('[cloud] cache-first boot unavailable: $e');
-    }
+    final ok = await _cloudBootLoad(meUid);
+    if (ok) await _stagePendingChanges(meUid);
+    return ok;
+  }
 
-    // Network path. The user-doc read and the membership query are
-    // independent — run them concurrently to save a round-trip.
+  Future<bool> _cloudBootLoad(String meUid) async {
+    const server = GetOptions(source: Source.server);
+    // The user-doc read and the membership query are independent — run them
+    // concurrently to save a round-trip.
+    var userDocReached = true;
     final userDataFuture = _userDocRef(meUid)
-        .get()
+        .get(server)
+        .timeout(kCloudOpTimeout)
         .then<Map<String, dynamic>?>((d) => d.data())
         .catchError((Object e) {
           debugPrint('[cloud] boot user-doc read failed: $e');
+          userDocReached = false;
           return null;
         });
     Map<String, dynamic>? userData;
     try {
       final snap = await _familiesCol()
           .where('memberUids', arrayContains: meUid)
-          .get()
+          .get(server)
           .timeout(kCloudOpTimeout);
       userData = await userDataFuture;
       final docs = <MapEntry<String, Map<String, dynamic>>>[
@@ -282,6 +294,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     } catch (e) {
       debugPrint('[cloud] boot membership query failed: $e');
       userData = await userDataFuture;
+      if (!userDocReached && _isUnreachable(e)) throw CloudUnreachable(e);
     }
     // Fallbacks: the user-doc id list (e.g. if the query is unavailable), then
     // legacy single-blob migration for first-run upgrades.
@@ -293,9 +306,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return await _migrateLegacyState(meUid);
     } catch (e) {
       debugPrint('[cloud] boot fallback failed: $e');
+      if (_isUnreachable(e)) throw CloudUnreachable(e);
       return false;
     }
   }
+
+  /// Whether [e] means "the server couldn't be reached" (offline, timed out)
+  /// rather than a real answer such as permission-denied.
+  bool _isUnreachable(Object e) =>
+      e is TimeoutException ||
+      (e is FirebaseException &&
+          const {'unavailable', 'deadline-exceeded'}.contains(e.code));
 
   CollectionReference<Map<String, dynamic>> _familiesCol() =>
       FirebaseFirestore.instance.collection(kFamiliesCollection);
@@ -308,7 +329,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     // All doc reads round-trip the network, so fetch every family in parallel
     // instead of paying one RTT per family.
     final snaps = await Future.wait([
-      for (final fid in ids) _familyDocRef(fid).get(),
+      for (final fid in ids)
+        _familyDocRef(
+          fid,
+        ).get(const GetOptions(source: Source.server)).timeout(kCloudOpTimeout),
     ]);
     final docs = <MapEntry<String, Map<String, dynamic>>>[
       for (final (i, s) in snaps.indexed)
@@ -320,18 +344,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Loads every record collection of every family in [fids] concurrently
-  /// into [_cloudBase] (full replace per collection). A collection whose read
-  /// fails stays unloaded, so nothing is ever created or deleted there blind.
-  Future<void> _fetchAllRecords(
-    List<String> fids, {
-    Source source = Source.serverAndCache,
-  }) async {
+  /// from the server into [_cloudBase] (full replace per collection). A
+  /// collection whose read fails stays unloaded, so nothing is ever created
+  /// or deleted there blind.
+  Future<void> _fetchAllRecords(List<String> fids) async {
     await Future.wait([
-      for (final fid in fids.where(_isKidFamily)) _fetchKidRecords(fid, source),
+      for (final fid in fids.where(_isKidFamily)) _fetchKidRecords(fid),
       for (final fid in fids.where((f) => !_isKidFamily(f)))
         for (final col in kRecordCollections)
-          _recordCol(fid, col)
-              .get(GetOptions(source: source))
+          _recordQuery(fid, col)
+              .get(const GetOptions(source: Source.server))
               .timeout(kCloudOpTimeout)
               .then((snap) {
                 _ingestRecordSnapshot(fid, col, snap, full: true);
@@ -343,9 +365,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Folds a record-collection snapshot into the family's server state
-  /// ([_cloudBase] / [_legacyDocs]) and marks the collection loaded. [full]
-  /// replaces the collection wholesale (boot reads, a listener's first
-  /// snapshot); otherwise only `docChanges` apply.
+  /// ([_cloudBase]) and marks the collection loaded. [full] replaces the
+  /// collection wholesale (boot reads, a listener's first snapshot);
+  /// otherwise only `docChanges` apply.
   void _ingestRecordSnapshot(
     String fid,
     String col,
@@ -354,45 +376,51 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }) {
     final base = _cloudBase.putIfAbsent(fid, () => {});
     final fromCache = snap.metadata.isFromCache;
+    bool inCol(String k) => recordSource(k) == col;
     // An empty CACHE answer for a collection we already hold data for is a
     // cold/partial cache, not "everything was deleted" — wait for the server.
-    if (full &&
-        fromCache &&
-        snap.docs.isEmpty &&
-        base.keys.any((k) => k.startsWith('$col/'))) {
+    if (full && fromCache && snap.docs.isEmpty && base.keys.any(inCol)) {
       return;
     }
-    final legacy = _legacyDocs.putIfAbsent(fid, () => {});
+    final versions = _cloudVersions.putIfAbsent(fid, () => {});
+    final hadNotes = col == kNotesCol
+        ? {
+            for (final k in base.keys)
+              if (inCol(k)) k,
+          }
+        : const <String>{};
     if (full) {
-      base.removeWhere((k, _) => k.startsWith('$col/'));
-      if (col == kWorkspaceCol) legacy.clear();
+      base.removeWhere((k, _) => inCol(k));
+      versions.removeWhere((k, _) => inCol(k));
     }
+    final prefix = '$kFamiliesCollection/$fid/';
     final changes = full
-        ? [for (final d in snap.docs) (d.id, d.data())]
+        ? [for (final d in snap.docs) (d.reference.path, d.data())]
         : [
             for (final c in snap.docChanges)
               (
-                c.doc.id,
+                c.doc.reference.path,
                 c.type == DocumentChangeType.removed ? null : c.doc.data(),
               ),
           ];
-    for (final (id, raw) in changes) {
-      final key = recordKey(col, id);
-      if (col == kWorkspaceCol) {
-        if (raw != null && isLegacyWorkspaceDoc(id, raw)) {
-          legacy[id] = Map<String, dynamic>.from(raw)
-            ..remove('updatedAtMillis')
-            ..remove('updatedAt');
-        } else {
-          legacy.remove(id);
-        }
-      }
+    for (final (path, raw) in changes) {
+      // The query filters on `familyId`; a doc filed under another family
+      // is never this family's.
+      if (!path.startsWith(prefix)) continue;
+      final key = path.substring(prefix.length);
       final rec = raw == null ? null : normalizeRecord(key, raw);
       if (rec == null) {
         base.remove(key);
+        versions.remove(key);
       } else {
         base[key] = rec;
+        versions[key] = recordVersion(raw);
       }
+    }
+    // Notes deleted on the server: lines still filed under them (added while
+    // the note was being deleted) are deleted too — see _localRecords.
+    for (final k in hadNotes) {
+      if (!base.containsKey(k)) _goneNotes.putIfAbsent(fid, () => {}).add(k);
     }
     // A cache answer only proves the collection's contents when it has docs
     // (an empty cache may simply never have synced it).
@@ -402,22 +430,17 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Everything the server holds for [fid] as records: the current-format
-  /// records, plus records still embedded in legacy docs / the legacy blob
+  /// records, plus records still embedded in the legacy family-doc blob
   /// (current-format records win on a clash).
   Records _serverView(String fid) {
     final base = _cloudBase[fid] ?? const <String, Map<String, dynamic>>{};
-    final docs = _legacyDocs[fid] ?? const <String, Map<String, dynamic>>{};
-    final hasWsDocs =
-        docs.isNotEmpty ||
-        base.keys.any((k) => k.startsWith('$kWorkspaceCol/'));
-    // The blob only counts for a family that never got workspace docs.
-    final blob = hasWsDocs ? null : _legacyBlob[fid];
-    if (docs.isEmpty && blob == null) return base;
-    return {...legacyRecords(docs, blob: blob), ...base};
+    // The blob only counts for a family that never got record docs.
+    final blob = base.isNotEmpty ? null : _legacyBlob[fid];
+    if (blob == null) return base;
+    return {...legacyRecords(const {}, blob: blob), ...base};
   }
 
-  bool _hasLegacyData(String fid) =>
-      (_legacyDocs[fid]?.isNotEmpty ?? false) || _legacyBlob[fid] != null;
+  bool _hasLegacyData(String fid) => _legacyBlob[fid] != null;
 
   /// Builds [fid]'s workspace from the server state alone.
   Workspace _workspaceFromCloud(String fid) =>
@@ -431,13 +454,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// actually changed, so our own write echoing back is a no-op.
   void _onCloudChange(String fid, void Function() mutate) {
     final hadBase = _cloudBase.containsKey(fid);
+    // A copy: [_serverView] may return the live `_cloudBase` map, which
+    // [mutate] changes in place — `before` would then equal `after` and
+    // every remote change would be ignored.
     final before = hadBase
-        ? _serverView(fid)
+        ? Map.of(_serverView(fid))
         : const <String, Map<String, dynamic>>{};
     mutate();
     final after = _serverView(fid);
     final localWs = workspaces[fid];
     Workspace next;
+    var lostEdits = const <Map<String, dynamic>>[];
+    var pendingDropped = false;
     if (!hadBase || localWs == null) {
       // Nothing of this family was loaded before: adopt the server wholesale
       // (a placeholder workspace's defaults must never win over real data).
@@ -448,12 +476,21 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           if (!jsonEquals(before[k], after[k])) k,
       };
       if (changed.isEmpty) return;
-      final local = normalizedRecords(localWs);
-      local.addAll(orphanListItems(before, local));
+      final local = _localRecords(fid, localWs, before);
       final oldBase = {...before};
       final inflight = _inflightCreates[fid] ?? const <String, int>{};
       final keep = <String>{};
+      final updating = _inflightUpdates[fid] ?? const <String, Map>{};
       for (final k in changed) {
+        // Our own save of this record isn't acknowledged yet: the server
+        // version we last saw is the base, so the change arriving now is
+        // merged with our edit instead of replacing it (a reload or snapshot
+        // racing the save must never drop it).
+        final sentFrom = updating[k];
+        if (sentFrom != null && local.containsKey(k)) {
+          oldBase[k] = Map<String, dynamic>.from(sentFrom);
+          continue;
+        }
         // Our own unacknowledged create vanishing from the cache is the SDK
         // reverting a failed write, not a delete: keep the local copy (the
         // rollback makes the next persist retry it).
@@ -467,11 +504,32 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         // month, a doc another member created with the same id): rebase it
         // against the model defaults, so only fields we really edited win.
         if (!before.containsKey(k) && local.containsKey(k)) {
-          // Settings are never created while unloaded, so a local copy the
-          // server hadn't confirmed is a placeholder: the server's wins.
-          oldBase[k] = k == recordKey(kWorkspaceCol, 'settings')
+          // Kitchen settings are never created while unloaded, so a local
+          // copy the server hadn't confirmed is a placeholder: theirs wins.
+          oldBase[k] = k == kKitchenKey
               ? local[k]!
               : placeholderRecord(k, local[k]!);
+        }
+      }
+      // Our unsaved edits of records another member deleted: dropped (a
+      // deletion always wins — see rebaseRecords), and the user is told.
+      lostEdits = [
+        for (final k in changed)
+          if (oldBase.containsKey(k) &&
+              !after.containsKey(k) &&
+              !keep.contains(k) &&
+              local.containsKey(k) &&
+              !jsonEquals(local[k], oldBase[k]))
+            local[k]!,
+      ];
+      // Deleted on the server: our pending delete is done, our pending edit
+      // is moot (a pending create stays — it's being sent).
+      for (final k in changed) {
+        if (after.containsKey(k)) continue;
+        final c = _pending['$fid|$k'];
+        if (c != null && !(c.op == PendingOp.save && c.serverRecord == null)) {
+          _pending.remove(c.id);
+          pendingDropped = true;
         }
       }
       final merged = rebaseRecords(
@@ -496,6 +554,43 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       update(() {});
       _rescheduleReminders();
     }
+    if (pendingDropped) _pendingChanged();
+    if (lostEdits.isNotEmpty) _notifyDeletedMeanwhile(lostEdits);
+  }
+
+  /// Tells the user their unsaved edits of [records] were dropped because
+  /// another member deleted them.
+  void _notifyDeletedMeanwhile(List<Map<String, dynamic>> records) {
+    if (!mounted || records.isEmpty) return;
+    final label = recordLabel(records.first);
+    flash(
+      records.length > 1
+          ? '${records.length} items you were editing were deleted by '
+                'another member'
+          : label.isEmpty
+          ? 'An item you were editing was deleted by another member'
+          : '\u201C$label\u201D was deleted by another member',
+    );
+  }
+
+  /// Record [key] of [fid] was deleted on the server while this device's
+  /// edit ([rec]) was being saved: the deletion wins — drop it here too.
+  void _dropDeletedRecord(String fid, String key, Map<String, dynamic> rec) {
+    _cloudBase[fid]?.remove(key);
+    _cloudVersions[fid]?.remove(key);
+    if (_pending.remove('$fid|$key')) _pendingChanged();
+    final ws = workspaces[fid];
+    if (ws != null) {
+      final local = _localRecords(fid, ws)..remove(key);
+      final next = workspaceFromRecords(local);
+      mergeCardPhotos(next.cards, ws.cards);
+      _applyingCloudSnapshot = true;
+      workspaces[fid] = next;
+      if (fid == familyId) _adoptActiveWorkspace();
+      _applyingCloudSnapshot = false;
+      if (mounted) update(() {});
+    }
+    _notifyDeletedMeanwhile([rec]);
   }
 
   /// Meta-doc fields this app owns, normalized through the model.
@@ -511,15 +606,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _markFreshCloudFamily(String fid) {
     _cloudBase[fid] = {};
     _cloudLoaded[fid] = {...kRecordCollections};
-    _legacyDocs.remove(fid);
     _legacyBlob.remove(fid);
   }
 
-  /// One-time migration of [fid]'s pre-record data (whole-array workspace
-  /// docs, embedded `blocks`/`tasks`/`items` arrays, the single-doc
-  /// `workspace` blob) into one document per item. Records are created from
+  /// One-time migration of [fid]'s pre-record data (the single-doc
+  /// `workspace` blob on the family doc) into one document per item. Records are created from
   /// this device's current copy (so edits/deletes made meanwhile survive),
-  /// and only once every create landed are the legacy docs removed. Runs
+  /// and only once every create landed is the blob removed. Runs
   /// once all collections are loaded, so nothing already migrated (by
   /// another member) is overwritten. Idempotent; retried on failure.
   Future<void> _migrateLegacyData(String fid) async {
@@ -563,42 +656,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         rethrow;
       }
 
-      final docs = Map<String, Map<String, dynamic>>.from(
-        _legacyDocs[fid] ?? const {},
-      );
-      final blob = _legacyBlob[fid];
-      final cleanup = <void Function(WriteBatch)>[];
-      docs.forEach((id, raw) {
-        final ref = _recordCol(fid, kWorkspaceCol).doc(id);
-        if (legacyDocIsWholeDoc(id)) {
-          cleanup.add((b) => b.delete(ref));
-          return;
-        }
-        final rec = base[recordKey(kWorkspaceCol, id)];
-        cleanup.add(
-          (b) => b.update(ref, {
-            for (final k in kLegacyWorkspaceKeys)
-              if (raw.containsKey(k)) k: FieldValue.delete(),
-            if (rec != null && rec['_blocks'] != null)
-              '_blocks': rec['_blocks'],
-            'updatedAtMillis': now,
-          }),
-        );
-      });
-      if (blob != null) {
-        cleanup.add(
-          (b) =>
-              b.update(_familyDocRef(fid), {'workspace': FieldValue.delete()}),
-        );
-      }
-      await _commitInChunks(cleanup);
-      final left = _legacyDocs[fid];
-      if (left != null) {
-        for (final id in docs.keys) {
-          left.remove(id);
-        }
-      }
-      if (blob != null) _legacyBlob.remove(fid);
+      await _familyDocRef(fid).update({'workspace': FieldValue.delete()});
+      _legacyBlob.remove(fid);
       debugPrint(
         '[cloud] migrated ${creates.length} legacy record(s) for $fid',
       );
@@ -612,8 +671,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   /// Commits [ops] in batches below Firestore's 500-write limit. Every batch
-  /// is issued immediately (and so durably queued offline, in order); only
-  /// the acks are awaited.
+  /// is issued immediately, in order; only the acks are awaited.
   Future<void> _commitInChunks(List<void Function(WriteBatch)> ops) {
     final commits = <Future<void>>[];
     for (var i = 0; i < ops.length; i += 450) {
@@ -628,19 +686,28 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
 
   /// The merge-safe body for creating record [key] (see [createPayload]).
   /// Where the collection is known to lack the doc, container docs are
-  /// written whole (a fresh family's settings, a new month's block order).
+  /// written whole (a fresh family's kitchen settings, a new month's block
+  /// order). Always tagged with the family (see [kFamilyIdField]).
   Map<String, dynamic> _createBody(
     String fid,
     String key,
     Map<String, dynamic> rec,
     int now,
   ) {
-    final wsKnown = _cloudLoaded[fid]?.contains(kWorkspaceCol) ?? false;
-    final body = key == recordKey(kWorkspaceCol, 'settings') && wsKnown
+    final known = _cloudLoaded[fid]?.contains(recordSource(key)) ?? false;
+    final body = key == kKitchenKey && known
         ? rec
-        : createPayload(key, rec, includeBlocks: wsKnown);
-    return {...body, 'updatedAtMillis': now};
+        : createPayload(key, rec, includeBlocks: known);
+    return {...body, kFamilyIdField: fid, ..._versionBump(now)};
   }
+
+  /// Bookkeeping fields every record write carries: one more save
+  /// ([kVersionField]), by whom and when.
+  Map<String, dynamic> _versionBump(int now) => {
+    kVersionField: FieldValue.increment(1),
+    kUpdatedByField: myId,
+    'updatedAtMillis': now,
+  };
 
   /// Adopts a set of loaded family documents into local state, choosing the
   /// active family from [userData] (falling back to the first) and restoring the
@@ -695,8 +762,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
     _migrateLegacyMeIdsAll(meUid);
     // Move families still on the pre-record layout (legacy array docs or the
-    // multi-MB single-doc blob, which can overflow Android's CursorWindow
-    // when re-read from the offline cache) now, not on the first edit.
+    // multi-MB single-doc blob, which can overflow Android's CursorWindow)
+    // now, not on the first edit.
     for (final entry in docs) {
       unawaited(_migrateLegacyData(entry.key));
     }
@@ -814,9 +881,40 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       return;
     }
     debugPrint('[cloud] $label stream failed for $fid: $e');
-    if (mounted) {
-      showError('Lost sync with your family — restart the app if it persists.');
-    }
+    // Re-subscribed when the app next comes to the foreground.
+    _streamsBroken = true;
+    if (mounted) _showSectionLoadSheet(label, uid: _firebaseUid());
+  }
+
+  /// A family stream broke: that part of the family's data stops updating.
+  void _showSectionLoadSheet(String label, {String? uid}) {
+    final what = switch (label) {
+      kCalendarCol || kEventsCol || kLayersCol || kCategoriesCol => 'calendar',
+      kFinanceCol ||
+      kAccountsCol ||
+      kBlocksCol ||
+      kEntriesCol ||
+      kCardsCol ||
+      kImportsCol => 'budget',
+      kNotesCol || kLinesCol => 'lists',
+      kMealsCol || kDaysCol => 'meal plan',
+      _ => 'family’s data',
+    };
+    _showStatusSheetOnce(
+      tone: StatusTone.amber,
+      title: 'Couldn’t load your $what',
+      body:
+          'The rest of Thrive works fine. Try again, or come back to it in a '
+          'moment.',
+      primary: 'Try again',
+      onPrimary: () {
+        if (uid == null || !_streamsBroken) return;
+        _streamsBroken = false;
+        unawaited(bindCloudSync(uid));
+      },
+      secondary: 'Go to Home',
+      onSecondary: () => update(() => tab = 'home'),
+    );
   }
 
   void _cancelRecordSubs() {
@@ -824,6 +922,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       sub.cancel();
     }
     _recordSubs.clear();
+    _cancelKidLineSubs();
   }
 
   void _bindActiveFamily(String meUid) {
@@ -843,7 +942,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         if (_isKidFamily(fid)) break;
         var first = true;
         _recordSubs.add(
-          _recordCol(fid, col).snapshots().listen((snap) {
+          _recordQuery(fid, col).snapshots().listen((snap) {
             final full = first;
             first = false;
             _onCloudChange(
@@ -866,10 +965,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           _dropFamilyLocally(fid);
           return;
         }
-        // The owner made this login a kid (or lifted it): kid and full
+        // An admin made this login a kid (or lifted it): kid and full
         // members load through different queries, so reload.
         if (_noteKidStatus(fid, data)) {
           _metaBase[fid] = _metaFromDoc(fid, data);
+          final idx = families.indexWhere((f) => f.id == fid);
+          if (idx >= 0) families[idx] = _familyFromDoc(fid, data);
           _reloadFamilyAccess(fid);
           return;
         }
@@ -923,33 +1024,47 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   }
 
   // ----------------------------------------------------------- persist
-  Future<void> cloudPersist(String meUid) async {
-    if (_applyingCloudSnapshot) return;
+  /// Saves the active family's changes to the server and completes with
+  /// whether every write was acknowledged (see [_persistFamily]).
+  Future<bool> cloudPersist(String meUid) async {
+    if (_applyingCloudSnapshot) return true;
     final f = curFamily();
+    var ok = true;
     if (f != null) {
       if (!f.memberUids.contains(meUid)) f.memberUids.add(meUid);
       f.ownerUid ??= meUid;
-      // The writes are issued (and durably queued by the SDK's offline
-      // persistence) synchronously inside _persistFamily; only the backend
-      // acks are async. Not awaiting them keeps an offline device from
-      // stalling here until reconnect.
-      unawaited(_persistFamily(f, workspaces[f.id] ?? Workspace.empty()));
+      ok = await _persistFamily(f, workspaces[f.id] ?? Workspace.empty());
+    }
+    // Unsaved changes of other families (still retrying, or staged changes
+    // just applied) are saved with the active one's.
+    final others = {..._persistAlso, for (final c in _pending.all) c.familyId}
+      ..remove(f?.id);
+    for (final o in families.where((x) => others.contains(x.id))) {
+      final ws = workspaces[o.id];
+      if (ws == null) continue;
+      if (await _persistFamily(o, ws)) {
+        _persistAlso.remove(o.id);
+      } else {
+        ok = false;
+      }
     }
     // Best-effort, bounded mirror write.
     await _recordMembership(meUid);
+    return ok;
   }
 
   /// Writes to Firestore exactly what this device changed in [f] since the
   /// server state it last saw ([_cloudBase] / [_metaBase]): new records are
-  /// created, changed records get FIELD-LEVEL updates (so another member's
-  /// edit to a different field of the same item is never overwritten), and
-  /// records deleted locally are deleted. Nothing this device didn't touch is
-  /// ever written, so a stale device can't revert anyone's edits.
+  /// created, changed records get FIELD-LEVEL, versioned updates (so another
+  /// member's edit to a different field of the same item is never
+  /// overwritten — see [_versionedUpdate]), and records deleted locally are
+  /// deleted. Nothing this device didn't touch is ever written, so a stale
+  /// device can't revert anyone's edits.
   ///
   /// The base is updated optimistically (a second persist racing this one
-  /// won't re-send the same changes) and rolled back if a write is rejected,
-  /// so the next persist retries it. Completes with whether every write was
-  /// acknowledged.
+  /// won't re-send the same changes) and rolled back if a write is rejected
+  /// or not acknowledged within [kCloudOpTimeout], so the next persist
+  /// retries it. Completes with whether every write was acknowledged.
   Future<bool> _persistFamily(Family f, Workspace ws) async {
     final acks = <Future<void>>[];
     _persistFamilyMeta(f, acks);
@@ -958,30 +1073,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final results = await Future.wait([
       for (final a in acks) a.then((_) => true, onError: (Object _) => false),
     ]);
-    final ok = results.every((r) => r);
-    if (mounted) {
-      if (!ok) {
-        // Surface the queue on the Settings v2 sub-pages (#283).
-        if (!netOffline.value) {
-          netOffline.value = true;
-          showError('Could not sync your latest changes — will retry.');
-        }
-        if (syncStatus.value != null) {
-          syncStatus.value = SettingsSyncStatus.queued;
-        }
-      } else if (netOffline.value) {
-        netOffline.value = false;
-      }
-    }
-    return ok;
+    return results.every((r) => r);
   }
 
   void _persistFamilyMeta(Family f, List<Future<void>> acks) {
-    // Only the owner publishes which logins are kids (the rules reject the
-    // field from anyone else), derived from the kid profiles' emails.
-    if (f.ownerUid != null && f.ownerUid == _firebaseUid()) {
-      f.kidEmails = deriveKidEmails(f.members);
-    }
     final local = _metaOf(f);
     final base = _metaBase[f.id];
     if (base != null && jsonEquals(base, local)) return;
@@ -999,7 +1094,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
     _metaBase[f.id] = local;
     acks.add(
-      write.catchError((Object e) {
+      write.timeout(kCloudOpTimeout).catchError((Object e) {
         debugPrint('[cloud] meta write failed for ${f.id}: $e');
         if (jsonEquals(_metaBase[f.id], local)) {
           if (base == null) {
@@ -1023,67 +1118,74 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (base == null) return;
     final loaded = _cloudLoaded[fid] ?? const <String>{};
     final view = _serverView(fid);
-    final local = normalizedRecords(ws);
-    local.addAll(orphanListItems(view, local));
+    final local = _localRecords(fid, ws, view);
     _scopeKidWrites(fid, base, local);
     final legacyPending = _hasLegacyData(fid);
+    final intents = _deleteIntents[fid] ?? <String>{};
+    final gone = _goneNotes[fid] ?? const <String>{};
+    bool deliberate(String k) =>
+        intents.contains(k) ||
+        (recordKind(k) == RecordKind.line &&
+            (intents.contains(_noteKeyOfLine(k)) ||
+                gone.contains(_noteKeyOfLine(k))));
     // Safety net: a placeholder `Workspace.empty()` (a family that hasn't
-    // finished loading) must never be written over real data.
+    // finished loading) must never be written over real data. Deleting the
+    // family's last note / event is not that.
     if (recordsAreEmptyPlaceholder(local) &&
         (!kRecordCollections.every(loaded.contains) ||
             legacyPending ||
-            base.keys.any((k) => k != recordKey(kWorkspaceCol, 'settings')))) {
+            base.keys.any((k) => !local.containsKey(k) && !deliberate(k)))) {
       debugPrint('[cloud] SKIPPED persist for $fid: workspace not loaded');
       return;
     }
     final plan = planRecordWrites(base, local);
-    final legacyIds = _legacyDocs[fid]?.keys.toSet() ?? const <String>{};
-    bool blocked(String key) {
-      final (col, id) = splitRecordKey(key);
-      return col == kWorkspaceCol && legacyIds.contains(id);
-    }
 
     final now = DateTime.now().millisecondsSinceEpoch;
     final ops = <void Function(WriteBatch)>[];
     final rollbacks = <void Function()>[];
     final created = <String>[];
+    // Unsaved-changes journal entries this batch settles once acknowledged.
+    final sent = <(String, int)>[];
     plan.creates.forEach((key, rec) {
       // Records still held by legacy docs are created by the migration.
       if (legacyPending && view.containsKey(key)) return;
-      // Container docs (settings, months, card meta) are placeholders until
-      // the workspace collection has loaded — never write those. A list is
-      // only ever in memory because a member pinned it, so it's written
-      // right away: its lines are, and a list doc that never reached the
-      // durable write queue is lost on the next restart.
-      final (col, id) = splitRecordKey(key);
-      if (col == kWorkspaceCol &&
-          !id.startsWith('list_') &&
-          !loaded.contains(kWorkspaceCol)) {
+      // Container docs (settings, months, accounts, cards, ...) are
+      // placeholders until their collection has loaded — never write those.
+      // A note is only ever in memory because a member pinned it, so it's
+      // written right away: its lines are, and a note doc that never reached
+      // the durable write queue is lost on the next restart.
+      final col = recordSource(key);
+      if (kContainerCollections.contains(col) && !loaded.contains(col)) {
         return;
       }
       // Merge-safe even when the doc exists but hasn't reached this device
       // (see createPayload), so this never waits for the collection to load
-      // — offline edits enter the SDK's durable queue right away.
+      // — the create is sent to the server right away.
       final body = _createBody(fid, key, rec, now);
       ops.add(
         (b) => b.set(_recordRef(fid, key), body, SetOptions(merge: true)),
       );
       base[key] = rec;
       created.add(key);
+      sent.add((key, _journal(fid, key, rec, null, now)));
       // By value: the local echo may already have replaced the object.
       rollbacks.add(() {
         if (jsonEquals(base[key], rec)) base.remove(key);
       });
     });
-    final intents = _listDeleteIntents[fid] ?? <String>{};
     // Undone (the record is back) — no longer a delete.
     intents.removeWhere(local.containsKey);
-    final unintended = unintendedListDeletes(base, plan.deletes, intents);
+    // Lines left under a note another member deleted go with it.
+    final unintended = unintendedDeletes(base, plan.deletes, {
+      ...intents,
+      ...gone,
+    }, local: local);
     for (final key in plan.deletes) {
-      if (blocked(key) || unintended.containsKey(key)) continue;
+      if (unintended.containsKey(key)) continue;
       ops.add((b) => b.delete(_recordRef(fid, key)));
       final prev = base.remove(key)!;
       final intent = intents.remove(key);
+      sent.add((key, _journal(fid, key, null, prev, now)));
       rollbacks.add(() {
         base.putIfAbsent(key, () => prev);
         if (intent) intents.add(key);
@@ -1091,7 +1193,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
     // Spent (or moot: never reached the server) intents.
     intents.removeWhere((k) => !base.containsKey(k));
-    if (unintended.isNotEmpty) _restoreListRecords(fid, local, unintended);
+    if (unintended.isNotEmpty) _restoreGuardedRecords(fid, local, unintended);
     if (ops.isNotEmpty) {
       final inflight = _inflightCreates.putIfAbsent(fid, () => {});
       for (final k in created) {
@@ -1109,57 +1211,278 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
 
       acks.add(
-        _commitInChunks(ops).then(
-          (_) => settle(),
+        _commitInChunks(ops)
+            .timeout(kCloudOpTimeout)
+            .then(
+              (_) {
+                settle();
+                _settleJournal(fid, sent);
+              },
+              onError: (Object e) {
+                debugPrint('[cloud] record commit failed for $fid: $e');
+                for (final r in rollbacks) {
+                  r();
+                }
+                settle();
+                throw e;
+              },
+            ),
+      );
+    }
+    plan.updates.forEach((key, _) {
+      final prev = base[key]!;
+      final rec = local[key]!;
+      base[key] = rec;
+      final inflight = _inflightUpdates.putIfAbsent(fid, () => {});
+      // The oldest unacknowledged version is what we last saw from the server.
+      inflight.putIfAbsent(key, () => prev);
+      final seq = _journal(fid, key, rec, prev, now);
+      acks.add(
+        _versionedUpdate(fid, key, prev, rec, now).then(
+          (_) {
+            inflight.remove(key);
+            _settleJournal(fid, [(key, seq)]);
+          },
           onError: (Object e) {
-            debugPrint('[cloud] record commit failed for $fid: $e');
-            for (final r in rollbacks) {
-              r();
-            }
-            settle();
+            debugPrint('[cloud] update of $key failed for $fid: $e');
+            inflight.remove(key);
+            if (jsonEquals(base[key], rec)) base[key] = prev;
             throw e;
           },
         ),
       );
-    }
-    plan.updates.forEach((key, patch) {
-      if (blocked(key)) return;
-      final prev = base[key]!;
-      final rec = local[key]!;
-      base[key] = rec;
-      final ref = _recordRef(fid, key);
-      acks.add(
-        ref
-            .update({
-              for (final c in patch)
-                FieldPath(c.path): c.delete ? FieldValue.delete() : c.value,
-              'updatedAtMillis': now,
-            })
-            .catchError((Object e) {
-              // Deleted by another member meanwhile: our edit recreates it.
-              if (e is FirebaseException && e.code == 'not-found') {
-                return ref.set(
-                  _createBody(fid, key, rec, now),
-                  SetOptions(merge: true),
-                );
-              }
-              throw e;
-            })
-            .catchError((Object e) {
-              debugPrint('[cloud] update of $key failed for $fid: $e');
-              if (jsonEquals(base[key], rec)) base[key] = prev;
-              throw e;
-            }),
-      );
     });
   }
 
-  /// Puts list records the in-memory workspace lost — without the user
-  /// deleting them — back into [fid]'s workspace, so the device shows (and
-  /// keeps) what the server still holds instead of wiping it.
-  void _restoreListRecords(String fid, Records local, Records lost) {
+  /// This device's records of [fid] ([ws]), plus lines the server holds
+  /// whose note hasn't arrived yet (see [orphanListItems]) — except lines of
+  /// a note that was deleted: those are deleted too.
+  Records _localRecords(String fid, Workspace ws, [Records? view]) {
+    final local = normalizedRecords(ws);
+    final gone = _goneNotes[fid] ?? const <String>{};
+    orphanListItems(view ?? _serverView(fid), local).forEach((k, v) {
+      if (!gone.contains(_noteKeyOfLine(k))) local[k] = v;
+    });
+    return local;
+  }
+
+  /// Saves this device's edit of record [key] ([prev] → [rec]) inside a
+  /// transaction against the version on the server right now:
+  /// - nobody else saved since [prev] → only our changed fields are written;
+  /// - someone else saved meanwhile → three-way merge (their changes to other
+  ///   fields are kept); a field both changed keeps ours, and the user is
+  ///   told and offered theirs ([_onSaveConflict]).
+  /// The version goes up by exactly one. A record deleted meanwhile stays
+  /// deleted: the edit is dropped ([_dropDeletedRecord]).
+  Future<void> _versionedUpdate(
+    String fid,
+    String key,
+    Map<String, dynamic> prev,
+    Map<String, dynamic> rec,
+    int now,
+  ) async {
+    final ref = _recordRef(fid, key);
+    final result = await FirebaseFirestore.instance
+        .runTransaction<
+          ({
+            bool missing,
+            int version,
+            Map<String, dynamic>? server,
+            String? by,
+            List<List<String>> conflicts,
+          })
+        >((tx) async {
+          final snap = await tx.get(ref);
+          final raw = snap.data();
+          if (!snap.exists || raw == null) {
+            return (
+              missing: true,
+              version: 0,
+              server: null,
+              by: null,
+              conflicts: const <List<String>>[],
+            );
+          }
+          final version = recordVersion(raw);
+          final server = normalizeRecord(key, raw) ?? prev;
+          final save = planVersionedSave(
+            prev: prev,
+            server: server,
+            local: rec,
+          );
+          if (save.patch.isEmpty) {
+            return (
+              missing: false,
+              version: version,
+              server: server,
+              by: raw[kUpdatedByField]?.toString(),
+              conflicts: save.conflicts,
+            );
+          }
+          tx.update(ref, {
+            for (final c in save.patch)
+              FieldPath(c.path): c.delete ? FieldValue.delete() : c.value,
+            kVersionField: version + 1,
+            kUpdatedByField: myId,
+            'updatedAtMillis': now,
+          });
+          return (
+            missing: false,
+            version: version + 1,
+            server: server,
+            by: raw[kUpdatedByField]?.toString(),
+            conflicts: save.conflicts,
+          );
+        }, timeout: kCloudOpTimeout);
+    if (result.missing) {
+      // Deleted by another member meanwhile: the deletion wins over our edit.
+      _dropDeletedRecord(fid, key, rec);
+      return;
+    }
+    _cloudVersions.putIfAbsent(fid, () => {})[key] = result.version;
+    if (result.conflicts.isNotEmpty && result.server != null) {
+      _onSaveConflict(
+        fid,
+        key,
+        rec,
+        result.server!,
+        result.conflicts,
+        result.by,
+      );
+    }
+  }
+
+  /// Someone else saved record [key] while this device was editing it and
+  /// both changed the same field(s) ([paths]). Our version was saved; tell
+  /// the user and offer to switch to theirs ([theirs] = what the server held
+  /// before our save, written by member [by]).
+  void _onSaveConflict(
+    String fid,
+    String key,
+    Map<String, dynamic> mine,
+    Map<String, dynamic> theirs,
+    List<List<String>> paths,
+    String? by,
+  ) {
+    if (!mounted) return;
+    final who = _memberName(fid, by) ?? 'Someone else';
+    final label = recordLabel(mine);
+    final what = label.isEmpty ? 'this item' : '\u201C$label\u201D';
+    if (_conflictDialogOpen) {
+      flash('$who also changed $what — your version was saved');
+      return;
+    }
+    _conflictDialogOpen = true;
+    showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0x80101828),
+      builder: (ctx) => _SaveConflictDialog(
+        who: who,
+        what: what,
+        onKeepMine: () => Navigator.of(ctx).pop(false),
+        onUseTheirs: () => Navigator.of(ctx).pop(true),
+      ),
+    ).then((useTheirs) {
+      _conflictDialogOpen = false;
+      if (useTheirs == true) _useTheirVersion(fid, key, theirs, paths);
+    });
+  }
+
+  /// Display name of member [id] (uid or member id) of family [fid].
+  String? _memberName(String fid, String? id) {
+    if (id == null || id.isEmpty) return null;
+    if (id == myId) return 'You (on another device)';
+    for (final f in families) {
+      if (f.id != fid) continue;
+      for (final m in f.members) {
+        if (m.id == id || m.uid == id) return m.name;
+      }
+    }
+    return null;
+  }
+
+  /// Replaces this device's value of the conflicting [paths] of record [key]
+  /// with [theirs] and saves that.
+  void _useTheirVersion(
+    String fid,
+    String key,
+    Map<String, dynamic> theirs,
+    List<List<String>> paths,
+  ) {
+    final ws = workspaces[fid];
+    if (ws == null || !mounted) return;
+    final local = _localRecords(fid, ws);
+    final cur = local[key];
+    if (cur == null) return;
+    local[key] = takeTheirs(cur, theirs, paths);
+    final next = workspaceFromRecords(local);
+    mergeCardPhotos(next.cards, ws.cards);
+    mutate(() {
+      workspaces[fid] = next;
+      if (fid == familyId) _adoptActiveWorkspace();
+    });
+  }
+
+  /// Reloads the active family's record collections [cols] from the server
+  /// (screen opened, app back in the foreground). Collections reloaded less
+  /// than [kScreenReloadMinInterval] ago are skipped unless [force]. The
+  /// result is rebased like any server change, so edits still being saved
+  /// are kept; a reload that raced a save is dropped (the save's own echo
+  /// brings the fresh state).
+  Future<void> reloadFromServer({
+    Iterable<String> cols = kRecordCollections,
+    bool force = false,
+  }) async {
+    if (!_cloudBacked || !mounted) return;
+    final fid = familyId;
+    if (!_cloudBase.containsKey(fid)) return;
+    // A kid's scoped listeners are the only reads the rules allow them.
+    if (_isKidFamily(fid)) return;
+    final now = DateTime.now();
+    final due = [
+      for (final c in cols)
+        if (force ||
+            now.difference(
+                  _lastServerReload['$fid/$c'] ??
+                      DateTime.fromMillisecondsSinceEpoch(0),
+                ) >=
+                kScreenReloadMinInterval)
+          c,
+    ];
+    if (due.isEmpty) return;
+    for (final c in due) {
+      _lastServerReload['$fid/$c'] = now;
+    }
+    final gen = _persistGeneration;
+    await Future.wait([
+      for (final col in due)
+        _recordQuery(fid, col)
+            .get(const GetOptions(source: Source.server))
+            .timeout(kCloudOpTimeout)
+            .then((snap) {
+              if (!mounted || fid != familyId) return;
+              if (gen != _persistGeneration || _persistRun != null) {
+                _lastServerReload.remove('$fid/$col');
+                return;
+              }
+              _onCloudChange(
+                fid,
+                () => _ingestRecordSnapshot(fid, col, snap, full: true),
+              );
+            })
+            .catchError((Object e) {
+              _lastServerReload.remove('$fid/$col');
+              debugPrint('[cloud] reload of $col failed for $fid: $e');
+            }),
+    ]);
+  }
+
+  /// Puts list / event records the in-memory workspace lost — without the
+  /// user deleting them — back into [fid]'s workspace, so the device shows
+  /// (and keeps) what the server still holds instead of wiping it.
+  void _restoreGuardedRecords(String fid, Records local, Records lost) {
     debugPrint(
-      '[cloud] kept ${lost.length} list record(s) for $fid that vanished '
+      '[cloud] kept ${lost.length} record(s) for $fid that vanished '
       'locally without being deleted: ${lost.keys.take(5).join(', ')}',
     );
     final current = workspaces[fid];
@@ -1170,21 +1493,368 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (mounted) update(() {});
   }
 
-  /// Records that the user deliberately unpinned list [listId] ([kind]
-  /// `task`/`shop`) in the active family: its doc and lines may be deleted
-  /// from the server on the next persist.
-  void _markListDeleted(String kind, String listId) {
-    _listDeleteIntents
-        .putIfAbsent(familyId, () => {})
-        .add(listMetaKey(kind, listId));
+  /// Records that the user deliberately unpinned list [listId] in the
+  /// active family: its doc and lines may be deleted from the server on the
+  /// next persist.
+  void _markListDeleted(String listId) {
+    _deleteIntents.putIfAbsent(familyId, () => {}).add(listMetaKey(listId));
   }
 
   /// Records that the user deliberately crossed off line [itemId] of list
   /// [listId] in the active family.
-  void _markListItemDeleted(String kind, String listId, String itemId) {
-    _listDeleteIntents
+  void _markListItemDeleted(String listId, String itemId) {
+    _deleteIntents
         .putIfAbsent(familyId, () => {})
-        .add(listItemKey(kind, listId, itemId));
+        .add(listItemKey(listId, itemId));
+  }
+
+  // ------------------------------------------------ unsaved changes
+  /// The device key of [uid]'s unsaved-changes journal.
+  String _pendingKey(String uid) => '$kPendingChangesKey.$uid';
+
+  /// Journals a write of [key] in [fid] ([rec]; null = delete) made from the
+  /// server's [prev] (null = new record). Returns the send's sequence number.
+  int _journal(
+    String fid,
+    String key,
+    Map<String, dynamic>? rec,
+    Map<String, dynamic>? prev,
+    int now,
+  ) {
+    final seq = _pending.record(
+      fid,
+      key,
+      record: rec,
+      serverRecord: prev,
+      now: now,
+    );
+    _pendingChanged();
+    return seq;
+  }
+
+  /// Journals the active family's changes not sent yet (a save is waiting
+  /// for the one in flight), so they survive the app being closed before
+  /// they're sent. The waiting save journals them again as it sends them.
+  void _journalWaitingChanges() {
+    final fid = curFamily()?.id;
+    if (fid == null || _applyingCloudSnapshot) return;
+    final base = _cloudBase[fid];
+    final ws = workspaces[fid];
+    if (base == null || ws == null) return;
+    final local = _localRecords(fid, ws);
+    final plan = planRecordWrites(base, local);
+    final intents = _deleteIntents[fid] ?? const <String>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var any = false;
+    void put(String k, Map<String, dynamic>? rec, Map<String, dynamic>? prev) {
+      _pending.record(fid, k, record: rec, serverRecord: prev, now: now);
+      any = true;
+    }
+
+    plan.creates.forEach((k, rec) => put(k, rec, null));
+    plan.updates.forEach((k, _) => put(k, local[k], base[k]));
+    for (final k in plan.deletes) {
+      if (intents.contains(k)) put(k, null, base[k]);
+    }
+    if (any) _pendingChanged();
+  }
+
+  /// The server acknowledged the writes [sent] (key, sequence) of [fid].
+  void _settleJournal(String fid, Iterable<(String, int)> sent) {
+    var any = false;
+    for (final (key, seq) in sent) {
+      if (_pending.settle(fid, key, seq)) any = true;
+    }
+    if (any) _pendingChanged();
+  }
+
+  /// Saves the journal to its own device document and refreshes the review
+  /// screen.
+  void _pendingChanged() {
+    pendingChangesTick.value++;
+    final uid = _firebaseUid();
+    if (uid == null) return;
+    final key = _pendingKey(uid);
+    final body = _pending.isEmpty ? null : json.encode(_pending.toJson(uid));
+    unawaited(
+      SharedPreferences.getInstance()
+          .then((p) => body == null ? p.remove(key) : p.setString(key, body))
+          .then(
+            (_) {},
+            onError: (Object e) {
+              debugPrint('[cloud] saving unsaved changes failed: $e');
+            },
+          ),
+    );
+  }
+
+  CollectionReference<Map<String, dynamic>> _unsavedRef(String uid) =>
+      _userDocRef(uid).collection(kUnsavedChangesCollection);
+
+  /// Moves [uid]'s unsaved changes from a previous run (the device journal)
+  /// to their staging area in Firestore, out of the family data — nothing is
+  /// written to the families until the user applies them (Settings →
+  /// Unsaved changes). A set-aside change only ever leaves the staging area
+  /// once the user reviewed it (applied or discarded); the only changes not
+  /// set aside are those already in the family's data. Then loads every
+  /// staged change.
+  Future<void> _stagePendingChanges(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_pendingKey(uid));
+    var journal = PendingChanges();
+    if (raw != null) {
+      try {
+        journal = PendingChanges.fromJson(json.decode(raw), uid);
+      } catch (e) {
+        debugPrint('[cloud] unreadable unsaved changes: $e');
+      }
+    }
+    _pending = journal;
+    final mine = {for (final f in families) f.id};
+    for (final c in journal.all) {
+      // Year / month folders are rebuilt from the items they hold.
+      if (isContainerRecord(c.key)) journal.remove(c.id);
+    }
+    final toStage = <PendingChange>[];
+    for (final fid in {for (final c in journal.all) c.familyId}) {
+      // A family they've left: set aside as is (only discardable).
+      if (!mine.contains(fid)) {
+        toStage.addAll(journal.forFamily(fid));
+        continue;
+      }
+      final ws = workspaces[fid];
+      // Not loaded: kept on the device, set aside on the next start.
+      if (ws == null || _cloudBase[fid] == null) continue;
+      final r = applyPendingChanges(
+        server: _serverView(fid),
+        local: _localRecords(fid, ws),
+        changes: journal.forFamily(fid),
+      );
+      // Already in the family's data: nothing to review.
+      for (final c in r.settled) {
+        journal.remove(c.id);
+      }
+      // Edits of items deleted meanwhile are set aside too, for review.
+      toStage
+        ..addAll(r.pending)
+        ..addAll(r.lost);
+    }
+    if (toStage.isNotEmpty) {
+      try {
+        final col = _unsavedRef(uid);
+        await _commitInChunks([
+          for (final c in toStage) (b) => b.set(col.doc(c.docId), c.toJson()),
+        ]).timeout(kCloudOpTimeout);
+        for (final c in toStage) {
+          journal.remove(c.id);
+        }
+        debugPrint('[cloud] set aside ${toStage.length} unsaved change(s)');
+      } catch (e) {
+        // Kept on the device; set aside on the next start.
+        debugPrint('[cloud] setting aside unsaved changes failed: $e');
+      }
+    }
+    _pendingChanged();
+    await _loadStagedChanges(uid);
+  }
+
+  /// Loads [uid]'s staged changes. Nothing is ever removed here: only the
+  /// user's review (apply / discard) clears a staged change.
+  Future<void> _loadStagedChanges(String uid) async {
+    try {
+      final snap = await _unsavedRef(
+        uid,
+      ).get(const GetOptions(source: Source.server)).timeout(kCloudOpTimeout);
+      final staged = PendingChanges();
+      for (final d in snap.docs) {
+        final c = PendingChange.fromJson(d.data());
+        if (c != null && c.docId == d.id) staged.addStaged(c);
+      }
+      _staged = staged;
+      pendingChangesTick.value++;
+      if (!staged.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => promptUnsavedChanges(),
+        );
+      }
+    } catch (e) {
+      debugPrint('[cloud] loading unsaved changes failed: $e');
+    }
+  }
+
+  /// Whether staged change [c] can be applied, or why not.
+  StagedStatus stagedStatus(PendingChange c) {
+    final fid = c.familyId;
+    if (!families.any((f) => f.id == fid) ||
+        workspaces[fid] == null ||
+        _cloudBase[fid] == null) {
+      return StagedStatus.familyGone;
+    }
+    if (c.op == PendingOp.delete) return StagedStatus.ready;
+    final server = _serverView(fid);
+    if (c.serverRecord != null) {
+      return server.containsKey(c.key)
+          ? StagedStatus.ready
+          : StagedStatus.deletedMeanwhile;
+    }
+    if (recordKind(c.key) == RecordKind.line) {
+      final note = _noteKeyOfLine(c.key);
+      if (!server.containsKey(note) &&
+          _staged['$fid|$note']?.op != PendingOp.save) {
+        return StagedStatus.deletedMeanwhile;
+      }
+    }
+    return StagedStatus.ready;
+  }
+
+  /// Applies the staged changes [ids] onto each family's CURRENT data (see
+  /// [applyPendingChanges]: edits are merged field by field) and saves them;
+  /// their staging docs are then deleted. A change to an item deleted
+  /// meanwhile is dropped (the deletion wins); one for a family the user left
+  /// stays set aside until discarded.
+  Future<StagedApplyResult> applyStagedChanges(List<String> ids) async {
+    final uid = _firebaseUid();
+    if (uid == null) return const StagedApplyResult(signedOut: true);
+    final byFamily = <String, List<PendingChange>>{};
+    final wanted = {...ids};
+    // An item of a new note that's set aside too brings its note along.
+    for (final id in ids) {
+      final c = _staged[id];
+      if (c == null || recordKind(c.key) != RecordKind.line) continue;
+      final note = _staged['${c.familyId}|${_noteKeyOfLine(c.key)}'];
+      if (note != null && note.op == PendingOp.save) wanted.add(note.id);
+    }
+    final done = <PendingChange>[];
+    final lost = <PendingChange>[];
+    final sent = <PendingChange>[];
+    for (final id in wanted) {
+      final c = _staged[id];
+      if (c == null) continue;
+      switch (stagedStatus(c)) {
+        case StagedStatus.ready:
+          (byFamily[c.familyId] ??= []).add(c);
+        case StagedStatus.deletedMeanwhile:
+          // The deletion wins: applying it just clears it.
+          lost.add(c);
+        case StagedStatus.familyGone:
+          break;
+      }
+    }
+    for (final MapEntry(key: fid, value: changes) in byFamily.entries) {
+      final ws = workspaces[fid];
+      if (ws == null || _cloudBase[fid] == null) continue;
+      final r = applyPendingChanges(
+        server: _serverView(fid),
+        local: _localRecords(fid, ws),
+        changes: changes,
+      );
+      done.addAll(r.settled);
+      lost.addAll(r.lost);
+      if (r.pending.isEmpty) continue;
+      sent.addAll(r.pending);
+      _deleteIntents.putIfAbsent(fid, () => {}).addAll(r.deletes);
+      final next = workspaceFromRecords(r.local);
+      mergeCardPhotos(next.cards, ws.cards);
+      workspaces[fid] = next;
+      if (fid == familyId) {
+        _adoptActiveWorkspace();
+      } else {
+        _persistAlso.add(fid);
+      }
+    }
+    if (sent.isNotEmpty) {
+      if (mounted) update(() {});
+      _rescheduleReminders();
+    }
+    final ok = sent.isEmpty || await _persist();
+    // Saved changes are now in the family's data (and, if the save failed,
+    // in the device journal, retried like any other edit); changes to items
+    // deleted meanwhile are dropped — the deletion wins.
+    await _dropStaged(uid, [...done, ...lost, if (ok) ...sent]);
+    return StagedApplyResult(
+      applied: sent.length + done.length,
+      gone: [for (final c in lost) pendingChangeLabel(c)],
+      failed: !ok,
+    );
+  }
+
+  /// Discards the staged changes [ids]: their staging docs are deleted; the
+  /// family's data was never touched.
+  Future<void> discardStagedChanges(List<String> ids) async {
+    await _dropStaged(_firebaseUid(), [for (final id in ids) ?_staged[id]]);
+  }
+
+  Future<void> _dropStaged(String? uid, List<PendingChange> changes) async {
+    if (changes.isEmpty) return;
+    for (final c in changes) {
+      _staged.remove(c.id);
+    }
+    pendingChangesTick.value++;
+    if (uid == null) return;
+    final col = _unsavedRef(uid);
+    try {
+      await _commitInChunks([
+        for (final c in changes) (b) => b.delete(col.doc(c.docId)),
+      ]).timeout(kCloudOpTimeout);
+    } catch (e) {
+      debugPrint('[cloud] deleting unsaved changes failed: $e');
+    }
+  }
+
+  /// Discards the unsaved change [id]: the record goes back to the server's
+  /// version (a new record is removed, a deleted one restored).
+  void discardPendingChange(String id) => _discardPending([id]);
+
+  /// Discards every unsaved change.
+  void discardAllPendingChanges() =>
+      _discardPending([for (final c in _pending.all) c.id]);
+
+  void _discardPending(List<String> ids) {
+    final byFamily = <String, List<PendingChange>>{};
+    for (final id in ids) {
+      final c = _pending[id];
+      if (c != null) (byFamily[c.familyId] ??= []).add(c);
+    }
+    for (final MapEntry(key: fid, value: changes) in byFamily.entries) {
+      final ws = workspaces[fid];
+      final local = ws == null ? null : _localRecords(fid, ws);
+      final base = _cloudBase[fid];
+      final view = _serverView(fid);
+      for (final c in changes) {
+        _pending.remove(c.id);
+        _deleteIntents[fid]?.remove(c.key);
+        _inflightCreates[fid]?.remove(c.key);
+        if (local == null) continue;
+        // What the server holds now (else what it held when we changed it).
+        final server = view[c.key] ?? c.serverRecord;
+        if (server == null) {
+          local.remove(c.key);
+          // An optimistic create: the server never confirmed it.
+          if (base != null && !view.containsKey(c.key)) base.remove(c.key);
+        } else {
+          local[c.key] = Map<String, dynamic>.from(jsonClone(server) as Map);
+          if (base != null) base[c.key] = local[c.key]!;
+        }
+      }
+      if (ws != null && local != null) {
+        final next = workspaceFromRecords(local);
+        mergeCardPhotos(next.cards, ws.cards);
+        workspaces[fid] = next;
+        if (fid == familyId) _adoptActiveWorkspace();
+      }
+    }
+    _pendingChanged();
+    if (mounted) update(() {});
+    _rescheduleReminders();
+    _schedulePersist();
+  }
+
+  /// Records that the user deleted event [eventId] in family [fid]: its
+  /// doc(s) may be deleted from the server on the next persist.
+  void _markEventDeleted(String fid, String eventId) {
+    _deleteIntents
+        .putIfAbsent(fid, () => {})
+        .addAll(eventKeysById(_cloudBase[fid] ?? const {}, eventId));
   }
 
   Future<void> _writeUserDoc(String meUid) async {
@@ -1210,7 +1880,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// state), bounded by [kCloudOpTimeout] and swallowing failures — the
   /// canonical way to await [_writeUserDoc] anywhere an unbounded hang would
   /// block a user-visible flow (its `set()` only acks from the backend, so
-  /// offline it never resolves, though the SDK has already queued the write).
+  /// offline it never resolves).
   /// Originally added so a freshly created or joined family is
   /// durably recorded in Firestore before we leave the flow. This closes the gap
   /// where an app closed right after create/join — before any edit triggered a
@@ -1462,7 +2132,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // members array (a joiner could otherwise append themselves with an
       // impersonated identity or a fake 'owner' role before anyone knew them).
       final joinProof = joinProofFor(password, slug, handle);
-      var me = FamilyMember(
+      final me = FamilyMember(
         id: meUid,
         name: user?.name ?? '',
         email: user?.email ?? '',
@@ -1489,51 +2159,22 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         return 'Could not join family right now';
       }
 
-      // We are now a member. If an owner set up a kid profile with our email,
-      // we take that row over (converting the child profile into a user that
-      // keeps its kid role, id and everything assigned to it) instead of
-      // appending a new one.
-      var snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
-      var data = snap.data();
+      // We are now a member: append our display row to `members` and drop the
+      // transient `joinProof` so it isn't left lingering on the shared doc
+      // (best-effort: it is only ever readable by members anyway, and
+      // `dedupeMembers` repairs a missed row on next load).
+      unawaited(
+        _familyDocRef(fid)
+            .update({
+              'members': FieldValue.arrayUnion([me.toJson()]),
+              'joinProof': FieldValue.delete(),
+            })
+            .catchError((_) {}),
+      );
+
+      final snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
+      final data = snap.data();
       if (data == null) return 'Could not join family right now';
-      final existing = [
-        for (final m in (data['members'] as List? ?? const []))
-          if (m is Map) FamilyMember.fromJson(Map<String, dynamic>.from(m)),
-      ];
-      final kidRow = claimableKidRow(existing, user?.email ?? '');
-      if (kidRow != null) {
-        kidRow
-          ..uid = meUid
-          ..status = 'active';
-        me = kidRow;
-        try {
-          await _familyDocRef(fid)
-              .update({
-                'members': [for (final m in existing) m.toJson()],
-                'joinProof': FieldValue.delete(),
-              })
-              .timeout(kCloudOpTimeout);
-          snap = await _familyDocRef(fid).get().timeout(kCloudOpTimeout);
-          data = snap.data() ?? data;
-        } catch (e) {
-          debugPrint('[cloud] joinFamily kid claim failed: $e');
-          return 'Could not join family right now';
-        }
-      } else {
-        // Append our display row to `members` and drop the transient
-        // `joinProof` so it isn't left lingering on the shared doc
-        // (best-effort: it is only ever readable by members anyway, and
-        // `dedupeMembers` repairs a missed row on next load).
-        unawaited(
-          _familyDocRef(fid)
-              .update({
-                'members': FieldValue.arrayUnion([me.toJson()]),
-                'joinProof': FieldValue.delete(),
-              })
-              .catchError((_) {}),
-        );
-      }
-      _noteKidStatus(fid, data);
       await _fetchAllRecords([fid]);
       _adoptJoinedFamily(fid, data, meUid, selfRow: me);
       // Durably record membership before returning so a relaunch finds this
@@ -1597,7 +2238,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     try {
       final snaps = await Future.wait([
         for (final col in kRecordCollections)
-          _recordCol(fid, col).get().timeout(kCloudOpTimeout),
+          _recordQuery(fid, col).get().timeout(kCloudOpTimeout),
       ]);
       await _commitInChunks([
         for (final snap in snaps)
@@ -1609,7 +2250,6 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     await _familyDocRef(fid).delete();
     _cloudBase.remove(fid);
     _cloudLoaded.remove(fid);
-    _legacyDocs.remove(fid);
     _legacyBlob.remove(fid);
     _metaBase.remove(fid);
   }
@@ -1695,6 +2335,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       } catch (e) {
         debugPrint('[cloud] deleteAccount family ${f.id} failed: $e');
       }
+    }
+    try {
+      final staged = await _unsavedRef(meUid).get().timeout(kCloudOpTimeout);
+      await _commitInChunks([
+        for (final d in staged.docs) (b) => b.delete(d.reference),
+      ]);
+    } catch (e) {
+      debugPrint('[cloud] deleteAccount unsaved changes failed: $e');
     }
     await _userDocRef(meUid).delete().catchError((_) {});
     try {
@@ -1895,24 +2543,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     // [selfUid], preventing a collision with our own (already-distinct,
     // uid-based) row added below.
     _migrateLegacyMeIdsInList(fetchedMembers, selfUid, false);
-    final kidRow = claimableKidRow(fetchedMembers, user?.email ?? '');
-    kidRow
-      ?..uid = selfUid
-      ..status = 'active';
-    final me =
-        kidRow ??
-        FamilyMember(
-          id: selfUid,
-          name: user?.name ?? '',
-          email: user?.email ?? '',
-          initials: user?.initials ?? '?',
-          color: kMemberColors[families.length % kMemberColors.length],
-          uid: selfUid,
-          photo: user?.photo,
-          role: 'member',
-          status: 'active',
-        );
-    final members = dedupeMembers([...fetchedMembers, if (kidRow == null) me]);
+    final me = FamilyMember(
+      id: selfUid,
+      name: user?.name ?? '',
+      email: user?.email ?? '',
+      initials: user?.initials ?? '?',
+      color: kMemberColors[families.length % kMemberColors.length],
+      uid: selfUid,
+      photo: user?.photo,
+      role: 'member',
+      status: 'active',
+    );
+    final members = dedupeMembers([...fetchedMembers, me]);
     final fam = Family(
       id: id,
       name: (map['name'] ?? 'Family').toString(),
@@ -1948,8 +2590,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `_migrateLegacyMeReferencesInWorkspace`).
   void _adoptActiveWorkspace() {
     // `workspaces[familyId]` IS the active state (the state accessors read
-    // through to it), so adopting only needs the legacy-`'me'` migration.
+    // through to it), so adopting only needs the legacy-`'me'` migration —
+    // and regenerating the recurring copies the cloud never stores (see
+    // [isDerivedSeriesCopy]): a workspace rebuilt from records lacks them.
     _migrateLegacyMeReferencesInWorkspace(_activeWs);
+    _syncRecurringSeries();
   }
 
   /// One-time migration for workspace data (calendar events, tasks, shopping

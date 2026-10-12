@@ -6,11 +6,18 @@ service cloud.firestore {
     // Strictly owner-only.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Unsaved changes set aside after a restart, kept apart from the family
+      // data until the user applies or discards them. Owner-only.
+      match /unsavedChanges/{changeId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Shared family workspace. `memberUids` is the source of truth for access.
-    // All persistence is done directly from the client (no Cloud Functions);
-    // the family join password is verified here, in rules, by comparing a
+    // Persistence is done directly from the client; only logins an admin
+    // gives a kid profile go through Cloud Functions (functions/, Admin SDK,
+    // which bypasses these rules). The family join password is verified here, in rules, by comparing a
     // client-supplied proof against `joinHash`, which non-members can never
     // read because reads require membership.
     match /families/{familyId} {
@@ -30,6 +37,24 @@ service cloud.firestore {
       }
       function changedKeys() {
         return request.resource.data.diff(resource.data).affectedKeys();
+      }
+
+      // Kid accounts: `kidUids` maps a restricted login's uid to its kid
+      // member id. Admins are the owner plus `adminUids`; a kid never is one.
+      function isKidLogin() {
+        return uid() in resource.data.get('kidUids', {});
+      }
+      function isAdmin() {
+        return isMember() && !isKidLogin()
+          && (isOwner() || uid() in resource.data.get('adminUids', []));
+      }
+      // Invariants on every update: the owner is never a kid, and nobody is
+      // both a kid and an admin.
+      function kidInvariantsOk() {
+        return !(request.resource.data.get('ownerUid', '')
+                   in request.resource.data.get('kidUids', {}))
+          && !request.resource.data.get('kidUids', {}).keys()
+                .hasAny(request.resource.data.get('adminUids', []));
       }
 
       // The current owner may hand the family to another member as they leave:
@@ -69,6 +94,21 @@ service cloud.firestore {
         return changedKeys().hasOnly([
           'name', 'picture', 'members', 'workspace', 'joinProof',
           'updatedAt', 'updatedAtMillis',
+        ]);
+      }
+      // A non-owner ADMIN may also turn kid access on/off (`kidUids`). Only
+      // the owner names admins (`adminUids`).
+      function adminSafeChange() {
+        return changedKeys().hasOnly([
+          'name', 'picture', 'members', 'workspace', 'joinProof', 'kidUids',
+          'updatedAt', 'updatedAtMillis',
+        ]);
+      }
+      // A KID may only touch the (cosmetic) members list — their own badge
+      // and colour — never family settings.
+      function kidSafeChange() {
+        return changedKeys().hasOnly([
+          'members', 'joinProof', 'updatedAt', 'updatedAtMillis',
         ]);
       }
 
@@ -119,19 +159,22 @@ service cloud.firestore {
       //    exactly themselves (leaving). They can never rotate the join
       //    credential, evict others or seize ownership (issue: security H1).
       //  - A NON-MEMBER may perform a password-verified self-join.
-      allow update: if (isOwner()
+      //  - A non-owner ADMIN may also change `kidUids`; a KID only `members`.
+      allow update: if kidInvariantsOk() && ((isOwner()
           && request.resource.data.username == resource.data.username
           && (request.resource.data.ownerUid == resource.data.ownerUid
               || isOwnerHandoff()))
         || (isMember() && !isOwner()
           && !changedKeys().hasAny(['ownerUid', 'username'])
-          && (memberSafeChange()
+          && ((isKidLogin() && kidSafeChange())
+              || (!isKidLogin() && memberSafeChange())
+              || (isAdmin() && adminSafeChange())
               || (isSelfRemovalOnly()
                   && changedKeys().hasOnly([
                        'memberUids', 'members', 'workspace',
                        'updatedAt', 'updatedAtMillis',
                      ]))))
-        || isValidSelfJoin();
+        || isValidSelfJoin());
 
       // Only the owner may delete the family.
       allow delete: if isOwner();
@@ -139,141 +182,165 @@ service cloud.firestore {
       function familyData() {
         return get(/databases/$(database)/documents/families/$(familyId)).data;
       }
-
       function isFamilyMember() {
         return request.auth != null
           && request.auth.uid in familyData().memberUids;
       }
-
-      // Child users (kid profiles with their own login). The owner keeps
-      // `kidEmails` on the family doc — `{ <lowercased email>: <memberId> }`
-      // — and it is NOT a member-safe key, so only the owner can change it:
-      // a kid can never take themselves off it. A signed-in member whose
-      // token email is listed is a kid and only reaches their own world:
-      // events they attend or created, lists they created (+ their items),
-      // read-only settings and meal plan. Never budgets or discount cards.
-      function myEmail() {
-        return request.auth.token.get('email', '') is string
-          ? request.auth.token.get('email', '').lower()
-          : '';
+      function kidMap() {
+        return familyData().get('kidUids', {});
       }
-      function kidEmails() {
-        return familyData().get('kidEmails', {});
-      }
-      function isKid() {
-        return myEmail() != '' && myEmail() in kidEmails();
-      }
-      function kidMemberId() {
-        return kidEmails()[myEmail()];
-      }
-      // Ids a kid's own data can be tagged with: their uid (what the app
-      // writes as `createdBy`) and their kid member id (event attendees).
-      function isKidOwnId(v) {
-        return v == request.auth.uid || v == kidMemberId();
-      }
-      function kidOwnsEvent(d) {
-        return isKidOwnId(d.get('createdBy', ''))
-          || kidMemberId() in d.get('attendees', []);
-      }
+      // A member with full access (not restricted as a kid).
       function isFullMember() {
-        return isFamilyMember() && !isKid();
+        return isFamilyMember() && !(request.auth.uid in kidMap());
       }
       function isKidMember() {
-        return isFamilyMember() && isKid();
+        return isFamilyMember() && request.auth.uid in kidMap();
+      }
+      function familyIdOk() {
+        return request.resource.data.familyId == familyId;
+      }
+      // A kid's own event: one they created (`createdBy` = their uid) or
+      // attend (`attendees` holds their kid member id).
+      function kidOwnsEvent(d) {
+        return d.get('createdBy', '') == request.auth.uid
+          || kidMap()[request.auth.uid] in d.get('attendees', []);
+      }
+      function kidEventRead() {
+        return isKidMember() && kidOwnsEvent(resource.data);
+      }
+      function kidEventWrite() {
+        return isKidMember() && versionOk() && familyIdOk()
+          && kidOwnsEvent(request.resource.data)
+          && (resource == null || kidOwnsEvent(resource.data));
+      }
+      // Whether note [nid] is (or, within this batch, becomes) the kid's own.
+      function kidOwnsNote(nid) {
+        return (exists(/databases/$(database)/documents/families/$(familyId)/notes/$(nid))
+            && get(/databases/$(database)/documents/families/$(familyId)/notes/$(nid))
+                 .data.get('createdBy', '') == request.auth.uid)
+          || (existsAfter(/databases/$(database)/documents/families/$(familyId)/notes/$(nid))
+            && getAfter(/databases/$(database)/documents/families/$(familyId)/notes/$(nid))
+                 .data.get('createdBy', '') == request.auth.uid);
       }
 
-      // Workspace container docs: `settings`, one per budget month
-      // (`budget_<y>_<month>`, month fields only), task/shopping list
-      // (`list_task_<id>`/`list_shop_<id>`, list fields only), discount card
-      // (`card_<id>`) and imported calendar (`import_<id>`). Access is exactly
-      // the parent doc's membership.
-      //
-      // Items live one-per-doc in the sibling collections below, never as
-      // arrays in here: a write that would leave an embedded item array
-      // (`blocks`, `tasks`, `items`, `weeklyPlan`, …) is rejected. That's what
-      // stops an outdated app version — which re-uploads whole arrays from its
-      // possibly stale copy — from reverting other members' edits. Deleting
-      // such legacy arrays (the one-time migration) stays allowed.
-      //
-      // A kid reads `settings` (layers, categories) and the lists they
-      // created — via a `createdBy == <uid>` query — and writes only their
-      // own lists. No budget months, cards or imported calendars.
-      match /workspace/{section} {
-        function noLegacyArrays() {
-          return !request.resource.data.keys().hasAny([
-               'blocks', 'income', 'tasks', 'items', 'months', 'cards',
-               'taskLists', 'shoppingLists', 'weeklyPlan', 'events']);
+      // Record version (`_v`): every save bumps it by exactly 1 (or leaves it
+      // unchanged — an app version that doesn't track it), so the app can
+      // tell whether its save landed on the version it last saw and detect
+      // concurrent edits. A write may never set it backwards or skip ahead.
+      function versionOk() {
+        return !('_v' in request.resource.data)
+          || (request.resource.data._v is int
+              && request.resource.data._v
+                   - (resource == null ? 0 : resource.data.get('_v', 0))
+                 in [0, 1]);
+      }
+
+      // Every family record lives somewhere below the family doc, laid out as
+      // a readable hierarchy (see lib/src/features/account/data/cloud_records.dart):
+      //   settings/kitchen, finance/main/{accounts,blocks,recurring,months/
+      //   {ym}/{entries,recurring}}, calendar/main/{layers,categories,imports,
+      //   recurring,months/{ym}/events}, meals/{y}/months/{MM}/days/{DD},
+      //   notes/{id}/lines/{lineId}, cards/{id}.
+      // Each doc carries its `familyId` so the app can load a whole collection
+      // id with one collection-group query (rule below). A write must stamp
+      // this family's id — which also locks out outdated app versions that
+      // still write the old flat layout.
+      match /{sub}/{document=**} {
+        allow read, delete: if isFullMember();
+        allow create, update: if isFullMember() && versionOk() && familyIdOk();
+      }
+
+      // Kid accounts only reach their own world: the kitchen settings (for
+      // stars), calendar layers and categories, their own events, their own
+      // lists and the meal plan (read-only). Nothing of money, discount
+      // cards or calendar imports.
+      match /settings/{id} {
+        allow read: if isKidMember();
+      }
+      match /calendar/{cid} {
+        allow read: if isKidMember();
+        match /layers/{id} {
+          allow read: if isKidMember();
         }
-        function isListDoc() {
-          return section.matches('list_(task|shop)_.+');
+        match /categories/{id} {
+          allow read: if isKidMember();
         }
-        allow read: if isFullMember()
-          || (isKidMember()
-              && (section == 'settings'
-                  || resource.data.get('createdBy', '') == request.auth.uid));
-        allow delete: if isFullMember()
-          || (isKidMember() && isListDoc()
-              && resource.data.get('createdBy', '') == request.auth.uid);
-        allow create: if noLegacyArrays()
-          && (isFullMember()
-              || (isKidMember() && isListDoc()
-                  && request.resource.data.get('createdBy', '')
-                       == request.auth.uid));
-        allow update: if noLegacyArrays()
-          && (isFullMember()
-              || (isKidMember() && isListDoc()
-                  && resource.data.get('createdBy', '') == request.auth.uid
-                  && request.resource.data.get('createdBy', '')
-                       == request.auth.uid));
+        match /recurring/{id} {
+          allow read, delete: if kidEventRead();
+          allow create, update: if kidEventWrite();
+        }
+        match /months/{m}/events/{id} {
+          allow read, delete: if kidEventRead();
+          allow create, update: if kidEventWrite();
+        }
       }
-
-      // One doc per budget item: `<year>_<month>_<itemId>`. Never for kids.
-      match /budgetItems/{itemId} {
-        allow read, write: if isFullMember();
+      match /meals/{document=**} {
+        allow read: if isKidMember();
       }
-
-      // One doc per task / shopping item: `<task|shop>_<listId>_<itemId>`.
-      // Items carry `_listOwner` (their list's creator), so a kid can query
-      // and edit exactly the items on their own lists.
-      match /listItems/{itemId} {
-        allow read, write: if isFullMember();
+      match /notes/{nid} {
         allow read, delete: if isKidMember()
-          && resource.data.get('_listOwner', '') == request.auth.uid;
-        allow create: if isKidMember()
-          && request.resource.data.get('_listOwner', '') == request.auth.uid;
-        allow update: if isKidMember()
-          && resource.data.get('_listOwner', '') == request.auth.uid
-          && request.resource.data.get('_listOwner', '') == request.auth.uid;
+          && resource.data.get('createdBy', '') == request.auth.uid;
+        allow create, update: if isKidMember() && versionOk() && familyIdOk()
+          && request.resource.data.get('createdBy', '') == request.auth.uid
+          && (resource == null
+              || resource.data.get('createdBy', '') == request.auth.uid);
+        match /lines/{lid} {
+          allow read, delete: if isKidMember() && kidOwnsNote(nid);
+          allow create, update: if isKidMember() && versionOk() && familyIdOk()
+            && kidOwnsNote(nid);
+        }
       }
+    }
 
-      // One doc per weekly-plan day. Read-only for kids.
-      match /weekly/{day} {
-        allow read: if isFamilyMember();
-        allow write: if isFullMember();
+    // Collection-group reads of the family record collections
+    // (`collectionGroup(col).where('familyId', '==', fid)`). Writes under a
+    // family require `familyId` to be that family, so the field is
+    // trustworthy and membership of that family gates the read.
+    // A kid login (`kidUids`) only gets the kid-safe collections, and of
+    // events / repeating events / notes only its own (the app queries those
+    // with `attendees array-contains <kid id>` or `createdBy == <uid>`).
+    match /{path=**}/{col}/{id} {
+      function fam() {
+        return get(/databases/$(database)/documents/families/$(resource.data.familyId)).data;
       }
+      function kidId() {
+        return fam().get('kidUids', {})[request.auth.uid];
+      }
+      allow read: if request.auth != null
+        && col in ['settings', 'finance', 'accounts', 'blocks', 'recurring',
+                   'months', 'entries', 'calendar', 'layers', 'categories',
+                   'imports', 'events', 'meals', 'days', 'notes', 'lines',
+                   'cards']
+        && request.auth.uid in fam().memberUids
+        && (!(request.auth.uid in fam().get('kidUids', {}))
+            || col in ['settings', 'calendar', 'layers', 'categories',
+                       'meals', 'days']
+            || (col in ['events', 'recurring']
+                && (resource.data.get('createdBy', '') == request.auth.uid
+                    || kidId() in resource.data.get('attendees', [])))
+            || (col == 'notes'
+                && resource.data.get('createdBy', '') == request.auth.uid));
+    }
 
-      // One doc per calendar event (id = event id). A kid only reads and
-      // edits events they attend or created, and can't hand one off.
-      match /events/{eventId} {
-        allow read, write: if isFullMember();
-        allow read, delete: if isKidMember() && kidOwnsEvent(resource.data);
-        allow create: if isKidMember() && kidOwnsEvent(request.resource.data);
-        allow update: if isKidMember()
-          && kidOwnsEvent(resource.data)
-          && kidOwnsEvent(request.resource.data);
-      }
+    // Pending Google links for kid profiles (email → family member). Only
+    // the Cloud Functions (Admin SDK) read or write them.
+    match /kid_links/{email} {
+      allow read, write: if false;
     }
 
     // Public handle resolver: maps a family `username` to its `familyId` so a
     // joining client can find the family doc to write to. This holds NO secret
     // material (the password hash lives only in the members-only family doc;
     // `joinSalt` is public by design — a salt only needs to be unique, not
-    // secret), so any signed-in user may read it. Writes are restricted to the
-    // owner of the referenced family, and the handle id must match the family
-    // doc's own `username` so nobody can squat an unrelated name and phish
-    // joins onto their family (issue: security M3).
+    // secret), so any signed-in user may `get` a handle they already know.
+    // `list` is deliberately NOT granted (`allow read` would include it): the
+    // join flow only ever does a targeted lookup, and enumerating the whole
+    // collection would expose every family's handle, id and salt (#364).
+    // Writes are restricted to the owner of the referenced family, and the
+    // handle id must match the family doc's own `username` so nobody can squat
+    // an unrelated name and phish joins onto their family (issue: security M3).
     match /family_handles/{username} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
 
       allow create: if request.auth != null
         && request.resource.data.familyId is string

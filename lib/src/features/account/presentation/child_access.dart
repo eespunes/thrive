@@ -1,8 +1,8 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Child users: a kid profile (`role == 'kid'`) that has been converted into
-/// a real signed-in user by claiming the row with their own login (see
-/// [claimableKidRow]). On their own device a child only gets their own
+/// Kid accounts: a login an admin restricted (`kidUids` on the family doc —
+/// Flow A, an existing account turned into a kid) or a login an admin gave a
+/// kid profile (Flow B). On their own device a kid only gets their own
 /// world: calendar events they attend, the lists they created, and a
 /// read-only meal plan. No Money tab, no discount cards, no kitchen wall and
 /// no family-admin settings.
@@ -18,24 +18,6 @@ const Set<String> kChildAllowedTabs = {
   'weekly',
   'more',
 };
-
-/// The login-less kid row in [members] a joining user with [email] should
-/// take over instead of being appended as a new member — this is how a
-/// child profile is converted into a user while keeping its id (so every
-/// event, task and star already assigned to it stays theirs) and its kid
-/// role. `null` when there is nothing to claim.
-FamilyMember? claimableKidRow(List<FamilyMember> members, String email) {
-  final e = email.trim().toLowerCase();
-  if (e.isEmpty) return null;
-  return members
-      .where(
-        (m) =>
-            m.role == 'kid' &&
-            (m.uid == null || m.uid!.isEmpty) &&
-            m.email.trim().toLowerCase() == e,
-      )
-      .firstOrNull;
-}
 
 extension _ThriveChildAccess on _ThriveHomeState {
   /// Whether the signed-in user is a child user in the current family.

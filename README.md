@@ -76,14 +76,25 @@ users can share one budget:
 - `users/{uid}` — per-user profile + the families they belong to.
 - `families/{familyId}` — family metadata (name, members, join hash);
   `memberUids` drives access.
-- `families/{familyId}/workspace/{section}` — the shared workspace split into
-  small per-section documents (settings, events, lists, weekly plan, one doc
-  per budget year, one per imported calendar). Edits upload only the changed
-  section; families created before the split migrate automatically on their
-  first edit.
+- Below `families/{familyId}`, one document per record in a readable
+  hierarchy (layout documented in
+  `lib/src/features/account/data/cloud_records.dart`):
+  - `settings/kitchen`
+  - `finance/main/{accounts,blocks,recurring}/{id}`,
+    `finance/main/months/{YYYY-MM}/{entries,recurring}/{id}`
+  - `calendar/main/{layers,categories,imports,recurring}/{id}`,
+    `calendar/main/months/{YYYY-MM}/events/{id}`
+  - `meals/{YYYY}/months/{MM}/days/{DD}`
+  - `notes/{id}/lines/{lineId}`, `cards/{id}`
+
+  Every record stores `familyId`; the app loads each collection name with one
+  collection-group query (`where familyId == …`, indexes in
+  `firestore.indexes.json`) and uploads only changed fields of changed
+  records.
 - `family_handles/{username}` — public handle resolver (family username →
-  `familyId`, plus the non-secret random `joinSalt`). Readable by any
-  signed-in user; writable only by the family owner, and only for a handle
+  `familyId`, plus the non-secret random `joinSalt`). Any signed-in user may
+  `get` a handle they already know, but the collection cannot be **listed**
+  (enumerated); writable only by the family owner, and only for a handle
   matching the family's own username.
 
 ### Family join security
@@ -95,6 +106,9 @@ join password is verified by the Firestore **security rules**:
   the v2 scheme: 30k-iteration SHA-256 over a random per-family salt (stored on
   the public handle doc); pre-v2 families keep working via a versioned legacy
   scheme.
+- New or reset join passwords must be at least 8 characters
+  (`kMinFamilyPasswordLength`). The salt is public, so the password length is
+  what makes guessing expensive; existing shorter passwords keep working.
 - A joining client submits `joinProof`; the rules accept the update only when
   it matches `joinHash` and the write appends **only the joiner's own uid** to
   `memberUids`.
@@ -126,6 +140,28 @@ firebase deploy --only firestore:rules,firestore:indexes
    for Android, DeviceCheck/App Attest for iOS). The client initializes App
    Check at startup when the platform provides it; enforcement is switched on
    per-product in the Firebase console once real traffic is attested.
+   Enforce it for **both** Cloud Firestore and Firebase Authentication (they
+   are separate toggles). The web build ships no Firebase config and always
+   runs in local/demo mode, so enforcement does not affect it.
+
+### Abuse hardening (console-only)
+
+The Android API key in `google-services.json` is public by design — this repo
+is public, so assume it has been scraped. Rotating it does nothing; restrict it
+instead (#363):
+
+1. **Google Cloud Console → APIs & Services → Credentials → Android key**:
+   restrict to Android apps `cat.eespunes.thrive` + the release (Play app
+   signing) and upload SHA-1s, and to only the APIs the app uses (Identity
+   Toolkit, Token Service, Cloud Firestore, Firebase Installations, Firebase
+   App Check, FCM).
+2. **Firebase → App Check**: enforce for Cloud Firestore and Authentication
+   once the App Check metrics show verified traffic from current releases.
+3. **Firebase → Authentication → Settings**: enable *Email enumeration
+   protection*.
+4. Delete junk accounts in Authentication → Users (a drive-by account can only
+   create its own empty `users/{uid}` doc; all family data is
+   membership-gated).
 
 ## Development
 

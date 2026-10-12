@@ -238,8 +238,8 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
   Future<void> _submit() async {
     if (_busy) return;
     final hasCreds = _username.text.trim().isNotEmpty;
-    if (hasCreds && _password.text.length < 4) {
-      s.showError('Password must be at least 4 characters');
+    if (hasCreds && _password.text.length < kMinFamilyPasswordLength) {
+      s.showError(kFamilyPasswordTooShort);
       return;
     }
     s.dismissError();
@@ -389,7 +389,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
         studioTextField(
           key: const ValueKey('nf-password'),
           controller: _password,
-          hint: 'Password (optional, min 4 characters)',
+          hint: 'Password (optional, min $kMinFamilyPasswordLength characters)',
           obscure: true,
           margin: const EdgeInsets.only(bottom: 5),
           focusNode: _passwordFocus,
