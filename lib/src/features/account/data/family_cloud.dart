@@ -2256,8 +2256,11 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `_migrateLegacyMeReferencesInWorkspace`).
   void _adoptActiveWorkspace() {
     // `workspaces[familyId]` IS the active state (the state accessors read
-    // through to it), so adopting only needs the legacy-`'me'` migration.
+    // through to it), so adopting only needs the legacy-`'me'` migration —
+    // and regenerating the recurring copies the cloud never stores (see
+    // [isDerivedSeriesCopy]): a workspace rebuilt from records lacks them.
     _migrateLegacyMeReferencesInWorkspace(_activeWs);
+    _syncRecurringSeries();
   }
 
   /// One-time migration for workspace data (calendar events, tasks, shopping

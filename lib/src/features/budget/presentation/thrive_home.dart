@@ -239,6 +239,24 @@ class ThriveDebugController {
   void openCardFace(String id, {String? payCat, String? payItemId}) =>
       _s.openCardFace(id, payCat: payCat, payItemId: payItemId);
   void mutateState(VoidCallback fn) => _s.mutate(fn);
+
+  /// Runs the real recurring-series sync on [ws] (as the active workspace).
+  Workspace syncRecurringSeries(Workspace ws) {
+    final s = _s;
+    final prev = s.workspaces[s.familyId];
+    s.workspaces[s.familyId] = ws;
+    try {
+      s._syncRecurringSeries();
+    } finally {
+      if (prev == null) {
+        s.workspaces.remove(s.familyId);
+      } else {
+        s.workspaces[s.familyId] = prev;
+      }
+    }
+    return ws;
+  }
+
   List<(Category, ExpenseItem)> unpaidItemsThisMonth() =>
       _s.unpaidItemsThisMonth();
   Map<String, dynamic> phoneWidgetPayload() => _s.phoneWidgetPayload();

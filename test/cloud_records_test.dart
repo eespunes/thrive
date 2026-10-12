@@ -212,6 +212,90 @@ void main() {
       expect(m.blocks['home']!.map((e) => e.id), ['rent', 'water']);
       expect(ws.taskLists.single.tasks.map((t) => t.id), ['t1', 't2']);
     });
+
+    ExpenseItem gen(String id, {bool paid = false, bool exception = false}) =>
+        ExpenseItem.fromJson({
+          ..._item(id, paid: paid).toJson(),
+          'generated': true,
+          'seriesId': 's1',
+          if (exception) 'exception': true,
+        });
+
+    // The series' explicit anchor lives in an earlier (closed) month.
+    Workspace withAnchor(Workspace ws) {
+      final anchor = ExpenseItem.fromJson({
+        ..._item('a1').toJson(),
+        'recurring': true,
+        'seriesId': 's1',
+      });
+      ws.data[2026]!['August'] = MonthData(closed: true)
+        ..blocks['home'] = [anchor];
+      return ws;
+    }
+
+    test('untouched generated copies in open months are not stored', () {
+      final ws = withAnchor(
+        _ws(
+          home: [
+            gen('g1'),
+            _item('rent'),
+            gen('g2', paid: true),
+            gen('g3', exception: true),
+            _item('water'),
+          ],
+        ),
+      );
+      final recs = normalizedRecords(ws);
+      expect(recs.containsKey('budgetItems/2026_September_g1'), isFalse);
+      expect(recs.containsKey('budgetItems/2026_September_g2'), isTrue);
+      expect(recs.containsKey('budgetItems/2026_September_g3'), isTrue);
+      // `_order` counts stored items only.
+      expect(recs['budgetItems/2026_September_rent']!['_order'], 0);
+      expect(recs['budgetItems/2026_September_g2']!['_order'], 1);
+      expect(recs['budgetItems/2026_September_g3']!['_order'], 2);
+      expect(recs['budgetItems/2026_September_water']!['_order'], 3);
+      // Adding/removing a derived copy never rewrites stored items.
+      final without = normalizedRecords(
+        withAnchor(
+          _ws(
+            home: [
+              _item('rent'),
+              gen('g2', paid: true),
+              gen('g3', exception: true),
+              _item('water'),
+            ],
+          ),
+        ),
+      );
+      final plan = planRecordWrites(_server(recs), without);
+      expect(plan.creates, isEmpty);
+      expect(plan.updates, isEmpty);
+      expect(plan.deletes, isEmpty);
+    });
+
+    test('generated copies in closed months stay stored', () {
+      final ws = withAnchor(_ws(home: [gen('g1')]));
+      ws.data[2026]!['September']!.closed = true;
+      expect(
+        normalizedRecords(ws).containsKey('budgetItems/2026_September_g1'),
+        isTrue,
+      );
+    });
+
+    test('copies of a series without an explicit anchor stay stored', () {
+      final ws = _ws(home: [gen('g1')]);
+      expect(
+        normalizedRecords(ws).containsKey('budgetItems/2026_September_g1'),
+        isTrue,
+      );
+      // ...as do copies in a different block than the anchor.
+      final other = withAnchor(_ws());
+      other.data[2026]!['September']!.blocks['food'] = [gen('g1')];
+      expect(
+        normalizedRecords(other).containsKey('budgetItems/2026_September_g1'),
+        isTrue,
+      );
+    });
   });
 
   group('two devices', () {

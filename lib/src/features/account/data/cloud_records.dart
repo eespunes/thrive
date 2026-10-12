@@ -15,7 +15,9 @@ part of 'package:family_money_management_app/main.dart';
 /// - `workspace/list_task_<id>` / `list_shop_<id>`  list name/colour/emoji
 /// - `workspace/card_<id>`           discount card (photo never synced)
 /// - `workspace/import_<id>`         imported (ICS) calendar
-/// - `budgetItems/<y>_<month>_<id>`  budget entry (+ `_year/_month/_block/_order`)
+/// - `budgetItems/<y>_<month>_<id>`  budget entry (+ `_year/_month/_block/_order`);
+///   untouched auto-generated recurring copies in open months are NOT stored
+///   — every device regenerates them (see [isDerivedSeriesCopy])
 /// - `listItems/<kind>_<list>_<id>`  task / shopping item (+ `_list/_kind/_order`)
 /// - `weekly/<date>`                 weekly-plan day
 /// - `events/<id>`                   calendar event
@@ -115,17 +117,72 @@ Map<String, dynamic> _monthPayload(MonthData m) => {
   '_blocks': m.blocks.keys.toList(),
 };
 
+/// The series id of a budget item, as `_syncRecurringSeries` resolves it.
+String? _seriesIdOf(ExpenseItem it) {
+  final raw = it.seriesId?.trim();
+  if (raw != null && raw.isNotEmpty) return raw;
+  return it.recurring ? it.id : null;
+}
+
+/// For every recurring series in [ws], the blocks holding one of its
+/// explicit anchors (a manual, non-exception, still-recurring occurrence) —
+/// the items `_syncRecurringSeries` regenerates the series from.
+Map<String, Set<String>> seriesAnchorBlocks(Workspace ws) {
+  final out = <String, Set<String>>{};
+  for (final months in ws.data.values) {
+    for (final m in months.values) {
+      for (final b in m.blocks.entries) {
+        for (final it in b.value) {
+          if (it.generated || it.exception || !it.recurring) continue;
+          final sid = _seriesIdOf(it);
+          if (sid != null) (out[sid] ??= {}).add(b.key);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/// Whether [it], in block [block] of [month], is an untouched auto-generated
+/// occurrence of a recurring series: an open month's copy that was never
+/// paid, flagged or edited, whose series has an explicit anchor in that same
+/// block ([anchors], from [seriesAnchorBlocks]). Such a copy is fully derived
+/// from its anchor (same deterministic id on every device — see
+/// `_syncRecurringSeries`), so it is never stored in Firestore; every device
+/// regenerates it locally. Copies in closed months are frozen history (never
+/// regenerated) and stay stored, as do copies of a series without an
+/// explicit anchor (the sync would fall back to the copy itself as anchor).
+bool isDerivedSeriesCopy(
+  ExpenseItem it,
+  MonthData month,
+  String block,
+  Map<String, Set<String>> anchors,
+) {
+  if (!it.generated || month.closed) return false;
+  if (it.paid || it.reviewDay || it.exception) return false;
+  final sid = _seriesIdOf(it);
+  return sid != null && (anchors[sid]?.contains(block) ?? false);
+}
+
 /// Splits [ws] into its records (not yet normalized — see [normalizedRecords]).
+/// Derived recurring copies ([isDerivedSeriesCopy]) are left out, and a
+/// budget item's `_order` counts only the items that ARE stored, so adding
+/// or dropping a derived copy never reorders (rewrites) the stored ones.
 Records workspaceRecords(Workspace ws) {
   final out = <String, Map<String, dynamic>>{};
   out[recordKey(kWorkspaceCol, 'settings')] = _settingsPayload(ws);
+  final anchors = seriesAnchorBlocks(ws);
   for (final y in ws.data.entries) {
     for (final m in y.value.entries) {
       out[recordKey(kWorkspaceCol, 'budget_${y.key}_${m.key}')] = _monthPayload(
         m.value,
       );
       for (final b in m.value.blocks.entries) {
-        for (final (i, it) in b.value.indexed) {
+        final stored = [
+          for (final it in b.value)
+            if (!isDerivedSeriesCopy(it, m.value, b.key, anchors)) it,
+        ];
+        for (final (i, it) in stored.indexed) {
           var id = safeDocId('${y.key}_${m.key}_${it.id}');
           // Ids are unique in practice; never let a duplicate collapse two
           // entries into one doc.
