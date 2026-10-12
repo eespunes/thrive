@@ -12,6 +12,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
+  collection, getDocs, query, where,
 } from 'firebase/firestore';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -349,13 +350,24 @@ describe('family_handles', () => {
       familyId: FAM,
     }));
   });
-  it('any signed-in user can read; unauthenticated cannot', async () => {
+  it('any signed-in user can get a known handle; unauthenticated cannot', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
         { familyId: FAM });
     });
     await assertSucceeds(getDoc(doc(db(OTHER), 'family_handles', 'thefam')));
     await assertFails(getDoc(doc(db(null), 'family_handles', 'thefam')));
+  });
+  it('nobody can list (enumerate) the handles collection', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
+        { familyId: FAM, joinSalt: 'salt' });
+    });
+    await assertFails(getDocs(collection(db(OTHER), 'family_handles')));
+    await assertFails(getDocs(collection(db(OWNER), 'family_handles')));
+    await assertFails(getDocs(query(collection(db(OTHER), 'family_handles'),
+      where('familyId', '==', FAM))));
+    await assertFails(getDocs(collection(db(null), 'family_handles')));
   });
   it('owner can delete their handle; non-owner cannot', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {

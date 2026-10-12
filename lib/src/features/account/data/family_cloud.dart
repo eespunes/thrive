@@ -52,6 +52,17 @@ String hashFamilyPassword(String password, String salt) {
 /// only on the rare create/join flows.
 const int kJoinHashIterations = 30000;
 
+/// Minimum length for a NEW family join password (create / reset). A family's
+/// `joinSalt` is readable by any signed-in user, so the password is the only
+/// thing standing between a handle and a self-join; 4 characters was cheap to
+/// brute-force (#364). Existing families keep their current password.
+const int kMinFamilyPasswordLength = 8;
+
+/// Error shown when a new family join password is shorter than
+/// [kMinFamilyPasswordLength].
+const String kFamilyPasswordTooShort =
+    'Password must be at least $kMinFamilyPasswordLength characters';
+
 /// v2 join-password hash: SHA-256 chained [kJoinHashIterations] times over a
 /// RANDOM per-family salt (stored on the public handle doc as `joinSalt` —
 /// salts need to be unique, not secret, and a joining client must be able to

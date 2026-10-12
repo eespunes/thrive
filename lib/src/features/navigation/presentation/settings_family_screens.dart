@@ -1495,7 +1495,7 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
     super.dispose();
   }
 
-  bool get _ok => _pw.text.length >= 4;
+  bool get _ok => _pw.text.length >= kMinFamilyPasswordLength;
 
   Future<void> _save() async {
     if (!_ok || _busy) return;
@@ -1525,7 +1525,7 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
         studioTextField(
           key: const ValueKey('rp-input'),
           controller: _pw,
-          hint: 'New password (min 4 characters)',
+          hint: 'New password (min $kMinFamilyPasswordLength characters)',
           onChanged: (_) => setState(() {}),
         ),
         GestureDetector(

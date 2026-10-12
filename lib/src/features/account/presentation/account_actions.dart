@@ -759,8 +759,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
       if (!validFamilyUsername(slug)) {
         return 'Username: 3–24 letters, numbers, - or _';
       }
-      if (password.length < 4) {
-        return 'Password must be at least 4 characters';
+      if (password.length < kMinFamilyPasswordLength) {
+        return kFamilyPasswordTooShort;
       }
       final uid = _firebaseUid();
       // coverage:ignore-start
@@ -869,7 +869,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
   Future<String?> resetFamilyPassword(String password) async {
     final f = curFamily();
     if (f == null) return 'No family selected';
-    if (password.length < 4) return 'Password must be at least 4 characters';
+    if (password.length < kMinFamilyPasswordLength) {
+      return kFamilyPasswordTooShort;
+    }
     final uid = _firebaseUid();
     // coverage:ignore-start
     if (uid != null) {

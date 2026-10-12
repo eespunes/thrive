@@ -48,8 +48,9 @@ Future<void> _initFirebase() async {
             : const AppleDeviceCheckProvider(),
       );
     } catch (e) {
-      // App Check is defense-in-depth; never block startup on it (e.g. web
-      // has no provider configured).
+      // App Check is defense-in-depth; never block startup on it. (Web never
+      // gets here: it ships no Firebase config, so initializeApp throws and
+      // the app runs in local/demo mode.)
       debugPrint('App Check activation failed: $e');
     }
     // Crash-loop breaker: if the last TWO launches never finished booting,

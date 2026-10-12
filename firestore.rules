@@ -188,12 +188,15 @@ service cloud.firestore {
     // joining client can find the family doc to write to. This holds NO secret
     // material (the password hash lives only in the members-only family doc;
     // `joinSalt` is public by design — a salt only needs to be unique, not
-    // secret), so any signed-in user may read it. Writes are restricted to the
-    // owner of the referenced family, and the handle id must match the family
-    // doc's own `username` so nobody can squat an unrelated name and phish
-    // joins onto their family (issue: security M3).
+    // secret), so any signed-in user may `get` a handle they already know.
+    // `list` is deliberately NOT granted (`allow read` would include it): the
+    // join flow only ever does a targeted lookup, and enumerating the whole
+    // collection would expose every family's handle, id and salt (#364).
+    // Writes are restricted to the owner of the referenced family, and the
+    // handle id must match the family doc's own `username` so nobody can squat
+    // an unrelated name and phish joins onto their family (issue: security M3).
     match /family_handles/{username} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
 
       allow create: if request.auth != null
         && request.resource.data.familyId is string
