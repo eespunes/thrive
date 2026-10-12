@@ -98,4 +98,29 @@ void main() {
     expect(thriveDebug.stagedChanges.isEmpty, isTrue);
     expect(thriveDebug.events.any((e) => e.id == 'staged-1'), isFalse);
   });
+
+  testWidgets('offers once to review set-aside changes', (tester) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final change = PendingChange(
+      familyId: thriveDebug.familyId,
+      key: 'notes/n1',
+      op: PendingOp.save,
+      at: DateTime.now().millisecondsSinceEpoch,
+      record: {'id': 'n1', 'name': 'Pharmacy'},
+    );
+    thriveDebug.stagedChanges.addStaged(change);
+    thriveDebug.promptUnsavedChanges();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('unsaved-changes-dialog')), findsOne);
+    expect(find.text('1 change wasn’t saved'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('unsaved-review')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(ValueKey('staged-${change.id}')), findsOneWidget);
+
+    // Only once per session.
+    thriveDebug.promptUnsavedChanges();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('unsaved-changes-dialog')), findsNothing);
+  });
 }

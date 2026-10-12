@@ -38,6 +38,25 @@ extension _ThrivePendingChanges on _ThriveHomeState {
     flash(ids.length == 1 ? 'Change discarded' : 'Changes discarded');
   }
 
+  /// Once per session: tells the user changes were set aside and offers to
+  /// review them (Settings → Unsaved changes).
+  void promptUnsavedChanges() {
+    final n = visibleStagedChanges.length;
+    if (!mounted || _unsavedPromptShown || n == 0) return;
+    _unsavedPromptShown = true;
+    showDialog<bool>(
+      context: context,
+      barrierColor: const Color(0x80101828),
+      builder: (ctx) => _UnsavedChangesDialog(
+        count: n,
+        onLater: () => Navigator.of(ctx).pop(false),
+        onReview: () => Navigator.of(ctx).pop(true),
+      ),
+    ).then((review) {
+      if (review == true && mounted) openPendingChangesScreen();
+    });
+  }
+
   /// Sends every unsaved change now.
   Future<void> retryPendingChanges() async {
     final ok = await _persist();
@@ -165,6 +184,11 @@ class _PendingChangesScreen extends StatelessWidget {
           if (multiFamily) familyName(c.familyId),
           pendingChangeWhen(c.at),
         ].where((x) => x.isNotEmpty).join(' · ');
+        final status = {for (final c in staged) c.id: s.stagedStatus(c)};
+        final applicable = [
+          for (final c in staged)
+            if (status[c.id] == StagedStatus.ready) c.id,
+        ];
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
@@ -177,9 +201,10 @@ class _PendingChangesScreen extends StatelessWidget {
               'family’s data in Thrive.',
           footnote:
               'Set-aside changes are kept in your own space in Thrive, apart '
-              'from your family’s data — nobody else sees them. Applying one '
-              'merges it onto the latest version; if someone deleted the '
-              'item meanwhile, the deletion wins.',
+              'from your family’s data — nobody else sees them — until you '
+              'apply or discard them. Applying one merges it onto the latest '
+              'version. A change to an item someone deleted meanwhile, or to '
+              'a family you’re no longer in, can only be discarded.',
           onToast: s.flash,
           children: [
             if (total == 0)
@@ -258,13 +283,12 @@ class _PendingChangesScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                   children: [
-                    _button(
-                      key: const ValueKey('staged-apply-all'),
-                      label: '✓ Apply all',
-                      onTap: () => unawaited(
-                        s.applyStaged([for (final c in staged) c.id]),
+                    if (applicable.isNotEmpty)
+                      _button(
+                        key: const ValueKey('staged-apply-all'),
+                        label: '✓ Apply all',
+                        onTap: () => unawaited(s.applyStaged(applicable)),
                       ),
-                    ),
                     const Spacer(),
                     _button(
                       key: const ValueKey('staged-discard-all'),
@@ -290,13 +314,20 @@ class _PendingChangesScreen extends StatelessWidget {
                     rowKey: ValueKey('staged-${c.id}'),
                     label: pendingChangeLabel(c),
                     sub: sub(c),
+                    value: switch (status[c.id]) {
+                      StagedStatus.deletedMeanwhile => 'Deleted meanwhile',
+                      StagedStatus.familyGone => 'Family not available',
+                      _ => null,
+                    },
+                    warnVal: true,
                     noChev: true,
                     actions: [
-                      _button(
-                        key: ValueKey('staged-apply-${c.id}'),
-                        label: 'Apply',
-                        onTap: () => unawaited(s.applyStaged([c.id])),
-                      ),
+                      if (status[c.id] == StagedStatus.ready)
+                        _button(
+                          key: ValueKey('staged-apply-${c.id}'),
+                          label: 'Apply',
+                          onTap: () => unawaited(s.applyStaged([c.id])),
+                        ),
                       _button(
                         key: ValueKey('staged-discard-${c.id}'),
                         label: 'Discard',
@@ -315,6 +346,133 @@ class _PendingChangesScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// "You have unsaved changes" — shown once per session when changes were set
+/// aside, offering to review them.
+class _UnsavedChangesDialog extends StatelessWidget {
+  const _UnsavedChangesDialog({
+    required this.count,
+    required this.onLater,
+    required this.onReview,
+  });
+
+  final int count;
+  final VoidCallback onLater;
+  final VoidCallback onReview;
+
+  Widget _button(
+    Key key,
+    String label,
+    VoidCallback onTap, {
+    required bool filled,
+  }) => Expanded(
+    child: GestureDetector(
+      key: key,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: BoxDecoration(
+          color: filled ? B.primary : Colors.white,
+          borderRadius: BorderRadius.circular(13),
+          border: filled ? null : Border.all(color: B.line),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: filled ? Colors.white : B.text,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const ValueKey('unsaved-changes-dialog'),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(26),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 312),
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: B.amberSoft,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Center(
+                child: Text(
+                  '↻',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: B.amber,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Text(
+              count == 1
+                  ? '1 change wasn’t saved'
+                  : '$count changes weren’t saved',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17.5,
+                fontWeight: FontWeight.w800,
+                color: B.ink,
+                letterSpacing: -.2,
+              ),
+            ),
+            const SizedBox(height: 7),
+            const Text(
+              'Thrive closed before they reached your family’s data, so they '
+              'were set aside. Review them to apply the ones you still want '
+              'or discard the rest.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: B.soft2,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 19),
+            Row(
+              children: [
+                _button(
+                  const ValueKey('unsaved-later'),
+                  'Later',
+                  onLater,
+                  filled: false,
+                ),
+                const SizedBox(width: 9),
+                _button(
+                  const ValueKey('unsaved-review'),
+                  'Review',
+                  onReview,
+                  filled: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

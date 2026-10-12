@@ -305,6 +305,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _pending = PendingChanges();
     _staged = PendingChanges();
     _persistAlso.clear();
+    _unsavedPromptShown = false;
     pendingChangesTick.value++;
     _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {

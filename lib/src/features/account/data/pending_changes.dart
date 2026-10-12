@@ -12,8 +12,20 @@ part of 'package:family_money_management_app/main.dart';
 /// staging area in Firestore (`users/{uid}/unsavedChanges/{id}`, see
 /// [kUnsavedChangesCollection]), away from the main data. Settings → Unsaved
 /// changes lists them; applying one merges it onto the server's current data
-/// ([applyPendingChanges]), discarding one just deletes its staging doc.
+/// ([applyPendingChanges]), discarding one just deletes its staging doc. A
+/// set-aside change is only ever removed by that review.
 const String kPendingChangesKey = 'thrive.pending.v1';
+
+/// Whether a set-aside change can be applied.
+enum StagedStatus {
+  ready,
+
+  /// The item was deleted by another member meanwhile (delete wins).
+  deletedMeanwhile,
+
+  /// The user is no longer in the change's family.
+  familyGone,
+}
 
 /// The per-user Firestore collection (below `users/{uid}`) holding unsaved
 /// changes set aside after a restart, until they're applied or discarded.

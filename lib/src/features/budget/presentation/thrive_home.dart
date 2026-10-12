@@ -188,6 +188,7 @@ class ThriveDebugController {
   /// The unsaved-changes journal, so tests can seed entries to review.
   PendingChanges get pendingChanges => _s._pending;
   PendingChanges get stagedChanges => _s._staged;
+  void promptUnsavedChanges() => _s.promptUnsavedChanges();
   void pendingChangesChanged() => _s.pendingChangesTick.value++;
 
   /// Sync/offline indicator plumbing (#283), so tests can read the pill
@@ -571,6 +572,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Families (besides the active one) with changes to save on the next
   /// persist (staged changes just applied).
   final Set<String> _persistAlso = {};
+
+  /// Whether this session already offered to review set-aside changes.
+  bool _unsavedPromptShown = false;
 
   /// Bumped whenever [_pending] changes (drives the review screen).
   final ValueNotifier<int> pendingChangesTick = ValueNotifier(0);

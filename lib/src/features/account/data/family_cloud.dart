@@ -1533,9 +1533,10 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Moves [uid]'s unsaved changes from a previous run (the device journal)
   /// to their staging area in Firestore, out of the family data — nothing is
   /// written to the families until the user applies them (Settings →
-  /// Unsaved changes). Changes already on the server are forgotten; edits of
-  /// records another member deleted meanwhile are dropped (the user is told).
-  /// Then loads every staged change.
+  /// Unsaved changes). A set-aside change only ever leaves the staging area
+  /// once the user reviewed it (applied or discarded); the only changes not
+  /// set aside are those already in the family's data. Then loads every
+  /// staged change.
   Future<void> _stagePendingChanges(String uid) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_pendingKey(uid));
@@ -1551,25 +1552,31 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final mine = {for (final f in families) f.id};
     for (final c in journal.all) {
       // Year / month folders are rebuilt from the items they hold.
-      if (!mine.contains(c.familyId) || isContainerRecord(c.key)) {
-        journal.remove(c.id);
-      }
+      if (isContainerRecord(c.key)) journal.remove(c.id);
     }
-    final lost = <PendingChange>[];
     final toStage = <PendingChange>[];
     for (final fid in {for (final c in journal.all) c.familyId}) {
+      // A family they've left: set aside as is (only discardable).
+      if (!mine.contains(fid)) {
+        toStage.addAll(journal.forFamily(fid));
+        continue;
+      }
       final ws = workspaces[fid];
+      // Not loaded: kept on the device, set aside on the next start.
       if (ws == null || _cloudBase[fid] == null) continue;
       final r = applyPendingChanges(
         server: _serverView(fid),
         local: _localRecords(fid, ws),
         changes: journal.forFamily(fid),
       );
-      for (final c in [...r.settled, ...r.lost]) {
+      // Already in the family's data: nothing to review.
+      for (final c in r.settled) {
         journal.remove(c.id);
       }
-      lost.addAll(r.lost);
-      toStage.addAll(r.pending);
+      // Edits of items deleted meanwhile are set aside too, for review.
+      toStage
+        ..addAll(r.pending)
+        ..addAll(r.lost);
     }
     if (toStage.isNotEmpty) {
       try {
@@ -1587,38 +1594,26 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       }
     }
     _pendingChanged();
-    if (lost.isNotEmpty) {
-      _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
-    }
-    await _loadStagedChanges(uid, mine);
+    await _loadStagedChanges(uid);
   }
 
-  /// Loads [uid]'s staged changes; those of families they're no longer in
-  /// are deleted.
-  Future<void> _loadStagedChanges(String uid, Set<String> mine) async {
+  /// Loads [uid]'s staged changes. Nothing is ever removed here: only the
+  /// user's review (apply / discard) clears a staged change.
+  Future<void> _loadStagedChanges(String uid) async {
     try {
       final snap = await _unsavedRef(
         uid,
       ).get(const GetOptions(source: Source.server)).timeout(kCloudOpTimeout);
       final staged = PendingChanges();
-      final stray = <DocumentReference<Map<String, dynamic>>>[];
       for (final d in snap.docs) {
         final c = PendingChange.fromJson(d.data());
-        if (c == null || !mine.contains(c.familyId) || c.docId != d.id) {
-          stray.add(d.reference);
-        } else {
-          staged.addStaged(c);
-        }
+        if (c != null && c.docId == d.id) staged.addStaged(c);
       }
       _staged = staged;
       pendingChangesTick.value++;
-      if (stray.isNotEmpty) {
-        unawaited(
-          _commitInChunks([
-            for (final r in stray) (b) => b.delete(r),
-          ]).catchError((Object e) {
-            debugPrint('[cloud] stray unsaved-change cleanup failed: $e');
-          }),
+      if (!staged.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => promptUnsavedChanges(),
         );
       }
     } catch (e) {
@@ -1626,17 +1621,53 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     }
   }
 
+  /// Whether staged change [c] can be applied, or why not.
+  StagedStatus stagedStatus(PendingChange c) {
+    final fid = c.familyId;
+    if (!families.any((f) => f.id == fid) ||
+        workspaces[fid] == null ||
+        _cloudBase[fid] == null) {
+      return StagedStatus.familyGone;
+    }
+    if (c.op == PendingOp.delete) return StagedStatus.ready;
+    final server = _serverView(fid);
+    if (c.serverRecord != null) {
+      return server.containsKey(c.key)
+          ? StagedStatus.ready
+          : StagedStatus.deletedMeanwhile;
+    }
+    if (recordKind(c.key) == RecordKind.line) {
+      final note = _noteKeyOfLine(c.key);
+      if (!server.containsKey(note) &&
+          _staged['$fid|$note']?.op != PendingOp.save) {
+        return StagedStatus.deletedMeanwhile;
+      }
+    }
+    return StagedStatus.ready;
+  }
+
   /// Applies the staged changes [ids] onto each family's CURRENT data (see
-  /// [applyPendingChanges]: edits are merged field by field, a record deleted
-  /// meanwhile stays deleted) and saves them; their staging docs are then
-  /// deleted. Returns a message for the user.
+  /// [applyPendingChanges]: edits are merged field by field) and saves them;
+  /// their staging docs are then deleted. Changes that can't be applied (see
+  /// [stagedStatus]) stay set aside until discarded. Returns a message for
+  /// the user.
   Future<String> applyStagedChanges(List<String> ids) async {
     final uid = _firebaseUid();
     if (uid == null) return 'Sign in to apply changes';
     final byFamily = <String, List<PendingChange>>{};
+    final wanted = {...ids};
+    // An item of a new note that's set aside too brings its note along.
     for (final id in ids) {
       final c = _staged[id];
-      if (c != null) (byFamily[c.familyId] ??= []).add(c);
+      if (c == null || recordKind(c.key) != RecordKind.line) continue;
+      final note = _staged['${c.familyId}|${_noteKeyOfLine(c.key)}'];
+      if (note != null && note.op == PendingOp.save) wanted.add(note.id);
+    }
+    for (final id in wanted) {
+      final c = _staged[id];
+      if (c != null && stagedStatus(c) == StagedStatus.ready) {
+        (byFamily[c.familyId] ??= []).add(c);
+      }
     }
     final done = <PendingChange>[];
     final lost = <PendingChange>[];
@@ -1670,14 +1701,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final ok = sent.isEmpty || await _persist();
     // Saved changes are now in the family's data (and, if the save failed,
     // in the device journal, retried like any other edit).
-    await _dropStaged(uid, [...done, ...lost, if (ok) ...sent]);
+    await _dropStaged(uid, [...done, if (ok) ...sent]);
     if (lost.isNotEmpty) {
       _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
     }
     final n = sent.length + done.length;
     if (!ok) return 'Couldn’t save yet — will keep trying';
     return n == 0
-        ? 'Nothing to apply'
+        ? 'Nothing could be applied'
         : n == 1
         ? 'Change applied'
         : '$n changes applied';
