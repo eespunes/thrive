@@ -51,3 +51,6 @@ __pycache__/
 
 # Local tool state
 .codex/
+
+# Private design docs (repo is public; keep out of git and GitHub Pages)
+/design/
