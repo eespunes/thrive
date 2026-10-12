@@ -1105,6 +1105,7 @@ class _FinanceToggleRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   day,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -1930,5 +1931,10 @@ String _numStr(double v) {
 
 String _financeItemDayLabel(ExpenseItem item, int monthIdx) {
   final day = item.day ?? dayNumFromMarker(item.marker);
-  return day == null ? 'No date' : '$day ${kMonthsEn[monthIdx]}';
+  final dayLabel = day == null ? 'No date' : '$day ${kMonthsEn[monthIdx]}';
+  // When the label is the title, surface the payee here (#400).
+  final payee = item.payee.trim();
+  return item.label.trim().isNotEmpty && payee.isNotEmpty
+      ? '$payee · $dayLabel'
+      : dayLabel;
 }
