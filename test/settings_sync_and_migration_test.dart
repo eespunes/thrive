@@ -67,27 +67,53 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('memcolors-row-m2')));
       await tester.pumpAndSettle();
 
+      // The toggle asks for confirmation and applies on confirm (no Save).
       await tester.tap(find.byKey(const ValueKey('member-kid-toggle')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('kid-access-confirm')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('kid-access-confirm')));
       await tester.pumpAndSettle();
       FamilyMember erik() =>
           thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'm2');
       expect(erik().role, 'kid');
+      expect(erik().kidSetAt, isNotNull);
+
+      // Saving the studio keeps the role.
+      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      expect(erik().role, 'kid');
       // The member list explains the role.
-      expect(find.text('Kid'), findsOneWidget);
+      expect(find.textContaining('Kid ·'), findsOneWidget);
 
       // And back to a full member.
       await tester.tap(find.byKey(const ValueKey('memcolors-row-m2')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('member-kid-toggle')));
-      await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('kid-access-confirm')));
       await tester.pumpAndSettle();
       expect(erik().role, 'member');
     });
 
-    testWidgets('no kid toggle on your own row (a kid can’t unlock itself)', (
+    testWidgets('cancelling the confirm sheet leaves access unchanged', (
+      tester,
+    ) async {
+      await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+      await openMoreHub(tester);
+      await tapHubRow(tester, 'planning', 'more-memcolors');
+      await tester.tap(find.byKey(const ValueKey('memcolors-row-m2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('member-kid-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(
+        thriveDebug.curFamily()!.members.firstWhere((m) => m.id == 'm2').role,
+        'member',
+      );
+    });
+
+    testWidgets('the owner’s own kid toggle is locked with a reason', (
       tester,
     ) async {
       await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
@@ -95,7 +121,10 @@ void main() {
       await tapHubRow(tester, 'planning', 'more-memcolors');
       await tester.tap(find.byKey(const ValueKey('memcolors-row-me')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('member-kid-toggle')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('member-kid-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('kid-access-confirm')), findsNothing);
+      expect(thriveDebug.curFamily()!.members.first.role, 'owner');
     });
   });
 

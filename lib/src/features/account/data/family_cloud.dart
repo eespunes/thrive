@@ -856,6 +856,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _dropFamilyLocally(String fid) {
     final present = families.any((f) => f.id == fid);
     if (!present && fid != familyId) return;
+    _noteKidFamilyDropped(fid);
     _applyingCloudSnapshot = true;
     families = families.where((f) => f.id != fid).toList();
     workspaces.remove(fid);

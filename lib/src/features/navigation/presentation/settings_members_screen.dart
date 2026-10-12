@@ -54,6 +54,32 @@ extension _ThriveMembersScreen on _ThriveHomeState {
   }
 }
 
+/// The members-list subtitle for [m] (`Kid Accounts.dc.html` screen 1).
+String memberRowSubtitle(FamilyMember m, {required bool loginless}) {
+  if (m.role == 'owner') return 'Owner';
+  if (m.role == 'kid') {
+    if (m.loginPending) return 'Kid · login pending (Google)';
+    if (m.loginMethod == 'email') {
+      return 'Kid · own login (Email, managed by admins)';
+    }
+    if (m.loginMethod == 'google') return 'Kid · own login (Google)';
+    return loginless ? 'Kid · no login' : 'Kid · own login';
+  }
+  return loginless ? 'No login — managed by anyone' : 'Member';
+}
+
+/// The row pill: Pending (amber) › Managed (grey) › Admin (teal).
+({String label, KidTone tone})? memberRowPill(bool admin, FamilyMember m) {
+  if (m.role == 'kid' && m.loginPending) {
+    return (label: 'Pending', tone: KidTone.amber);
+  }
+  if (m.role == 'kid' && m.managed) {
+    return (label: 'Managed', tone: KidTone.grey);
+  }
+  if (admin) return (label: 'Admin', tone: KidTone.teal);
+  return null;
+}
+
 class _MemberColoursScreen extends StatelessWidget {
   const _MemberColoursScreen({required this.state});
   final _ThriveHomeState state;
@@ -61,63 +87,107 @@ class _MemberColoursScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = state;
-    return ValueListenableBuilder<int>(
-      valueListenable: s._rev,
-      builder: (context, _, _) {
-        final members = (s.curFamily()?.members ?? const <FamilyMember>[])
-            .where((m) => m.status == 'active')
-            .toList();
-        return SettingsSubScreen(
-          sync: s.syncStatus,
-          offline: s.netOffline,
-          title: 'Member colours',
-          subtitle: 'Each person’s identity colour',
-          intro:
-              'Each member’s identity colour — used on avatars, events and '
-              'lists. Tap a member to edit.',
-          footnote:
-              'Changing a colour updates it everywhere at once — calendar, '
-              'lists and widgets.',
-          onToast: s.flash,
-          children: [
-            for (final m in members)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: SettingsListRow(
-                  rowKey: ValueKey('memcolors-row-${m.id}'),
-                  leading: s.avatarNode(
-                    photo: m.photo,
-                    emoji: m.emoji,
-                    initials: m.initials,
-                    color: m.color,
-                    size: 34,
-                    radius: 17,
-                    fs: 13,
-                  ),
-                  label: m.id == s.myId ? '${m.name} (you)' : m.name,
-                  sub: m.role == 'owner'
-                      ? 'Owner'
-                      : (m.role == 'kid'
-                            ? (m.uid != null && m.uid!.isNotEmpty
-                                  ? 'Kid · own login'
-                                  : 'Kid')
-                            : (m.uid == null && m.email.isEmpty
-                                  ? 'No login — managed by anyone'
-                                  : 'Member')),
-                  onTap: () => s.pushSettingsPage<void>(
-                    (_) => _MemberStudio(state: s, memberId: m.id),
-                  ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: s.netOffline,
+      builder: (context, offline, _) => ValueListenableBuilder<int>(
+        valueListenable: s._rev,
+        builder: (context, _, _) {
+          final f = s.curFamily();
+          final members = (f?.members ?? const <FamilyMember>[])
+              .where((m) => m.status == 'active')
+              .toList();
+          final admin = s.amAdmin();
+          final anyManaged = members.any((m) => m.role == 'kid' && m.managed);
+          return SettingsSubScreen(
+            sync: s.syncStatus,
+            offline: s.netOffline,
+            title: 'Family members',
+            subtitle: f == null
+                ? 'Each person’s identity colour'
+                : '${f.name} · ${members.length} '
+                      '${members.length == 1 ? 'person' : 'people'}',
+            intro: 'Tap someone to edit their badge, colour and access.',
+            footnote: anyManaged
+                ? 'Managed: an admin created this login and controls the '
+                      'password.'
+                : 'Changing a colour updates it everywhere at once — '
+                      'calendar, lists and widgets.',
+            onToast: s.flash,
+            children: [
+              if (!admin)
+                kidNotice(
+                  'Only admins can change access and logins. Ask '
+                  '${s.adminNames()}.',
+                  key: const ValueKey('members-readonly'),
+                  tone: KidTone.grey,
+                  icon: 'lock',
+                  margin: const EdgeInsets.only(bottom: 8),
+                )
+              else if (offline && s._cloudBacked)
+                kidNotice(
+                  'Offline. Access and login changes need a connection.',
+                  key: const ValueKey('members-offline'),
+                  tone: KidTone.amber,
+                  icon: 'wifi',
+                  margin: const EdgeInsets.only(bottom: 8),
+                ),
+              for (final m in members)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _memberRow(s, f!, m),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _memberRow(_ThriveHomeState s, Family f, FamilyMember m) {
+    final pill = memberRowPill(s.memberIsAdmin(f, m), m);
+    return Stack(
+      children: [
+        SettingsListRow(
+          rowKey: ValueKey('memcolors-row-${m.id}'),
+          leading: s.avatarNode(
+            photo: m.photo,
+            emoji: m.emoji,
+            initials: m.initials,
+            color: m.color,
+            size: 34,
+            radius: 17,
+            fs: 13,
+          ),
+          label: m.id == s.myId ? '${m.name} (you)' : m.name,
+          sub: memberRowSubtitle(m, loginless: s.isLoginlessMember(m)),
+          onTap: () => s.pushSettingsPage<void>(
+            (_) => _MemberStudio(state: s, memberId: m.id),
+          ),
+        ),
+        if (pill != null)
+          Positioned(
+            right: 34,
+            top: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Center(
+                child: kidPill(
+                  pill.label,
+                  tone: pill.tone,
+                  key: ValueKey('memcolors-pill-${m.id}'),
                 ),
               ),
-          ],
-        );
-      },
+            ),
+          ),
+      ],
     );
   }
 }
 
 /// Full-screen member editor (badge studio): photo / free emoji / initials
-/// badge, name, optional email, and unique-per-family colour dots.
+/// badge, name, optional email, colour dots, plus the kid-accounts cards —
+/// Access (Kid toggle, owner-only Admin toggle), Sign-in (own accounts) and
+/// Login (kid profiles).
 class _MemberStudio extends StatefulWidget {
   const _MemberStudio({required this.state, required this.memberId});
   final _ThriveHomeState state;
@@ -133,14 +203,12 @@ class _MemberStudioState extends State<_MemberStudio> {
   String? _photo;
   String? _emoji;
   late Color _color;
-  late bool _kid;
+  String? _accessError;
+  bool _adminBusy = false;
 
   _ThriveHomeState get s => widget.state;
 
-  FamilyMember? get _member =>
-      (s.curFamily()?.members ?? const <FamilyMember>[])
-          .where((m) => m.id == widget.memberId)
-          .firstOrNull;
+  FamilyMember? get _member => s._kidRowById(widget.memberId);
 
   @override
   void initState() {
@@ -151,54 +219,12 @@ class _MemberStudioState extends State<_MemberStudio> {
     _photo = m?.photo;
     _emoji = m?.emoji;
     _color = m?.color ?? kMemberColors.first;
-    _kid = m?.role == 'kid';
-  }
-
-  /// The kid toggle shows only where a role change is even possible: the
-  /// viewer is an owner, and the row is neither an owner nor themselves.
-  bool get _canToggleKid {
-    final m = _member;
-    return m != null && m.role != 'owner' && m.id != s.myId && s.amOwner();
   }
 
   @override
   void dispose() {
     _email.dispose();
     super.dispose();
-  }
-
-  /// Converting a kid profile into a child user: the kid signs in with the
-  /// email set here and joins the family, which claims this row (keeping
-  /// its kid role and everything assigned to it).
-  Widget _kidLoginCard() {
-    final m = _member;
-    final hasLogin = m?.uid != null && m!.uid!.isNotEmpty;
-    final handle = s.curFamily()?.username ?? '';
-    const style = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      color: Color(0xff5b6678),
-      height: 1.35,
-    );
-    return studioCard(
-      title: 'Own login',
-      children: [
-        Text(
-          key: const ValueKey('member-kid-login'),
-          hasLogin
-              ? 'Signed in with their own account. They only see their own '
-                    'events and lists and a read-only meal plan — no money, '
-                    'discount cards or kitchen wall.'
-              : 'To give them their own login, add their email above and '
-                    'save. Then they sign up with that email and join '
-                    '${handle.isEmpty ? 'this family' : '@$handle'} with the '
-                    'family password — they become a child user who only '
-                    'sees their own events and lists and a read-only meal '
-                    'plan.',
-          style: style,
-        ),
-      ],
-    );
   }
 
   void _save() {
@@ -209,65 +235,217 @@ class _MemberStudioState extends State<_MemberStudio> {
       color: _color,
       photo: _photo,
       emoji: _emoji,
-      kid: _canToggleKid ? _kid : null,
     );
     Navigator.of(context).maybePop();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BadgeStudioScaffold(
-      title: 'Edit member',
-      subtitle: 'Badge, name & identity colour',
-      accent: _color,
-      saveLabel: 'Save member',
-      saveEnabled: _name.trim().isNotEmpty,
-      onSave: _save,
+  /// Why the Kid toggle is locked for [m], or null when it can change.
+  String? _kidLockReason(Family f, FamilyMember m) {
+    final first = firstNameOf(m.name);
+    if (m.role == 'owner' ||
+        (f.ownerUid != null && m.uid != null && f.ownerUid == m.uid)) {
+      return '$first owns this family. The owner can’t be a kid account.';
+    }
+    final targetAdmin = s.memberIsAdmin(f, m);
+    if (m.role != 'kid' && targetAdmin) {
+      final otherAdmins = f.members.where(
+        (o) => o.id != m.id && o.status == 'active' && s.memberIsAdmin(f, o),
+      );
+      if (otherAdmins.isEmpty) {
+        return m.id == s.myId
+            ? 'You’re the last admin. Make someone else an admin before '
+                  'turning this on.'
+            : '$first is the last admin. Make someone else an admin first.';
+      }
+      if (!s.amOwner()) {
+        return '$first is an admin. Only the owner can make an admin a kid '
+            'account.';
+      }
+    }
+    if (s.netOffline.value && s._cloudBacked && !s.isLoginlessMember(m)) {
+      return 'You’re offline. Access changes need a connection.';
+    }
+    return null;
+  }
+
+  Future<void> _toggleKid(FamilyMember m) async {
+    final toKid = m.role != 'kid';
+    // The confirm sheet shows its own busy state while the change saves.
+    setState(() => _accessError = null);
+    final err = await _showKidAccessConfirm(context, s, m, toKid);
+    if (!mounted) return;
+    setState(() => _accessError = err);
+  }
+
+  Widget _accessCard(Family f, FamilyMember m) {
+    final first = firstNameOf(m.name);
+    final kid = m.role == 'kid';
+    final reason = _kidLockReason(f, m);
+    final ownRow = !s.isLoginlessMember(m);
+    final canAdmin =
+        s.amOwner() &&
+        m.role != 'owner' &&
+        !kid &&
+        ownRow &&
+        s._loginIdOf(m) != null;
+    final isAdmin = s.memberIsAdmin(f, m);
+    return studioCard(
+      title: 'Access',
       children: [
-        BadgeStage(
-          color: _color,
-          name: _name,
-          onName: (v) => setState(() => _name = v),
-          emoji: _emoji,
-          picture: _photo,
-          fallbackGlyph: initialsOf(_name),
-          namePlaceholder: 'Name…',
-          onEmoji: (g) => setState(() {
-            _emoji = g;
-            _photo = null;
-          }),
-          onPickPhoto: () async {
-            final p = await s.pickBadgePhoto();
-            if (p != null && mounted) {
+        kidToggleRow(
+          key: const ValueKey('member-kid-toggle'),
+          label: 'Kid',
+          sub: kid
+              ? '$first only sees their own events and lists, and the meal '
+                    'plan read-only.'
+              : 'Turn on to limit $first to their own events and lists, plus '
+                    'a read-only meal plan.',
+          value: kid,
+          disabledReason: reason,
+          onChanged: () => _toggleKid(m),
+        ),
+        if (canAdmin)
+          kidToggleRow(
+            key: const ValueKey('member-admin-toggle'),
+            label: 'Admin',
+            sub: 'Can change access and logins for everyone in the family.',
+            value: isAdmin,
+            busyText: _adminBusy ? 'Updating $first’s admin rights…' : null,
+            disabledReason: s.netOffline.value && s._cloudBacked
+                ? 'You’re offline. Admin changes need a connection.'
+                : null,
+            onChanged: () async {
               setState(() {
-                _photo = p;
-                _emoji = null;
+                _adminBusy = true;
+                _accessError = null;
               });
-            }
-          },
-          onToast: s.flash,
-        ),
-        studioTextField(
-          key: const ValueKey('member-email'),
-          controller: _email,
-          hint: 'Email (optional — for members without a login)',
-        ),
-        // Kid profiles (#245): the toggle moved here when the old member
-        // edit sheet was retired.
-        if (_canToggleKid)
-          studioToggleRow(
-            key: const ValueKey('member-kid-toggle'),
-            label: 'Kid profile',
-            sub: 'Home shows only kid-safe widgets for them',
-            value: _kid,
-            onChanged: () => setState(() => _kid = !_kid),
+              final err = await s.setAdmin(m.id, !isAdmin);
+              if (!mounted) return;
+              setState(() {
+                _adminBusy = false;
+                _accessError = err;
+              });
+            },
           ),
-        if (_canToggleKid && _kid) _kidLoginCard(),
-        _ColorPickerPanel(
-          selected: _color,
-          onChanged: (c) => setState(() => _color = c),
+        if (_accessError != null)
+          kidNotice(
+            _accessError!,
+            key: const ValueKey('member-access-error'),
+            tone: KidTone.red,
+            icon: 'x',
+          ),
+        Text(
+          kid && m.kidSetAt != null
+              ? 'Kid since ${kidShortDate(m.kidSetAt)}, set by '
+                    '${m.kidSetBy ?? 'an admin'}. Only admins see this setting.'
+              : 'Only admins see this setting.',
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: B.muted,
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _signInCard(FamilyMember m) {
+    final first = firstNameOf(m.name);
+    final me = m.id == s.myId;
+    final email = m.email.trim();
+    return studioCard(
+      title: 'Sign-in',
+      children: [
+        if (me && s.user != null)
+          studioInfoRow(
+            'Method',
+            value: s.user!.provider == 'google'
+                ? 'Google account'
+                : 'Email & password',
+          ),
+        if (email.isNotEmpty) studioInfoRow('Account', value: email),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            me
+                ? 'This is your own account.'
+                : 'This is $first’s own account. Only $first can change the '
+                      'email or password.',
+            key: const ValueKey('member-signin-note'),
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: B.muted,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: s._rev,
+      builder: (context, _, _) {
+        final f = s.curFamily();
+        final m = _member;
+        final admin = s.amAdmin();
+        final loginless = m != null && s.isLoginlessMember(m);
+        final flowB = m != null && m.loginMethod != null;
+        final kidProfile = m != null && m.role == 'kid' && (loginless || flowB);
+        // Members without a login of their own (login-less or a pending
+        // invite) keep an editable contact email; a real login shows its
+        // sign-in details instead.
+        final emailEditable =
+            m == null || (m.uid == null && !flowB && m.id != s.myId);
+        return BadgeStudioScaffold(
+          title: 'Edit member',
+          subtitle: 'Badge, name & identity colour',
+          accent: _color,
+          saveLabel: 'Save member',
+          saveEnabled: _name.trim().isNotEmpty,
+          onSave: _save,
+          children: [
+            BadgeStage(
+              color: _color,
+              name: _name,
+              onName: (v) => setState(() => _name = v),
+              emoji: _emoji,
+              picture: _photo,
+              fallbackGlyph: initialsOf(_name),
+              namePlaceholder: 'Name…',
+              onEmoji: (g) => setState(() {
+                _emoji = g;
+                _photo = null;
+              }),
+              onPickPhoto: () async {
+                final p = await s.pickBadgePhoto();
+                if (p != null && mounted) {
+                  setState(() {
+                    _photo = p;
+                    _emoji = null;
+                  });
+                }
+              },
+              onToast: s.flash,
+            ),
+            if (emailEditable)
+              studioTextField(
+                key: const ValueKey('member-email'),
+                controller: _email,
+                hint: 'Email (optional — for members without a login)',
+              ),
+            if (f != null && m != null && admin) _accessCard(f, m),
+            if (m != null && !emailEditable && !flowB) _signInCard(m),
+            if (kidProfile) _KidLoginCard(state: s, memberId: m.id),
+            _ColorPickerPanel(
+              selected: _color,
+              onChanged: (c) => setState(() => _color = c),
+            ),
+          ],
+        );
+      },
     );
   }
 }

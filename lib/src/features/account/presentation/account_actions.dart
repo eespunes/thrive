@@ -219,6 +219,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     try {
       _cloudUnreachable = false;
       await cloudBoot(uid);
+      await _kidAfterSignIn();
       await bindCloudSync(uid);
     } on CloudUnreachable catch (e) {
       debugPrint('[cloud] sign-in load: server unreachable: $e');

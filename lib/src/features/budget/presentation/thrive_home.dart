@@ -564,6 +564,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// id. Those families load through kid-scoped queries only.
   final Map<String, String> _kidMemberIdByFid = {};
 
+  /// The full-screen kid gate (welcome, first run, errors), or null.
+  final ValueNotifier<KidGate?> kidGate = ValueNotifier<KidGate?>(null);
+
+  /// The access change whose notice this session already handled.
+  int? _accessNoticeShownAt;
+
   /// Kid-scoped loading: family → collection → query tag → record keys that
   /// tag currently delivers. A record leaves the base only when no tag holds
   /// it.
@@ -738,6 +744,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   @override
   void dispose() {
     thriveDebug._detach(this);
+    kidGate.dispose();
     WidgetsBinding.instance.removeObserver(this);
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
@@ -933,6 +940,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       // No prior data: start empty so the onboarding gate prompts create/join.
       families = [];
       workspaces = {};
+      unawaited(_kidCheckRemovedLogin(uid));
       if (!mounted) return;
       _finishBoot();
       return;
@@ -2245,6 +2253,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         !familyLoading &&
         !onboardingOpen &&
         !cloudOffline;
+    if (shellReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _kidShellChecks();
+      });
+    }
     if (shellReady && !_didSyncImportsOnOpen) {
       _didSyncImportsOnOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
@@ -2325,6 +2338,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             // create or join one before reaching the budget.
             if (onboardingOpen)
               Positioned.fill(child: _OnboardingScreen(state: this)),
+            // Kid accounts: welcome, first run and the full-screen errors.
+            ValueListenableBuilder<KidGate?>(
+              valueListenable: kidGate,
+              builder: (context, gate, _) => gate == null
+                  ? const SizedBox.shrink()
+                  : Positioned.fill(
+                      child: _KidGateScreen(
+                        key: ValueKey(gate.kind),
+                        state: this,
+                        gate: gate,
+                      ),
+                    ),
+            ),
           ],
         ),
       ),

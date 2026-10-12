@@ -235,7 +235,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       summary:
           '${members.length} member${members.length == 1 ? '' : 's'} · '
           '${owner ? 'you own this family' : 'owned by ${ownerName ?? '?'}'}',
-      hint: owner ? null : 'Only owners can manage members.',
+      hint: isChildUser
+          ? 'Only family admins can change family settings.'
+          : (owner ? null : 'Only owners can manage members.'),
       rows: [
         // The member list lives directly on the card (#330): avatar, role and
         // status per row. Tapping opens the family management page (#275).
@@ -279,12 +281,27 @@ extension _ThriveMoreScreen on _ThriveHomeState {
 
   Widget _hubAccountCard() {
     final u = user;
+    final me = curFamily()?.members.where((m) => m.id == myId).firstOrNull;
+    // A login an admin gave this kid profile (Flow B): admins own it, so no
+    // password reset or account deletion from here.
+    final adminLogin = isChildUser && me?.loginMethod != null;
+    final managed = adminLogin && (me?.managed ?? false);
     return _hubCard(
       id: 'account',
       icon: 'gear',
       title: 'Account',
       summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
       rows: [
+        if (managed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: kidNotice(
+              '${adminNames()} can change your email or password.',
+              key: const ValueKey('more-managed-notice'),
+              title: 'Managed by your family admins',
+              margin: EdgeInsets.zero,
+            ),
+          ),
         ValueListenableBuilder<int>(
           valueListenable: pendingChangesTick,
           builder: (context, _, _) {
@@ -372,34 +389,40 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           noChev: true,
           onTap: () => flash('Only English (UK) for now'),
         ),
-        _hubRow(
-          key: 'hub-resetpw',
-          label: 'Reset password',
-          sub: u?.provider == 'google'
-              ? 'You sign in with Google — no password here'
-              : 'We’ll email you a reset link',
-          disabled: u?.provider == 'google',
-          disHint: 'You sign in with Google — there’s no password to reset',
-          onTap: openResetPasswordSheet,
-        ),
+        if (!adminLogin)
+          _hubRow(
+            key: 'hub-resetpw',
+            label: 'Reset password',
+            sub: u?.provider == 'google'
+                ? 'You sign in with Google — no password here'
+                : 'We’ll email you a reset link',
+            disabled: u?.provider == 'google',
+            disHint: 'You sign in with Google — there’s no password to reset',
+            onTap: openResetPasswordSheet,
+          ),
         _hubRow(
           key: 'more-signout',
           label: 'Sign out',
-          sub: 'You stay in your families — nothing is deleted',
+          sub: adminLogin
+              ? 'You can sign in again any time'
+              : (isChildUser
+                    ? 'You stay in your family. Nothing is deleted.'
+                    : 'You stay in your families — nothing is deleted'),
           danger: true,
           bg: const Color(0xfffef7f7),
           noChev: true,
           onTap: signOut,
         ),
-        _hubRow(
-          key: 'more-delete-account',
-          label: 'Delete account',
-          sub: _deleteAccountConsequence(),
-          danger: true,
-          bg: B.redSoft,
-          noChev: true,
-          onTap: openDeleteAccountSheet,
-        ),
+        if (!adminLogin)
+          _hubRow(
+            key: 'more-delete-account',
+            label: 'Delete account',
+            sub: _deleteAccountConsequence(),
+            danger: true,
+            bg: B.redSoft,
+            noChev: true,
+            onTap: openDeleteAccountSheet,
+          ),
       ],
     );
   }

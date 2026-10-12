@@ -15,7 +15,7 @@ void main() {
 
   testWidgets('lists only ACTIVE members with role subtitles', (tester) async {
     await openMembers(tester);
-    expect(find.text('Member colours'), findsWidgets);
+    expect(find.text('Family members'), findsWidgets);
     expect(find.byKey(const ValueKey('memcolors-row-me')), findsOneWidget);
     expect(find.text('Eva Janssen (you)'), findsOneWidget);
     expect(find.text('Owner'), findsOneWidget);
