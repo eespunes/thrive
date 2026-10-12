@@ -39,6 +39,19 @@ class ThriveDebugController {
 
   Future<String?> signInWithGoogle() => _s.signInWithGoogle();
 
+  /// Kid accounts: the full-screen kid gate.
+  ValueNotifier<KidGate?> get kidGate => _s.kidGate;
+
+  /// Kid accounts: the once-per-login welcome check for [uid].
+  Future<void> maybeKidWelcome(String uid) => _s._maybeKidWelcome(uid);
+
+  /// Kid accounts: [fid] is dropped while this login is kid [kidMemberId].
+  void noteKidFamilyDropped(String fid, String kidMemberId) {
+    _s._kidMemberIdByFid[fid] = kidMemberId;
+    _s._noteKidFamilyDropped(fid);
+    _s._kidMemberIdByFid.remove(fid);
+  }
+
   Future<String?> signInWithEmail({
     required String email,
     required String password,

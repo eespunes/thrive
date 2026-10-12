@@ -12,16 +12,186 @@ part of 'package:family_money_management_app/main.dart';
 /// - `notes`: `createdBy == <uid>`, and each own note's `lines`;
 /// - nothing else (money, cards, imports, month containers).
 /// Writes are filtered to the same scope before they leave the device.
+/// The kid member id [uid] maps to in a family doc's `kidUids`, or null.
+String? kidMemberIdFromDoc(Map<String, dynamic>? data, String? uid) {
+  final map = data?['kidUids'];
+  final id = uid != null && map is Map ? map[uid]?.toString() : null;
+  return id == null || id.isEmpty ? null : id;
+}
+
+/// The scoped query tags a kid loads [col] through; empty when the
+/// collection is off-limits (`lines` load per own note instead).
+List<String> kidQueryTags(String col) => switch (col) {
+  kSettingsCol ||
+  kCalendarCol ||
+  kLayersCol ||
+  kCategoriesCol ||
+  kMealsCol ||
+  kDaysCol => const ['all'],
+  kEventsCol || kRecurringCol => const ['attending', 'created'],
+  kNotesCol => const ['created'],
+  _ => const [],
+};
+
+/// Whether a kid collection [col] holds nothing at all.
+bool kidOffLimits(String col) => col != kLinesCol && kidQueryTags(col).isEmpty;
+
+/// The note keys in [base] (a kid's base only holds their own notes).
+Set<String> kidNoteKeys(Records? base) => {
+  for (final k in (base ?? const <String, Map<String, dynamic>>{}).keys)
+    if (recordKind(k) == RecordKind.note) k,
+};
+
+/// Whether every source feeding [col] has answered at least once.
+/// [scoped] is `col → tag → keys` for one family.
+bool kidColLoaded(
+  String col, {
+  required Map<String, Map<String, Set<String>>> scoped,
+  required Set<String> loaded,
+  required Records base,
+}) {
+  final tags = scoped[col] ?? const <String, Set<String>>{};
+  if (col == kLinesCol) {
+    if (!loaded.contains(kNotesCol)) return false;
+    return kidNoteKeys(base).every((n) => tags.containsKey('note:$n'));
+  }
+  return tags.length >= kidQueryTags(col).length;
+}
+
+/// Folds one kid-scoped source's docs ([changes]: doc path → raw, null =
+/// removed) into [base]. [full] replaces what this [tag] delivered before;
+/// a doc only leaves the base once no tag of the collection holds it any
+/// more. Marks [col] (and `lines`) loaded once every source answered.
+void ingestKidScoped({
+  required String fid,
+  required String col,
+  required String tag,
+  required List<(String, Map<String, dynamic>?)> changes,
+  required bool full,
+  bool fromCache = false,
+  required Records base,
+  required Map<String, int> versions,
+  required Map<String, Map<String, Set<String>>> scoped,
+  required Set<String> loaded,
+}) {
+  final tags = scoped.putIfAbsent(col, () => {});
+  final mine = tags.putIfAbsent(tag, () => <String>{});
+  // An empty cache answer for a source we hold data for is a cold cache,
+  // not "everything was deleted" — wait for the server.
+  if (full && fromCache && changes.isEmpty && mine.isNotEmpty) return;
+  bool heldElsewhere(String key) =>
+      tags.entries.any((e) => e.key != tag && e.value.contains(key));
+  void drop(String key) {
+    mine.remove(key);
+    if (!heldElsewhere(key)) {
+      base.remove(key);
+      versions.remove(key);
+    }
+  }
+
+  final prefix = '$kFamiliesCollection/$fid/';
+  final seen = <String>{};
+  for (final (path, raw) in changes) {
+    if (!path.startsWith(prefix)) continue;
+    final key = path.substring(prefix.length);
+    if (raw == null) {
+      drop(key);
+      continue;
+    }
+    seen.add(key);
+    mine.add(key);
+    final rec = normalizeRecord(key, raw);
+    if (rec == null) {
+      base.remove(key);
+      versions.remove(key);
+    } else {
+      base[key] = rec;
+      versions[key] = recordVersion(raw);
+    }
+  }
+  if (full) {
+    for (final key in mine.difference(seen).toList()) {
+      drop(key);
+    }
+  }
+  if (col == kNotesCol) {
+    // A note that left the kid's scope takes its lines with it.
+    final notes = kidNoteKeys(base);
+    final lineTags = scoped[kLinesCol];
+    if (lineTags != null) {
+      for (final t in lineTags.keys.toList()) {
+        if (notes.contains(t.substring(5))) continue;
+        for (final k in lineTags.remove(t)!) {
+          base.remove(k);
+          versions.remove(k);
+        }
+      }
+    }
+  }
+  bool done(String c) =>
+      kidColLoaded(c, scoped: scoped, loaded: loaded, base: base);
+  if (done(col)) loaded.add(col);
+  if (done(kLinesCol)) loaded.add(kLinesCol);
+}
+
+/// Whether a kid ([uid], member [kidId]) may write [rec] at [key] —
+/// mirrors firestore.rules. [view] resolves a line's parent note.
+bool kidMayWriteRecord(
+  String key,
+  Map<String, dynamic> rec,
+  Records view, {
+  required String uid,
+  required String kidId,
+}) {
+  switch (recordKind(key)) {
+    case RecordKind.event || RecordKind.recurringEvent:
+      final attendees = rec['attendees'];
+      return rec['createdBy'] == uid ||
+          (attendees is List && attendees.contains(kidId));
+    case RecordKind.note:
+      return rec['createdBy'] == uid;
+    case RecordKind.line:
+      final note = key.split('/').take(2).join('/');
+      return view[note]?['createdBy'] == uid;
+    default:
+      return false;
+  }
+}
+
+/// Restricts [local] so a kid's persist only plans writes the rules accept:
+/// anything out of scope is pinned to the server's version in [base].
+void scopeKidRecords(
+  Records base,
+  Records local, {
+  required String uid,
+  required String kidId,
+}) {
+  final view = {...base, ...local};
+  bool may(String key, Map<String, dynamic>? r) =>
+      r == null || kidMayWriteRecord(key, r, view, uid: uid, kidId: kidId);
+  for (final key in {...local.keys, ...base.keys}) {
+    final b = base[key];
+    if (may(key, local[key]) && may(key, b)) continue;
+    if (b == null) {
+      local.remove(key);
+    } else {
+      local[key] = b;
+    }
+  }
+}
+
+// Cloud-sync glue and Firestore I/O: runs only against a live Firebase
+// project (no emulator in widget tests). The scoping logic it delegates to is
+// the pure functions above, unit-tested in test/kid_scoping_test.dart.
+// coverage:ignore-start
 extension _ThriveChildCloud on _ThriveHomeState {
   /// Records whether the signed-in login is a kid in [fid] per its family
   /// doc [data]. Returns true when that status changed.
   bool _noteKidStatus(String fid, Map<String, dynamic>? data) {
     if (data == null) return false;
-    final uid = _firebaseUid();
-    final map = data['kidUids'];
-    final id = uid != null && map is Map ? map[uid]?.toString() : null;
+    final id = kidMemberIdFromDoc(data, _firebaseUid());
     final before = _kidMemberIdByFid[fid];
-    if (id == null || id.isEmpty) {
+    if (id == null) {
       _kidMemberIdByFid.remove(fid);
     } else {
       _kidMemberIdByFid[fid] = id;
@@ -37,64 +207,6 @@ extension _ThriveChildCloud on _ThriveHomeState {
 
   bool _isKidFamily(String fid) => _kidMemberIdByFid.containsKey(fid);
 
-  /// The kid-scoped queries for [col] as `(tag, query)`; empty when the
-  /// collection is off-limits (or, for `lines`, loaded per note instead).
-  List<(String, Query<Map<String, dynamic>>)> _kidQueries(
-    String fid,
-    String col,
-  ) {
-    final kidId = _kidMemberIdByFid[fid];
-    final uid = _firebaseUid();
-    if (kidId == null || uid == null) return const [];
-    final q = _recordQuery(fid, col);
-    switch (col) {
-      case kSettingsCol ||
-          kCalendarCol ||
-          kLayersCol ||
-          kCategoriesCol ||
-          kMealsCol ||
-          kDaysCol:
-        return [('all', q)];
-      case kEventsCol || kRecurringCol:
-        return [
-          ('attending', q.where('attendees', arrayContains: kidId)),
-          ('created', q.where('createdBy', isEqualTo: uid)),
-        ];
-      case kNotesCol:
-        return [('created', q.where('createdBy', isEqualTo: uid))];
-      default:
-        return const [];
-    }
-  }
-
-  /// The lines of own note [noteKey] (one plain collection query: the rules
-  /// check the note's `createdBy`).
-  Query<Map<String, dynamic>> _kidLinesQuery(String fid, String noteKey) =>
-      FirebaseFirestore.instance.collection(
-        '$kFamiliesCollection/$fid/$noteKey/$kLinesCol',
-      );
-
-  /// The note keys a kid's base holds for [fid] (their own notes).
-  Set<String> _kidNoteKeys(String fid) => {
-    for (final k in (_cloudBase[fid] ?? const <String, Map>{}).keys)
-      if (recordKind(k) == RecordKind.note) k,
-  };
-
-  /// Whether every source feeding [col] has answered at least once.
-  bool _kidColLoaded(String fid, String col) {
-    final tags = _scopedIds[fid]?[col] ?? const <String, Set<String>>{};
-    if (col == kLinesCol) {
-      final loaded = _cloudLoaded[fid] ?? const <String>{};
-      if (!loaded.contains(kNotesCol)) return false;
-      return _kidNoteKeys(fid).every((n) => tags.containsKey('note:$n'));
-    }
-    return tags.length >= _kidQueries(fid, col).length;
-  }
-
-  /// Folds one kid-scoped source's docs ([changes]: doc path → raw, null =
-  /// removed) into the base. [full] replaces what this [tag] delivered
-  /// before; a doc only leaves the base once no tag of the collection
-  /// holds it any more.
   void _ingestScoped(
     String fid,
     String col,
@@ -102,69 +214,25 @@ extension _ThriveChildCloud on _ThriveHomeState {
     List<(String, Map<String, dynamic>?)> changes, {
     required bool full,
     bool fromCache = false,
-  }) {
-    final base = _cloudBase.putIfAbsent(fid, () => {});
-    final versions = _cloudVersions.putIfAbsent(fid, () => {});
-    final tags = _scopedIds
-        .putIfAbsent(fid, () => {})
-        .putIfAbsent(col, () => {});
-    final mine = tags.putIfAbsent(tag, () => <String>{});
-    // An empty cache answer for a source we hold data for is a cold cache,
-    // not "everything was deleted" — wait for the server.
-    if (full && fromCache && changes.isEmpty && mine.isNotEmpty) return;
-    bool heldElsewhere(String key) =>
-        tags.entries.any((e) => e.key != tag && e.value.contains(key));
-    void drop(String key) {
-      mine.remove(key);
-      if (!heldElsewhere(key)) {
-        base.remove(key);
-        versions.remove(key);
-      }
-    }
+  }) => ingestKidScoped(
+    fid: fid,
+    col: col,
+    tag: tag,
+    changes: changes,
+    full: full,
+    fromCache: fromCache,
+    base: _cloudBase.putIfAbsent(fid, () => {}),
+    versions: _cloudVersions.putIfAbsent(fid, () => {}),
+    scoped: _scopedIds.putIfAbsent(fid, () => {}),
+    loaded: _cloudLoaded.putIfAbsent(fid, () => {}),
+  );
 
-    final prefix = '$kFamiliesCollection/$fid/';
-    final seen = <String>{};
-    for (final (path, raw) in changes) {
-      if (!path.startsWith(prefix)) continue;
-      final key = path.substring(prefix.length);
-      if (raw == null) {
-        drop(key);
-        continue;
-      }
-      seen.add(key);
-      mine.add(key);
-      final rec = normalizeRecord(key, raw);
-      if (rec == null) {
-        base.remove(key);
-        versions.remove(key);
-      } else {
-        base[key] = rec;
-        versions[key] = recordVersion(raw);
-      }
-    }
-    if (full) {
-      for (final key in mine.difference(seen).toList()) {
-        drop(key);
-      }
-    }
-    if (col == kNotesCol) {
-      // A note that left the kid's scope takes its lines with it.
-      final notes = _kidNoteKeys(fid);
-      final lineTags = _scopedIds[fid]?[kLinesCol];
-      if (lineTags != null) {
-        for (final t in lineTags.keys.toList()) {
-          if (notes.contains(t.substring(5))) continue;
-          for (final k in lineTags.remove(t)!) {
-            base.remove(k);
-            versions.remove(k);
-          }
-        }
-      }
-    }
-    final loaded = _cloudLoaded.putIfAbsent(fid, () => {});
-    if (_kidColLoaded(fid, col)) loaded.add(col);
-    if (_kidColLoaded(fid, kLinesCol)) loaded.add(kLinesCol);
-  }
+  bool _kidColLoaded(String fid, String col) => kidColLoaded(
+    col,
+    scoped: _scopedIds[fid] ?? const {},
+    loaded: _cloudLoaded[fid] ?? const {},
+    base: _cloudBase[fid] ?? const {},
+  );
 
   /// An off-limits collection: nothing of it is held, and it counts as
   /// loaded so the rest of the sync engine isn't held back by it.
@@ -174,9 +242,50 @@ extension _ThriveChildCloud on _ThriveHomeState {
     _cloudLoaded.putIfAbsent(fid, () => {}).add(col);
   }
 
-  bool _kidOffLimits(String fid, String col) =>
-      col != kLinesCol && _kidQueries(fid, col).isEmpty;
+  /// Restricts [local] to what the rules let this kid write in [fid].
+  void _scopeKidWrites(String fid, Records base, Records local) {
+    final kidId = _kidMemberIdByFid[fid];
+    final uid = _firebaseUid();
+    if (kidId == null) return;
+    if (uid == null) {
+      local
+        ..clear()
+        ..addAll(base);
+      return;
+    }
+    scopeKidRecords(base, local, uid: uid, kidId: kidId);
+  }
 
+  /// The kid-scoped queries for [col] as `(tag, query)`.
+  List<(String, Query<Map<String, dynamic>>)> _kidQueries(
+    String fid,
+    String col,
+  ) {
+    final kidId = _kidMemberIdByFid[fid];
+    final uid = _firebaseUid();
+    if (kidId == null || uid == null) return const [];
+    final q = _recordQuery(fid, col);
+    return [
+      for (final tag in kidQueryTags(col))
+        (
+          tag,
+          switch (tag) {
+            'attending' => q.where('attendees', arrayContains: kidId),
+            'created' => q.where('createdBy', isEqualTo: uid),
+            _ => q,
+          },
+        ),
+    ];
+  }
+
+  /// The lines of own note [noteKey] (one plain collection query: the rules
+  /// check the note's `createdBy`).
+  Query<Map<String, dynamic>> _kidLinesQuery(String fid, String noteKey) =>
+      FirebaseFirestore.instance.collection(
+        '$kFamiliesCollection/$fid/$noteKey/$kLinesCol',
+      );
+
+  Set<String> _kidNoteKeys(String fid) => kidNoteKeys(_cloudBase[fid]);
   List<(String, Map<String, dynamic>?)> _snapChanges(
     QuerySnapshot<Map<String, dynamic>> snap, {
     required bool full,
@@ -214,7 +323,7 @@ extension _ThriveChildCloud on _ThriveHomeState {
             });
     await Future.wait([
       for (final col in kRecordCollections)
-        if (_kidOffLimits(fid, col))
+        if (kidOffLimits(col))
           Future.sync(() => _markKidOffLimits(fid, col))
         else
           for (final (tag, q) in _kidQueries(fid, col)) read(col, tag, q),
@@ -234,7 +343,7 @@ extension _ThriveChildCloud on _ThriveHomeState {
     _scopedIds.remove(fid);
     _cancelKidLineSubs();
     for (final col in kRecordCollections) {
-      if (_kidOffLimits(fid, col)) {
+      if (kidOffLimits(col)) {
         _onCloudChange(fid, () => _markKidOffLimits(fid, col));
         continue;
       }
@@ -294,51 +403,6 @@ extension _ThriveChildCloud on _ThriveHomeState {
     _kidLineSubs.clear();
   }
 
-  /// Whether a kid may write [rec] at [key] — mirrors firestore.rules.
-  bool _kidMayWrite(
-    String fid,
-    String key,
-    Map<String, dynamic> rec,
-    Records view,
-  ) {
-    final kidId = _kidMemberIdByFid[fid];
-    final uid = _firebaseUid();
-    if (kidId == null || uid == null) return false;
-    switch (recordKind(key)) {
-      case RecordKind.event || RecordKind.recurringEvent:
-        final attendees = rec['attendees'];
-        return rec['createdBy'] == uid ||
-            (attendees is List && attendees.contains(kidId));
-      case RecordKind.note:
-        return rec['createdBy'] == uid;
-      case RecordKind.line:
-        final note = key.split('/').take(2).join('/');
-        return view[note]?['createdBy'] == uid;
-      default:
-        return false;
-    }
-  }
-
-  /// Restricts [local] so a kid's persist only plans writes the rules
-  /// accept: anything out of scope is pinned to the server's version.
-  void _scopeKidWrites(String fid, Records base, Records local) {
-    if (!_isKidFamily(fid)) return;
-    final view = {...base, ...local};
-    for (final key in {...local.keys, ...base.keys}) {
-      final l = local[key];
-      final b = base[key];
-      final ok =
-          (l == null || _kidMayWrite(fid, key, l, view)) &&
-          (b == null || _kidMayWrite(fid, key, b, view));
-      if (ok) continue;
-      if (b == null) {
-        local.remove(key);
-      } else {
-        local[key] = b;
-      }
-    }
-  }
-
   /// Forgets everything loaded for [fid] and rebinds its listeners — used
   /// when the login's kid status flips, since kid and full members load
   /// through different queries.
@@ -388,4 +452,5 @@ extension _ThriveChildCloud on _ThriveHomeState {
       _accessRechecks.remove(fid);
     }
   }
+  // coverage:ignore-end
 }

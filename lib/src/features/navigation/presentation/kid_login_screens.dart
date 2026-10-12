@@ -1193,7 +1193,7 @@ class _KidLoginCardState extends State<_KidLoginCard> {
         ],
       ),
     );
-    pw.dispose();
+    // No dispose: the sheet still reads [pw] while it animates closed.
     if (!mounted || done == null) return;
     await s.pushSettingsPage<void>(
       (_) => _KidHandoffScreen(
@@ -1271,7 +1271,7 @@ class _KidLoginCardState extends State<_KidLoginCard> {
         ],
       ),
     );
-    c.dispose();
+    // No dispose: the sheet still reads [c] while it animates closed.
     if (changed) {
       s.flash('$first’s email changed');
       if (mounted) setState(() {});

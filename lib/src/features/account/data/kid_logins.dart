@@ -210,6 +210,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
       );
       return null;
     }
+    // coverage:ignore-start
     if (netOffline.value) return failed;
     final ref = _familyDocRef(f.id);
     try {
@@ -249,6 +250,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
     update(() => apply(m, f));
     flash(kid ? '$first is now a kid account' : '$first is now a full member');
     return null;
+    // coverage:ignore-end
   }
 
   /// Gives or takes admin rights (owner only; never for a kid).
@@ -270,6 +272,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
     if (!_cloudBacked) {
       _withCurFamily(apply);
     } else {
+      // coverage:ignore-start
       if (netOffline.value) return failed;
       try {
         await _familyDocRef(f.id)
@@ -285,6 +288,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
         return failed;
       }
       update(() => apply(f));
+      // coverage:ignore-end
     }
     flash(admin ? '$first is now an admin' : '$first is no longer an admin');
     return null;
@@ -300,6 +304,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
     final fid = curFamily()?.id ?? familyId;
     final payload = {'familyId': fid, ...data};
     if (!_cloudBacked) return _localKidCall(name, payload);
+    // coverage:ignore-start
     if (netOffline.value) throw const KidLoginError('unavailable');
     try {
       final res = await FirebaseFunctions.instanceFor(
@@ -317,6 +322,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
     } on TimeoutException {
       throw const KidLoginError('deadline-exceeded');
     }
+    // coverage:ignore-end
   }
 
   /// Demo-mode stand-in for the callables: the same checks and member-row
@@ -416,6 +422,7 @@ extension _ThriveKidLogins on _ThriveHomeState {
   /// wrong-password hint). False when unknown or offline.
   Future<bool> isManagedLogin(String email) async {
     if (!firebaseAppsAvailable) return false;
+    // coverage:ignore-start
     try {
       final res =
           await FirebaseFunctions.instanceFor(region: kKidFunctionsRegion)
@@ -428,12 +435,14 @@ extension _ThriveKidLogins on _ThriveHomeState {
       debugPrint('[kids] loginKind failed: $e');
       return false;
     }
+    // coverage:ignore-end
   }
 
   /// After a Google sign-in that found no family: claims a pending link an
   /// admin made for this Google account. Returns the family id, or null.
   Future<String?> claimKidLink() async {
     if (!_cloudBacked) return null;
+    // coverage:ignore-start
     try {
       final res =
           await FirebaseFunctions.instanceFor(region: kKidFunctionsRegion)
@@ -452,5 +461,6 @@ extension _ThriveKidLogins on _ThriveHomeState {
       debugPrint('[kids] claim failed: $e');
     }
     return null;
+    // coverage:ignore-end
   }
 }

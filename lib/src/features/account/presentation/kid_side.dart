@@ -44,6 +44,7 @@ extension _ThriveKidSide on _ThriveHomeState {
   Future<void> _kidAfterSignIn() async {
     final uid = _firebaseUid();
     if (uid == null) return;
+    // coverage:ignore-start
     if (families.isEmpty && user?.provider == 'google') {
       kidGate.value = const KidGate(KidGateKind.signingIn);
       final fid = await claimKidLink();
@@ -61,6 +62,7 @@ extension _ThriveKidSide on _ThriveHomeState {
       return;
     }
     await _maybeKidWelcome(uid);
+    // coverage:ignore-end
   }
 
   /// Shows the welcome once per login, for logins an admin made.
@@ -77,6 +79,7 @@ extension _ThriveKidSide on _ThriveHomeState {
   }
 
   /// A Google kid whose login an admin removed while they were away.
+  // coverage:ignore-start
   Future<void> _kidCheckRemovedLogin(String uid) async {
     try {
       final snap = await _userDocRef(uid).get().timeout(kCloudOpTimeout);
@@ -93,6 +96,7 @@ extension _ThriveKidSide on _ThriveHomeState {
       debugPrint('[kids] removed-login check failed: $e');
     }
   }
+  // coverage:ignore-end
 
   /// Called before a family is dropped: a kid losing it means an admin
   /// removed their login.
@@ -114,6 +118,7 @@ extension _ThriveKidSide on _ThriveHomeState {
     if (kidGate.value != null || user == null) return;
     final me = _myRow;
     if (me == null) return;
+    // coverage:ignore-start
     if (_cloudBacked && me.signedOutAt != null) {
       final signedIn = FirebaseAuth
           .instance
@@ -130,6 +135,7 @@ extension _ThriveKidSide on _ThriveHomeState {
         return;
       }
     }
+    // coverage:ignore-end
     final change = me.accessChange;
     if (change == null || change['byId'] == myId) return;
     final at = change['at'];
