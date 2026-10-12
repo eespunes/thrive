@@ -6,6 +6,12 @@ service cloud.firestore {
     // Strictly owner-only.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Unsaved changes set aside after a restart, kept apart from the family
+      // data until the user applies or discards them. Owner-only.
+      match /unsavedChanges/{changeId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
     }
 
     // Shared family workspace. `memberUids` is the source of truth for access.

@@ -3,14 +3,21 @@ part of 'package:family_money_management_app/main.dart';
 /// Unsaved changes: every record write (create / edit / delete) this device
 /// sent to Firestore that the server hasn't acknowledged yet.
 ///
-/// The journal lives in its own on-device document ([kPendingChangesKey]),
-/// separate from everything else, so changes made without a connection
-/// survive the app being closed or killed. When the app is back online they
-/// are re-applied onto the server's current data and saved
-/// ([applyPendingChanges]); each entry is removed as soon as the server
-/// acknowledges it. Settings → Unsaved changes lists them (and can discard
-/// them).
+/// While the app runs, the journal lives in its own on-device document
+/// ([kPendingChangesKey]) so changes made without a connection survive the
+/// app being closed or killed, and failed saves keep being retried.
+///
+/// Changes still unsaved when the app starts again are NOT written into the
+/// family's data: once online they're moved, as they are, to the user's own
+/// staging area in Firestore (`users/{uid}/unsavedChanges/{id}`, see
+/// [kUnsavedChangesCollection]), away from the main data. Settings → Unsaved
+/// changes lists them; applying one merges it onto the server's current data
+/// ([applyPendingChanges]), discarding one just deletes its staging doc.
 const String kPendingChangesKey = 'thrive.pending.v1';
+
+/// The per-user Firestore collection (below `users/{uid}`) holding unsaved
+/// changes set aside after a restart, until they're applied or discarded.
+const String kUnsavedChangesCollection = 'unsavedChanges';
 
 enum PendingOp { save, delete }
 
@@ -46,6 +53,9 @@ class PendingChange {
   int seq;
 
   String get id => '$familyId|$key';
+
+  /// Its document id in [kUnsavedChangesCollection] (one per record).
+  String get docId => '${familyId}__${key.replaceAll('/', '__')}';
 
   /// The record as last seen by either side (for labels).
   Map<String, dynamic> get anyRecord =>
@@ -151,6 +161,9 @@ class PendingChanges {
 
   bool remove(String id) => _byId.remove(id) != null;
 
+  /// Adds a change loaded from the staging area, as it is.
+  void addStaged(PendingChange c) => _byId[c.id] = c;
+
   /// Drops every change of family [fid] (e.g. no longer a member).
   bool removeFamily(String fid) {
     final before = _byId.length;
@@ -206,7 +219,15 @@ applyPendingChanges({
   final pending = <PendingChange>[];
   final settled = <PendingChange>[];
   final lost = <PendingChange>[];
-  for (final c in changes) {
+  // Notes before their lines: a note changed again after a line was added to
+  // it is journaled later, but must exist before the line is placed.
+  final ordered = [
+    for (final c in changes)
+      if (recordKind(c.key) != RecordKind.line) c,
+    for (final c in changes)
+      if (recordKind(c.key) == RecordKind.line) c,
+  ];
+  for (final c in ordered) {
     final k = c.key;
     final s = server[k];
     if (c.op == PendingOp.delete) {

@@ -187,6 +187,7 @@ class ThriveDebugController {
 
   /// The unsaved-changes journal, so tests can seed entries to review.
   PendingChanges get pendingChanges => _s._pending;
+  PendingChanges get stagedChanges => _s._staged;
   void pendingChangesChanged() => _s.pendingChangesTick.value++;
 
   /// Sync/offline indicator plumbing (#283), so tests can read the pill
@@ -562,6 +563,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Changes not yet confirmed by the server (persisted on the device, so
   /// they survive a restart) — reviewable in Settings → Unsaved changes.
   PendingChanges _pending = PendingChanges();
+
+  /// Unsaved changes from a previous run, set aside in the user's staging
+  /// area in Firestore until they're applied or discarded.
+  PendingChanges _staged = PendingChanges();
+
+  /// Families (besides the active one) with changes to save on the next
+  /// persist (staged changes just applied).
+  final Set<String> _persistAlso = {};
 
   /// Bumped whenever [_pending] changes (drives the review screen).
   final ValueNotifier<int> pendingChangesTick = ValueNotifier(0);
@@ -1206,6 +1215,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Future<bool> _persist() {
     if (_persistRun != null) {
       _persistAgain = true;
+      // It may wait a while (a save timing out offline): journal its changes
+      // now so they survive the app being closed meanwhile.
+      if (_cloudBacked) _journalWaitingChanges();
       return (_persistNext ??= Completer<bool>()).future;
     }
     final run = _runPersistLoop();

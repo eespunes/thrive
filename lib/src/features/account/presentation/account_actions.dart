@@ -303,6 +303,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _goneNotes.clear();
     // The device copy stays (per user): it's replayed on their next sign-in.
     _pending = PendingChanges();
+    _staged = PendingChanges();
+    _persistAlso.clear();
     pendingChangesTick.value++;
     _sessionFamilyPasswords.clear();
     if (firebaseAppsAvailable) {

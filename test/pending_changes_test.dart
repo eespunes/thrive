@@ -16,6 +16,22 @@ void main() {
   final keyA = eventRecordKey(ev('a'));
 
   group('PendingChanges journal', () {
+    test('staging doc id is a flat, per-record Firestore id', () {
+      final c = PendingChange(
+        familyId: 'fam_1',
+        key: 'notes/n1/lines/l1',
+        op: PendingOp.save,
+        at: 1,
+        record: {'name': 'Milk'},
+      );
+      expect(c.docId, 'fam_1__notes__n1__lines__l1');
+      expect(c.docId.contains('/'), isFalse);
+      final back = PendingChange.fromJson(c.toJson())!;
+      expect(back.docId, c.docId);
+      expect(back.record, {'name': 'Milk'});
+      expect(back.serverRecord, isNull);
+    });
+
     test('keeps the first server version across edits', () {
       final j = PendingChanges();
       final server = recs([ev('a')])[keyA]!;
@@ -75,6 +91,34 @@ void main() {
   });
 
   group('applyPendingChanges', () {
+    test('a new line of a new note is kept even if the note changed later', () {
+      final note = {'id': 'n1', 'name': 'Shop'};
+      final line = {'id': 'l1', 'name': 'Milk'};
+      final r = applyPendingChanges(
+        server: const {},
+        local: const {},
+        changes: [
+          PendingChange(
+            familyId: 'f',
+            key: 'notes/n1/lines/l1',
+            op: PendingOp.save,
+            at: 1,
+            record: line,
+          ),
+          PendingChange(
+            familyId: 'f',
+            key: 'notes/n1',
+            op: PendingOp.save,
+            at: 2,
+            record: note,
+          ),
+        ],
+      );
+      expect(r.lost, isEmpty);
+      expect(r.pending.length, 2);
+      expect(r.local['notes/n1/lines/l1'], line);
+    });
+
     PendingChange change(
       String key, {
       Map<String, dynamic>? record,

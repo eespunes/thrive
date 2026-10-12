@@ -54,8 +54,8 @@ Future<void> _initFirebase() async {
     }
     // No Firestore offline cache: every screen shows what the server holds.
     // Edits that haven't reached the server are kept in the app's own
-    // unsaved-changes journal (reviewable in Settings) and replayed onto the
-    // current server version when back online. Must be set
+    // unsaved-changes journal; after a restart they're set aside in the
+    // user's own staging area, to apply or discard in Settings. Must be set
     // before the first Firestore call; the cache older versions left on
     // disk is wiped (a no-op once it's gone).
     try {

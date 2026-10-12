@@ -237,11 +237,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// `familyIds` mirror, which is written best-effort and could lag a create or
   /// join and strand an existing member on the onboarding gate (issue #128).
   ///
-  /// Unsaved changes from a previous run ([PendingChanges]) are then
-  /// re-applied onto what was loaded, and sent ([_replayPendingChanges]).
+  /// Unsaved changes from a previous run ([PendingChanges]) are then set
+  /// aside in the user's staging area, out of the family data
+  /// ([_stagePendingChanges]).
   Future<bool> cloudBoot(String meUid) async {
     final ok = await _cloudBootLoad(meUid);
-    if (ok) await _replayPendingChanges(meUid);
+    if (ok) await _stagePendingChanges(meUid);
     return ok;
   }
 
@@ -976,15 +977,18 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       f.ownerUid ??= meUid;
       ok = await _persistFamily(f, workspaces[f.id] ?? Workspace.empty());
     }
-    // Unsaved changes of other families (e.g. replayed after a restart) are
-    // retried with the active one's.
-    final others = {
-      for (final c in _pending.all)
-        if (c.familyId != f?.id) c.familyId,
-    };
+    // Unsaved changes of other families (still retrying, or staged changes
+    // just applied) are saved with the active one's.
+    final others = {..._persistAlso, for (final c in _pending.all) c.familyId}
+      ..remove(f?.id);
     for (final o in families.where((x) => others.contains(x.id))) {
       final ws = workspaces[o.id];
-      if (ws != null && !await _persistFamily(o, ws)) ok = false;
+      if (ws == null) continue;
+      if (await _persistFamily(o, ws)) {
+        _persistAlso.remove(o.id);
+      } else {
+        ok = false;
+      }
     }
     // Best-effort, bounded mirror write.
     await _recordMembership(meUid);
@@ -1467,6 +1471,33 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     return seq;
   }
 
+  /// Journals the active family's changes not sent yet (a save is waiting
+  /// for the one in flight), so they survive the app being closed before
+  /// they're sent. The waiting save journals them again as it sends them.
+  void _journalWaitingChanges() {
+    final fid = curFamily()?.id;
+    if (fid == null || _applyingCloudSnapshot) return;
+    final base = _cloudBase[fid];
+    final ws = workspaces[fid];
+    if (base == null || ws == null) return;
+    final local = _localRecords(fid, ws);
+    final plan = planRecordWrites(base, local);
+    final intents = _deleteIntents[fid] ?? const <String>{};
+    final now = DateTime.now().millisecondsSinceEpoch;
+    var any = false;
+    void put(String k, Map<String, dynamic>? rec, Map<String, dynamic>? prev) {
+      _pending.record(fid, k, record: rec, serverRecord: prev, now: now);
+      any = true;
+    }
+
+    plan.creates.forEach((k, rec) => put(k, rec, null));
+    plan.updates.forEach((k, _) => put(k, local[k], base[k]));
+    for (final k in plan.deletes) {
+      if (intents.contains(k)) put(k, null, base[k]);
+    }
+    if (any) _pendingChanged();
+  }
+
   /// The server acknowledged the writes [sent] (key, sequence) of [fid].
   void _settleJournal(String fid, Iterable<(String, int)> sent) {
     var any = false;
@@ -1496,11 +1527,16 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     );
   }
 
-  /// Loads [uid]'s journal and re-applies its changes onto the families just
-  /// loaded from the server (see [applyPendingChanges]); the next persist
-  /// sends them. Changes already on the server are forgotten; edits of
+  CollectionReference<Map<String, dynamic>> _unsavedRef(String uid) =>
+      _userDocRef(uid).collection(kUnsavedChangesCollection);
+
+  /// Moves [uid]'s unsaved changes from a previous run (the device journal)
+  /// to their staging area in Firestore, out of the family data — nothing is
+  /// written to the families until the user applies them (Settings →
+  /// Unsaved changes). Changes already on the server are forgotten; edits of
   /// records another member deleted meanwhile are dropped (the user is told).
-  Future<void> _replayPendingChanges(String uid) async {
+  /// Then loads every staged change.
+  Future<void> _stagePendingChanges(String uid) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_pendingKey(uid));
     var journal = PendingChanges();
@@ -1514,9 +1550,13 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     _pending = journal;
     final mine = {for (final f in families) f.id};
     for (final c in journal.all) {
-      if (!mine.contains(c.familyId)) journal.remove(c.id);
+      // Year / month folders are rebuilt from the items they hold.
+      if (!mine.contains(c.familyId) || isContainerRecord(c.key)) {
+        journal.remove(c.id);
+      }
     }
     final lost = <PendingChange>[];
+    final toStage = <PendingChange>[];
     for (final fid in {for (final c in journal.all) c.familyId}) {
       final ws = workspaces[fid];
       if (ws == null || _cloudBase[fid] == null) continue;
@@ -1525,25 +1565,144 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         local: _localRecords(fid, ws),
         changes: journal.forFamily(fid),
       );
-      _deleteIntents.putIfAbsent(fid, () => {}).addAll(r.deletes);
       for (final c in [...r.settled, ...r.lost]) {
         journal.remove(c.id);
       }
       lost.addAll(r.lost);
-      if (r.pending.isEmpty) continue;
-      final next = workspaceFromRecords(r.local);
-      mergeCardPhotos(next.cards, ws.cards);
-      workspaces[fid] = next;
-      if (fid == familyId) _adoptActiveWorkspace();
+      toStage.addAll(r.pending);
+    }
+    if (toStage.isNotEmpty) {
+      try {
+        final col = _unsavedRef(uid);
+        await _commitInChunks([
+          for (final c in toStage) (b) => b.set(col.doc(c.docId), c.toJson()),
+        ]).timeout(kCloudOpTimeout);
+        for (final c in toStage) {
+          journal.remove(c.id);
+        }
+        debugPrint('[cloud] set aside ${toStage.length} unsaved change(s)');
+      } catch (e) {
+        // Kept on the device; set aside on the next start.
+        debugPrint('[cloud] setting aside unsaved changes failed: $e');
+      }
     }
     _pendingChanged();
     if (lost.isNotEmpty) {
       _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
     }
-    if (!journal.isEmpty) {
-      debugPrint('[cloud] replaying ${journal.length} unsaved change(s)');
-      // After boot finishes binding; sends every family with changes.
-      scheduleMicrotask(_schedulePersist);
+    await _loadStagedChanges(uid, mine);
+  }
+
+  /// Loads [uid]'s staged changes; those of families they're no longer in
+  /// are deleted.
+  Future<void> _loadStagedChanges(String uid, Set<String> mine) async {
+    try {
+      final snap = await _unsavedRef(
+        uid,
+      ).get(const GetOptions(source: Source.server)).timeout(kCloudOpTimeout);
+      final staged = PendingChanges();
+      final stray = <DocumentReference<Map<String, dynamic>>>[];
+      for (final d in snap.docs) {
+        final c = PendingChange.fromJson(d.data());
+        if (c == null || !mine.contains(c.familyId) || c.docId != d.id) {
+          stray.add(d.reference);
+        } else {
+          staged.addStaged(c);
+        }
+      }
+      _staged = staged;
+      pendingChangesTick.value++;
+      if (stray.isNotEmpty) {
+        unawaited(
+          _commitInChunks([
+            for (final r in stray) (b) => b.delete(r),
+          ]).catchError((Object e) {
+            debugPrint('[cloud] stray unsaved-change cleanup failed: $e');
+          }),
+        );
+      }
+    } catch (e) {
+      debugPrint('[cloud] loading unsaved changes failed: $e');
+    }
+  }
+
+  /// Applies the staged changes [ids] onto each family's CURRENT data (see
+  /// [applyPendingChanges]: edits are merged field by field, a record deleted
+  /// meanwhile stays deleted) and saves them; their staging docs are then
+  /// deleted. Returns a message for the user.
+  Future<String> applyStagedChanges(List<String> ids) async {
+    final uid = _firebaseUid();
+    if (uid == null) return 'Sign in to apply changes';
+    final byFamily = <String, List<PendingChange>>{};
+    for (final id in ids) {
+      final c = _staged[id];
+      if (c != null) (byFamily[c.familyId] ??= []).add(c);
+    }
+    final done = <PendingChange>[];
+    final lost = <PendingChange>[];
+    final sent = <PendingChange>[];
+    for (final MapEntry(key: fid, value: changes) in byFamily.entries) {
+      final ws = workspaces[fid];
+      if (ws == null || _cloudBase[fid] == null) continue;
+      final r = applyPendingChanges(
+        server: _serverView(fid),
+        local: _localRecords(fid, ws),
+        changes: changes,
+      );
+      done.addAll(r.settled);
+      lost.addAll(r.lost);
+      if (r.pending.isEmpty) continue;
+      sent.addAll(r.pending);
+      _deleteIntents.putIfAbsent(fid, () => {}).addAll(r.deletes);
+      final next = workspaceFromRecords(r.local);
+      mergeCardPhotos(next.cards, ws.cards);
+      workspaces[fid] = next;
+      if (fid == familyId) {
+        _adoptActiveWorkspace();
+      } else {
+        _persistAlso.add(fid);
+      }
+    }
+    if (sent.isNotEmpty) {
+      if (mounted) update(() {});
+      _rescheduleReminders();
+    }
+    final ok = sent.isEmpty || await _persist();
+    // Saved changes are now in the family's data (and, if the save failed,
+    // in the device journal, retried like any other edit).
+    await _dropStaged(uid, [...done, ...lost, if (ok) ...sent]);
+    if (lost.isNotEmpty) {
+      _notifyDeletedMeanwhile([for (final c in lost) c.anyRecord]);
+    }
+    final n = sent.length + done.length;
+    if (!ok) return 'Couldn’t save yet — will keep trying';
+    return n == 0
+        ? 'Nothing to apply'
+        : n == 1
+        ? 'Change applied'
+        : '$n changes applied';
+  }
+
+  /// Discards the staged changes [ids]: their staging docs are deleted; the
+  /// family's data was never touched.
+  Future<void> discardStagedChanges(List<String> ids) async {
+    await _dropStaged(_firebaseUid(), [for (final id in ids) ?_staged[id]]);
+  }
+
+  Future<void> _dropStaged(String? uid, List<PendingChange> changes) async {
+    if (changes.isEmpty) return;
+    for (final c in changes) {
+      _staged.remove(c.id);
+    }
+    pendingChangesTick.value++;
+    if (uid == null) return;
+    final col = _unsavedRef(uid);
+    try {
+      await _commitInChunks([
+        for (final c in changes) (b) => b.delete(col.doc(c.docId)),
+      ]).timeout(kCloudOpTimeout);
+    } catch (e) {
+      debugPrint('[cloud] deleting unsaved changes failed: $e');
     }
   }
 
@@ -2080,6 +2239,14 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       } catch (e) {
         debugPrint('[cloud] deleteAccount family ${f.id} failed: $e');
       }
+    }
+    try {
+      final staged = await _unsavedRef(meUid).get().timeout(kCloudOpTimeout);
+      await _commitInChunks([
+        for (final d in staged.docs) (b) => b.delete(d.reference),
+      ]);
+    } catch (e) {
+      debugPrint('[cloud] deleteAccount unsaved changes failed: $e');
     }
     await _userDocRef(meUid).delete().catchError((_) {});
     try {

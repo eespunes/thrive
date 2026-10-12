@@ -58,4 +58,44 @@ void main() {
     // A discarded create is removed again.
     expect(thriveDebug.events.any((e) => e.id == 'offline-1'), isFalse);
   });
+
+  testWidgets('lists a set-aside change apart from the data and discards it', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final ev = CalendarEvent(
+      id: 'staged-1',
+      title: 'Plumber',
+      date: todayIso(),
+      color: const Color(0xff1684B4),
+    );
+    final fid = thriveDebug.familyId;
+    final key = eventRecordKey(ev);
+    final change = PendingChange(
+      familyId: fid,
+      key: key,
+      op: PendingOp.save,
+      at: DateTime.now().millisecondsSinceEpoch,
+      record: ev.toJson(),
+    );
+    thriveDebug.stagedChanges.addStaged(change);
+    thriveDebug.pendingChangesChanged();
+    await tester.pumpAndSettle();
+
+    await openPending(tester);
+    expect(find.byKey(ValueKey('staged-${change.id}')), findsOneWidget);
+    expect(find.text('Plumber'), findsOneWidget);
+    expect(find.byKey(const ValueKey('pending-retry')), findsNothing);
+    // Set aside: not in the family's data.
+    expect(thriveDebug.events.any((e) => e.id == 'staged-1'), isFalse);
+
+    await tester.tap(find.byKey(ValueKey('staged-discard-${change.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('pending-empty')), findsOneWidget);
+    expect(thriveDebug.stagedChanges.isEmpty, isTrue);
+    expect(thriveDebug.events.any((e) => e.id == 'staged-1'), isFalse);
+  });
 }

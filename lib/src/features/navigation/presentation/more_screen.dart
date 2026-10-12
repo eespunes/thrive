@@ -278,11 +278,11 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         ValueListenableBuilder<int>(
           valueListenable: pendingChangesTick,
           builder: (context, _, _) {
-            final n = visiblePendingChanges.length;
+            final n = unsavedChangeCount;
             return _hubRow(
               key: 'hub-pending',
               label: 'Unsaved changes',
-              sub: 'Waiting to reach Thrive',
+              sub: 'Review what hasn’t reached Thrive',
               val: n == 0 ? 'All saved' : '$n unsaved',
               warnVal: n > 0,
               goodVal: n == 0,
