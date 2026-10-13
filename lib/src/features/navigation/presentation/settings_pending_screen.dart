@@ -28,7 +28,7 @@ extension _ThrivePendingChanges on _ThriveHomeState {
       visiblePendingChanges.length + visibleStagedChanges.length;
 
   Future<void> applyStaged(List<String> ids) async {
-    final r = await applyStagedChanges(ids);
+    final r = stagedApplyOverride?.call(ids) ?? await applyStagedChanges(ids);
     if (!mounted) return;
     if (r.signedOut) {
       flash('Sign in to apply changes', tone: ToastTone.alert);

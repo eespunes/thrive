@@ -51,6 +51,11 @@ class StagedApplyResult {
   final bool signedOut;
 }
 
+/// Test seam: when set, Settings → Unsaved changes uses this instead of
+/// applying set-aside changes against Firestore.
+@visibleForTesting
+StagedApplyResult Function(List<String> ids)? stagedApplyOverride;
+
 enum PendingOp { save, delete }
 
 class PendingChange {

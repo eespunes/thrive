@@ -44,6 +44,12 @@ ios/Flutter/ephemeral/
 .env
 .env.*
 *.local
+# Service-account keys must never exist, let alone be committed (#467)
+*-firebase-adminsdk-*.json
+service-account*.json
+*credentials*.json
+.runtimeconfig.json
+.secret.local
 
 # Python (local scripts)
 __pycache__/

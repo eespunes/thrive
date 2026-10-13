@@ -36,15 +36,22 @@ Future<void> _initFirebase() async {
     try {
       // App Check attests that requests come from a genuine app install —
       // Firestore/Auth are otherwise callable by anything holding the (public)
-      // API key. Debug builds use the debug provider (register its token in
-      // the Firebase console for local dev). Enforcement is switched on
-      // per-product in the console once real traffic is attested.
+      // API key. Debug builds use the debug provider: pass a token registered
+      // in the Firebase console with
+      // `--dart-define=APP_CHECK_DEBUG_TOKEN=<token>`, or register the one the
+      // SDK logs on first run (see ops/README.md). Enforcement is switched on
+      // per-product in the console once real traffic is attested (#464).
+      const debugToken = String.fromEnvironment('APP_CHECK_DEBUG_TOKEN');
       await FirebaseAppCheck.instance.activate(
         providerAndroid: foundation.kDebugMode
-            ? const AndroidDebugProvider()
+            ? AndroidDebugProvider(
+                debugToken: debugToken.isEmpty ? null : debugToken,
+              )
             : const AndroidPlayIntegrityProvider(),
         providerApple: foundation.kDebugMode
-            ? const AppleDebugProvider()
+            ? AppleDebugProvider(
+                debugToken: debugToken.isEmpty ? null : debugToken,
+              )
             : const AppleDeviceCheckProvider(),
       );
     } catch (e) {

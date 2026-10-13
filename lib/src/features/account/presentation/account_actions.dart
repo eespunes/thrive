@@ -334,6 +334,39 @@ extension _ThriveAccountActions on _ThriveHomeState {
     _persistUser();
   }
 
+  /// Turns away an account that isn't on the family allowlist (#465) before
+  /// any family data loads. An unverified email gets a verification link; a
+  /// brand-new uninvited account is deleted again so it doesn't linger in
+  /// Firebase Auth. Returns the message to show, or null to carry on.
+  Future<String?> _enforceAllowlist(
+    User user, {
+    required bool isNewUser,
+  }) async {
+    final status = await checkAllowlist(user);
+    if (status == AllowlistStatus.allowed ||
+        status == AllowlistStatus.unknown) {
+      return null;
+    }
+    final email = user.email ?? '';
+    final unverified = status == AllowlistStatus.unverified;
+    try {
+      if (unverified) {
+        await user.sendEmailVerification();
+      } else if (isNewUser) {
+        await user.delete();
+      }
+    } catch (e) {
+      debugPrint('[auth] allowlist follow-up failed: $e');
+    }
+    unawaited(GoogleSignIn.instance.signOut().catchError((_) {}));
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      debugPrint('[auth] sign-out after allowlist check failed: $e');
+    }
+    return unverified ? verifyEmailMessage(email) : kNotInvitedMessage;
+  }
+
   Future<String?> signInWithEmail({
     required String email,
     required String password,
@@ -383,6 +416,8 @@ extension _ThriveAccountActions on _ThriveHomeState {
       }
       final current = credential.user;
       if (current == null) return 'Authentication failed';
+      final denied = await _enforceAllowlist(current, isNewUser: register);
+      if (denied != null) return denied;
       // On registration `displayName` is still stale right after the account is
       // created (updateDisplayName hasn't propagated to this User instance), so
       // prefer the name the user just typed. On a later login the stored
@@ -476,6 +511,11 @@ extension _ThriveAccountActions on _ThriveHomeState {
         debugPrint('[auth] Firebase sign-in returned null user');
         return 'Google sign-in failed';
       }
+      final denied = await _enforceAllowlist(
+        current,
+        isNewUser: userCredential.additionalUserInfo?.isNewUser ?? false,
+      );
+      if (denied != null) return denied;
       debugPrint('[auth] Firebase sign-in success: uid=${current.uid}');
 
       final fallbackName = (current.email ?? 'User')

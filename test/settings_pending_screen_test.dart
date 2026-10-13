@@ -149,6 +149,54 @@ void main() {
     expect(thriveDebug.events.any((e) => e.id == 'staged-1'), isFalse);
   });
 
+  testWidgets('applying set-aside changes reports what happened', (
+    tester,
+  ) async {
+    addTearDown(() => stagedApplyOverride = null);
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+
+    Future<void> applyWith(
+      StagedApplyResult r,
+      String msg, [
+      String? body,
+    ]) async {
+      stagedApplyOverride = (ids) {
+        expect(ids, ['c1']);
+        return r;
+      };
+      await thriveDebug.applyStaged(['c1']);
+      await tester.pump();
+      expect(find.text(msg), findsOneWidget, reason: msg);
+      expect(thriveDebug.toastBody, body);
+      await tester.pumpAndSettle(const Duration(seconds: 6));
+    }
+
+    await applyWith(
+      const StagedApplyResult(signedOut: true),
+      'Sign in to apply changes',
+    );
+    await applyWith(
+      const StagedApplyResult(failed: true),
+      'Couldn’t save yet — will keep trying',
+    );
+    await applyWith(const StagedApplyResult(), 'Nothing could be applied');
+    await applyWith(
+      const StagedApplyResult(gone: ['Milk']),
+      '“Milk” was deleted by another member',
+    );
+    await applyWith(
+      const StagedApplyResult(applied: 2, gone: ['Milk', 'Eggs']),
+      '2 changes applied',
+      '2 items were deleted by another member, so they were skipped.',
+    );
+    await applyWith(
+      const StagedApplyResult(applied: 1, gone: ['Milk']),
+      'Change applied',
+      '“Milk” was deleted by another member, so it was skipped.',
+    );
+    await applyWith(const StagedApplyResult(applied: 1), 'Change applied');
+  });
+
   testWidgets('offers once to review set-aside changes', (tester) async {
     await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
     final change = PendingChange(

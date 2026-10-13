@@ -193,6 +193,7 @@ class ThriveDebugController {
   PendingChanges get stagedChanges => _s._staged;
   void promptUnsavedChanges() => _s.promptUnsavedChanges();
   void pendingChangesChanged() => _s.pendingChangesTick.value++;
+  Future<void> applyStaged(List<String> ids) => _s.applyStaged(ids);
 
   /// Sync/offline indicator plumbing (#283), so tests can read the pill
   /// state and simulate the offline queue without a real backend.

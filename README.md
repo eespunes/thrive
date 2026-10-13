@@ -134,7 +134,9 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 > Deploy the rules **before** rolling out an app release that depends on rules
 > changes — the rules are written to stay compatible with the previous app
-> version so this order is always safe.
+> version so this order is always safe. **Seed the family allowlist first**
+> (`ops/allowlist`), or members can't save their own user doc. See
+> [`ops/README.md`](ops/README.md).
 
 5. (Recommended) Enable **Firebase App Check** in the console (Play Integrity
    for Android, DeviceCheck/App Attest for iOS). The client initializes App
@@ -159,9 +161,14 @@ instead (#363):
    once the App Check metrics show verified traffic from current releases.
 3. **Firebase → Authentication → Settings**: enable *Email enumeration
    protection*.
-4. Delete junk accounts in Authentication → Users (a drive-by account can only
-   create its own empty `users/{uid}` doc; all family data is
-   membership-gated).
+4. Delete junk accounts in Authentication → Users. A drive-by account can't
+   write anything: signing up, creating or joining a family and resolving a
+   family handle all require an entry in the family **allowlist**
+   (`allowlist/{email}`, managed with `ops/allowlist`, #465), and the app
+   signs uninvited accounts straight back out.
+
+The full runbook (allowlist, App Check enforcement, console hardening and the
+Blaze cost guardrails) is in [`ops/README.md`](ops/README.md).
 
 ## Development
 
@@ -173,5 +180,5 @@ cd test/rules && npm test  # Firestore security-rules suite (needs Java 21+)
 
 CI (`.github/workflows/pr-flutter.yml`) runs format check, analyze, tests and a
 coverage gate on every PR; `rules-tests.yml` runs the security-rules suite when
-rules-related files change. Dependabot keeps pub packages and GitHub Actions
+rules-related files change and on `main`. Dependabot keeps pub packages and GitHub Actions
 current.

@@ -6,6 +6,17 @@ on:
       - firestore.rules
       - firebase.json
       - test/rules/**
+      - .github/workflows/rules-tests.yml
+  push:
+    branches: [main]
+    paths:
+      - firestore.rules
+      - firebase.json
+      - test/rules/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   rules-tests:
@@ -18,11 +29,11 @@ jobs:
           java-version: '21'
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Install firebase-tools
         run: npm install -g firebase-tools
       - name: Install test deps
-        run: npm install
+        run: npm ci
         working-directory: test/rules
       - name: Run rules tests
         run: npm test
