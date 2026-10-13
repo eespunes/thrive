@@ -9,6 +9,9 @@ extension _ThriveWalletSheets on _ThriveHomeState {
   /// `openCardScan`). Used by the wallet sheet, Quick add, the expense
   /// sheet's "Scan new" and the Home widget's Scan tile.
   void openCardScan() {
+    if (childBlocked('Discount cards aren’t available on a kid profile')) {
+      return;
+    }
     openEditorSheet<void>((ctx) => _CardScanSheet(state: this));
   }
 

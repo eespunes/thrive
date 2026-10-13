@@ -195,7 +195,13 @@ Map<String, dynamic> buildPhoneWidgetPayload({
   required bool kid,
   required bool hideAmounts,
   DateTime? now,
+  bool childUser = false,
+  bool Function(CalendarEvent ev)? eventVisible,
+  bool Function(String? createdBy)? listVisible,
 }) {
+  // A child user's widgets never carry money or discount cards, and only
+  // their own events and lists.
+  if (childUser) hideAmounts = true;
   final month = ws.data[year]?[kMonthKeys[monthIdx]];
   now ??= DateTime.now();
   final today =
@@ -246,6 +252,7 @@ Map<String, dynamic> buildPhoneWidgetPayload({
   final rows = <Map<String, dynamic>>[];
   for (final ev in ws.events) {
     if (ev.kitchenOrigin) continue;
+    if (eventVisible != null && !eventVisible(ev)) continue;
     final occursToday = ev.recur == 'none'
         ? ev.date == today ||
               (ev.endDate.isNotEmpty &&
@@ -265,21 +272,24 @@ Map<String, dynamic> buildPhoneWidgetPayload({
   rows.sort((a, b) => (a['time'] as String).compareTo(b['time'] as String));
 
   // ------------------------------------------------------ loyalty card
-  final card = ws.cards.isEmpty
+  final card = childUser || ws.cards.isEmpty
       ? null
       : (ws.cards.toList()..sort((a, b) => b.timesUsed.compareTo(a.timesUsed)))
             .first;
 
   // ---------------------------------------------------------- shopping
-  final list = ws.shoppingLists.firstOrNull;
+  final list = ws.shoppingLists
+      .where((l) => listVisible == null || listVisible(l.createdBy))
+      .firstOrNull;
   final openItems =
       list?.items.where((i) => !i.checked).toList() ?? const <ShopItem>[];
 
   // Tasks (for the today widget's to-do row and the tick action).
   final tasks = <Map<String, dynamic>>[
     for (final l in ws.taskLists)
-      for (final t in l.tasks)
-        if (!t.done) {'listId': l.id, 'id': t.id, 'title': t.title},
+      if (listVisible == null || listVisible(l.createdBy))
+        for (final t in l.tasks)
+          if (!t.done) {'listId': l.id, 'id': t.id, 'title': t.title},
   ];
 
   return {
@@ -297,7 +307,8 @@ Map<String, dynamic> buildPhoneWidgetPayload({
           ? (totalPaid / totalBudget * 100).round().clamp(0, 100)
           : 0,
       'bills': [
-        for (final (i, b) in bills.take(4).indexed) {...b, 'primary': i == 0},
+        if (!childUser)
+          for (final (i, b) in bills.take(4).indexed) {...b, 'primary': i == 0},
       ],
       'closed': month?.closed == true,
     },
@@ -340,13 +351,19 @@ extension _ThrivePhoneWidgets on _ThriveHomeState {
     );
   }
 
-  Map<String, dynamic> phoneWidgetPayload() => buildPhoneWidgetPayload(
-    ws: _activeWs,
-    year: year,
-    monthIdx: monthIdx,
-    kid: amIKidProfile(),
-    hideAmounts: _widgetHideAmounts,
-  );
+  Map<String, dynamic> phoneWidgetPayload() {
+    final child = isChildUser;
+    return buildPhoneWidgetPayload(
+      ws: _activeWs,
+      year: year,
+      monthIdx: monthIdx,
+      kid: child,
+      hideAmounts: _widgetHideAmounts,
+      childUser: child,
+      eventVisible: child ? childSeesEvent : null,
+      listVisible: child ? _childOwns : null,
+    );
+  }
 
   /// Routes a widget deep link (issue #248): every widget lands on the
   /// right screen with the right filter.
@@ -374,7 +391,7 @@ extension _ThrivePhoneWidgets on _ThriveHomeState {
       case 'shopping':
         goTab('lists');
         final id = uri.queryParameters['id'];
-        if (shoppingLists.any((l) => l.id == id)) {
+        if (visibleShoppingLists.any((l) => l.id == id)) {
           openShopListDetail(id!);
           shopQuickAddFocus.requestFocus();
         }

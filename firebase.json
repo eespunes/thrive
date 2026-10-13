@@ -7,9 +7,27 @@
     "firestore": {
       "port": 8091
     },
+    "functions": {
+      "port": 5001
+    },
+    "auth": {
+      "port": 9099
+    },
     "ui": {
       "enabled": false
     },
     "singleProjectMode": true
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "*.local",
+        "test"
+      ]
+    }
+  ]
 }

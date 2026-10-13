@@ -147,6 +147,7 @@ extension _ThriveEntryTicket on _ThriveHomeState {
   /// Money-calendar day #295) show the block picker first (#294); launches
   /// from a block context land straight on the ticket.
   void openEntryTicket({String? cat, String? id, int? presetDay}) {
+    if (childBlocked('Money isn’t available on a kid profile')) return;
     if (cat == null) {
       // Block-less launches (quick add, Money-calendar day) open on the
       // first expense block; the editor's kind + block chips change it.
