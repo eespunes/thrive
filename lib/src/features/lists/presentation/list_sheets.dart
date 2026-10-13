@@ -3,12 +3,12 @@ part of 'package:family_money_management_app/main.dart';
 /// Sticky-note paper: (paper, tape) pairs from the fridge-door design
 /// (`Lists options.dc.html` option 7a).
 const List<(Color, Color)> _kNotePapers = [
-  (Color(0xfffff8c4), Color(0xffffd6a5)),
-  (Color(0xffdcefff), Color(0xffb5d8f5)),
-  (Color(0xffffe3d3), Color(0xfff5c6a5)),
-  (Color(0xffe2f4e0), Color(0xffbcd9b8)),
-  (Color(0xfffde2ec), Color(0xfff2b8cf)),
-  (Color(0xffececec), Color(0xffd4d4d4)),
+  (B.paperYellow, B.tapeYellow),
+  (B.paperBlue, B.tapeBlue),
+  (B.paperPeach, B.tapePeach),
+  (B.paperGreen, B.tapeGreen),
+  (B.paperPink, B.tapePink),
+  (B.paperGrey, B.tapeGrey),
 ];
 
 /// Stable (paper, tape) for a list: a classic paper keeps its matching
@@ -138,19 +138,31 @@ class _NoteSheetState extends State<_NoteSheet> {
   Widget build(BuildContext context) {
     final editing = widget.editing;
     final valid = _name.text.trim().isNotEmpty;
+    final shopping = _kind == 'shopping';
+    final kindName = shopping ? 'Shopping list' : 'To-do list';
+    final papers = [
+      for (final p in _kNotePapers) p.$1,
+      if (!_kNotePapers.any((p) => p.$1.toARGB32() == _color.toARGB32()))
+        _color,
+    ];
 
-    Widget kindBtn(String k, String icon, String label) {
+    Widget kindTile(String k, String icon, String label) {
       final active = _kind == k;
       final tint = k == 'shopping' ? B.amber : B.primary;
       return Expanded(
         child: GestureDetector(
-          onTap: () => setState(() => _kind = k),
+          key: ValueKey('note-kind-$k'),
+          behavior: HitTestBehavior.opaque,
+          onTap: editing ? null : () => setState(() => _kind = k),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
             decoration: BoxDecoration(
               color: active ? B.soft : Colors.white,
-              border: Border.all(color: active ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: active ? B.primary : B.line,
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -187,80 +199,131 @@ class _NoteSheetState extends State<_NoteSheet> {
       );
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sheetHead(
-            context,
-            editing ? 'Edit “${_name.text.trim()}”' : 'Pin a new note',
-            editing ? null : 'It goes up for the whole family',
-          ),
-          if (!editing) ...[
-            Row(
-              children: [
-                kindBtn('todo', 'tasklist', 'To-dos'),
-                const SizedBox(width: 10),
-                kindBtn('shopping', 'cart', 'Shopping'),
-              ],
-            ),
-            const SizedBox(height: 15),
+    return EditorSheet(
+      title: editing ? 'Edit list' : 'New list',
+      subtitle: editing ? kindName : 'Pinned to the fridge door',
+      confirmKey: const ValueKey('note-save'),
+      deleteKey: const ValueKey('note-unpin'),
+      confirmLabel: editing ? 'Save list' : 'Create list',
+      blockedReason: valid ? null : 'Give it a name first',
+      onConfirm: _save,
+      summary: valid
+          ? '“${_name.text.trim()}” · ${kindName.toLowerCase()} for everyone'
+          : null,
+      deleteLabel: editing ? 'Delete list' : null,
+      onDelete: editing
+          ? () {
+              Navigator.of(context).pop();
+              widget.state.askUnpinNote(
+                taskList: widget.taskList,
+                shopList: widget.shopList,
+              );
+            }
+          : null,
+      children: [
+        Row(
+          children: [
+            kindTile('todo', 'tasklist', 'To-do list'),
+            const SizedBox(width: 8),
+            kindTile('shopping', 'cart', 'Shopping list'),
           ],
-          _sheetField(
-            'Note title',
-            _sheetInput(
-              _name,
-              hint: _kind == 'shopping' ? 'e.g. Supermarket' : 'e.g. Household',
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          _sheetField(
-            'Paper',
-            _ColorPickerPanel(
-              selected: _color,
-              onChanged: (c) => setState(() => _color = c),
-            ),
-          ),
-          _primaryBtn(
-            editing ? 'Save the note' : 'Pin it to the door',
-            _save,
-            enabled: valid,
-          ),
-          if (editing) ...[
-            const SizedBox(height: 15),
-            // Visible, never adjacent to save, replaces hidden swipe-delete.
-            GestureDetector(
-              key: const ValueKey('note-unpin'),
-              onTap: () {
-                Navigator.of(context).pop();
-                widget.state.askUnpinNote(
-                  taskList: widget.taskList,
-                  shopList: widget.shopList,
-                );
-              },
+        ),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Transform.rotate(
+              angle: -1.5 * math.pi / 180,
               child: Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 48),
-                alignment: Alignment.center,
+                width: 200,
+                constraints: const BoxConstraints(minHeight: 120),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: B.redLine),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Text(
-                  'Unpin this note…',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
+                  color: _color,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(6),
+                    topRight: Radius.circular(6),
+                    bottomLeft: Radius.circular(6),
+                    bottomRight: Radius.circular(22),
                   ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: B.noteShadow,
+                      blurRadius: 24,
+                      offset: Offset(0, 12),
+                      spreadRadius: -14,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      key: const ValueKey('note-name'),
+                      controller: _name,
+                      autofocus: !editing,
+                      onChanged: (_) => setState(() {}),
+                      cursorColor: B.primary,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.3,
+                        color: B.ink,
+                      ),
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                        hintText: shopping
+                            ? 'e.g. Groceries'
+                            : 'e.g. Weekend chores',
+                        hintStyle: const TextStyle(color: B.placeholder),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$kindName · shared with the family',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: B.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+        EdSection(
+          label: 'Paper',
+          gap: 10,
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final c in papers)
+                GestureDetector(
+                  key: ValueKey('note-paper-${EdSwatchGrid.hexOf(c)}'),
+                  onTap: () => setState(() => _color = c),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: c,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: B.paperEdge),
+                      boxShadow: c.toARGB32() == _color.toARGB32()
+                          ? const [
+                              BoxShadow(color: Colors.white, spreadRadius: 2),
+                              BoxShadow(color: B.primary, spreadRadius: 4),
+                            ]
+                          : null,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

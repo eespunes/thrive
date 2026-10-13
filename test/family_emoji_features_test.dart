@@ -225,7 +225,7 @@ void main() {
       await tester.pump();
       expect(
         find.text('Type an emoji first — any one your keyboard has'),
-        findsOneWidget,
+        findsWidgets,
       );
     });
 

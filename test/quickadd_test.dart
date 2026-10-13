@@ -21,12 +21,12 @@ Future<void> _createList(
   await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
   await tester.pumpAndSettle();
   if (shopping) {
-    await tester.tap(find.text('Shopping'));
+    await tester.tap(find.byKey(const ValueKey('note-kind-shopping')));
     await tester.pumpAndSettle();
   }
   await tester.enterText(find.byType(TextField).last, name);
   await tester.pump();
-  await tester.tap(find.text('Pin it to the door'));
+  await tester.tap(find.text('Create list'));
   await tester.pumpAndSettle();
   expect(find.text(name), findsOneWidget);
 }
@@ -56,7 +56,7 @@ void main() {
     await tester.pumpAndSettle();
     // Landed on the Lists tab with the pin-a-note sheet open.
     expect(thriveDebug.tab, 'lists');
-    expect(find.text('Pin it to the door'), findsOneWidget);
+    expect(find.byKey(const ValueKey('note-save')), findsOneWidget);
   });
 
   testWidgets('quick-add Task with one list opens its task sheet directly', (
@@ -107,7 +107,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('quickadd-shopping')));
       await tester.pumpAndSettle();
       expect(thriveDebug.tab, 'lists');
-      expect(find.text('Pin it to the door'), findsOneWidget);
+      expect(find.byKey(const ValueKey('note-save')), findsOneWidget);
     },
   );
 

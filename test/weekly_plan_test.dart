@@ -58,7 +58,7 @@ void main() {
       'Pasta with tomato sauce',
     );
     await tester.pump();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('meal-save')));
     await tester.pumpAndSettle();
 
     expect(find.text('Pasta with tomato sauce'), findsOneWidget);
@@ -99,7 +99,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Oats');
     await tester.pump();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('meal-save')));
     await tester.pumpAndSettle();
     expect(find.text('Oats'), findsOneWidget);
 
@@ -107,23 +107,26 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Salad');
     await tester.pump();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('meal-save')));
     await tester.pumpAndSettle();
     expect(find.text('Salad'), findsOneWidget);
 
-    // Set a dinner, then re-open and clear it via the sheet's "Clear" link.
+    // Set a dinner, then re-open, empty it and confirm "Clear dinner".
     await tester.tap(mealRow('dinner'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Tacos');
     await tester.pump();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.byKey(const ValueKey('meal-save')));
     await tester.pumpAndSettle();
     expect(find.text('Tacos'), findsOneWidget);
 
     await tester.tap(mealRow('dinner'));
     await tester.pumpAndSettle();
-    expect(find.text('Clear'), findsOneWidget);
-    await tester.tap(find.text('Clear'));
+    // Emptying the field turns the confirm into a destructive clear.
+    await tester.enterText(find.byKey(const ValueKey('meal-text')), '');
+    await tester.pump();
+    expect(find.text('Clear dinner'), findsOneWidget);
+    await tester.tap(find.text('Clear dinner'));
     await tester.pumpAndSettle();
     expect(find.text('Tacos'), findsNothing);
     expect(find.textContaining('Add Dinner'), findsWidgets);

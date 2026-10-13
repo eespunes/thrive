@@ -42,6 +42,7 @@ import 'package:timezone/data/latest.dart' as tz;
 part 'src/app/app.dart';
 part 'src/shared/maps.dart';
 part 'src/shared/theme.dart';
+part 'src/shared/editor_sheet.dart';
 part 'src/shared/icons.dart';
 part 'src/shared/analytics.dart';
 part 'src/shared/utils.dart';

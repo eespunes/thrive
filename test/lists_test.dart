@@ -21,12 +21,12 @@ Future<void> pinNote(
   await tester.tap(find.textContaining(RegExp('[Pp]in a new note')).first);
   await tester.pumpAndSettle();
   if (shopping) {
-    await tester.tap(find.text('Shopping'));
+    await tester.tap(find.byKey(const ValueKey('note-kind-shopping')));
     await tester.pumpAndSettle();
   }
   await tester.enterText(find.byType(TextField).last, name);
   await tester.pump();
-  await tester.tap(find.text('Pin it to the door'));
+  await tester.tap(find.text('Create list'));
   await tester.pumpAndSettle();
   expect(find.text(name), findsOneWidget);
 }
@@ -90,14 +90,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Weekend chores');
     await tester.pump();
-    // Re-paper via the app-wide colour panel: tap a palette swatch.
-    final swatch = find.byWidgetPredicate(
-      (w) => w.runtimeType.toString() == '_ColorSwatchTile',
-    );
-    await tester.ensureVisible(swatch.at(2));
-    await tester.tap(swatch.at(2));
+    // Re-paper: tap the peach paper swatch.
+    final swatch = find.byKey(const ValueKey('note-paper-ffe3d3'));
+    await tester.ensureVisible(swatch);
+    await tester.tap(swatch);
     await tester.pump();
-    await tester.tap(find.text('Save the note'));
+    await tester.tap(find.text('Save list'));
     await tester.pumpAndSettle();
     expect(find.text('Weekend chores'), findsOneWidget);
 

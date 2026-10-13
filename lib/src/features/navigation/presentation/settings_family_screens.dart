@@ -85,7 +85,7 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
             lockedHint: 'Only owners can manage members',
             onTap: () {
               Navigator.of(ctx).pop();
-              pushSettingsPage<void>(
+              openEditorSheet<void>(
                 (_) => _MemberStudio(state: this, memberId: m.id),
               );
             },

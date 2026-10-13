@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#dfe3ea;color:#0f172a;-webkit-font-smoothing:antialiased}
+a{color:#0B7F74}a:hover{color:#0E9A8D}
+.thv-scroll::-webkit-scrollbar{width:0;height:0}
+.thv-scroll{scrollbar-width:none}
+input,button,textarea{font-family:inherit}
+input::placeholder,textarea::placeholder{color:#94a0b0;font-weight:600}
+@keyframes thvSheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes thvOverlay{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;padding:26px 16px 34px;background:radial-gradient(130% 90% at 50% -10%,#eef1f6,#dadfe8)">
+
+  <!-- switcher -->
+  <div style="width:100%;max-width:760px;display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px">
+      <a href="Event Editor v2.dc.html" style="display:flex;align-items:center;min-height:36px;padding:0 14px;border-radius:999px;font-size:12.5px;font-weight:800;text-decoration:none;background:#fff;border:1.5px solid #e7eaf0;color:#64748b">Calendar event ↗</a>
+      <sc-for list="{{ edTabs }}" as="t" hint-placeholder-count="10">
+        <button onClick="{{ t.tap }}" style="min-height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ t.bg }};border:1.5px solid {{ t.bd }};color:{{ t.fg }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;padding:4px;background:#fff;border:1px solid #e7eaf0;border-radius:12px">
+      <sc-for list="{{ modeSegs }}" as="m" hint-placeholder-count="2">
+        <button onClick="{{ m.tap }}" style="min-width:96px;min-height:32px;border:none;cursor:pointer;border-radius:9px;font-size:12px;font-weight:800;background:{{ m.bg }};color:{{ m.fg }}">{{ m.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="width:404px;max-width:100%;background:#0d1117;border-radius:52px;padding:12px;box-shadow:0 50px 90px -30px rgba(15,23,42,.55),0 0 0 1px rgba(15,23,42,.08),inset 0 0 0 2px #23262d;position:relative">
+    <div style="position:relative;width:100%;height:846px;background:#f4f6f9;border-radius:41px;overflow:hidden;display:flex;flex-direction:column">
+      <div style="position:relative;flex:none;padding:13px 28px 4px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;z-index:5">
+        <span style="letter-spacing:.3px">15:25</span>
+        <span style="position:absolute;left:50%;top:11px;transform:translateX(-50%);width:112px;height:27px;background:#0d1117;border-radius:999px"></span>
+        <span style="font-size:11px;font-weight:800">5G · 66%</span>
+      </div>
+
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;padding:10px 20px 0">
+        <div style="display:flex;flex-direction:column;gap:2px;padding:6px 0 14px">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.4px;color:#77839a">{{ ctxKicker }}</span>
+          <span style="font-size:22px;font-weight:800;letter-spacing:-.5px">{{ ctxTitle }}</span>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding-bottom:80px">
+          <button onClick="{{ reopen }}" style="min-height:48px;padding:0 20px;border-radius:14px;border:1.5px solid #e7eaf0;background:#fff;font-size:13.5px;font-weight:800;color:#0B7F74;cursor:pointer">Open the editor again</button>
+        </div>
+      </div>
+
+      <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:50%;bottom:44px;transform:translateX(-50%);z-index:90;background:#0f172a;color:#fff;font-size:12.5px;font-weight:700;padding:10px 16px;border-radius:12px;white-space:nowrap">{{ toastText }}</div>
+      </sc-if>
+
+      <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ close }}" style="position:absolute;inset:0;z-index:60;background:rgba(16,24,40,.45);display:flex;align-items:flex-end;animation:thvOverlay .18s ease">
+          <div onClick="{{ stop }}" style="width:100%;max-height:94%;background:#fff;border-radius:26px 26px 0 0;display:flex;flex-direction:column;overflow:hidden;animation:thvSheet .26s cubic-bezier(.22,1,.36,1)">
+
+            <div style="flex:none;padding:10px 16px 4px">
+              <div style="width:40px;height:5px;border-radius:999px;background:#dde2ea;margin:0 auto 6px"></div>
+              <div style="display:grid;grid-template-columns:72px 1fr 72px;align-items:center;min-height:44px">
+                <button onClick="{{ close }}" style="justify-self:start;border:none;background:none;padding:10px 4px;font-size:14px;font-weight:700;color:#64748b;cursor:pointer">Cancel</button>
+                <div style="display:flex;flex-direction:column;align-items:center">
+                  <span style="font-size:15px;font-weight:800;letter-spacing:-.2px">{{ headTitle }}</span>
+                  <span style="font-size:11px;font-weight:600;color:#77839a">{{ headSub }}</span>
+                </div>
+                <span></span>
+              </div>
+            </div>
+
+            <div class="thv-scroll" style="flex:1 1 auto;min-height:0;overflow-y:auto;padding:10px 16px 20px"><div style="display:flex;flex-direction:column;gap:18px">
+
+              <!-- ============ BADGE STAGE (category, layer, member, account, block) ============ -->
+              <sc-if value="{{ isBadge }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:4px">
+                  <span style="width:80px;height:80px;border-radius:26px;display:grid;place-items:center;font-size:36px;font-weight:800;color:#fff;transition:background .15s;background:{{ badge.color }};box-shadow:0 10px 24px -10px {{ badge.color }}">{{ badge.face }}</span>
+                  <input value="{{ badge.name }}" onChange="{{ badge.onName }}" placeholder="{{ badge.ph }}" style="width:100%;text-align:center;border:none;outline:none;background:none;font-size:21px;font-weight:800;letter-spacing:-.4px;color:#0f172a;padding:6px 0 10px;border-bottom:2px solid {{ badge.line }}">
+                  <div class="thv-scroll" style="display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:4px 2px">
+                    <sc-for list="{{ badge.picks }}" as="p" hint-placeholder-count="8">
+                      <button onClick="{{ p.tap }}" style="flex:none;width:42px;height:42px;border-radius:13px;cursor:pointer;font-size:19px;font-weight:800;color:#334155;display:grid;place-items:center;background:{{ p.bg }};border:1.5px solid {{ p.bd }}">{{ p.e }}</button>
+                    </sc-for>
+                    <button onClick="{{ badge.photo }}" style="flex:none;height:42px;padding:0 12px;border-radius:13px;cursor:pointer;font-size:12px;font-weight:800;color:#64748b;background:#fff;border:1.5px dashed #cfd8e3;display:flex;align-items:center;gap:6px">{{ icons.camera }}Photo</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ FINANCE ENTRY ============ -->
+              <sc-if value="{{ isFinance }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;padding:4px;background:#eef1f5;border-radius:12px">
+                  <sc-for list="{{ fin.kindSegs }}" as="k" hint-placeholder-count="3">
+                    <button onClick="{{ k.tap }}" style="flex:1;min-height:38px;border:none;cursor:pointer;border-radius:9px;font-size:13px;font-weight:800;background:{{ k.bg }};color:{{ k.fg }};box-shadow:{{ k.shadow }}">{{ k.label }}</button>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ fin.series }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:9px 12px;border-radius:12px;background:#eef6ff;border:1px solid #d3e5f8;font-size:11.5px;font-weight:700;color:#1d4ed8">Part of a series — edits apply August onward, never backwards.</div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0">
+                  <div style="display:flex;align-items:baseline;justify-content:center;gap:6px">
+                    <span style="font-size:30px;font-weight:800;color:{{ fin.amountTone }}">{{ fin.sign }}</span>
+                    <input value="{{ fin.amount }}" onChange="{{ fin.onAmount }}" placeholder="0,00" inputmode="decimal" style="width:190px;text-align:left;border:none;outline:none;background:none;font-size:40px;font-weight:800;letter-spacing:-1px;padding:0;color:{{ fin.amountTone }}">
+                  </div>
+                  <span style="font-size:11.5px;font-weight:700;color:{{ fin.amountHintColor }}">{{ fin.amountHint }}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:12px;font-weight:800;color:#334155">What is it?</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">One of the two is enough</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;border:1.5px solid #e7eaf0;border-radius:14px;overflow:hidden">
+                    <input value="{{ fin.payee }}" onChange="{{ fin.onPayee }}" placeholder="{{ fin.payeePh }}" style="border:none;outline:none;padding:14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                    <input value="{{ fin.label }}" onChange="{{ fin.onLabel }}" placeholder="Note or subcategory" style="border:none;border-top:1px solid #e7eaf0;outline:none;padding:14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Budget block</span>
+                  <div style="display:flex;flex-wrap:wrap;gap:7px">
+                    <sc-for list="{{ fin.blockChips }}" as="c" hint-placeholder-count="5">
+                      <button onClick="{{ c.tap }}" style="display:flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}"><span style="font-size:15px">{{ c.e }}</span>{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Details</span>
+                  <div style="display:flex;flex-direction:column;border:1.5px solid #e7eaf0;border-radius:16px;overflow:hidden">
+                    <sc-for list="{{ fin.rows }}" as="row" hint-placeholder-count="4">
+                      <div style="display:flex;flex-direction:column;border-top:{{ row.divider }};background:{{ row.bg }}">
+                        <button onClick="{{ row.tap }}" style="display:flex;align-items:center;gap:12px;min-height:54px;padding:0 14px;border:none;background:none;cursor:pointer;text-align:left">
+                          <span style="width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:#e4f4f1;color:#0B7F74">{{ row.icon }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column">
+                            <span style="font-size:13px;font-weight:800;color:#0f172a">{{ row.label }}</span>
+                            <span style="font-size:11.5px;font-weight:600;color:{{ row.valColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ row.value }}</span>
+                          </span>
+                          <span style="color:#94a0b0;transition:transform .15s;transform:{{ row.rot }}">{{ icons.down }}</span>
+                        </button>
+
+                        <sc-if value="{{ row.isDay }}" hint-placeholder-val="{{ false }}">
+                          <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px">
+                            <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px">
+                              <sc-for list="{{ fin.dayHeads }}" as="h" hint-placeholder-count="7">
+                                <span style="text-align:center;font-size:10px;font-weight:800;color:#94a0b0;padding-bottom:3px">{{ h }}</span>
+                              </sc-for>
+                              <sc-for list="{{ fin.dayCells }}" as="c" hint-placeholder-count="35">
+                                <button onClick="{{ c.tap }}" style="height:40px;border:none;background:none;padding:0;display:grid;place-items:center;cursor:{{ c.cursor }}">
+                                  <span style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:800;background:{{ c.bg }};color:{{ c.fg }}">{{ c.label }}</span>
+                                </button>
+                              </sc-for>
+                            </div>
+                            <sc-if value="{{ fin.weekend }}" hint-placeholder-val="{{ false }}">
+                              <div style="display:flex;flex-direction:column;gap:7px;padding:10px;border-radius:12px;background:#fffbeb">
+                                <span style="font-size:11.5px;font-weight:700;color:#b45309">{{ fin.weekendNote }}</span>
+                                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                                  <sc-for list="{{ fin.shiftChips }}" as="c" hint-placeholder-count="3">
+                                    <button onClick="{{ c.tap }}" style="min-height:36px;padding:0 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                                  </sc-for>
+                                </div>
+                              </div>
+                            </sc-if>
+                            <button onClick="{{ fin.unschedule }}" style="align-self:flex-start;min-height:36px;padding:0 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:800;background:{{ fin.unschedBg }};border:1.5px solid {{ fin.unschedBd }};color:{{ fin.unschedFg }}">Unscheduled — keep it off the calendar</button>
+                          </div>
+                        </sc-if>
+
+                        <sc-if value="{{ row.isRepeat }}" hint-placeholder-val="{{ false }}">
+                          <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px">
+                            <div style="display:flex;gap:8px">
+                              <sc-for list="{{ fin.repeatYN }}" as="b" hint-placeholder-count="2">
+                                <button onClick="{{ b.tap }}" style="flex:1;min-height:44px;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;background:{{ b.bg }};border:1.5px solid {{ b.bd }};color:{{ b.fg }}">{{ b.label }}</button>
+                              </sc-for>
+                            </div>
+                            <sc-if value="{{ fin.recurring }}" hint-placeholder-val="{{ true }}">
+                              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                                <sc-for list="{{ fin.everyChips }}" as="c" hint-placeholder-count="4">
+                                  <button onClick="{{ c.tap }}" style="min-height:36px;padding:0 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                                </sc-for>
+                              </div>
+                              <span style="font-size:11px;font-weight:800;color:#77839a">LAST MONTH</span>
+                              <div class="thv-scroll" style="display:flex;gap:6px;overflow-x:auto;margin:0 -14px;padding:0 14px">
+                                <sc-for list="{{ fin.endChips }}" as="c" hint-placeholder-count="6">
+                                  <button onClick="{{ c.tap }}" style="flex:none;min-height:36px;padding:0 12px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                                </sc-for>
+                              </div>
+                            </sc-if>
+                          </div>
+                        </sc-if>
+
+                        <sc-if value="{{ row.isAccount }}" hint-placeholder-val="{{ false }}">
+                          <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px">
+                            <div style="display:flex;flex-wrap:wrap;gap:7px">
+                              <sc-for list="{{ fin.accChips }}" as="c" hint-placeholder-count="3">
+                                <button onClick="{{ c.tap }}" style="display:flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}"><span style="font-size:15px">{{ c.e }}</span>{{ c.label }}</button>
+                              </sc-for>
+                            </div>
+                            <button onClick="{{ fin.togglePaid }}" style="display:flex;align-items:center;gap:10px;min-height:52px;padding:0 12px;border-radius:12px;border:1.5px solid #e7eaf0;background:#fff;cursor:pointer;text-align:left">
+                              <span style="flex:1;display:flex;flex-direction:column">
+                                <span style="font-size:13px;font-weight:700;color:#0f172a">{{ fin.paidLabel }}</span>
+                                <span style="font-size:11px;font-weight:600;color:#77839a">{{ fin.paidSub }}</span>
+                              </span>
+                              <span style="width:42px;height:25px;border-radius:999px;padding:2.5px;display:flex;flex:none;transition:all .15s;background:{{ fin.paidTrack }};justify-content:{{ fin.paidJustify }}"><span style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15)"></span></span>
+                            </button>
+                          </div>
+                        </sc-if>
+
+                        <sc-if value="{{ row.isCard }}" hint-placeholder-val="{{ false }}">
+                          <div style="padding:0 14px 14px;display:flex;flex-wrap:wrap;gap:7px">
+                            <sc-for list="{{ fin.cardChips }}" as="c" hint-placeholder-count="4">
+                              <button onClick="{{ c.tap }}" style="display:flex;align-items:center;gap:7px;min-height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}"><span style="width:16px;height:11px;border-radius:3px;background:{{ c.dot }}"></span>{{ c.label }}</button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ CATEGORY ============ -->
+              <sc-if value="{{ isCategory }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Calendar layer</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">Where its events live</span>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:7px">
+                    <sc-for list="{{ cat.layerChips }}" as="c" hint-placeholder-count="3">
+                      <button onClick="{{ c.tap }}" style="display:flex;align-items:center;gap:6px;min-height:40px;padding:0 14px 0 11px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}"><span style="font-size:14px">{{ c.e }}</span>{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Who it's usually for</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">Added to new events</span>
+                  </div>
+                  <div style="display:flex;gap:6px">
+                    <sc-for list="{{ people }}" as="p" hint-placeholder-count="4">
+                      <button onClick="{{ p.tap }}" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;padding:6px 0;border:none;background:none;cursor:pointer">
+                        <span style="position:relative;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;color:#fff;background:{{ p.bg }};box-shadow:{{ p.ring }};opacity:{{ p.opacity }}">{{ p.initials }}
+                          <sc-if value="{{ p.on }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:#0E9A8D;border:2px solid #fff;display:grid;place-items:center">{{ icons.tick }}</span></sc-if>
+                        </span>
+                        <span style="font-size:11.5px;font-weight:800;color:{{ p.fg }}">{{ p.name }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ MEMBER ============ -->
+              <sc-if value="{{ isMember }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Email</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">Only for members without a login</span>
+                  </div>
+                  <input value="{{ mem.email }}" onChange="{{ mem.onEmail }}" placeholder="name@example.com" type="email" style="border:1.5px solid #e7eaf0;border-radius:12px;outline:none;padding:13px 14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                </div>
+                <button onClick="{{ mem.toggleKid }}" style="display:flex;align-items:center;gap:10px;min-height:56px;padding:0 12px;border-radius:14px;border:1.5px solid #e7eaf0;background:#fff;cursor:pointer;text-align:left">
+                  <span style="flex:1;display:flex;flex-direction:column">
+                    <span style="font-size:13px;font-weight:700;color:#0f172a">Kid profile</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">Home shows only kid-safe widgets for them</span>
+                  </span>
+                  <span style="width:42px;height:25px;border-radius:999px;padding:2.5px;display:flex;flex:none;transition:all .15s;background:{{ mem.kidTrack }};justify-content:{{ mem.kidJustify }}"><span style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15)"></span></span>
+                </button>
+              </sc-if>
+
+              <!-- ============ ACCOUNT ============ -->
+              <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <div style="display:flex;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Short label</span>
+                    <span style="font-size:11px;font-weight:600;color:#77839a">Shown on every entry</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <input value="{{ acc.short }}" onChange="{{ acc.onShort }}" placeholder="e.g. Eva" maxlength="10" style="flex:1;min-width:0;border:1.5px solid #e7eaf0;border-radius:12px;outline:none;padding:13px 14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                    <span style="flex:none;display:flex;align-items:center;gap:6px;padding:7px 12px 7px 9px;border-radius:999px;font-size:12px;font-weight:800;background:{{ acc.tint }};color:{{ acc.color }}"><span style="font-size:13px">{{ acc.emoji }}</span>{{ acc.preview }}</span>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ BLOCK ============ -->
+              <sc-if value="{{ isBlock }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Money direction</span>
+                  <div style="display:flex;gap:8px">
+                    <sc-for list="{{ blk.dirTiles }}" as="t" hint-placeholder-count="2">
+                      <button onClick="{{ t.tap }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;border-radius:14px;cursor:pointer;background:{{ t.bg }};border:1.5px solid {{ t.bd }}">
+                        <span style="font-size:22px">{{ t.e }}</span>
+                        <span style="font-size:13px;font-weight:800;color:{{ t.fg }}">{{ t.label }}</span>
+                        <span style="font-size:10.5px;font-weight:600;color:#77839a">{{ t.sub }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Applies to</span>
+                  <div style="display:flex;padding:4px;background:#eef1f5;border-radius:12px">
+                    <sc-for list="{{ blk.applySegs }}" as="k" hint-placeholder-count="2">
+                      <button onClick="{{ k.tap }}" style="flex:1;min-height:38px;border:none;cursor:pointer;border-radius:9px;font-size:13px;font-weight:800;background:{{ k.bg }};color:{{ k.fg }};box-shadow:{{ k.shadow }}">{{ k.label }}</button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ blk.temporary }}" hint-placeholder-val="{{ false }}">
+                    <span style="padding:9px 12px;border-radius:11px;background:#fffbeb;font-size:11px;font-weight:700;color:#b45309">Only appears in August. Add recurring items inside the block when costs should continue into later months.</span>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ blk.out }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:baseline;justify-content:space-between">
+                      <span style="font-size:12px;font-weight:800;color:#334155">Monthly limit</span>
+                      <span style="font-size:11px;font-weight:600;color:#77839a">Optional</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;border:1.5px solid #e7eaf0;border-radius:12px;padding:0 14px;background:#fff">
+                      <span style="font-size:15px;font-weight:800;color:#64748b">€</span>
+                      <input value="{{ blk.cap }}" onChange="{{ blk.onCap }}" placeholder="No limit" inputmode="decimal" style="flex:1;min-width:0;border:none;outline:none;padding:13px 0;font-size:14px;font-weight:700;color:#0f172a;background:none">
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;border:1.5px solid #e7eaf0;border-radius:14px">
+                    <sc-for list="{{ blk.toggles }}" as="t" hint-placeholder-count="2">
+                      <button onClick="{{ t.tap }}" style="display:flex;align-items:center;gap:10px;min-height:54px;padding:0 12px;border:none;background:none;cursor:pointer;text-align:left;border-top:{{ t.divider }}">
+                        <span style="flex:1;display:flex;flex-direction:column">
+                          <span style="font-size:13px;font-weight:700;color:#0f172a">{{ t.label }}</span>
+                          <span style="font-size:11px;font-weight:600;color:#77839a">{{ t.sub }}</span>
+                        </span>
+                        <span style="width:42px;height:25px;border-radius:999px;padding:2.5px;display:flex;flex:none;transition:all .15s;background:{{ t.track }};justify-content:{{ t.justify }}"><span style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15)"></span></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </sc-if>
+
+              <!-- shared colour for badge editors -->
+              <sc-if value="{{ isBadge }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Colour</span>
+                  <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+                    <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="12">
+                      <button onClick="{{ s.tap }}" style="aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;background:{{ s.color }};box-shadow:{{ s.ring }}"></button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ MONTHLY LIMIT ============ -->
+              <sc-if value="{{ isCap }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 0">
+                  <div style="display:flex;align-items:baseline;justify-content:center;gap:6px">
+                    <span style="font-size:30px;font-weight:800;color:#64748b">€</span>
+                    <input value="{{ cap.value }}" onChange="{{ cap.onValue }}" placeholder="No limit" inputmode="decimal" style="width:190px;border:none;outline:none;background:none;font-size:40px;font-weight:800;letter-spacing:-1px;padding:0;color:#0f172a">
+                  </div>
+                  <span style="font-size:11.5px;font-weight:600;color:#77839a">Leave empty for no limit</span>
+                </div>
+                <div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap">
+                  <sc-for list="{{ cap.quick }}" as="c" hint-placeholder-count="4">
+                    <button onClick="{{ c.tap }}" style="min-height:36px;padding:0 14px;border-radius:999px;cursor:pointer;font-size:12px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;background:#f4f6f9">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:12.5px;font-weight:800;color:#0f172a">{{ cap.spentLine }}</span>
+                    <span style="font-size:11.5px;font-weight:800;color:{{ cap.tone }}">{{ cap.leftLine }}</span>
+                  </div>
+                  <div style="height:10px;border-radius:999px;background:#e2e7ee;overflow:hidden"><div style="height:100%;border-radius:999px;transition:width .2s;width:{{ cap.pct }};background:{{ cap.tone }}"></div></div>
+                  <span style="font-size:11px;font-weight:600;color:#64748b">The Overview bar turns amber near the limit and red when it's passed.</span>
+                </div>
+              </sc-if>
+
+              <!-- ============ LIST ============ -->
+              <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:8px">
+                  <sc-for list="{{ lst.kindTiles }}" as="t" hint-placeholder-count="2">
+                    <button onClick="{{ t.tap }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 8px;border-radius:14px;cursor:pointer;background:{{ t.bg }};border:1.5px solid {{ t.bd }}">
+                      <span style="width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:{{ t.iconBg }};color:{{ t.iconFg }}">{{ t.icon }}</span>
+                      <span style="font-size:12.5px;font-weight:800;color:{{ t.fg }}">{{ t.label }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+                <div style="display:flex;justify-content:center;padding:4px 0">
+                  <div style="width:200px;min-height:120px;border-radius:6px 6px 22px 6px;padding:16px 16px 18px;display:flex;flex-direction:column;gap:10px;transform:rotate(-1.5deg);box-shadow:0 12px 24px -14px rgba(15,23,42,.45);background:{{ lst.paper }}">
+                    <input value="{{ lst.name }}" onChange="{{ lst.onName }}" placeholder="{{ lst.ph }}" style="border:none;outline:none;background:none;padding:0;font-size:17px;font-weight:800;letter-spacing:-.3px;color:#0f172a;width:100%">
+                    <span style="font-size:11px;font-weight:700;color:#64748b">{{ lst.kindLine }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Paper</span>
+                  <div style="display:flex;gap:10px;justify-content:space-between">
+                    <sc-for list="{{ lst.papers }}" as="s" hint-placeholder-count="6">
+                      <button onClick="{{ s.tap }}" style="width:42px;height:42px;border-radius:12px;cursor:pointer;border:1px solid rgba(15,23,42,.08);background:{{ s.color }};box-shadow:{{ s.ring }}"></button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ MEAL ============ -->
+              <sc-if value="{{ isMeal }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;padding:4px;background:#eef1f5;border-radius:12px">
+                  <sc-for list="{{ meal.slots }}" as="k" hint-placeholder-count="3">
+                    <button onClick="{{ k.tap }}" style="flex:1;min-height:38px;border:none;cursor:pointer;border-radius:9px;font-size:13px;font-weight:800;background:{{ k.bg }};color:{{ k.fg }};box-shadow:{{ k.shadow }}">{{ k.label }}</button>
+                  </sc-for>
+                </div>
+                <input value="{{ meal.text }}" onChange="{{ meal.onText }}" placeholder="e.g. Pasta with tomato sauce" style="border:none;border-bottom:2px solid {{ meal.line }};outline:none;background:none;padding:6px 2px 10px;font-size:21px;font-weight:800;letter-spacing:-.4px;color:#0f172a">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                  <span style="font-size:12px;font-weight:800;color:#334155">Recently planned</span>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <sc-for list="{{ meal.recent }}" as="c" hint-placeholder-count="6">
+                      <button onClick="{{ c.tap }}" style="min-height:38px;padding:0 13px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:700;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ============ WALLET CARD ============ -->
+              <sc-if value="{{ isWallet }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ wal.pick }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 4px;text-align:center">
+                    <span style="width:72px;height:72px;border-radius:22px;background:#e4f4f1;color:#0E9A8D;display:grid;place-items:center">{{ icons.cameraLg }}</span>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                      <span style="font-size:16px;font-weight:800">Take a photo of the card</span>
+                      <span style="font-size:12px;font-weight:600;color:#64748b">Barcode side up. We read the number and match the colour.</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:8px;width:100%">
+                      <button onClick="{{ wal.scan }}" style="min-height:52px;border:none;border-radius:15px;background:#0E9A8D;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">Take photo</button>
+                      <button onClick="{{ wal.scan }}" style="min-height:52px;border:1.5px solid #e7eaf0;border-radius:15px;background:#fff;color:#0f172a;font-size:14px;font-weight:800;cursor:pointer">Choose from photos</button>
+                      <button onClick="{{ wal.manual }}" style="min-height:44px;border:none;background:none;color:#0B7F74;font-size:13px;font-weight:800;cursor:pointer">Type the number instead</button>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ wal.reading }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 0">
+                    <span style="width:72px;height:72px;border-radius:22px;background:#e4f4f1;color:#0E9A8D;display:grid;place-items:center">{{ icons.cameraLg }}</span>
+                    <span style="font-size:14px;font-weight:800;color:#0B7F74">Finding the barcode…</span>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ wal.review }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:18px;transition:background .15s;background:{{ wal.color }};box-shadow:0 14px 26px -16px {{ wal.color }}">
+                    <span style="font-size:17px;font-weight:800;letter-spacing:-.3px;color:{{ wal.onColor }}">{{ wal.cardName }}</span>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;background:#fff;border-radius:10px;padding:10px">
+                      <sc-if value="{{ wal.isBar }}" hint-placeholder-val="{{ true }}">
+                        <span style="width:100%;height:44px;background:repeating-linear-gradient(90deg,#0f172a 0 2px,#fff 2px 3px,#0f172a 3px 4px,#fff 4px 7px,#0f172a 7px 10px,#fff 10px 11px)"></span>
+                      </sc-if>
+                      <sc-if value="{{ wal.isQr }}" hint-placeholder-val="{{ false }}">
+                        <span style="width:64px;height:64px;background:repeating-conic-gradient(#0f172a 0 25%,#fff 0 50%) 0 0/10px 10px"></span>
+                      </sc-if>
+                      <span style="font-size:12px;font-weight:800;letter-spacing:1.5px;color:#0f172a">{{ wal.codeShown }}</span>
+                    </div>
+                  </div>
+                  <sc-if value="{{ wal.scanned }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-wrap:wrap;gap:6px">
+                      <sc-for list="{{ wal.status }}" as="c" hint-placeholder-count="3">
+                        <span style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800;background:{{ c.bg }};color:{{ c.fg }}">{{ c.label }}</span>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <div style="display:flex;flex-direction:column;border:1.5px solid #e7eaf0;border-radius:14px;overflow:hidden">
+                    <input value="{{ wal.name }}" onChange="{{ wal.onName }}" placeholder="Shop name — e.g. Supermarket around the corner" style="border:none;outline:none;padding:14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                    <input value="{{ wal.code }}" onChange="{{ wal.onCode }}" placeholder="Card number" inputmode="numeric" style="border:none;border-top:1px solid #e7eaf0;outline:none;padding:14px;font-size:14px;font-weight:700;letter-spacing:.5px;color:#0f172a;background:#fff">
+                    <input value="{{ wal.note }}" onChange="{{ wal.onNote }}" placeholder="Note (optional) — e.g. 5% off garden plants" style="border:none;border-top:1px solid #e7eaf0;outline:none;padding:14px;font-size:14px;font-weight:700;color:#0f172a;background:#fff">
+                  </div>
+                  <div style="display:flex;padding:4px;background:#eef1f5;border-radius:12px">
+                    <sc-for list="{{ wal.typeSegs }}" as="k" hint-placeholder-count="2">
+                      <button onClick="{{ k.tap }}" style="flex:1;min-height:38px;border:none;cursor:pointer;border-radius:9px;font-size:13px;font-weight:800;background:{{ k.bg }};color:{{ k.fg }};box-shadow:{{ k.shadow }}">{{ k.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Whose card is it?</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:7px">
+                      <sc-for list="{{ wal.owners }}" as="c" hint-placeholder-count="5">
+                        <button onClick="{{ c.tap }}" style="min-height:40px;padding:0 14px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:800;background:{{ c.bg }};border:1.5px solid {{ c.bd }};color:{{ c.fg }}">{{ c.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <span style="font-size:12px;font-weight:800;color:#334155">Card colour</span>
+                    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+                      <sc-for list="{{ wal.swatches }}" as="s" hint-placeholder-count="12">
+                        <button onClick="{{ s.tap }}" style="aspect-ratio:1;border-radius:50%;border:none;cursor:pointer;background:{{ s.color }};box-shadow:{{ s.ring }}"></button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <sc-if value="{{ wal.canRetake }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ wal.retake }}" style="min-height:44px;border:none;background:none;color:#0B7F74;font-size:13px;font-weight:800;cursor:pointer">Retake the photo</button>
+                  </sc-if>
+                </sc-if>
+              </sc-if>
+
+              <sc-if value="{{ hasDelete }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ del }}" style="min-height:48px;border-radius:14px;background:#fff;border:1.5px solid #fecaca;color:#dc2626;font-size:13px;font-weight:800;cursor:pointer">{{ deleteLabel }}</button>
+              </sc-if>
+            </div></div>
+
+            <sc-if value="{{ hasFooter }}" hint-placeholder-val="{{ true }}">
+              <div style="flex:none;border-top:1px solid #e7eaf0;padding:10px 16px 14px;display:flex;flex-direction:column;gap:8px;background:#fff">
+                <sc-if value="{{ hasSummary }}" hint-placeholder-val="{{ true }}">
+                  <span style="font-size:12px;font-weight:700;color:#64748b;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ summary }}</span>
+                </sc-if>
+                <button onClick="{{ submit }}" style="min-height:52px;border:1.5px solid {{ confirmBd }};border-radius:15px;font-size:15px;font-weight:800;cursor:{{ confirmCursor }};background:{{ confirmBg }};color:{{ confirmFg }}">{{ confirmLabel }}</button>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="flex:none;height:22px;display:grid;place-items:center;background:#fff;position:relative;z-index:70"><span style="width:128px;height:5px;border-radius:999px;background:#0f172a;opacity:.22"></span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:800,&quot;height&quot;:1040},&quot;editor&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;finance&quot;,&quot;category&quot;,&quot;layer&quot;,&quot;member&quot;,&quot;account&quot;,&quot;block&quot;,&quot;cap&quot;,&quot;list&quot;,&quot;meal&quot;,&quot;wallet&quot;],&quot;default&quot;:&quot;finance&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const IC={
+  check:[['path','m20 6-11 11-5-5']],
+  down:[['path','m6 9 6 6 6-6']],
+  camera:[['path','M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z'],['circle',12,13,3]],
+  cal:[['rect',3,4,18,18,2],['path','M16 2v4'],['path','M8 2v4'],['path','M3 10h18']],
+  repeat:[['path','m17 2 4 4-4 4'],['path','M3 11v-1a4 4 0 0 1 4-4h14'],['path','m7 22-4-4 4-4'],['path','M21 13v1a4 4 0 0 1-4 4H3']],
+  wallet:[['path','M21 12V7H5a2 2 0 0 1 0-4h14v4'],['path','M3 5v14a2 2 0 0 0 2 2h16v-5'],['path','M18 12a2 2 0 0 0 0 4h4v-4Z']],
+  card:[['rect',2,5,20,14,2],['path','M2 10h20']],
+  list:[['path','M9 11l3 3 8-8'],['path','M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9']],
+  cart:[['circle',8,21,1],['circle',19,21,1],['path','M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12']]
+};
+const E=React.createElement;
+function ic(name,size,sw,color){const spec=IC[name]||[];return E('svg',{width:size||18,height:size||18,viewBox:'0 0 24 24',fill:'none',stroke:color||'currentColor',strokeWidth:sw||2,strokeLinecap:'round',strokeLinejoin:'round',style:{flex:'none',display:'block'}},spec.map((s,i)=>s[0]==='circle'?E('circle',{key:i,cx:s[1],cy:s[2],r:s[3]}):s[0]==='rect'?E('rect',{key:i,x:s[1],y:s[2],width:s[3],height:s[4],rx:s[5]||0}):E('path',{key:i,d:s[1]})));}
+const B={primary:'#0E9A8D',deep:'#0B7F74',soft:'#e4f4f1',ink:'#0f172a',text:'#334155',soft2:'#64748b',muted:'#77839a',line:'#e7eaf0',faint:'#f0f2f6',red:'#dc2626',amber:'#d97706',green:'#0f9d6a'};
+const MS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MEN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WL=['M','T','W','T','F','S','S'];
+const pad2=n=>String(n).padStart(2,'0');
+const YEAR=2026,MON=8; // budget month in view: August 2026
+const dow=(y,m,d)=>(new Date(Date.UTC(y,m-1,d)).getUTCDay()+6)%7;
+const fmtD=(y,m,d)=>{const dt=new Date(Date.UTC(y,m-1,d));return WD[(dt.getUTCDay()+6)%7]+' '+dt.getUTCDate()+' '+MS[dt.getUTCMonth()];};
+const ord=n=>n+(n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th');
+const parseAmt=t=>{const s=(t||'').trim();if(!s)return null;const n=Number(s.replace(/\./g,'').replace(',','.'));return isNaN(n)?NaN:n;};
+const euro=n=>'€ '+n.toFixed(2).replace('.',',');
+function lum(hex){const h=hex.replace('#','');return (0.299*parseInt(h.slice(0,2),16)+0.587*parseInt(h.slice(2,4),16)+0.114*parseInt(h.slice(4,6),16))/255;}
+const contrastOn=c=>lum(c)>0.68?B.ink:'#fff';
+
+const EDITORS=[['finance','Finance entry'],['category','Category'],['layer','Calendar layer'],['member','Family member'],['account','Account'],['block','Budget block'],['cap','Monthly limit'],['list','List'],['meal','Meal'],['wallet','Wallet card']];
+const CTX={finance:['MONEY','August 2026'],category:['SETTINGS','Categories'],layer:['SETTINGS','Calendar layers'],member:['SETTINGS','Family'],account:['SETTINGS','Accounts'],block:['SETTINGS','Budget blocks'],cap:['MONEY','Groceries'],list:['LISTS','All lists'],meal:['WEEKLY PLAN','Week 30'],wallet:['WALLET','Discount cards']};
+const MEMBERS=[{id:'me',name:'Eva',initials:'EV',color:'#0E9A8D'},{id:'erik',name:'Erik',initials:'ER',color:'#1684B4'},{id:'liv',name:'Liv',initials:'LI',color:'#7c3aed'},{id:'sam',name:'Sam',initials:'SA',color:'#d97706'}];
+const LAYERS=[{id:'appt',label:'Appointments',e:'📅',color:'#0E9A8D'},{id:'task',label:'To-Dos',e:'✅',color:'#2563eb'},{id:'content',label:'Content',e:'📸',color:'#db2777'}];
+const BLOCKS=[
+  {key:'groceries',title:'Groceries',e:'🛒',color:'#0f9d6a',kind:'expense'},{key:'housing',title:'Housing',e:'🏠',color:'#1684B4',kind:'expense'},
+  {key:'kids',title:'Kids',e:'🧸',color:'#7c3aed',kind:'expense'},{key:'car',title:'Car',e:'🚗',color:'#d97706',kind:'expense'},
+  {key:'subs',title:'Subscriptions',e:'📺',color:'#db2777',kind:'expense'},
+  {key:'salary',title:'Salary',e:'💼',color:'#0E9A8D',kind:'income'},{key:'benefits',title:'Benefits',e:'👛',color:'#2563eb',kind:'income'},
+  {key:'pot',title:'Savings pot',e:'🐷',color:'#0f9d6a',kind:'savings'},{key:'holiday',title:'Holiday fund',e:'✈️',color:'#1684B4',kind:'savings'}];
+const ACCOUNTS=[{key:'shared',name:'Shared',e:'🏦',color:'#0E9A8D'},{key:'eva',name:'Eva',e:'💳',color:'#7c3aed'},{key:'erik',name:'Erik',e:'💳',color:'#1684B4'}];
+const CARDS=[{id:'ah',name:'Albert Heijn',color:'#1684B4'},{id:'kruidvat',name:'Kruidvat',color:'#e11d48'},{id:'ikea',name:'IKEA',color:'#2563eb'}];
+const SWATCHES=['#0E9A8D','#1684B4','#2563eb','#7c3aed','#db2777','#e11d48','#dc2626','#d97706','#f59e0b','#0f9d6a','#64748b','#0f172a'];
+const PAPERS=['#fef3c7','#dcfce7','#dbeafe','#fce7f3','#ede9fe','#ffedd5'];
+const PICKS={category:['🏷','💼','📚','⚽','❤️','👨‍👩‍👧','🎉','✈️','🦷','🎵'],layer:['📅','✅','📸','⭐','🎯','🧹','🎓','🏃'],member:['Aa','🦊','🐻','🦄','⚽','🎨','🌸','🚀','🐱'],account:['🏦','💳','👛','💶','🐷','🏠','💼'],block:['📦','🛒','🏠','🧸','🚗','📺','💡','🐷','🎁','🍽']};
+const WORDS={expense:{noun:'expense',payee:'Company',day:'Pay day',paid:'Paid',unpaid:'Not paid',acc:'Pay from',sign:'−'},income:{noun:'income',payee:'From',day:'Date',paid:'Received',unpaid:'Not received',acc:'Received into',sign:'+'},savings:{noun:'savings',payee:'Company',day:'Pay day',paid:'Saved',unpaid:'Not saved yet',acc:'Save from',sign:'→'}};
+const RECENT_MEALS=['Pasta with tomato sauce','Tacos','Pancakes','Stamppot','Soup & bread','Curry with rice'];
+const initials=n=>(n||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'?';
+
+function draft(ed,edit){
+  switch(ed){
+    case 'finance':return edit?{kind:'expense',amount:'54,20',payee:'Albert Heijn',label:'Weekly shop',block:'groceries',day:1,shift:'before',recurring:true,every:1,endOrd:null,account:'shared',paid:false,card:'ah'}
+      :{kind:'expense',amount:'',payee:'',label:'',block:'groceries',day:null,shift:'none',recurring:true,every:1,endOrd:null,account:'shared',paid:false,card:null};
+    case 'category':return edit?{name:'Sports',emoji:'⚽',color:'#0f9d6a',layer:'appt',members:['sam']}:{name:'',emoji:'🏷',color:'#0E9A8D',layer:'appt',members:[]};
+    case 'layer':return edit?{name:'To-Dos',emoji:'✅',color:'#2563eb'}:{name:'',emoji:'📅',color:'#db2777'};
+    case 'member':return edit?{name:'Sam',emoji:null,color:'#d97706',email:'',kid:true}:{name:'',emoji:null,color:'#7c3aed',email:'',kid:false};
+    case 'account':return edit?{name:"Eva's account",short:'Eva',emoji:'💳',color:'#7c3aed'}:{name:'',short:'',emoji:'🏦',color:'#0E9A8D'};
+    case 'block':return edit?{name:'Kids',emoji:'🧸',color:'#7c3aed',income:false,temporary:false,cap:'400',until:false,savings:false}:{name:'',emoji:'📦',color:'#d97706',income:false,temporary:false,cap:'',until:false,savings:false};
+    case 'cap':return {value:edit?'400':'',had:edit};
+    case 'list':return edit?{kind:'shopping',name:'Weekend groceries',paper:1}:{kind:'todo',name:'',paper:0};
+    case 'meal':return {slot:'dinner',text:edit?'Pasta with tomato sauce':'',had:edit};
+    case 'wallet':return edit?{stage:'review',scanned:false,name:'Albert Heijn',code:'2620012345678',type:'barcode',color:'#1684B4',note:'Bonus card',owner:'all'}:{stage:'pick',scanned:false,name:'',code:'',type:'barcode',color:'#0E9A8D',note:'',owner:'all'};
+  }
+}
+
+class Component extends DCLogic {
+  state={ed:'finance',edit:false,open:true,d:draft('finance',false),expanded:'day',toast:null};
+  componentDidMount(){const p=this.props.editor;if(p&&p!=='finance')this.go(p,this.state.edit);}
+  go(ed,edit){clearTimeout(this._scan);this.setState({ed,edit,open:true,d:draft(ed,edit),expanded:ed==='finance'&&!edit?'day':null});}
+  set(patch){this.setState(s=>({d:Object.assign({},s.d,typeof patch==='function'?patch(s.d):patch)}));}
+  flash(t){this.setState({toast:t});clearTimeout(this._t);this._t=setTimeout(()=>this.setState({toast:null}),1900);}
+  chip(label,on,tap,onColor){const f=onColor||B.primary;return {label,tap,bg:on?f:'#fff',bd:on?f:B.line,fg:on?contrastOn(f):B.soft2};}
+  soft(label,on,tap,extra){return Object.assign({label,tap,bg:on?B.soft:'#fff',bd:on?B.primary:B.line,fg:on?B.deep:B.text},extra||{});}
+  seg(label,on,tap){return {label,tap,bg:on?'#fff':'transparent',fg:on?B.ink:'#8995a6',shadow:on?'0 1px 3px rgba(16,24,40,.12)':'none'};}
+  toggle(label,sub,on,tap,i){return {label,sub,tap,track:on?B.primary:'#cfd6df',justify:on?'flex-end':'flex-start',divider:i?'1px solid '+B.line:'none'};}
+  swatches(cur,tap){return SWATCHES.map(c=>({color:c,ring:c===cur?'0 0 0 2px #fff,0 0 0 4px '+c:'none',tap:()=>tap(c)}));}
+
+  finance(d){
+    const w=WORDS[d.kind];const amt=parseAmt(d.amount);
+    const reason=amt===null?'Give it an amount':isNaN(amt)?'Numbers only — use a comma for cents':(!d.payee.trim()&&!d.label.trim())?'Add a company or a note':null;
+    const blk=BLOCKS.find(b=>b.key===d.block)||BLOCKS[0];
+    const dim=new Date(Date.UTC(YEAR,MON,0)).getUTCDate();const lead=dow(YEAR,MON,1);
+    const cells=[];for(let i=0;i<lead;i++)cells.push({label:'',tap:()=>{},bg:'transparent',fg:'transparent',cursor:'default'});
+    for(let i=1;i<=dim;i++){const sel=d.day===i,we=dow(YEAR,MON,i)>=5;cells.push({label:String(i),cursor:'pointer',bg:sel?B.primary:'transparent',fg:sel?'#fff':we?'#94a0b0':B.ink,tap:()=>this.set({day:i,shift:'none'})});}
+    const wdx=d.day?dow(YEAR,MON,d.day):0,weekend=!!d.day&&wdx>=5;
+    const fri=d.day?new Date(Date.UTC(YEAR,MON-1,d.day-(wdx-4))):null,monA=d.day?new Date(Date.UTC(YEAR,MON-1,d.day+(7-wdx))):null;
+    const f2=dt=>fmtD(dt.getUTCFullYear(),dt.getUTCMonth()+1,dt.getUTCDate());
+    let dayVal=d.day?('The '+ord(d.day)+' · '+fmtD(YEAR,MON,d.day)):'Unscheduled';
+    if(weekend&&d.shift==='before')dayVal='The '+ord(d.day)+' · moves to '+f2(fri);
+    if(weekend&&d.shift==='after')dayVal='The '+ord(d.day)+' · moves to '+f2(monA);
+    const everyTxt=d.every===1?'every month':d.every===12?'every year':'every '+d.every+' months';
+    const endTxt=d.endOrd==null?'':' · until '+MS[d.endOrd%12]+' '+Math.floor(d.endOrd/12);
+    const repVal=d.recurring?'Repeats '+everyTxt+endTxt:'One-off — only this August';
+    const acc=ACCOUNTS.find(a=>a.key===d.account)||ACCOUNTS[0];
+    const card=CARDS.find(c=>c.id===d.card);
+    const ex=this.state.expanded;
+    const rowDefs=[{id:'day',icon:'cal',label:w.day,value:dayVal,set:!!d.day},{id:'repeat',icon:'repeat',label:'Repeat',value:repVal,set:true},{id:'account',icon:'wallet',label:w.acc,value:acc.name+' · '+(d.paid?w.paid:w.unpaid),set:true}];
+    if(d.kind!=='income')rowDefs.push({id:'card',icon:'card',label:'Discount card',value:card?card.name:'No card',set:!!card});
+    const rows=rowDefs.map((r,i)=>({label:r.label,value:r.value,icon:ic(r.icon,16,2.1),valColor:r.set?B.soft2:'#94a0b0',divider:i?'1px solid '+B.line:'none',bg:ex===r.id?'#f8fafb':'#fff',rot:ex===r.id?'rotate(180deg)':'none',
+      tap:()=>this.setState(s=>({expanded:s.expanded===r.id?null:r.id})),isDay:ex==='day'&&r.id==='day',isRepeat:ex==='repeat'&&r.id==='repeat',isAccount:ex==='account'&&r.id==='account',isCard:ex==='card'&&r.id==='card'}));
+    const base=YEAR*12+MON-1;
+    const tone=d.kind==='income'?B.green:B.ink;
+    return {v:{
+      kindSegs:[['expense','Expense'],['income','Income'],['savings','Savings']].map(([k,l])=>this.seg(l,d.kind===k,()=>this.set(dd=>({kind:k,block:(BLOCKS.find(b=>b.key===dd.block&&b.kind===k)||BLOCKS.find(b=>b.kind===k)).key,card:k==='income'?null:dd.card})))),
+      series:this.state.edit&&d.recurring,
+      sign:w.sign,amount:d.amount,onAmount:e=>this.set({amount:e.target.value}),amountTone:amt===null?'#cbd3dc':tone,
+      amountHint:amt!==null&&isNaN(amt)?'Numbers only — use a comma for cents':'Amount in euros',amountHintColor:amt!==null&&isNaN(amt)?B.red:B.muted,
+      payee:d.payee,onPayee:e=>this.set({payee:e.target.value}),payeePh:w.payee,label:d.label,onLabel:e=>this.set({label:e.target.value}),
+      blockChips:BLOCKS.filter(b=>b.kind===d.kind).map(b=>Object.assign(this.chip(b.title,d.block===b.key,()=>this.set({block:b.key}),d.block===b.key?b.color:null),{e:b.e})),
+      rows,dayHeads:WL,dayCells:cells,weekend,
+      weekendNote:weekend?'The '+ord(d.day)+' is a '+(wdx===5?'Saturday':'Sunday')+'. Should it move?':'',
+      shiftChips:[['none','Keep the '+ord(d.day||1)],['before','Friday before'],['after','Monday after']].map(([k,l])=>this.chip(l,d.shift===k,()=>this.set({shift:k}),d.shift===k?B.amber:null)),
+      unschedule:()=>this.set({day:null,shift:'none'}),unschedBg:d.day?'#fff':B.soft,unschedBd:d.day?B.line:B.primary,unschedFg:d.day?B.soft2:B.deep,
+      recurring:d.recurring,
+      repeatYN:[this.soft('One-off',!d.recurring,()=>this.set({recurring:false})),this.soft('Repeats',d.recurring,()=>this.set({recurring:true}))],
+      everyChips:[[1,'Monthly'],[2,'Every 2 months'],[3,'Every 3 months'],[12,'Yearly']].map(([n,l])=>this.chip(l,d.every===n,()=>this.set({every:n}))),
+      endChips:[this.chip('Never',d.endOrd==null,()=>this.set({endOrd:null}))].concat(Array.from({length:12},(_,i)=>{const o=base+1+i;return this.chip(MS[o%12]+' '+Math.floor(o/12),d.endOrd===o,()=>this.set({endOrd:o}));})),
+      accChips:ACCOUNTS.map(a=>Object.assign(this.chip(a.name,d.account===a.key,()=>this.set({account:a.key}),d.account===a.key?a.color:null),{e:a.e})),
+      togglePaid:()=>this.set(dd=>({paid:!dd.paid})),paidLabel:'Mark '+w.paid.toLowerCase(),paidSub:d.paid?w.paid+' — it counts as settled':'Not yet settled',paidTrack:d.paid?B.primary:'#cfd6df',paidJustify:d.paid?'flex-end':'flex-start',
+      cardChips:[Object.assign(this.chip('No card',!d.card,()=>this.set({card:null})),{dot:'#e2e7ee'})].concat(CARDS.map(c=>Object.assign(this.chip(c.name,d.card===c.id,()=>this.set({card:c.id})),{dot:c.color})),[Object.assign(this.chip('Scan new',false,()=>this.flash('Opens the card scanner')),{dot:'transparent'})])
+    },reason,head:(this.state.edit?'Edit ':'New ')+w.noun,
+      summary:(amt&&!isNaN(amt)?w.sign+' '+euro(amt):w.sign+' € 0,00')+' · '+blk.title+' · '+(d.day?'the '+ord(d.day):'unscheduled')+' · '+(d.recurring?everyTxt:'one-off'),
+      label:this.state.edit?'Save changes':'Add '+w.noun};
+  }
+
+  renderVals(){
+    const s=this.state,ed=s.ed,d=s.d,edit=s.edit;
+    const isBadge=['category','layer','member','account','block'].indexOf(ed)>=0;
+    let head='',sub='',valid=true,label='Save',summary='',reason=null,delLabel=null;
+    const out={};
+    const nameOk=isBadge&&(d.name||'').trim().length>0;
+    if(isBadge){
+      const face=ed==='member'?(d.emoji||initials(d.name)):d.emoji;
+      out.badge={color:d.color,face,name:d.name,onName:e=>this.set({name:e.target.value}),line:nameOk?d.color:B.line,
+        ph:{category:'Name it… e.g. Work',layer:'Name it… e.g. Chores',member:'Their name',account:"Name it… e.g. Eva's account",block:'Name it… e.g. Kids'}[ed],
+        picks:PICKS[ed].map(e=>{const on=ed==='member'?(e==='Aa'?!d.emoji:d.emoji===e):d.emoji===e;return {e,bg:on?B.soft:'#fff',bd:on?B.primary:B.line,tap:()=>this.set({emoji:ed==='member'&&e==='Aa'?null:e})};}),
+        photo:()=>this.flash('Opens your photos')};
+      out.swatches=this.swatches(d.color,c=>this.set({color:c}));
+    }
+    switch(ed){
+      case 'finance':{const f=this.finance(d);out.fin=f.v;head=f.head;sub='August 2026';reason=f.reason;summary=f.summary;label=f.label;if(edit)delLabel='Remove from the budget…';break;}
+      case 'category':{head=edit?'Edit category':'New category';label=edit?'Save category':'Add category';const L=LAYERS.find(l=>l.id===d.layer);
+        summary=L.label+' · '+(d.members.length?d.members.length+(d.members.length===1?' person':' people'):'nobody assigned');if(edit)delLabel='Delete category — events keep their times';
+        out.cat={layerChips:LAYERS.map(l=>Object.assign(this.chip(l.label,d.layer===l.id,()=>this.set({layer:l.id}),d.layer===l.id?l.color:null),{e:l.e}))};
+        out.people=MEMBERS.map(m=>{const on=d.members.indexOf(m.id)>=0;return {name:m.name,initials:m.initials,on,bg:m.color,opacity:on?1:.35,ring:on?'0 0 0 2px #fff,0 0 0 4px '+m.color:'none',fg:on?B.ink:B.muted,tap:()=>this.set(dd=>({members:on?dd.members.filter(x=>x!==m.id):dd.members.concat([m.id])}))};});break;}
+      case 'layer':{head=edit?'Edit layer':'New layer';label=edit?'Save layer':'Add layer';summary='Filter and colour group in the calendar';if(edit)delLabel='Delete layer';break;}
+      case 'member':{head=edit?'Edit member':'Add member';label=edit?'Save member':'Add member';summary=d.kid?'Kid profile · kid-safe home':'';
+        out.mem={email:d.email,onEmail:e=>this.set({email:e.target.value}),toggleKid:()=>this.set(dd=>({kid:!dd.kid})),kidTrack:d.kid?B.primary:'#cfd6df',kidJustify:d.kid?'flex-end':'flex-start'};break;}
+      case 'account':{head=edit?'Edit account':'New account';label=edit?'Save account':'Add account';if(nameOk&&!d.short.trim())reason='Add a short label';
+        summary='Used across budgets and the money calendar';if(edit)delLabel='Delete account — entries move to the first remaining one';
+        out.acc={short:d.short,onShort:e=>this.set({short:e.target.value}),preview:d.short.trim()||'Eva',emoji:d.emoji,color:d.color,tint:d.color+'1f'};break;}
+      case 'block':{head=edit?'Edit block':'New block';label=edit?'Save block':'Add block';const capN=parseAmt(d.cap);
+        summary=(d.income?'Receives money':'Withdraws money')+' · '+(d.temporary?'August only':'every month')+(!d.income&&capN?' · limit '+euro(capN):'');
+        if(!d.income&&d.cap&&isNaN(capN))reason='Limit: numbers only';if(edit)delLabel='Delete block — its entries move elsewhere';
+        out.blk={dirTiles:[['🛒','Withdraws','Costs & payments',false],['👛','Receives','Salary & income',true]].map(([e,l,sb,inc])=>{const on=d.income===inc;return {e,label:l,sub:sb,bg:on?B.soft:'#fff',bd:on?B.primary:B.line,fg:on?B.deep:B.text,tap:()=>this.set(inc?{income:true,until:false,savings:false}:{income:false})};}),
+          applySegs:[this.seg('Every month',!d.temporary,()=>this.set({temporary:false})),this.seg('This month only',d.temporary,()=>this.set({temporary:true}))],
+          temporary:d.temporary,out:!d.income,cap:d.cap,onCap:e=>this.set({cap:e.target.value}),
+          toggles:[this.toggle('Track end date','For loans & debts with a payoff date',d.until,()=>this.set(dd=>({until:!dd.until})),0),this.toggle('Counts as savings','Include this block in your savings statistics',d.savings,()=>this.set(dd=>({savings:!dd.savings})),1)]};break;}
+      case 'cap':{head='Monthly limit';sub='Groceries · August';const v=parseAmt(d.value),spent=312.4;
+        if(v!==null&&isNaN(v))reason='Numbers only — use a comma for cents';
+        else if(v===null){if(d.had)label='Remove limit';else reason='Type a limit first';}
+        else label='Save limit';
+        const pct=v?Math.min(100,spent/v*100):0,tone=!v?'#94a0b0':spent>v?B.red:spent/v>=.8?B.amber:B.green;
+        out.cap={value:d.value,onValue:e=>this.set({value:e.target.value}),quick:[250,300,400,500].map(n=>this.chip('€ '+n,v===n,()=>this.set({value:String(n)}))),
+          spentLine:euro(spent)+' spent so far',leftLine:!v||isNaN(v)?'No limit':spent>v?euro(spent-v)+' over':euro(v-spent)+' left',pct:(v&&!isNaN(v)?pct:0)+'%',tone};break;}
+      case 'list':{head=edit?'Edit list':'New list';label=edit?'Save list':'Create list';if(!d.name.trim())reason='Give it a name first';
+        out.lst={kindTiles:[['todo','To-do list','list'],['shopping','Shopping list','cart']].map(([k,l,icn])=>{const on=d.kind===k;const tint=k==='shopping'?B.amber:B.primary;return {label:l,icon:ic(icn,19,2.1),bg:on?B.soft:'#fff',bd:on?B.primary:B.line,fg:on?B.deep:B.soft2,iconBg:on?tint:B.faint,iconFg:on?'#fff':B.soft2,tap:()=>{if(!edit)this.set({kind:k});}};}),
+          paper:PAPERS[d.paper],name:d.name,onName:e=>this.set({name:e.target.value}),ph:d.kind==='shopping'?'e.g. Groceries':'e.g. Weekend chores',
+          kindLine:d.kind==='shopping'?'Shopping list · shared with the family':'To-do list · shared with the family',
+          papers:PAPERS.map((c,i)=>({color:c,ring:i===d.paper?'0 0 0 2px #fff,0 0 0 4px #0E9A8D':'none',tap:()=>this.set({paper:i})}))};
+        if(edit)delLabel='Delete list';break;}
+      case 'meal':{const slotL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner'}[d.slot];head=slotL;sub='Wed 22 Jul';
+        if(!d.text.trim()){if(d.had)label='Clear '+slotL.toLowerCase();else reason='Type a meal first';}else label='Save '+slotL.toLowerCase();
+        out.meal={slots:[['breakfast','Breakfast'],['lunch','Lunch'],['dinner','Dinner']].map(([k,l])=>this.seg(l,d.slot===k,()=>this.set({slot:k}))),
+          text:d.text,onText:e=>this.set({text:e.target.value}),line:d.text.trim()?B.primary:B.line,
+          recent:RECENT_MEALS.map(m=>this.soft(m,d.text===m,()=>this.set({text:m})))};break;}
+      case 'wallet':{const st=d.stage;head=st==='pick'?'Scan a card':st==='reading'?'Reading the card':edit?'Edit card':'Check the details';sub=st==='review'&&!edit&&d.scanned?'We filled in what we could read':'';
+        if(!d.name.trim())reason='Add the shop name';else if(!d.code.trim())reason='Type the card number';label='Save card';
+        const owner=d.owner==='all'?'Everyone':(MEMBERS.find(m=>m.id===d.owner)||{}).name;summary=(d.type==='qr'?'QR code':'Barcode')+' · '+owner+"'s card".replace('Everyone\'s card','shared with everyone');
+        if(d.owner==='all')summary=(d.type==='qr'?'QR code':'Barcode')+' · shared with everyone';
+        out.wal={pick:st==='pick',reading:st==='reading',review:st==='review',scanned:d.scanned,
+          scan:()=>{this.set({stage:'reading'});this._scan=setTimeout(()=>this.set({stage:'review',scanned:true,code:'8710400123456',color:'#e11d48',type:'barcode'}),1300);},
+          manual:()=>this.set({stage:'review',scanned:false}),retake:()=>this.set({stage:'pick',scanned:false}),canRetake:!edit&&d.scanned,
+          color:d.color,onColor:contrastOn(d.color),cardName:d.name.trim()||'Shop name',isBar:d.type==='barcode',isQr:d.type==='qr',codeShown:d.code||'— — — —',
+          status:[[d.code?'✓ Barcode read':'Type the number',!!d.code],['✓ Colour matched',true],[d.name.trim()?'✓ Shop name added':'Add the shop name',!!d.name.trim()]].map(([l,ok])=>({label:l,bg:ok?B.soft:'#fffbeb',fg:ok?B.deep:'#b45309'})),
+          name:d.name,onName:e=>this.set({name:e.target.value}),code:d.code,onCode:e=>this.set({code:e.target.value.replace(/[^0-9A-Za-z]/g,'')}),note:d.note,onNote:e=>this.set({note:e.target.value}),
+          typeSegs:[this.seg('Barcode',d.type==='barcode',()=>this.set({type:'barcode'})),this.seg('QR code',d.type==='qr',()=>this.set({type:'qr'}))],
+          owners:[this.chip('Everyone',d.owner==='all',()=>this.set({owner:'all'}))].concat(MEMBERS.map(m=>this.chip(m.name,d.owner===m.id,()=>this.set({owner:m.id}),d.owner===m.id?m.color:null))),
+          swatches:this.swatches(d.color,c=>this.set({color:c}))};
+        if(edit)delLabel='Delete card';break;}
+    }
+    if(isBadge&&!nameOk)reason='Give it a name first';
+    valid=!reason;
+    const footer=!(ed==='wallet'&&d.stage!=='review');
+    return Object.assign(out,{
+      icons:{tick:ic('check',10,3.4,'#fff'),down:ic('down',18,2.4),camera:ic('camera',14,2.2),cameraLg:ic('camera',30,2)},
+      edTabs:EDITORS.map(([k,l])=>{const on=k===ed;return {label:l,tap:()=>this.go(k,s.edit),bg:on?B.ink:'#fff',bd:on?B.ink:B.line,fg:on?'#fff':B.soft2};}),
+      modeSegs:[['New',false],['Edit',true]].map(([l,v])=>({label:l,tap:()=>this.go(ed,v),bg:s.edit===v?B.primary:'transparent',fg:s.edit===v?'#fff':B.soft2})),
+      ctxKicker:CTX[ed][0],ctxTitle:CTX[ed][1],reopen:()=>this.go(ed,s.edit),
+      toast:!!s.toast,toastText:s.toast||'',open:s.open,close:()=>{clearTimeout(this._scan);this.setState({open:false});},stop:e=>e.stopPropagation(),
+      headTitle:head,headSub:sub,
+      isBadge,isFinance:ed==='finance',isCategory:ed==='category',isMember:ed==='member',isAccount:ed==='account',isBlock:ed==='block',isCap:ed==='cap',isList:ed==='list',isMeal:ed==='meal',isWallet:ed==='wallet',
+      hasDelete:!!delLabel&&!(ed==='wallet'&&d.stage!=='review'),deleteLabel:delLabel||'',del:()=>{this.setState({open:false});this.flash(ed==='finance'?'Asks: skip August only, or stop from August on?':'Deleted');},
+      hasFooter:footer,hasSummary:!!summary,summary,
+      submit:()=>{if(!valid)return;this.setState({open:false});this.flash(label.indexOf('Remove')===0||label.indexOf('Clear')===0?'Done':edit?'Saved':'Added');},
+      confirmLabel:valid?label:reason,confirmBg:valid?(label.indexOf('Remove')===0||label.indexOf('Clear')===0?'#fff':B.primary):B.faint,
+      confirmFg:valid?(label.indexOf('Remove')===0||label.indexOf('Clear')===0?B.red:'#fff'):'#94a0b0',confirmCursor:valid?'pointer':'not-allowed',
+      confirmBd:valid?(label.indexOf('Remove')===0||label.indexOf('Clear')===0?'#fecaca':B.primary):B.faint
+    });
+  }
+}
+</script>
+</body>
+</html>

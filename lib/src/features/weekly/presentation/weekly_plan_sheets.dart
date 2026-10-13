@@ -1,7 +1,8 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// "Edit meal" sheet — a single free-text field for one meal slot on one
-/// day. Ported from the design's weekly-plan meal editor.
+/// Meal editor (#399): Breakfast / Lunch / Dinner segment, one big
+/// underlined field and the family's recently planned meals as one-tap
+/// chips. Switching the slot loads what that slot already holds.
 class _MealEditSheet extends StatefulWidget {
   const _MealEditSheet({
     required this.state,
@@ -23,6 +24,8 @@ class _MealEditSheet extends StatefulWidget {
 
 class _MealEditSheetState extends State<_MealEditSheet> {
   late final TextEditingController _ctrl;
+  late String _slot = widget.slot;
+  late String _had = widget.initial;
 
   @override
   void initState() {
@@ -36,47 +39,142 @@ class _MealEditSheetState extends State<_MealEditSheet> {
     super.dispose();
   }
 
+  String? _valueOf(DayPlan? d, String slot) => switch (slot) {
+    'breakfast' => d?.breakfast,
+    'lunch' => d?.lunch,
+    _ => d?.dinner,
+  };
+
+  void _switch(String slot) {
+    if (slot == _slot) return;
+    final v = _valueOf(widget.state.weeklyPlan[widget.dateIso], slot) ?? '';
+    setState(() {
+      _slot = slot;
+      _had = v;
+      _ctrl.text = v;
+      _ctrl.selection = TextSelection.collapsed(offset: v.length);
+    });
+  }
+
+  /// Distinct meals already on the plan, newest day first (max 6).
+  List<String> _recent() {
+    final days = widget.state.weeklyPlan.values.toList()
+      ..sort((a, b) => b.dateIso.compareTo(a.dateIso));
+    final out = <String>[];
+    for (final d in days) {
+      for (final m in [d.dinner, d.lunch, d.breakfast]) {
+        final t = m?.trim() ?? '';
+        if (t.isNotEmpty && !out.contains(t)) out.add(t);
+        if (out.length == 6) return out;
+      }
+    }
+    return out;
+  }
+
+  String _dateLine() {
+    final d = DateTime.tryParse(widget.dateIso);
+    if (d == null) return widget.dateIso;
+    return '${_kWeekdaysShort[d.weekday - 1]} ${d.day} '
+        '${kMonthsShortEn[d.month - 1]}';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sheetHead(context, widget.label),
-          _sheetField(
-            '',
-            _sheetInput(
-              _ctrl,
-              hint: 'e.g. Pasta with tomato sauce',
-              onChanged: (_) => setState(() {}),
-            ),
+    final slotLabel = switch (_slot) {
+      'breakfast' => 'Breakfast',
+      'lunch' => 'Lunch',
+      _ => 'Dinner',
+    };
+    final text = _ctrl.text.trim();
+    final clearing = text.isEmpty && _had.isNotEmpty;
+    final recent = _recent();
+    final s = widget.state;
+
+    return EditorSheet(
+      title: slotLabel,
+      subtitle: _dateLine(),
+      confirmKey: const ValueKey('meal-save'),
+      confirmLabel: clearing
+          ? 'Clear ${slotLabel.toLowerCase()}'
+          : 'Save ${slotLabel.toLowerCase()}',
+      destructiveConfirm: clearing,
+      blockedReason: text.isEmpty && !clearing ? 'Type a meal first' : null,
+      summary: text.isEmpty
+          ? null
+          : '$slotLabel on ${_dateLine()} · for the whole family',
+      onConfirm: () {
+        if (clearing) {
+          s.clearMeal(widget.dateIso, _slot);
+        } else {
+          s.setMeal(widget.dateIso, _slot, text);
+        }
+        Navigator.of(context).pop();
+      },
+      children: [
+        EdSegmented<String>(
+          keyPrefix: 'meal-slot',
+          options: const [
+            ('breakfast', 'Breakfast'),
+            ('lunch', 'Lunch'),
+            ('dinner', 'Dinner'),
+          ],
+          value: _slot,
+          onChanged: _switch,
+        ),
+        TextField(
+          key: const ValueKey('meal-text'),
+          controller: _ctrl,
+          autofocus: widget.initial.isEmpty,
+          onChanged: (_) => setState(() {}),
+          cursorColor: B.primary,
+          style: const TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -.4,
+            color: B.ink,
           ),
-          _primaryBtn('Save', () {
-            widget.state.setMeal(widget.dateIso, widget.slot, _ctrl.text);
-            Navigator.of(context).pop();
-          }),
-          if (widget.initial.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                widget.state.clearMeal(widget.dateIso, widget.slot);
-                Navigator.of(context).pop();
-              },
-              child: const Padding(
-                padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
-                child: Text(
-                  'Clear',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
-                  ),
-                ),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.fromLTRB(2, 6, 2, 10),
+            hintText: 'e.g. Pasta with tomato sauce',
+            hintStyle: const TextStyle(color: B.placeholder),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: text.isEmpty ? B.line : B.primary,
+                width: 2,
               ),
             ),
-        ],
-      ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(
+                color: text.isEmpty ? B.line : B.primary,
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+        if (recent.isNotEmpty)
+          EdSection(
+            label: 'Recently planned',
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final m in recent)
+                  edSoftChip(
+                    key: ValueKey('meal-recent-$m'),
+                    label: m,
+                    selected: text == m,
+                    onTap: () => setState(() {
+                      _ctrl.text = m;
+                      _ctrl.selection = TextSelection.collapsed(
+                        offset: m.length,
+                      );
+                    }),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

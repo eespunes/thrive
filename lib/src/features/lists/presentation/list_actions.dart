@@ -102,11 +102,11 @@ extension _ThriveListActions on _ThriveHomeState {
 
   // ------------------------------------------------------------- to-do
   void openNewListSheet([String kind = 'todo']) {
-    _showSheet((ctx) => _NoteSheet(state: this, initialKind: kind));
+    openEditorSheet<void>((ctx) => _NoteSheet(state: this, initialKind: kind));
   }
 
   void openEditNoteSheet({TaskList? taskList, ShoppingList? shopList}) {
-    _showSheet(
+    openEditorSheet<void>(
       (ctx) => _NoteSheet(state: this, taskList: taskList, shopList: shopList),
     );
   }

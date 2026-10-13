@@ -87,7 +87,7 @@ class _AccountsScreen extends StatelessWidget {
           );
           final a = s.accounts.lastOrNull;
           if (a == null) return;
-          s.pushSettingsPage<void>(
+          s.openEditorSheet<void>(
             (_) => _AccountStudio(state: s, accountKey: a.key),
           );
         },
@@ -108,7 +108,7 @@ class _AccountsScreen extends StatelessWidget {
                 ),
                 label: a.name,
                 sub: 'Short · ${a.short}',
-                onTap: () => s.pushSettingsPage<void>(
+                onTap: () => s.openEditorSheet<void>(
                   (_) => _AccountStudio(state: s, accountKey: a.key),
                 ),
               );
@@ -194,28 +194,52 @@ class _AccountStudioState extends State<_AccountStudio> {
     );
   }
 
+  Widget _preview() {
+    final short = _short.text.trim().isEmpty ? 'Eva' : _short.text.trim();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '${_emoji != null && _emoji!.isNotEmpty ? '$_emoji ' : ''}$short',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+          color: _color,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canDelete = s.accounts.length > 1;
-    return BadgeStudioScaffold(
+    final named = _name.trim().isNotEmpty;
+    return EditorSheet(
       title: 'Edit account',
-      subtitle: 'Used across budgets and the money calendar.',
-      accent: _color,
-      saveLabel: 'Save account',
-      saveEnabled: _name.trim().isNotEmpty && _short.text.trim().isNotEmpty,
-      onSave: _save,
+      summary: 'Used across budgets and the money calendar',
+      confirmLabel: 'Save account',
+      blockedReason: !named
+          ? 'Give it a name first'
+          : (_short.text.trim().isEmpty ? 'Add a short label' : null),
+      onConfirm: _save,
       deleteLabel: canDelete
           ? 'Delete account — entries move to the first remaining one'
           : null,
       onDelete: canDelete ? _delete : null,
+      confirmKey: const ValueKey('studio-save'),
+      deleteKey: const ValueKey('studio-delete'),
       children: [
-        BadgeStage(
+        EdBadgeHeader(
           color: _color,
           name: _name,
           onName: (v) => setState(() => _name = v),
+          picks: kEditorPicks['account']!,
           emoji: _emoji,
           picture: _picture,
-          fallbackGlyph: '🏦',
+          fallbackFace: '🏦',
           namePlaceholder: "Name it… e.g. Eva's account",
           onEmoji: (g) => setState(() {
             _emoji = g;
@@ -227,16 +251,26 @@ class _AccountStudioState extends State<_AccountStudio> {
           },
           onToast: s.flash,
         ),
-        studioTextField(
-          key: const ValueKey('acc-short'),
-          controller: _short,
-          hint: 'Short label — e.g. Eva',
-          onChanged: (_) => setState(() {}),
+        EdSection(
+          label: 'Short label',
+          hint: 'Shown on every entry',
+          child: Row(
+            children: [
+              Expanded(
+                child: edBoxedInput(
+                  key: const ValueKey('acc-short'),
+                  controller: _short,
+                  hint: 'e.g. Eva',
+                  maxLength: 10,
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _preview(),
+            ],
+          ),
         ),
-        _ColorPickerPanel(
-          selected: _color,
-          onChanged: (c) => setState(() => _color = c),
-        ),
+        edColourSection(_color, (c) => setState(() => _color = c)),
       ],
     );
   }

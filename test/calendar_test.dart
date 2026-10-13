@@ -1514,7 +1514,7 @@ void main() {
   });
 
   testWidgets(
-    'every colour chooser uses the shared two-tab panel (#325/#326)',
+    'colour choosers use the shared swatch grid or two-tab panel (#326/#399)',
     (tester) async {
       final imported = ImportedCalendar(
         id: 'training-feed',
@@ -1532,7 +1532,7 @@ void main() {
       );
       await goToCalendar(tester);
 
-      // Category studio: the shared two-tab colour panel.
+      // Category editor (#399): the editor sheets' shared swatch grid.
       await openCalManage(tester);
       await tester.enterText(
         find.byKey(const ValueKey('list-add-input')),
@@ -1540,9 +1540,8 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
-      expect(find.text('Palette'), findsWidgets);
-      expect(find.text('RGB / Hex'), findsWidgets);
-      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      expect(find.byType(EdSwatchGrid), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('editor-cancel')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();

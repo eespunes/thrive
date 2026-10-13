@@ -47,7 +47,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(dedRow);
     await tester.pumpAndSettle();
-    expect(find.text('PAY DAY — WHICH DAY OF THE MONTH?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('entry-section-day')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('entry-shift-before')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('entry-shift-before')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));

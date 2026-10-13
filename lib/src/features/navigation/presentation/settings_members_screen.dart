@@ -102,7 +102,7 @@ class _MemberColoursScreen extends StatelessWidget {
                             : (m.uid == null && m.email.isEmpty
                                   ? 'No login — managed by anyone'
                                   : 'Member')),
-                  onTap: () => s.pushSettingsPage<void>(
+                  onTap: () => s.openEditorSheet<void>(
                     (_) => _MemberStudio(state: s, memberId: m.id),
                   ),
                 ),
@@ -180,22 +180,24 @@ class _MemberStudioState extends State<_MemberStudio> {
 
   @override
   Widget build(BuildContext context) {
-    return BadgeStudioScaffold(
+    return EditorSheet(
       title: 'Edit member',
-      subtitle: 'Badge, name & identity colour',
-      accent: _color,
-      saveLabel: 'Save member',
-      saveEnabled: _name.trim().isNotEmpty,
-      onSave: _save,
+      summary: _kid ? 'Kid profile · kid-safe home' : null,
+      confirmLabel: 'Save member',
+      blockedReason: _name.trim().isEmpty ? 'Give it a name first' : null,
+      onConfirm: _save,
+      confirmKey: const ValueKey('studio-save'),
       children: [
-        BadgeStage(
+        EdBadgeHeader(
           color: _color,
           name: _name,
           onName: (v) => setState(() => _name = v),
+          picks: kEditorPicks['member']!,
+          initialsPick: true,
           emoji: _emoji,
           picture: _photo,
-          fallbackGlyph: initialsOf(_name),
-          namePlaceholder: 'Name…',
+          fallbackFace: initialsOf(_name),
+          namePlaceholder: 'Their name',
           onEmoji: (g) => setState(() {
             _emoji = g;
             _photo = null;
@@ -211,25 +213,27 @@ class _MemberStudioState extends State<_MemberStudio> {
           },
           onToast: s.flash,
         ),
-        studioTextField(
-          key: const ValueKey('member-email'),
-          controller: _email,
-          hint: 'Email (optional — for members without a login)',
+        EdSection(
+          label: 'Email',
+          hint: 'Only for members without a login',
+          child: edBoxedInput(
+            key: const ValueKey('member-email'),
+            controller: _email,
+            hint: 'name@example.com',
+            keyboardType: TextInputType.emailAddress,
+          ),
         ),
         // Kid profiles (#245): the toggle moved here when the old member
         // edit sheet was retired.
         if (_canToggleKid)
-          studioToggleRow(
+          edToggleRow(
             key: const ValueKey('member-kid-toggle'),
             label: 'Kid profile',
             sub: 'Home shows only kid-safe widgets for them',
             value: _kid,
-            onChanged: () => setState(() => _kid = !_kid),
+            onTap: () => setState(() => _kid = !_kid),
           ),
-        _ColorPickerPanel(
-          selected: _color,
-          onChanged: (c) => setState(() => _color = c),
-        ),
+        edColourSection(_color, (c) => setState(() => _color = c)),
       ],
     );
   }
