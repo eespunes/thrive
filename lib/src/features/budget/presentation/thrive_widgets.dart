@@ -330,7 +330,7 @@ class _ChannelSlider extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: context.tc.surface,
+                      color: Colors.white,
                       shape: BoxShape.circle,
                       border: Border.all(color: context.tc.line, width: 2),
                       boxShadow: [

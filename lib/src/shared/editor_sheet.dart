@@ -723,7 +723,7 @@ class EdSwitch extends StatelessWidget {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-          color: context.tc.surface,
+          color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(color: B.segShadow, blurRadius: 2, offset: Offset(0, 1)),

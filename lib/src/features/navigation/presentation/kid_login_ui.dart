@@ -120,7 +120,10 @@ enum KidTone { teal, amber, red, grey }
 ({Color bg, Color line, Color fg}) _kidToneColors(KidTone t) => switch (t) {
   KidTone.teal => (
     bg: ThriveColors.current.soft,
-    line: const Color(0xffc4e8e2),
+    line: ThriveColors.current.pick(
+      const Color(0xffc4e8e2),
+      ThriveColors.current.line,
+    ),
     fg: ThriveColors.current.deep,
   ),
   KidTone.amber => (
@@ -598,7 +601,7 @@ Widget kidToggleRow({
                 width: 19,
                 height: 19,
                 decoration: BoxDecoration(
-                  color: ThriveColors.current.surface,
+                  color: Colors.white,
                   shape: BoxShape.circle,
                 ),
               ),

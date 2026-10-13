@@ -1008,7 +1008,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           ? context.tc.page
                           : count == 1
                           ? context.tc.soft
-                          : const Color(0xffc5e8e2);
+                          : context.tc.pick(
+                              const Color(0xffc5e8e2),
+                              context.tc.line,
+                            );
                       return GestureDetector(
                         onTap: () {
                           update(() => calSel = iso);

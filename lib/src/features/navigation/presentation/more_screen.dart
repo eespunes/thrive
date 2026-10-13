@@ -839,7 +839,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                         ? context.tc.soft
                         : (pillKind == 'invited'
                               ? context.tc.amberSoft
-                              : const Color(0xfff5f3ff)),
+                              : context.tc.pick(
+                                  const Color(0xfff5f3ff),
+                                  const Color(0xff241a3d),
+                                )),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -852,7 +855,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                           ? context.tc.deep
                           : (pillKind == 'invited'
                                 ? context.tc.amberText
-                                : const Color(0xff7c3aed)),
+                                : context.tc.pick(
+                                    const Color(0xff7c3aed),
+                                    const Color(0xffc4b5fd),
+                                  )),
                     ),
                   ),
                 ),
@@ -942,7 +948,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: context.tc.surface,
+              color: Colors.white,
               shape: BoxShape.circle,
             ),
           ),

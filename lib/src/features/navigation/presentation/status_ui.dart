@@ -206,7 +206,10 @@ enum StatusTone {
       ),
       ThriveColors.current.amberSoft,
     ),
-    blue => const Color(0xffe0f0f8),
+    blue => ThriveColors.current.pick(
+      const Color(0xffe0f0f8),
+      ThriveColors.current.infoSoft,
+    ),
     slate => ThriveColors.current.pick(
       ThriveColors.current.pick(
         const Color(0xffeef1f5),

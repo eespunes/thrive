@@ -248,7 +248,10 @@ enum _ChangeType {
   };
   Color get bg => switch (this) {
     note => ThriveColors.current.track,
-    event => const Color(0xffe0f0f8),
+    event => ThriveColors.current.pick(
+      const Color(0xffe0f0f8),
+      ThriveColors.current.infoSoft,
+    ),
     budget => ThriveColors.current.soft,
     meal => ThriveColors.current.orangeSoft,
   };
@@ -742,7 +745,10 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         Row(
           children: [
             const SizedBox(width: 2),
-            const _PendingSpinner(size: 12, track: Color(0xffb7e3db)),
+            _PendingSpinner(
+              size: 12,
+              track: context.tc.pick(const Color(0xffb7e3db), context.tc.line),
+            ),
             const SizedBox(width: 8),
             _sectionLabel('SAVING', context.tc.deep),
             const SizedBox(width: 8),
@@ -1010,7 +1016,12 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           color: on ? context.tc.ink : context.tc.surface,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: on ? context.tc.ink : const Color(0xfff2dfae),
+            color: on
+                ? context.tc.ink
+                : context.tc.pick(
+                    const Color(0xfff2dfae),
+                    context.tc.amberLine,
+                  ),
           ),
         ),
         child: Row(

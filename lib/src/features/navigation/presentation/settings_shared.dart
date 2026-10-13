@@ -294,7 +294,7 @@ class _StudioToggle extends StatelessWidget {
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: context.tc.surface,
+              color: Colors.white,
               shape: BoxShape.circle,
             ),
           ),

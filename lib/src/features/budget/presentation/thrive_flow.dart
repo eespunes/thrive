@@ -858,7 +858,10 @@ extension _ThriveFlow on _ThriveHomeState {
                     color: isToday
                         ? context.tc.primary
                         : (overdue
-                              ? const Color(0xfffcd9a5)
+                              ? context.tc.pick(
+                                  const Color(0xfffcd9a5),
+                                  context.tc.amberLine,
+                                )
                               : Colors.transparent),
                   ),
                   boxShadow: isToday
@@ -1010,7 +1013,12 @@ extension _ThriveFlow on _ThriveHomeState {
                           context.tc.amberSoft,
                         ),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xfffcd9a5)),
+                        border: Border.all(
+                          color: context.tc.pick(
+                            const Color(0xfffcd9a5),
+                            context.tc.amberLine,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 5),
