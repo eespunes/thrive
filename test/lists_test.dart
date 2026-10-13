@@ -90,11 +90,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Weekend chores');
     await tester.pump();
-    // Re-paper: tap the peach paper swatch.
-    final swatch = find.byKey(const ValueKey('note-paper-ffe3d3'));
-    await tester.ensureVisible(swatch);
-    await tester.tap(swatch);
-    await tester.pump();
+    // Re-paper via the app-wide colour panel.
+    await pickHexColour(tester, 'ffe3d3');
     await tester.tap(find.text('Save list'));
     await tester.pumpAndSettle();
     expect(find.text('Weekend chores'), findsOneWidget);

@@ -213,3 +213,63 @@ Finder? swipeRows(WidgetTester tester) {
   }
   return null;
 }
+
+/// Picks [hex] (e.g. 'd97706') in the open editor's Palette / RGB-Hex
+/// colour panel via its hex field.
+Future<void> pickHexColour(WidgetTester tester, String hex) async {
+  await openColourFold(tester);
+  final tab = find.text('RGB / Hex').last;
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
+  final input = find.byKey(const ValueKey('hex-color-input')).last;
+  await tester.ensureVisible(input);
+  await tester.enterText(input, hex.toUpperCase());
+  await tester.pumpAndSettle();
+}
+
+/// Unfolds one row of the event editor's Options group (repeat, reminder,
+/// place, notes, colour) if it isn't open yet, and brings it on screen.
+Future<void> openEventOption(WidgetTester tester, String id) async {
+  final row = find.byKey(ValueKey('event-row-$id'));
+  await tester.ensureVisible(row);
+  await tester.pumpAndSettle();
+  if (find.byKey(ValueKey('event-row-$id-open')).evaluate().isEmpty) {
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+  }
+}
+
+/// Brings an event-editor card on screen; Options rows are unfolded too.
+Future<void> openEventCard(WidgetTester tester, Key key) async {
+  const options = {'repeat', 'reminder', 'place', 'notes', 'colour'};
+  final value = key is ValueKey<String> ? key.value : '';
+  final id = value.startsWith('event-card-')
+      ? value.substring('event-card-'.length)
+      : '';
+  if (options.contains(id)) {
+    await openEventOption(tester, id);
+    if (id == 'colour') await openEventColourPicker(tester);
+    return;
+  }
+  await tester.ensureVisible(find.byKey(key));
+  await tester.pumpAndSettle();
+}
+
+/// Shows the event editor's Palette / RGB-Hex selector: it sits directly
+/// inside the "Calendar & colour" Options row (absent while a category owns
+/// the colour).
+Future<void> openEventColourPicker(WidgetTester tester) =>
+    openEventOption(tester, 'colour');
+
+/// Unfolds a foldable colour section ([EdColourFold]) so its Palette /
+/// RGB-Hex selector shows. No-op when it is already open.
+Future<void> openColourFold(WidgetTester tester) async {
+  if (find.text('Palette').evaluate().isNotEmpty) return;
+  final toggle = find.byKey(const ValueKey('colour-toggle')).first;
+  await tester.ensureVisible(toggle);
+  await tester.pumpAndSettle();
+  await tester.tap(toggle);
+  await tester.pumpAndSettle();
+}

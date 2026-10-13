@@ -84,12 +84,7 @@ void main() {
     await goToTab(tester, 'blocks');
     await tester.tap(find.byKey(const ValueKey('blocks-row-home')));
     await tester.pumpAndSettle();
-    // Pick the colour from the swatch grid.
-    final swatch = find.byKey(const ValueKey('swatch-d97706'));
-    await tester.ensureVisible(swatch);
-    await tester.pumpAndSettle();
-    await tester.tap(swatch);
-    await tester.pumpAndSettle();
+    await pickHexColour(tester, 'd97706');
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(

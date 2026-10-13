@@ -77,11 +77,7 @@ void main() {
       find.byKey(const ValueKey('badge-stage-name')),
       'Meetings',
     );
-    final swatch = find.byKey(ValueKey('swatch-e11d48'));
-    await tester.ensureVisible(swatch);
-    await tester.pumpAndSettle();
-    await tester.tap(swatch);
-    await tester.pumpAndSettle();
+    await pickHexColour(tester, 'e11d48');
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     final def = thriveDebug.calendarLayers.firstWhere((l) => l.id == 'appt');

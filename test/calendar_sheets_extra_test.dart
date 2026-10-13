@@ -17,18 +17,21 @@ Future<void> _openEditor(WidgetTester tester) async {
   expect(find.text('New event'), findsOneWidget);
 }
 
-/// Scrolls one of the event editor's cards into view. The editor no longer
-/// has trays to open — every card is always on the page — so this only has to
-/// bring the card on screen before the test touches its controls.
-Future<void> _openTray(WidgetTester tester, Key key) async {
-  await tester.ensureVisible(find.byKey(key));
+/// Brings one of the event editor's sections on screen, unfolding it when
+/// it is an Options row.
+Future<void> _openTray(WidgetTester tester, Key key) =>
+    openEventCard(tester, key);
+
+Future<void> _tapKey(WidgetTester tester, String key) async {
+  await tester.ensureVisible(find.byKey(ValueKey(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
 }
 
 Future<void> _repeatYes(WidgetTester tester) async {
   await _openTray(tester, const ValueKey('event-card-repeat'));
-  await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
-  await tester.pumpAndSettle();
+  await _tapKey(tester, 'ticket-cad-weekly');
 }
 
 void main() {
@@ -37,15 +40,18 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await _openEditor(tester);
 
-    // Kind toggle To-Do -> Event (initial tray is Kind & layer).
+    // Kind toggle To-Do -> Event (pinned under the header).
     await tester.tap(find.byKey(const ValueKey('event-kind-todo')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('event-kind-event')));
     await tester.pumpAndSettle();
 
-    // Location field lives in the Place & notes tray.
+    // Location field lives in the Location row.
     await _openTray(tester, const ValueKey('event-card-place'));
-    await tester.enterText(find.byType(TextField).at(1), 'Park');
+    await tester.enterText(
+      find.byKey(const ValueKey('event-location')),
+      'Park',
+    );
     await tester.pump();
 
     // Attendee chip toggles off and on (People tray).
@@ -55,27 +61,28 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('event-att-me')));
     await tester.pump();
 
-    // Reminder: two-question tray, then an offset chip.
+    // Reminder: a grid of lead times.
     await _openTray(tester, const ValueKey('event-card-reminder'));
-    await tester.tap(find.text('1 day'));
-    await tester.pump();
+    await _tapKey(tester, 'ticket-rem-1d');
+    expect(find.text('1 day before'), findsOneWidget);
 
-    // Repeat: yes -> weekly with interval + weekday chips; repeat ends;
-    // monthly; then back to "No, just once".
+    // Repeat: weekly; repeat ends; custom weekdays; monthly; then back to
+    // "Doesn't repeat".
     await _repeatYes(tester);
-    await tester.tap(find.byKey(const ValueKey('event-repeat-end-date')));
-    await tester.pumpAndSettle();
+    await _tapKey(tester, 'event-repeat-end-date');
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('event-custom-weekday-3')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('event-custom-weekday-3')));
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('ticket-cad-monthly')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ticket-again-no')));
-    await tester.pumpAndSettle();
-    expect(find.text('Happens once'), findsOneWidget);
+    await _tapKey(tester, 'ticket-cad-custom');
+    await _tapKey(tester, 'event-custom-weekday-3');
+    await _tapKey(tester, 'event-custom-weekday-3');
+    await _tapKey(tester, 'ticket-month-date');
+    await _tapKey(tester, 'ticket-again-no');
+    expect(
+      tester
+          .widget<Text>(find.byKey(const ValueKey('ticket-repeat-summary')))
+          .data,
+      "Doesn't repeat",
+    );
   });
 
   testWidgets('deleting from the editor: plain events confirm, recurring '
@@ -144,16 +151,10 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Trip');
     await tester.pump();
     await _openTray(tester, const ValueKey('event-card-when'));
-    await tester.tap(find.text('Multi-day'));
-    await tester.pumpAndSettle();
+    await _tapKey(tester, 'event-multi-day');
     if (today.day < 28) {
       // Pick tomorrow as the end date so the span is real.
-      final endField = find.text(
-        '${today.day.toString().padLeft(2, '0')}-'
-        '${today.month.toString().padLeft(2, '0')}-${today.year}',
-      );
-      await tester.tap(endField.last);
-      await tester.pumpAndSettle();
+      await _tapKey(tester, 'event-end-date');
       await tester.tap(
         find
             .descendant(

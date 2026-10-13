@@ -285,12 +285,7 @@ void main() {
     final freeHex = (free.toARGB32() & 0xFFFFFF)
         .toRadixString(16)
         .padLeft(6, '0');
-    // Pick the colour from the swatch grid.
-    final swatch = find.byKey(ValueKey('swatch-$freeHex'));
-    await tester.ensureVisible(swatch);
-    await tester.pumpAndSettle();
-    await tester.tap(swatch);
-    await tester.pumpAndSettle();
+    await pickHexColour(tester, freeHex);
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(myColor(), free);

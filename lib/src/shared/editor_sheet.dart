@@ -97,6 +97,7 @@ class EditorSheet extends StatelessWidget {
     required this.title,
     this.subtitle,
     required this.children,
+    this.pinned,
     this.summary,
     this.confirmLabel = 'Save',
     this.blockedReason,
@@ -114,6 +115,11 @@ class EditorSheet extends StatelessWidget {
   final String title;
   final String? subtitle;
   final List<Widget> children;
+
+  /// Optional strip pinned between the header and the scrolling body (the
+  /// event editor's Event/To-do switch), so it stays on screen while
+  /// scrolling.
+  final Widget? pinned;
 
   /// One-line plain-language read-back shown above the confirm button.
   final String? summary;
@@ -163,6 +169,11 @@ class EditorSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _header(context),
+              if (pinned != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                  child: pinned,
+                ),
               Flexible(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
@@ -829,6 +840,8 @@ Widget edBareInput({
   TextInputType? keyboardType,
   TextCapitalization capitalization = TextCapitalization.none,
   double letterSpacing = 0,
+  int maxLines = 1,
+  bool autofocus = false,
 }) {
   return TextField(
     key: key,
@@ -836,6 +849,9 @@ Widget edBareInput({
     onChanged: onChanged,
     keyboardType: keyboardType,
     textCapitalization: capitalization,
+    maxLines: maxLines,
+    minLines: 1,
+    autofocus: autofocus,
     decoration: InputDecoration(
       isDense: true,
       border: InputBorder.none,
@@ -966,63 +982,6 @@ Widget edBigAmount({
       ],
     ),
   );
-}
-
-// -------------------------------------------------------------- swatches
-
-/// The 6-column colour swatch grid. A colour that isn't one of [colors]
-/// (e.g. picked with the old RGB picker) is kept as the first swatch so
-/// opening an editor never silently changes it.
-class EdSwatchGrid extends StatelessWidget {
-  const EdSwatchGrid({
-    super.key,
-    required this.selected,
-    required this.onChanged,
-    this.colors = B.swatches,
-  });
-
-  final Color selected;
-  final ValueChanged<Color> onChanged;
-  final List<Color> colors;
-
-  static String hexOf(Color c) =>
-      (c.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0');
-
-  @override
-  Widget build(BuildContext context) {
-    final sel = selected.toARGB32();
-    final all = [
-      if (colors.every((c) => c.toARGB32() != sel)) selected,
-      ...colors,
-    ];
-    return GridView.count(
-      crossAxisCount: 6,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      padding: const EdgeInsets.all(4),
-      children: [
-        for (final c in all)
-          GestureDetector(
-            key: ValueKey('swatch-${hexOf(c)}'),
-            onTap: () => onChanged(c),
-            child: Container(
-              decoration: BoxDecoration(
-                color: c,
-                shape: BoxShape.circle,
-                boxShadow: c.toARGB32() == sel
-                    ? [
-                        BoxShadow(color: c, spreadRadius: 4),
-                        const BoxShadow(color: Colors.white, spreadRadius: 2),
-                      ]
-                    : null,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
 }
 
 // --------------------------------------------------------------- people
@@ -1485,17 +1444,89 @@ class _EdDashedPainter extends CustomPainter {
       old.color != color || old.radius != radius;
 }
 
-/// One badge-editor colour section ("Colour" + the swatch grid).
+/// One editor colour section: "Colour" + the app's single colour selector
+/// (Palette / RGB-Hex tabs, [_ColorPickerPanel]), folded behind its title.
 Widget edColourSection(
   Color selected,
   ValueChanged<Color> onChanged, {
   String label = 'Colour',
 }) {
-  return EdSection(
-    label: label,
-    gap: 10,
-    child: EdSwatchGrid(selected: selected, onChanged: onChanged),
-  );
+  return EdColourFold(label: label, selected: selected, onChanged: onChanged);
+}
+
+/// A colour section whose Palette / RGB-Hex selector stays folded away until
+/// its title is tapped. The title row shows the current colour as a swatch.
+class EdColourFold extends StatefulWidget {
+  const EdColourFold({
+    super.key,
+    this.label = 'Colour',
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String label;
+  final Color selected;
+  final ValueChanged<Color> onChanged;
+
+  @override
+  State<EdColourFold> createState() => _EdColourFoldState();
+}
+
+class _EdColourFoldState extends State<EdColourFold> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          key: const ValueKey('colour-toggle'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _open = !_open),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 36),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: B.text,
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: widget.selected,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: B.line),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                AnimatedRotation(
+                  turns: _open ? .5 : 0,
+                  duration: const Duration(milliseconds: 150),
+                  child: ic('cdown', size: 18, sw: 2.4, color: B.placeholder),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_open) ...[
+          const SizedBox(height: 6),
+          _ColorPickerPanel(
+            selected: widget.selected,
+            onChanged: widget.onChanged,
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 /// Quick emoji picks per badge editor (`PICKS` in the design).

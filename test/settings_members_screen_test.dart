@@ -45,11 +45,7 @@ void main() {
     final freeHex = (freeColor.toARGB32() & 0xFFFFFF)
         .toRadixString(16)
         .padLeft(6, '0');
-    final swatch = find.byKey(ValueKey('swatch-$freeHex'));
-    await tester.ensureVisible(swatch);
-    await tester.pumpAndSettle();
-    await tester.tap(swatch);
-    await tester.pumpAndSettle();
+    await pickHexColour(tester, freeHex);
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     expect(find.text('Member saved — updated everywhere'), findsOneWidget);

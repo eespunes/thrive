@@ -140,11 +140,6 @@ class _NoteSheetState extends State<_NoteSheet> {
     final valid = _name.text.trim().isNotEmpty;
     final shopping = _kind == 'shopping';
     final kindName = shopping ? 'Shopping list' : 'To-do list';
-    final papers = [
-      for (final p in _kNotePapers) p.$1,
-      if (!_kNotePapers.any((p) => p.$1.toARGB32() == _color.toARGB32()))
-        _color,
-    ];
 
     Widget kindTile(String k, String icon, String label) {
       final active = _kind == k;
@@ -293,35 +288,10 @@ class _NoteSheetState extends State<_NoteSheet> {
             ),
           ),
         ),
-        EdSection(
+        EdColourFold(
           label: 'Paper',
-          gap: 10,
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final c in papers)
-                GestureDetector(
-                  key: ValueKey('note-paper-${EdSwatchGrid.hexOf(c)}'),
-                  onTap: () => setState(() => _color = c),
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: c,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: B.paperEdge),
-                      boxShadow: c.toARGB32() == _color.toARGB32()
-                          ? const [
-                              BoxShadow(color: Colors.white, spreadRadius: 2),
-                              BoxShadow(color: B.primary, spreadRadius: 4),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          selected: _color,
+          onChanged: (c) => setState(() => _color = c),
         ),
       ],
     );
