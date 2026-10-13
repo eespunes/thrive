@@ -219,6 +219,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
     try {
       _cloudUnreachable = false;
       await cloudBoot(uid);
+      await _kidAfterSignIn();
       await bindCloudSync(uid);
     } on CloudUnreachable catch (e) {
       debugPrint('[cloud] sign-in load: server unreachable: $e');
@@ -311,10 +312,13 @@ extension _ThriveAccountActions on _ThriveHomeState {
     for (final sub in _recordSubs) {
       sub.cancel();
     }
+    _cancelKidLineSubs();
     _recordSubs.clear();
     _boundFamilyId = null;
     _cloudBase.clear();
     _cloudLoaded.clear();
+    _kidMemberIdByFid.clear();
+    _scopedIds.clear();
     _legacyBlob.clear();
     _metaBase.clear();
     _legacyMigrating.clear();

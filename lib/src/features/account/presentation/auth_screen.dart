@@ -72,6 +72,18 @@ class _AuthScreenState extends State<_AuthScreen> {
       name: name,
     );
     if (!mounted) return;
+    // An admin-made kid login can't reset its own password: point the kid
+    // to a parent instead of the generic error.
+    if (!_register &&
+        err == 'Wrong email or password' &&
+        await widget.state.isManagedLogin(email)) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      widget.state.showError(
+        'That password isn’t right. Ask a parent to reset your password.',
+      );
+      return;
+    }
     setState(() => _busy = false);
     widget.state.showError(err);
   }

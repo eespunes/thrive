@@ -7,6 +7,7 @@ extension _ThriveWeeklyPlanActions on _ThriveHomeState {
   DayPlan? dayPlan(String dateIso) => weeklyPlan[dateIso];
 
   void setMeal(String dateIso, String slot, String value) {
+    if (childBlocked(kChildMealPlanReadOnly)) return;
     mutate(() {
       final trimmed = value.trim();
       final day = weeklyPlan.putIfAbsent(
@@ -31,6 +32,7 @@ extension _ThriveWeeklyPlanActions on _ThriveHomeState {
   void clearMeal(String dateIso, String slot) => setMeal(dateIso, slot, '');
 
   void setNote(String dateIso, String value) {
+    if (childBlocked(kChildMealPlanReadOnly)) return;
     mutate(() {
       final trimmed = value.trim();
       final day = weeklyPlan.putIfAbsent(

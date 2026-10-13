@@ -14,6 +14,7 @@ extension _ThriveQuickAdd on _ThriveHomeState {
   /// exactly one list it's used directly; with none yet, prompts to create
   /// one first — mirroring the Lists hub's own empty state.
   void quickAddTask() {
+    final taskLists = visibleTaskLists;
     void addTo(String id) {
       goTab('lists');
       openTaskListDetail(id);
@@ -42,6 +43,7 @@ extension _ThriveQuickAdd on _ThriveHomeState {
   /// Same idea as [quickAddTask], for shopping lists — lands on the picked
   /// list's detail screen with the quick-add field focused.
   void quickAddShopItem() {
+    final shoppingLists = visibleShoppingLists;
     void addTo(String id) {
       goTab('lists');
       openShopListDetail(id);
@@ -173,24 +175,26 @@ class _QuickAddSheet extends StatelessWidget {
           'Add to a list',
           state.quickAddShopItem,
         ),
-        _row(
-          context,
-          const ValueKey('quickadd-card'),
-          'camera',
-          'Discount card',
-          'Snap a loyalty card',
-          state.openCardScan,
-        ),
-        // Money joins the global quick add (#295) — the last missing
-        // feature. Opens the entry ticket with the block picker first.
-        _row(
-          context,
-          const ValueKey('quickadd-expense'),
-          'wallet',
-          'Expense',
-          'Add a money entry to a block',
-          () => state.openEntryTicket(),
-        ),
+        if (!state.isChildUser) ...[
+          _row(
+            context,
+            const ValueKey('quickadd-card'),
+            'camera',
+            'Discount card',
+            'Snap a loyalty card',
+            state.openCardScan,
+          ),
+          // Money joins the global quick add (#295) — the last missing
+          // feature. Opens the entry ticket with the block picker first.
+          _row(
+            context,
+            const ValueKey('quickadd-expense'),
+            'wallet',
+            'Expense',
+            'Add a money entry to a block',
+            () => state.openEntryTicket(),
+          ),
+        ],
       ],
     );
   }

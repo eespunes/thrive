@@ -60,3 +60,6 @@ __pycache__/
 
 # Private design docs (repo is public; keep out of git and GitHub Pages)
 /design/
+
+# Cloud Functions
+functions/node_modules/

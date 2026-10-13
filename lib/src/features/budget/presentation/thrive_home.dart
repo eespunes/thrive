@@ -39,6 +39,19 @@ class ThriveDebugController {
 
   Future<String?> signInWithGoogle() => _s.signInWithGoogle();
 
+  /// Kid accounts: the full-screen kid gate.
+  ValueNotifier<KidGate?> get kidGate => _s.kidGate;
+
+  /// Kid accounts: the once-per-login welcome check for [uid].
+  Future<void> maybeKidWelcome(String uid) => _s._maybeKidWelcome(uid);
+
+  /// Kid accounts: [fid] is dropped while this login is kid [kidMemberId].
+  void noteKidFamilyDropped(String fid, String kidMemberId) {
+    _s._kidMemberIdByFid[fid] = kidMemberId;
+    _s._noteKidFamilyDropped(fid);
+    _s._kidMemberIdByFid.remove(fid);
+  }
+
   Future<String?> signInWithEmail({
     required String email,
     required String password,
@@ -284,6 +297,14 @@ class ThriveDebugController {
   set homeBoard(List<BoardEntry>? v) => _s.homeBoard = v;
   List<BoardEntry> effectiveHomeBoard() => _s.effectiveHomeBoard();
   bool amIKidProfile() => _s.amIKidProfile();
+  bool get isChildUser => _s.isChildUser;
+  List<TaskList> get visibleTaskLists => _s.visibleTaskLists;
+  List<ShoppingList> get visibleShoppingLists => _s.visibleShoppingLists;
+  List<CalendarOccurrence> eventOccurrences(String from, String to) =>
+      _s.eventOccurrences(from, to);
+  void setMeal(String dateIso, String slot, String value) =>
+      _s.setMeal(dateIso, slot, value);
+  void saveTaskList(String name, Color color) => _s.saveTaskList(name, color);
   List<HomeWidgetDef> offeredHomeWidgets() => _s.offeredHomeWidgets();
   void addHomeWidget(String id) => _s.addHomeWidget(id);
   void removeHomeWidget(int i) => _s.removeHomeWidget(i);
@@ -544,9 +565,32 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _cloudSub;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _familySub;
 
-  /// One realtime listener per record collection of the active family.
-  final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>
-  _recordSubs = [];
+  /// The active family's record listeners: one per collection, or the
+  /// kid-scoped queries (plus the settings doc) for a child user.
+  final List<StreamSubscription<Object?>> _recordSubs = [];
+
+  /// Families whose access is being re-checked after a permission-denied
+  /// stream error (a kid restriction rather than a removal).
+  final Set<String> _accessRechecks = {};
+
+  /// Families where the signed-in login is a kid per the family doc's
+  /// `kidUids` (what the security rules enforce): family id → kid member
+  /// id. Those families load through kid-scoped queries only.
+  final Map<String, String> _kidMemberIdByFid = {};
+
+  /// The full-screen kid gate (welcome, first run, errors), or null.
+  final ValueNotifier<KidGate?> kidGate = ValueNotifier<KidGate?>(null);
+
+  /// The access change whose notice this session already handled.
+  int? _accessNoticeShownAt;
+
+  /// Kid-scoped loading: family → collection → query tag → record keys that
+  /// tag currently delivers. A record leaves the base only when no tag holds
+  /// it.
+  final Map<String, Map<String, Map<String, Set<String>>>> _scopedIds = {};
+
+  /// A kid's per-note lines listeners (note key → subscription).
+  final Map<String, StreamSubscription<Object?>> _kidLineSubs = {};
   bool _applyingCloudSnapshot = false;
 
   /// The family id the Firestore family/workspace streams are currently bound
@@ -714,6 +758,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   @override
   void dispose() {
     thriveDebug._detach(this);
+    kidGate.dispose();
     WidgetsBinding.instance.removeObserver(this);
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
     _cloudSub?.cancel();
@@ -721,6 +766,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     for (final sub in _recordSubs) {
       sub.cancel();
     }
+    _cancelKidLineSubs();
     _flushPersist();
     _saveRetryTimer?.cancel();
     DeviceCalendarSync.instance.cancelPending();
@@ -908,6 +954,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       // No prior data: start empty so the onboarding gate prompts create/join.
       families = [];
       workspaces = {};
+      unawaited(_kidCheckRemovedLogin(uid));
       if (!mounted) return;
       _finishBoot();
       return;
@@ -2220,6 +2267,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         !familyLoading &&
         !onboardingOpen &&
         !cloudOffline;
+    if (shellReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _kidShellChecks();
+      });
+    }
     if (shellReady && !_didSyncImportsOnOpen) {
       _didSyncImportsOnOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => syncDueImports());
@@ -2300,6 +2352,19 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             // create or join one before reaching the budget.
             if (onboardingOpen)
               Positioned.fill(child: _OnboardingScreen(state: this)),
+            // Kid accounts: welcome, first run and the full-screen errors.
+            ValueListenableBuilder<KidGate?>(
+              valueListenable: kidGate,
+              builder: (context, gate, _) => gate == null
+                  ? const SizedBox.shrink()
+                  : Positioned.fill(
+                      child: _KidGateScreen(
+                        key: ValueKey(gate.kind),
+                        state: this,
+                        gate: gate,
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
@@ -2420,6 +2485,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   }
 
   Widget _buildBody() {
+    // A child user never renders finance, e.g. from a restored tab.
+    if (isChildUser && !kChildAllowedTabs.contains(tab)) {
+      return _renderTab('home');
+    }
     if (tab != 'finance') return _renderTab(tab);
     return _buildFinance();
   }
