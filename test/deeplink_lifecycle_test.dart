@@ -20,7 +20,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Household');
     await tester.pump();
-    await tester.tap(find.text('Pin it to the door'));
+    await tester.tap(find.text('Create list'));
     await tester.pumpAndSettle();
     // Write the task straight onto the note.
     await tester.enterText(find.byType(TextField).first, 'Take out the bins');

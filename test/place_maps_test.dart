@@ -92,8 +92,8 @@ void main() {
     // Nothing typed yet — nothing to find.
     expect(find.byKey(const ValueKey('event-open-in-maps')), findsNothing);
 
-    await tester.ensureVisible(find.byKey(const ValueKey('event-card-place')));
-    await tester.pumpAndSettle();
+    await openEventOption(tester, 'place');
+    expect(find.byKey(const ValueKey('event-open-in-maps')), findsNothing);
     await tester.enterText(
       find.byKey(const ValueKey('event-location')),
       'Dentist, Utrecht',

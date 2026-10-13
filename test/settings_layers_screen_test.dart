@@ -77,14 +77,7 @@ void main() {
       find.byKey(const ValueKey('badge-stage-name')),
       'Meetings',
     );
-    await tester.tap(find.text('RGB / Hex'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const ValueKey('hex-color-input')),
-      'e11d48',
-    );
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
+    await pickHexColour(tester, 'e11d48');
     await tester.tap(find.byKey(const ValueKey('studio-save')));
     await tester.pumpAndSettle();
     final def = thriveDebug.calendarLayers.firstWhere((l) => l.id == 'appt');

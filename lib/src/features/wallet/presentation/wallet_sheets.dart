@@ -12,7 +12,7 @@ extension _ThriveWalletSheets on _ThriveHomeState {
     if (childBlocked('Discount cards aren’t available on a kid profile')) {
       return;
     }
-    _showSheet((ctx) => _CardScanSheet(state: this));
+    openEditorSheet<void>((ctx) => _CardScanSheet(state: this));
   }
 
   /// Camera capture or gallery import — same pipeline and review step for
@@ -46,7 +46,7 @@ extension _ThriveWalletSheets on _ThriveHomeState {
     Uint8List bytes, {
     ImageSource source = ImageSource.gallery,
   }) {
-    _showSheet(
+    openEditorSheet<void>(
       (ctx) => _CardScanSheet(state: this, initialPhoto: bytes, source: source),
     );
   }
@@ -382,216 +382,149 @@ class _CardScanSheetState extends State<_CardScanSheet> {
     s.openCardFace(id);
   }
 
-  Widget _pickStage() {
-    Widget btn(
-      Key key,
-      String label,
-      String icon,
-      bool filled,
-      VoidCallback onTap,
-    ) {
-      return Expanded(
-        child: GestureDetector(
-          key: key,
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            decoration: BoxDecoration(
-              color: filled ? B.primary : Colors.white,
-              border: Border.all(color: filled ? B.primary : B.line),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ic(
-                  icon,
-                  size: 16,
-                  sw: 2.2,
-                  color: filled ? Colors.white : B.deep,
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: filled ? Colors.white : B.deep,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _cameraTile() => Container(
+    width: 72,
+    height: 72,
+    decoration: BoxDecoration(
+      color: B.soft,
+      borderRadius: BorderRadius.circular(22),
+    ),
+    child: Center(child: ic('camera', size: 30, sw: 2, color: B.primary)),
+  );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
-          margin: const EdgeInsets.only(bottom: 14),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xfff8fafc), Color(0xffeef2f7)],
-            ),
-            border: Border.all(color: const Color(0xffcfd8e3), width: 2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: B.soft,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Center(
-                  child: ic('camera', size: 26, sw: 2, color: B.primary),
-                ),
+  Widget _wideBtn(
+    Key key,
+    String label, {
+    required VoidCallback onTap,
+    bool filled = false,
+    bool link = false,
+  }) {
+    return GestureDetector(
+      key: key,
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        constraints: BoxConstraints(minHeight: link ? 44 : 52),
+        alignment: Alignment.center,
+        decoration: link
+            ? null
+            : BoxDecoration(
+                color: filled ? B.primary : Colors.white,
+                border: filled ? null : Border.all(color: B.line, width: 1.5),
+                borderRadius: BorderRadius.circular(15),
               ),
-              const SizedBox(height: 9),
-              const Text(
-                'Take a photo of the card',
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                ),
-              ),
-              const SizedBox(height: 5),
-              const SizedBox(
-                width: 256,
-                child: Text(
-                  'Thrive reads the barcode number and picks up the card '
-                  'colour, so it looks like the real card in your wallet.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: B.soft2,
-                    height: 1.55,
-                  ),
-                ),
-              ),
-            ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: link ? 13 : 14.5,
+            fontWeight: FontWeight.w800,
+            color: filled
+                ? Colors.white
+                : link
+                ? B.deep
+                : B.ink,
           ),
         ),
-        Row(
-          children: [
-            btn(
-              const ValueKey('wallet-scan-camera'),
-              'Take photo',
-              'camera',
-              true,
-              () => unawaited(_pick(ImageSource.camera)),
-            ),
-            const SizedBox(width: 9),
-            btn(
-              const ValueKey('wallet-scan-gallery'),
-              'From photos',
-              'folder',
-              false,
-              () => unawaited(_pick(ImageSource.gallery)),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _readingStage() {
-    final photo = _photo;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          height: 182,
-          clipBehavior: Clip.antiAlias,
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: B.ink,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (photo != null)
-                Image.memory(
-                  photo,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              Positioned.fill(
-                child: Container(
-                  margin: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .6),
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const Center(
-                child: SizedBox(
-                  width: 26,
-                  height: 26,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: Color(0xff3ee0c4),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ic('camera', size: 16, sw: 2.3, color: B.primary),
-            const SizedBox(width: 8),
-            const Text(
-              'Finding the barcode…',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: B.deep,
-              ),
+  List<Widget> _pickStage() => [
+    Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 4),
+      child: Column(
+        children: [
+          _cameraTile(),
+          const SizedBox(height: 14),
+          const Text(
+            'Take a photo of the card',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: B.ink,
             ),
-          ],
-        ),
-        const SizedBox(height: 6),
-      ],
-    );
-  }
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Barcode side up. We read the number and match the colour.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: B.soft2,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _wideBtn(
+            const ValueKey('wallet-scan-camera'),
+            'Take photo',
+            filled: true,
+            onTap: () => unawaited(_pick(ImageSource.camera)),
+          ),
+          const SizedBox(height: 8),
+          _wideBtn(
+            const ValueKey('wallet-scan-gallery'),
+            'Choose from photos',
+            onTap: () => unawaited(_pick(ImageSource.gallery)),
+          ),
+          const SizedBox(height: 8),
+          _wideBtn(
+            const ValueKey('wallet-scan-manual'),
+            'Type the number instead',
+            link: true,
+            onTap: () => setState(() {
+              _stage = 'review';
+              _photo = null;
+              _scan = const CardScanResult();
+            }),
+          ),
+        ],
+      ),
+    ),
+  ];
 
-  Widget _badge(Key key, String icon, String label, Color bg, Color fg) {
+  List<Widget> _readingStage() => [
+    Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          _cameraTile(),
+          const SizedBox(height: 12),
+          const Text(
+            'Finding the barcode…',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: B.deep,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ];
+
+  Widget _status(Key key, String label, bool ok) {
     return Container(
       key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
+        color: ok ? B.soft : B.amberSoft,
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ic(icon, size: 13, sw: 2.4, color: fg),
-          const SizedBox(width: 7),
+          if (ok) ...[
+            ic('check', size: 12, sw: 2.6, color: B.deep),
+            const SizedBox(width: 5),
+          ],
           Text(
             label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: fg,
+              color: ok ? B.deep : B.amberText,
             ),
           ),
         ],
@@ -599,236 +532,237 @@ class _CardScanSheetState extends State<_CardScanSheet> {
     );
   }
 
-  Widget _reviewStage() {
-    final photo = _photo;
-    final members = s.curFamily()?.members ?? const <FamilyMember>[];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 106,
-              height: 74,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: _color,
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: const Color(0x1f0f172a)),
-              ),
-              child: photo != null
-                  ? Image.memory(
-                      photo,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    )
-                  : null,
+  Widget _preview() {
+    final on = contrastOn(_color);
+    final code = digitsOnly(_code.text);
+    final name = _name.text.trim();
+    return Container(
+      key: const ValueKey('card-preview'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _color,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: _color,
+            blurRadius: 26,
+            spreadRadius: -16,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            name.isEmpty ? 'Shop name' : name,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -.3,
+              color: on,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _badge(
-                    const ValueKey('badge-number'),
-                    _scan.numberDetected ? 'check' : 'clock',
-                    _scan.numberDetected
-                        ? (_scan.codeType == 'qr'
-                              ? 'QR code read'
-                              : 'Barcode read')
-                        : 'Type the number',
-                    _scan.numberDetected ? B.greenSoft : B.faint,
-                    _scan.numberDetected ? B.greenText : B.soft2,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                CustomPaint(
+                  size: _type == 'qr'
+                      ? const Size(64, 64)
+                      : const Size(double.infinity, 44),
+                  painter: _EdCodePainter(qr: _type == 'qr'),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  code.isEmpty ? '— — — —' : code,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                    color: B.ink,
                   ),
-                  const SizedBox(height: 6),
-                  _badge(
-                    const ValueKey('badge-color'),
-                    'gauge',
-                    _scan.colorSampled ? 'Colour matched' : 'Pick a colour',
-                    B.soft,
-                    B.deep,
-                  ),
-                  const SizedBox(height: 6),
-                  _badge(
-                    const ValueKey('badge-name'),
-                    'note',
-                    'Add the shop name',
-                    B.amberSoft,
-                    B.amberText,
-                  ),
-                ],
-              ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _reviewStage() {
+    final members = s.curFamily()?.members ?? const <FamilyMember>[];
+    final hasCode = digitsOnly(_code.text).isNotEmpty;
+    final hasName = _name.text.trim().isNotEmpty;
+    final scanned = _photo != null;
+    return [
+      _preview(),
+      if (scanned)
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _status(
+              const ValueKey('badge-number'),
+              hasCode
+                  ? (_type == 'qr' ? 'QR code read' : 'Barcode read')
+                  : 'Type the number',
+              hasCode,
+            ),
+            _status(
+              const ValueKey('badge-color'),
+              _scan.colorSampled ? 'Colour matched' : 'Pick a colour',
+              _scan.colorSampled,
+            ),
+            _status(
+              const ValueKey('badge-name'),
+              hasName ? 'Shop name added' : 'Add the shop name',
+              hasName,
             ),
           ],
         ),
-        const SizedBox(height: 15),
-        _sheetField(
-          'Shop name',
-          _sheetInput(
-            _name,
-            hint: 'e.g. Supermarket around the corner',
-            onChanged: (_) => setState(() {}),
+      edGroup([
+        edBareInput(
+          key: const ValueKey('card-name'),
+          controller: _name,
+          hint: 'Shop name — e.g. Supermarket around the corner',
+          onChanged: (_) => setState(() {}),
+        ),
+        edBareInput(
+          key: const ValueKey('card-number'),
+          controller: _code,
+          hint: 'Card number',
+          keyboardType: TextInputType.number,
+          onChanged: (_) => setState(() {}),
+        ),
+        edBareInput(
+          key: const ValueKey('card-note'),
+          controller: _note,
+          hint: 'Note (optional) — e.g. 5% off garden plants',
+        ),
+      ]),
+      EdSegmented<String>(
+        keyPrefix: 'card-type',
+        options: const [('barcode', 'Barcode'), ('qr', 'QR code')],
+        value: _type,
+        onChanged: (v) => setState(() => _type = v),
+      ),
+      EdSection(
+        label: 'Whose card is it?',
+        child: edChipWrap([
+          edChip(
+            key: const ValueKey('card-owner-all'),
+            label: 'Everyone',
+            selected: _ownerId == null,
+            onTap: () => setState(() => _ownerId = null),
           ),
-        ),
-        _sheetField(
-          'Card number',
-          _sheetInput(_code, hint: '13 digits', number: true),
-        ),
-        _sheetField(
-          'Code type',
-          Row(
-            children: [
-              for (final (v, label) in const [
-                ('barcode', 'Barcode'),
-                ('qr', 'QR code'),
-              ]) ...[
-                Expanded(
-                  child: GestureDetector(
-                    key: ValueKey('card-type-$v'),
-                    onTap: () => setState(() => _type = v),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _type == v ? B.primary : Colors.white,
-                        border: Border.all(
-                          color: _type == v ? B.primary : B.line,
-                        ),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: _type == v ? Colors.white : B.text,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (v == 'barcode') const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-        _sheetField(
-          'Card colour',
-          _ColorPickerPanel(
-            selected: _color,
-            onChanged: (c) => setState(() => _color = c),
-          ),
-        ),
-        _sheetField(
-          'Note (optional)',
-          _sheetInput(_note, hint: 'e.g. 5% off garden plants'),
-        ),
-        _sheetField(
-          'Whose card is it',
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final m in members)
-                GestureDetector(
-                  key: ValueKey('card-owner-${m.id}'),
-                  // Tapping the selected member again clears the assignment.
-                  onTap: () =>
-                      setState(() => _ownerId = _ownerId == m.id ? null : m.id),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(5, 5, 11, 5),
-                    decoration: BoxDecoration(
-                      color: _ownerId == m.id ? B.soft : Colors.white,
-                      border: Border.all(
-                        color: _ownerId == m.id ? B.primary : B.line,
-                      ),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        s.avatarNode(
-                          photo: m.photo,
-                          emoji: m.emoji,
-                          initials: m.initials,
-                          color: m.color,
-                          size: 22,
-                          radius: 11,
-                          fs: 10,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          m.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: _ownerId == m.id ? B.deep : B.soft2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        KeyedSubtree(
-          key: const ValueKey('card-save'),
-          child: _primaryBtn(
-            'Save card',
-            _save,
-            enabled: _name.text.trim().isNotEmpty,
-          ),
-        ),
-        Center(
-          child: GestureDetector(
-            key: const ValueKey('card-retake'),
-            onTap: () => setState(() {
-              _stage = 'pick';
-              _photo = null;
-              _code.clear();
-            }),
-            child: const Padding(
-              padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
-              child: Text(
-                'Retake the photo',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: B.soft2,
-                ),
-              ),
+          for (final m in members)
+            edChip(
+              key: ValueKey('card-owner-${m.id}'),
+              label: m.name,
+              tone: m.color,
+              selected: _ownerId == m.id,
+              // Tapping the selected member again goes back to everyone.
+              onTap: () =>
+                  setState(() => _ownerId = _ownerId == m.id ? null : m.id),
             ),
-          ),
+        ]),
+      ),
+      edColourSection(
+        _color,
+        (c) => setState(() => _color = c),
+        label: 'Card colour',
+      ),
+      if (scanned)
+        _wideBtn(
+          const ValueKey('card-retake'),
+          'Retake the photo',
+          link: true,
+          onTap: () => setState(() {
+            _stage = 'pick';
+            _photo = null;
+            _code.clear();
+          }),
         ),
-      ],
-    );
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final (title, sub) = switch (_stage) {
-      'reading' => ('Reading the card', 'One second…'),
-      'review' => ('Check the details', 'We filled in what we could read'),
-      _ => ('Scan a discount card', 'Point at the barcode side'),
+    final review = _stage == 'review';
+    final title = switch (_stage) {
+      'reading' => 'Reading the card',
+      'review' => 'Check the details',
+      _ => 'Scan a card',
     };
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sheetHead(context, title, sub),
-        Flexible(
-          child: SingleChildScrollView(
-            child: switch (_stage) {
-              'reading' => _readingStage(),
-              'review' => _reviewStage(),
-              _ => _pickStage(),
-            },
-          ),
-        ),
-      ],
+    String? reason;
+    if (_name.text.trim().isEmpty) {
+      reason = 'Add the shop name';
+    } else if (digitsOnly(_code.text).isEmpty) {
+      reason = 'Type the card number';
+    }
+    final owner = _ownerId == null
+        ? null
+        : (s.curFamily()?.members ?? const <FamilyMember>[])
+              .where((m) => m.id == _ownerId)
+              .firstOrNull
+              ?.name;
+    return EditorSheet(
+      title: title,
+      subtitle: review && _photo != null
+          ? 'We filled in what we could read'
+          : null,
+      showFooter: review,
+      confirmKey: const ValueKey('card-save'),
+      confirmLabel: 'Save card',
+      blockedReason: reason,
+      onConfirm: _save,
+      summary:
+          '${_type == 'qr' ? 'QR code' : 'Barcode'} · '
+          '${owner == null ? 'shared with everyone' : "$owner's card"}',
+      children: switch (_stage) {
+        'reading' => _readingStage(),
+        'review' => _reviewStage(),
+        _ => _pickStage(),
+      },
     );
   }
+}
+
+/// A stylised barcode (stripes) or QR (checker) for the card preview.
+class _EdCodePainter extends CustomPainter {
+  const _EdCodePainter({required this.qr});
+  final bool qr;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = B.ink;
+    if (qr) {
+      const cell = 5.0;
+      for (var y = 0.0; y < size.height; y += cell) {
+        for (var x = 0.0; x < size.width; x += cell) {
+          if (((x ~/ cell) + (y ~/ cell)).isEven) {
+            canvas.drawRect(Rect.fromLTWH(x, y, cell, cell), p);
+          }
+        }
+      }
+      return;
+    }
+    // Repeating 11px pattern from the design: bars at 0-2, 3-4, 7-10.
+    for (var x = 0.0; x < size.width; x += 11) {
+      for (final (a, b) in const [(0, 2), (3, 4), (7, 10)]) {
+        final w = (b - a).toDouble();
+        canvas.drawRect(Rect.fromLTWH(x + a, 0, w, size.height), p);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EdCodePainter old) => old.qr != qr;
 }

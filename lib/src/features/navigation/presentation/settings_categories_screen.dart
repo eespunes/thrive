@@ -12,7 +12,7 @@ extension _ThriveCategoriesScreen on _ThriveHomeState {
   /// Create-a-category entry for other flows (e.g. the event ticket's
   /// "+ New" chip): opens the studio in create mode, scoped to [layerId].
   void openNewCategoryStudio({required String layerId}) {
-    pushSettingsPage<void>(
+    openEditorSheet<void>(
       (_) => _CategoryStudio(state: this, categoryId: null, layerId: layerId),
     );
   }
@@ -54,7 +54,7 @@ class _CategoriesScreen extends StatelessWidget {
             members: <String>[],
             layerId: s.calendarLayers.firstOrNull?.id ?? kLayerAppt,
           );
-          s.pushSettingsPage<void>(
+          s.openEditorSheet<void>(
             (_) => _CategoryStudio(state: s, categoryId: id),
           );
         },
@@ -72,7 +72,7 @@ class _CategoriesScreen extends StatelessWidget {
                 ),
                 label: c.name,
                 sub: _subFor(s, c),
-                onTap: () => s.pushSettingsPage<void>(
+                onTap: () => s.openEditorSheet<void>(
                   (_) => _CategoryStudio(state: s, categoryId: c.id),
                 ),
               ),
@@ -175,23 +175,27 @@ class _CategoryStudioState extends State<_CategoryStudio> {
         .where((m) => m.status == 'active')
         .toList();
     final editing = widget.categoryId != null;
-    return BadgeStudioScaffold(
+    final layer = s.layerDefFor(_layerId)?.label ?? 'Appointments';
+    final n = _members.length;
+    return EditorSheet(
       title: editing ? 'Edit category' : 'New category',
-      subtitle: 'Colour, icon, layer & assigned people',
-      accent: _color,
-      saveLabel: editing ? 'Save category' : 'Add category',
-      saveEnabled: _name.trim().isNotEmpty,
-      onSave: _save,
+      summary:
+          '$layer · ${n == 0 ? 'nobody assigned' : '$n ${n == 1 ? 'person' : 'people'}'}',
+      confirmLabel: editing ? 'Save category' : 'Add category',
+      blockedReason: _name.trim().isEmpty ? 'Give it a name first' : null,
+      onConfirm: _save,
       deleteLabel: editing ? 'Delete category — events keep their times' : null,
       onDelete: editing ? _delete : null,
+      confirmKey: const ValueKey('studio-save'),
+      deleteKey: const ValueKey('studio-delete'),
       children: [
-        BadgeStage(
+        EdBadgeHeader(
           color: _color,
           name: _name,
           onName: (v) => setState(() => _name = v),
+          picks: kEditorPicks['category']!,
           emoji: _emoji,
           picture: _picture,
-          fallbackGlyph: '🏷',
           namePlaceholder: 'Name it… e.g. Work',
           onEmoji: (g) => setState(() {
             _emoji = g;
@@ -203,48 +207,39 @@ class _CategoryStudioState extends State<_CategoryStudio> {
           },
           onToast: s.flash,
         ),
-        studioSectionLabel('Layer'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final l in s.calendarLayers)
-                studioChip(
-                  key: ValueKey('cat-layer-${l.id}'),
-                  label: l.emoji != null ? '${l.emoji} ${l.label}' : l.label,
-                  selected: _layerId == l.id,
-                  onTap: () => setState(() => _layerId = l.id),
-                ),
-            ],
+        EdSection(
+          label: 'Calendar layer',
+          hint: 'Where its events live',
+          child: edChipWrap([
+            for (final l in s.calendarLayers)
+              edChip(
+                key: ValueKey('cat-layer-${l.id}'),
+                label: l.label,
+                leading: l.emoji == null
+                    ? null
+                    : Text(l.emoji!, style: const TextStyle(fontSize: 14)),
+                selected: _layerId == l.id,
+                tone: l.color,
+                onTap: () => setState(() => _layerId = l.id),
+              ),
+          ]),
+        ),
+        if (activeMembers.isNotEmpty)
+          EdSection(
+            label: "Who it's usually for",
+            hint: 'Added to new events',
+            gap: 12,
+            child: edPeopleRow(
+              members: activeMembers,
+              selected: _members.toSet(),
+              keyPrefix: 'cat-person',
+              avatar: s.editorAvatar,
+              onToggle: (id) => setState(() {
+                if (!_members.remove(id)) _members.add(id);
+              }),
+            ),
           ),
-        ),
-        studioSectionLabel('Assigned people'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final m in activeMembers)
-                studioChip(
-                  key: ValueKey('cat-person-${m.id}'),
-                  label: _members.contains(m.id)
-                      ? '✓ ${m.name.split(' ').first}'
-                      : m.name.split(' ').first,
-                  selected: _members.contains(m.id),
-                  onTap: () => setState(() {
-                    if (!_members.remove(m.id)) _members.add(m.id);
-                  }),
-                ),
-            ],
-          ),
-        ),
-        _ColorPickerPanel(
-          selected: _color,
-          onChanged: (c) => setState(() => _color = c),
-        ),
+        edColourSection(_color, (c) => setState(() => _color = c)),
       ],
     );
   }

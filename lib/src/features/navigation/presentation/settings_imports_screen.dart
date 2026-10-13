@@ -540,7 +540,7 @@ class _ImportStudioState extends State<_ImportStudio> {
                 ],
               ),
             ),
-            _ColorPickerPanel(
+            EdColourFold(
               selected: _color,
               onChanged: (c) => setState(() => _color = c),
             ),

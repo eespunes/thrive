@@ -26,12 +26,7 @@ void main() {
     }
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('event-card-colour')));
-    await tester.tap(
-      find.byKey(const ValueKey('event-card-colour')),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
+    await openEventColourPicker(tester);
   }
 
   testWidgets('RGB / Hex tab: channel fields, hex input, opacity and back to '

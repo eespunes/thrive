@@ -145,7 +145,7 @@ class _BudgetBlocksScreen extends StatelessWidget {
           );
           final c = s.cats.lastOrNull;
           if (c == null) return;
-          s.pushSettingsPage<void>(
+          s.openEditorSheet<void>(
             (_) => _BlockStudio(state: s, blockKey: c.key),
           );
         },
@@ -168,7 +168,7 @@ class _BudgetBlocksScreen extends StatelessWidget {
                 sub: _subFor(s, c),
                 value: _valFor(c),
                 warnVal: c.temporary,
-                onTap: () => s.pushSettingsPage<void>(
+                onTap: () => s.openEditorSheet<void>(
                   (_) => _BlockStudio(state: s, blockKey: c.key),
                 ),
               );
@@ -289,28 +289,44 @@ class _BlockStudioState extends State<_BlockStudio> {
     return '${kMonthsEn[mIdx]} $yr';
   }
 
+  bool get _capInvalid {
+    final t = _cap.text.trim();
+    return !_isIncome && t.isNotEmpty && !RegExp(r'^\d[\d.,\s]*$').hasMatch(t);
+  }
+
+  String get _summary {
+    final cap = _isIncome || _capInvalid ? 0.0 : parseNum(_cap.text);
+    return '${_isIncome ? 'Receives money' : 'Withdraws money'} · '
+        '${_temporary ? '${kMonthsEn[s.monthIdx]} only' : 'every month'}'
+        '${cap > 0 ? ' · limit ${eur(cap)}' : ''}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final canDelete = s.cats.length > 1;
-    return BadgeStudioScaffold(
+    return EditorSheet(
       title: 'Edit block',
-      subtitle: 'A column of the monthly budget.',
-      accent: _tone,
-      saveLabel: 'Save block',
-      saveEnabled: _title.trim().isNotEmpty,
-      onSave: _save,
+      summary: _summary,
+      confirmLabel: 'Save block',
+      blockedReason: _title.trim().isEmpty
+          ? 'Give it a name first'
+          : (_capInvalid ? 'Limit: numbers only' : null),
+      onConfirm: _save,
       deleteLabel: canDelete
           ? 'Delete block — its entries move elsewhere'
           : null,
       onDelete: canDelete ? _delete : null,
+      confirmKey: const ValueKey('studio-save'),
+      deleteKey: const ValueKey('studio-delete'),
       children: [
-        BadgeStage(
+        EdBadgeHeader(
           color: _tone,
           name: _title,
           onName: (v) => setState(() => _title = v),
+          picks: kEditorPicks['block']!,
           emoji: _emoji,
           picture: _picture,
-          fallbackGlyph: '📦',
+          fallbackFace: '📦',
           namePlaceholder: 'Name it… e.g. Kids',
           onEmoji: (g) => setState(() {
             _emoji = g;
@@ -322,27 +338,28 @@ class _BlockStudioState extends State<_BlockStudio> {
           },
           onToast: s.flash,
         ),
-        studioSectionLabel('Money direction'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+        EdSection(
+          label: 'Money direction',
           child: Row(
             children: [
               Expanded(
-                child: studioChip(
+                child: edChoiceTile(
                   key: const ValueKey('block-dir-out'),
-                  label: '🛒 Withdraws',
+                  leading: const Text('🛒', style: TextStyle(fontSize: 20)),
+                  label: 'Withdraws',
+                  sub: 'Costs & payments',
                   selected: !_isIncome,
-                  expand: true,
                   onTap: () => setState(() => _isIncome = false),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Expanded(
-                child: studioChip(
+                child: edChoiceTile(
                   key: const ValueKey('block-dir-in'),
-                  label: '👛 Receives',
+                  leading: const Text('👛', style: TextStyle(fontSize: 20)),
+                  label: 'Receives',
+                  sub: 'Salary & income',
                   selected: _isIncome,
-                  expand: true,
                   onTap: () => setState(() {
                     _isIncome = true;
                     _hasUntil = false;
@@ -353,80 +370,72 @@ class _BlockStudioState extends State<_BlockStudio> {
             ],
           ),
         ),
-        studioSectionLabel('Applies to'),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
+        EdSection(
+          label: 'Applies to',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: studioChip(
-                  key: const ValueKey('block-applies-every'),
-                  label: 'Every month',
-                  selected: !_temporary,
-                  expand: true,
-                  onTap: () => setState(() => _temporary = false),
-                ),
+              EdSegmented<String>(
+                keyPrefix: 'block-applies',
+                options: const [
+                  ('every', 'Every month'),
+                  ('month', 'This month only'),
+                ],
+                value: _temporary ? 'month' : 'every',
+                onChanged: (v) => setState(() => _temporary = v == 'month'),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: studioChip(
-                  key: const ValueKey('block-applies-month'),
-                  label: 'This month only',
-                  selected: _temporary,
-                  expand: true,
-                  onTap: () => setState(() => _temporary = true),
+              if (_temporary) ...[
+                const SizedBox(height: 8),
+                edNotice(
+                  'Only appears in $_monthLabel. Add recurring items inside '
+                  'the block when costs should continue into later months.',
                 ),
-              ),
+              ],
             ],
           ),
         ),
-        if (_temporary)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-            decoration: BoxDecoration(
-              color: B.amberSoft,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Text(
-              'Only appears in $_monthLabel. Add recurring items inside the '
-              'block when costs should continue into later months.',
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: B.amberText,
+        if (!_isIncome) ...[
+          EdSection(
+            label: 'Monthly limit',
+            hint: 'Optional',
+            child: edBoxedInput(
+              key: const ValueKey('block-limit'),
+              controller: _cap,
+              hint: 'No limit',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              onChanged: (_) => setState(() {}),
+              prefix: const Text(
+                '€',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: B.soft2,
+                ),
               ),
             ),
           ),
-        if (!_isIncome)
-          studioTextField(
-            key: const ValueKey('block-limit'),
-            controller: _cap,
-            hint: 'Monthly limit (optional) — no limit',
-            keyboardType: TextInputType.number,
-            margin: const EdgeInsets.only(bottom: 8),
-          ),
-        if (!_isIncome) ...[
-          studioToggleRow(
-            key: const ValueKey('block-enddate'),
-            label: 'Track end date',
-            sub: 'For loans & debts with a payoff date',
-            value: _hasUntil,
-            onChanged: () => setState(() => _hasUntil = !_hasUntil),
-          ),
-          studioToggleRow(
-            key: const ValueKey('block-savings'),
-            label: 'Counts as savings',
-            sub: 'Include this block in your savings statistics',
-            value: _isSavings,
-            onChanged: () => setState(() => _isSavings = !_isSavings),
-          ),
+          edGroup([
+            edToggleRow(
+              key: const ValueKey('block-enddate'),
+              label: 'Track end date',
+              sub: 'For loans & debts with a payoff date',
+              value: _hasUntil,
+              boxed: false,
+              onTap: () => setState(() => _hasUntil = !_hasUntil),
+            ),
+            edToggleRow(
+              key: const ValueKey('block-savings'),
+              label: 'Counts as savings',
+              sub: 'Include this block in your savings statistics',
+              value: _isSavings,
+              boxed: false,
+              onTap: () => setState(() => _isSavings = !_isSavings),
+            ),
+          ]),
         ],
-        const SizedBox(height: 4),
-        _ColorPickerPanel(
-          selected: _tone,
-          onChanged: (c) => setState(() => _tone = c),
-        ),
+        edColourSection(_tone, (c) => setState(() => _tone = c)),
       ],
     );
   }

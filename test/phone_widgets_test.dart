@@ -455,7 +455,7 @@ void main() {
 
     thriveDebug.handleWidgetLaunch(Uri.parse('thrive://open?target=scan'));
     await tester.pumpAndSettle();
-    expect(find.text('Scan a discount card'), findsOneWidget);
+    expect(find.text('Scan a card'), findsOneWidget);
     await tester.tapAt(const Offset(210, 40));
     await tester.pumpAndSettle();
 

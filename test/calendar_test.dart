@@ -211,19 +211,23 @@ Finder inEditorCard(String card, String text) => find.descendant(
   matching: find.text(text),
 );
 
-Future<void> openTicketTray(WidgetTester tester, Key key) async {
-  await tester.ensureVisible(find.byKey(key));
-  await tester.pumpAndSettle();
-}
+Future<void> openTicketTray(WidgetTester tester, Key key) =>
+    openEventCard(tester, key);
 
+/// Picks a repeat pattern in the editor's Repeat row (weekly by default).
 Future<void> setTicketRepeat(WidgetTester tester, {String? cadence}) async {
-  await openTicketTray(tester, const ValueKey('event-card-repeat'));
-  await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
+  await openEventOption(tester, 'repeat');
+  final option = find.byKey(
+    ValueKey(
+      cadence == 'monthly'
+          ? 'ticket-month-date'
+          : 'ticket-cad-${cadence ?? 'weekly'}',
+    ),
+  );
+  await tester.ensureVisible(option);
   await tester.pumpAndSettle();
-  if (cadence != null && cadence != 'weekly') {
-    await tester.tap(find.byKey(ValueKey('ticket-cad-$cadence')));
-    await tester.pumpAndSettle();
-  }
+  await tester.tap(option);
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -775,14 +779,10 @@ void main() {
       await tester.tap(find.text('＋ Add on this day'));
       await tester.pumpAndSettle();
       expect(find.text('New event'), findsOneWidget);
-      // The editor opens prefilled on the tapped day — its When card carries
-      // the date, dd-mm-yyyy.
-      final iso = todayIso();
+      // The editor opens prefilled on the tapped day — the footer summary
+      // leads with it ("Wed 26 Aug · 09:00–10:00").
       expect(
-        inEditorCard(
-          'when',
-          '${iso.substring(8)}-${iso.substring(5, 7)}-${iso.substring(0, 4)}',
-        ),
+        find.textContaining('${prettyDateForTest(todayIso())} · '),
         findsOneWidget,
       );
     },
@@ -1081,6 +1081,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('event-kind-todo')));
     await tester.pumpAndSettle();
+    await openEventOption(tester, 'colour');
     await tester.tap(find.byKey(const ValueKey('event-layer-content')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Return library book');
@@ -1113,7 +1114,7 @@ void main() {
     expect(inEditorCard('when', '09:00'), findsOneWidget);
     expect(inEditorCard('when', '10:00'), findsOneWidget);
 
-    await tester.tap(find.text('All-day'));
+    await tester.tap(find.byKey(const ValueKey('event-all-day')));
     await tester.pumpAndSettle();
     expect(inEditorCard('when', '09:00'), findsNothing);
     expect(inEditorCard('when', '10:00'), findsNothing);
@@ -1142,18 +1143,16 @@ void main() {
     await tester.pumpAndSettle();
     await openTicketTray(tester, const ValueKey('event-card-reminder'));
 
-    // Two-question design (2a): yes/no first, offsets after a yes.
-    expect(find.text('Want a heads-up?'), findsOneWidget);
-    expect(find.text('No thanks'), findsOneWidget);
-    expect(find.text('Yes, remind us'), findsOneWidget);
-    expect(find.text('On time'), findsOneWidget);
-    expect(find.text('5 min'), findsOneWidget);
-    expect(find.text('15 min'), findsOneWidget);
-    expect(find.text('30 min'), findsOneWidget);
-    expect(find.text('1 hour'), findsOneWidget);
-    expect(find.text('2 hours'), findsOneWidget);
-    expect(find.text('1 day'), findsOneWidget);
-    expect(find.text('2 days'), findsOneWidget);
+    // Event Editor v2: one grid of lead times, "None" first.
+    expect(inEditorCard('reminder', 'None'), findsOneWidget);
+    expect(inEditorCard('reminder', 'At start'), findsOneWidget);
+    expect(inEditorCard('reminder', '5 min'), findsOneWidget);
+    expect(inEditorCard('reminder', '15 min'), findsOneWidget);
+    expect(inEditorCard('reminder', '30 min'), findsOneWidget);
+    expect(inEditorCard('reminder', '1 hour'), findsOneWidget);
+    expect(inEditorCard('reminder', '2 hours'), findsOneWidget);
+    expect(inEditorCard('reminder', '1 day'), findsOneWidget);
+    expect(inEditorCard('reminder', '2 days'), findsOneWidget);
   });
 
   testWidgets(
@@ -1189,11 +1188,19 @@ void main() {
     await tester.pump();
     await setTicketRepeat(tester);
 
-    // Weekly: weekday circles + interval chips (2a).
+    // Custom days: weekday circles + interval chips.
+    await tester.ensureVisible(find.byKey(const ValueKey('ticket-cad-custom')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('ticket-cad-custom')));
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('event-custom-weekday-1')),
       findsOneWidget,
     );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('event-custom-every-2')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('event-custom-every-2')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
@@ -1203,26 +1210,56 @@ void main() {
     expect(ev.recurUnit, 'week');
     expect(ev.recurEvery, 2);
 
-    // Monthly: same-date vs same-weekday, writing the nth fields (#262).
+    // Monthly on the same weekday writes the nth fields from the event's
+    // own date (#262): e.g. the 2nd Friday when it falls on one.
+    final now = DateTime.now();
+    final day = now.day < 28 ? now.day + 1 : now.day - 1;
+    final picked = DateTime(now.year, now.month, day);
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Board games');
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('event-date')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DatePickerDialog),
+            matching: find.text('$day'),
+          )
+          .last,
+    );
+    await tester.pump();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
     await setTicketRepeat(tester, cadence: 'monthly');
     await tester.tap(find.byKey(const ValueKey('ticket-month-nth')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ticket-nth-2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('ticket-nthday-5')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Repeats every second Friday'), findsOneWidget);
+    final nth = day > 28 ? 5 : (day + 6) ~/ 7;
+    const nthNames = ['first', 'second', 'third', 'fourth', 'last'];
+    const weekdayNames = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    expect(
+      find.text(
+        'Every ${nthNames[nth - 1]} ${weekdayNames[picked.weekday - 1]} '
+        'of the month',
+      ),
+      findsWidgets,
+    );
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     final bg = thriveDebug.events.singleWhere((e) => e.title == 'Board games');
     expect(bg.recur, 'monthly');
     expect(bg.monthlyMode, 'nthWeekday');
-    expect(bg.monthlyNth, 2);
-    expect(bg.monthlyWeekday, 5);
+    expect(bg.monthlyNth, nth);
+    expect(bg.monthlyWeekday, picked.weekday);
   });
 
   testWidgets('the multi-day toggle reveals an end-date field', (tester) async {
@@ -1232,13 +1269,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
     await tester.pumpAndSettle();
     await openTicketTray(tester, const ValueKey('event-card-when'));
-    final dates = find.text(shortDateForTest(todayIso()));
-    final before = dates.evaluate().length;
+    expect(find.byKey(const ValueKey('event-end-date')), findsNothing);
 
-    await tester.tap(find.text('Multi-day'));
+    await tester.tap(find.byKey(const ValueKey('event-multi-day')));
     await tester.pumpAndSettle();
-    // The end-date box appears, showing the same day again.
-    expect(dates.evaluate().length, before + 1);
+    // The end-date button appears, showing the same day again.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('event-end-date')),
+        matching: find.text(prettyDateForTest(todayIso())),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('view, edit and delete a one-off event', (tester) async {
@@ -1387,6 +1429,7 @@ void main() {
     final newHex = (newColor.toARGB32() & 0xFFFFFF)
         .toRadixString(16)
         .padLeft(6, '0');
+    await openColourFold(tester);
     await tester.tap(find.text('RGB / Hex'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1514,7 +1557,7 @@ void main() {
   });
 
   testWidgets(
-    'every colour chooser uses the shared two-tab panel (#325/#326)',
+    'colour choosers use the shared swatch grid or two-tab panel (#326/#399)',
     (tester) async {
       final imported = ImportedCalendar(
         id: 'training-feed',
@@ -1532,7 +1575,7 @@ void main() {
       );
       await goToCalendar(tester);
 
-      // Category studio: the shared two-tab colour panel.
+      // Category editor: the app's single Palette / RGB-Hex colour panel.
       await openCalManage(tester);
       await tester.enterText(
         find.byKey(const ValueKey('list-add-input')),
@@ -1540,9 +1583,12 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('list-add-button')));
       await tester.pumpAndSettle();
+      // Folded until its title is tapped.
+      expect(find.text('Palette'), findsNothing);
+      await openColourFold(tester);
       expect(find.text('Palette'), findsWidgets);
       expect(find.text('RGB / Hex'), findsWidgets);
-      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.tap(find.byKey(const ValueKey('editor-cancel')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
@@ -1551,6 +1597,7 @@ void main() {
       await openCalManage(tester, imports: true);
       await tester.tap(find.byKey(const ValueKey('imports-row-training-feed')));
       await tester.pumpAndSettle();
+      await openColourFold(tester);
       expect(find.text('Palette'), findsWidgets);
       expect(find.text('RGB / Hex'), findsWidgets);
       await tester.tap(find.byKey(const ValueKey('studio-back')));
@@ -2476,7 +2523,7 @@ void main() {
       await openTicketTray(tester, const ValueKey('event-card-category'));
       expect(find.text('Chores'), findsNothing);
 
-      await openTicketTray(tester, const ValueKey('event-card-kind'));
+      await openEventOption(tester, 'colour');
       await tester.tap(find.byKey(const ValueKey('event-layer-task')));
       await tester.pumpAndSettle();
       await openTicketTray(tester, const ValueKey('event-card-category'));
@@ -3779,6 +3826,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(TextField).first, 'Gym session');
         await tester.pump();
+        await openEventOption(tester, 'colour');
         final fitnessChip = find.text('Fitness');
         await tester.ensureVisible(fitnessChip);
         await tester.tap(fitnessChip);

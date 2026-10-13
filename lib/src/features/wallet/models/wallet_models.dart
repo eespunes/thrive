@@ -4,12 +4,12 @@ part of 'package:family_money_management_app/main.dart';
 /// the card photo (issue #225 — "palette fallback otherwise").
 const List<Color> kCardPalette = [
   B.primary,
-  Color(0xff1684B4),
-  Color(0xff7c3aed),
-  Color(0xffe11d48),
+  B.ocean,
+  B.violet,
+  B.rose,
   B.amber,
   B.green,
-  Color(0xff475569),
+  B.slate,
 ];
 
 /// A family loyalty/discount card (epic #222). Lives on the family

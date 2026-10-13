@@ -871,16 +871,23 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// Shared `onError` for both family streams. A stream error KILLS the
   /// subscription, so without this an evicted device (whose reads the rules
   /// now deny) kept stale data silently and every persist failed until
-  /// restart. Permission-denied means we're no longer a member — run the same
-  /// cleanup as the snapshot-based membership check; anything else is at
-  /// least surfaced instead of dying unnoticed.
+  /// restart. Permission-denied on the family doc means we're no longer a
+  /// member — run the same cleanup as the snapshot-based membership check. A
+  /// denied RECORD stream only drops the family once the family doc confirms
+  /// it: deployed rules lagging the app's record layout deny those queries
+  /// for every member, which must not read as "you were removed". Anything
+  /// else is at least surfaced instead of dying unnoticed.
   void _onFamilyStreamError(String fid, String label, Object e) {
     if (e is FirebaseException && e.code == 'permission-denied') {
       // Possibly a kid restriction rather than a removal — re-check first.
       debugPrint('[cloud] $label stream denied for $fid — re-checking access');
-      unawaited(_recheckAccessAfterDenied(fid));
+      unawaited(_recheckAccessAfterDenied(fid, label, e));
       return;
     }
+    _onFamilyStreamBroken(fid, label, e);
+  }
+
+  void _onFamilyStreamBroken(String fid, String label, Object e) {
     debugPrint('[cloud] $label stream failed for $fid: $e');
     // Re-subscribed when the app next comes to the foreground.
     _streamsBroken = true;

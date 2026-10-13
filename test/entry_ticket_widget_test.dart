@@ -8,7 +8,7 @@ import 'package:family_money_management_app/main.dart';
 import 'helpers.dart';
 
 /// Widget coverage for the entry ticket editor (entry_ticket.dart): trays,
-/// badges, scope sheets, block picker, error/edge states.
+/// Details accordion, scope sheets, kind + block chips, error/edge states.
 
 Future<void> _openAddTo(WidgetTester tester, String block) async {
   const keys = {
@@ -46,11 +46,9 @@ Future<void> _fill(
 Future<void> _tapKey(WidgetTester tester, String key) async {
   final f = find.byKey(ValueKey(key));
   await tester.ensureVisible(f);
-  // An `entry-section-*` key is a card, not a control: the editor has no
-  // trays any more, so bringing it on screen is the whole job.
-  if (!key.startsWith('entry-section-')) {
-    await tester.tap(f, warnIfMissed: false);
-  }
+  await tester.pumpAndSettle();
+  // `entry-section-*` keys are the Details accordion rows: a tap toggles.
+  await tester.tap(f, warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
@@ -109,7 +107,7 @@ void main() {
     });
   });
 
-  testWidgets('quick add without a block asks for the block first (#294)', (
+  testWidgets('quick add without a block opens on an expense block (#399)', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
@@ -117,9 +115,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('quickadd-expense')));
     await tester.pumpAndSettle();
-    expect(find.text('Which block does it belong to?'), findsOneWidget);
-    await _tapKey(tester, 'entry-pick-block-food');
     expect(find.text('New expense'), findsOneWidget);
+    // The block is picked inside the editor, as coloured chips.
+    await _tapKey(tester, 'entry-move-block-food');
+    expect(find.text('New expense'), findsOneWidget);
+    // Switching kind swaps the block chips (and the title) to that kind.
+    await _tapKey(tester, 'entry-kind-income');
+    expect(find.text('New income'), findsOneWidget);
+    expect(find.byKey(const ValueKey('entry-move-block-food')), findsNothing);
   });
 
   testWidgets('invalid amount shows the inline error, income shows so-far', (
@@ -179,11 +182,12 @@ void main() {
 
     await _tapKey(tester, 'entry-day-23');
     await _tapKey(tester, 'entry-shift-before');
-    expect(find.text('23rd → 21st'), findsOneWidget);
+    expect(find.text('The 23rd · moves to Fri 21 Aug'), findsOneWidget);
+    expect(find.text('The 23rd is a Sunday. Should it move?'), findsOneWidget);
     expect(find.textContaining('is a weekend'), findsOneWidget);
 
     await _tapKey(tester, 'entry-shift-after');
-    expect(find.text('23rd → 24th'), findsOneWidget);
+    expect(find.text('The 23rd · moves to Mon 24 Aug'), findsOneWidget);
 
     // 1 Aug 2026 is a Saturday — Fri-before would leave August: stays put.
     await _tapKey(tester, 'entry-shift-before');
@@ -202,7 +206,7 @@ void main() {
     expect(find.text('✓ Unscheduled — off the calendar'), findsNothing);
   });
 
-  testWidgets('repeat tray: toggle, stepper and year-strip end month (#291)', (
+  testWidgets('repeat tray: toggle, cadence chips and last month (#291)', (
     tester,
   ) async {
     await pumpApp(tester); // June 2026 → anchorOrd 24317
@@ -211,19 +215,18 @@ void main() {
     await _tapKey(tester, 'entry-section-repeat');
 
     await _tapKey(tester, 'entry-repeat-off');
-    expect(find.textContaining('One-off — only this June'), findsOneWidget);
+    expect(find.text('One-off — only this June'), findsOneWidget);
     await _tapKey(tester, 'entry-repeat-on');
 
-    await _tapKey(tester, 'entry-every-plus');
-    expect(find.text('↻ Every 2 mo'), findsOneWidget);
-    await _tapKey(tester, 'entry-every-minus');
-    await _tapKey(tester, 'entry-every-minus'); // clamped at 1
-    expect(find.text('↻ Monthly'), findsOneWidget);
+    await _tapKey(tester, 'entry-every-2');
+    expect(find.text('Repeats every 2 months'), findsOneWidget);
+    await _tapKey(tester, 'entry-every-1');
+    expect(find.text('Repeats every month'), findsOneWidget);
 
     const anchor = 2026 * 12 + 5;
     await _tapKey(tester, 'entry-month-${anchor + 4}');
-    expect(find.textContaining('until Oct 2026'), findsOneWidget);
-    await _tapKey(tester, 'entry-month-${anchor + 4}');
+    expect(find.text('Repeats every month · until Oct 2026'), findsOneWidget);
+    await _tapKey(tester, 'entry-month-never');
     expect(find.textContaining('until Oct 2026'), findsNothing);
   });
 
@@ -279,9 +282,9 @@ void main() {
     final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
     expect(gymId, isNotNull);
     await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
-    await _tapKey(tester, 'entry-section-block');
-    expect(find.textContaining('Moving recounts both caps'), findsOneWidget);
+    expect(find.textContaining('Moving recounts both caps'), findsNothing);
     await _tapKey(tester, 'entry-move-block-food');
+    expect(find.textContaining('Moving recounts both caps'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
     await _tapKey(tester, 'entry-scope-onward');
@@ -343,7 +346,11 @@ void main() {
     await _tapKey(tester, 'entry-section-card');
     await _tapKey(tester, 'entry-card-none'); // explicit no-card first
     await _tapKey(tester, 'entry-card-c1');
-    expect(find.text('💳 AH Bonus'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const ValueKey('entry-value-card'))).data,
+      'AH Bonus',
+    );
+    await _tapKey(tester, 'entry-section-account');
     await _tapKey(tester, 'entry-stamp');
     // The rotated stamp became the paid toggle in the account card.
     expect(find.text('Paid — it counts as settled'), findsOneWidget);
@@ -403,7 +410,8 @@ void main() {
 
       // Deleted account + deleted card + day-31 clamp, all on one ticket.
       await _openExistingEntryById(tester, catKey: 'home', id: 'r31');
-      expect(find.text('⚠ Card deleted'), findsOneWidget);
+      expect(find.text('Card deleted'), findsOneWidget);
+      await _tapKey(tester, 'entry-section-day');
       expect(find.textContaining('clamped'), findsOneWidget);
       await _tapKey(tester, 'entry-section-account');
       expect(
@@ -421,19 +429,20 @@ void main() {
         findsOneWidget,
       );
       await _tapKey(tester, 'entry-card-unlink');
-      expect(find.text('⚠ Card deleted'), findsNothing);
+      expect(find.text('Card deleted'), findsNothing);
       await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
       await tester.pumpAndSettle();
 
       // A stored end date round-trips into the repeat summary.
       await _openExistingEntryById(tester, catKey: 'home', id: 'ends');
       await _tapKey(tester, 'entry-section-repeat');
-      expect(find.textContaining('until Sep 2026'), findsOneWidget);
+      expect(find.textContaining('until Sep 2026'), findsWidgets);
       await tester.tapAt(const Offset(270, 40)); // barrier-dismiss the sheet
       await tester.pumpAndSettle();
 
       // Migrated dayless income asks to confirm the day (#288).
       await _openExistingEntryById(tester, catKey: kIncomeBlockKey, id: 'mig');
+      await _tapKey(tester, 'entry-section-day');
       expect(find.textContaining('Migrated: this income'), findsOneWidget);
       // Income unscheduled hint is the by-choice one.
       await _tapKey(tester, 'entry-day-unscheduled');
@@ -453,6 +462,7 @@ void main() {
     final gymId = thriveDebug.findExpenseId('home', 'Gym', 'Membership');
     expect(gymId, isNotNull);
     await _openExistingEntryById(tester, catKey: 'home', id: gymId!);
+    await _tapKey(tester, 'entry-section-account');
     thriveDebug.closeMonth();
     await tester.pump();
 

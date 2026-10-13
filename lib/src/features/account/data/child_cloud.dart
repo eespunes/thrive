@@ -425,7 +425,11 @@ extension _ThriveChildCloud on _ThriveHomeState {
   /// kid (its full listeners lost access), not that we left the family.
   /// Re-reads the family doc: still a member with a changed kid status →
   /// reload with the right queries; otherwise drop the family as before.
-  Future<void> _recheckAccessAfterDenied(String fid) async {
+  Future<void> _recheckAccessAfterDenied(
+    String fid,
+    String label,
+    Object error,
+  ) async {
     if (!_accessRechecks.add(fid)) return;
     try {
       final meUid = _firebaseUid();
@@ -439,8 +443,10 @@ extension _ThriveChildCloud on _ThriveHomeState {
         return;
       }
       if (!_noteKidStatus(fid, data)) {
-        // Same access as before: a listener raced the change; rebind once.
-        _reloadFamilyAccess(fid);
+        // Still a member with the same access: deployed rules lagging the
+        // app's record layout deny those queries for everyone — not an
+        // eviction, so surface a broken stream instead of dropping.
+        _onFamilyStreamBroken(fid, label, error);
         return;
       }
       _reloadFamilyAccess(fid);

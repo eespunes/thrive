@@ -149,123 +149,28 @@ extension _ThriveEntryTicket on _ThriveHomeState {
   void openEntryTicket({String? cat, String? id, int? presetDay}) {
     if (childBlocked('Money isn’t available on a kid profile')) return;
     if (cat == null) {
-      _showSheet(
-        monthScoped: true,
-        (ctx) => _EntryBlockPickerSheet(state: this, presetDay: presetDay),
-      );
-      return;
+      // Block-less launches (quick add, Money-calendar day) open on the
+      // first expense block; the editor's kind + block chips change it.
+      final blocks = compute(monthIdx).blocks;
+      final first =
+          blocks
+              .where((b) => _entryKindOf(catByKey(b.key)) == 'expense')
+              .firstOrNull ??
+          blocks.firstOrNull;
+      if (first == null) {
+        flash('Add a budget block first');
+        return;
+      }
+      cat = first.key;
     }
-    _showSheet(
+    final block = cat;
+    openEditorSheet<void>(
       monthScoped: true,
       (ctx) => _EntryTicketSheet(
         state: this,
-        cat: cat,
+        cat: block,
         id: id,
         presetDay: presetDay,
-      ),
-    );
-  }
-}
-
-// ==================================================== block picker (#294)
-class _EntryBlockPickerSheet extends StatelessWidget {
-  const _EntryBlockPickerSheet({required this.state, this.presetDay});
-  final _ThriveHomeState state;
-  final int? presetDay;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = state.compute(state.monthIdx);
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sheetHead(context, 'Which block does it belong to?', null),
-          for (final b in c.blocks)
-            _EntryBlockRow(
-              key: ValueKey('entry-pick-block-${b.key}'),
-              block: b,
-              selected: false,
-              onTap: () {
-                Navigator.of(context).pop();
-                state.openEntryTicket(cat: b.key, presetDay: presetDay);
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One block option row: colour dot, name, live cap line.
-class _EntryBlockRow extends StatelessWidget {
-  const _EntryBlockRow({
-    super.key,
-    required this.block,
-    required this.selected,
-    required this.onTap,
-  });
-  final _BlockCompute block;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final b = block;
-    final capLine = b.isIncome
-        ? '${eur(b.total, cents: false)} planned'
-        : b.cap != null && b.cap! > 0
-        ? '${(b.total / b.cap! * 100).round()}% of ${eur(b.cap, cents: false)}'
-        : b.isSavings
-        ? '${eur(b.total, cents: false)} saved'
-        : '${eur(b.total, cents: false)} planned';
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-        constraints: const BoxConstraints(minHeight: 44),
-        decoration: BoxDecoration(
-          color: selected ? B.soft : const Color(0xfff8fafc),
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(
-            color: selected ? B.primary : B.line,
-            width: selected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: b.tone,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Text(
-                b.title,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: B.ink,
-                ),
-              ),
-            ),
-            Text(
-              capLine,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: B.muted,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -545,353 +450,447 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     }
   }
 
-  // -------------------------------------------------------------- ticket
+  // -------------------------------------------------------------- editor
 
-  /// The amount card — the design's hero (1b): the figure itself, its error
-  /// line, and what it does to the block's cap stated in words. A money entry
-  /// has no visual form to preview, so this card is what the event editor's
-  /// preview strip is there: the consequence of what you just typed.
-  Widget _amountCard() {
+  static const _kindSign = {'expense': '−', 'income': '+', 'savings': '→'};
+
+  /// Expense / Income / Savings: the kind IS the block's direction, so
+  /// switching kind moves the entry to a block of that kind (keeping the
+  /// current one when it already matches). Income never carries a card.
+  void _setKind(String kind) {
+    if (kind == _kind) return;
+    final blocks = s
+        .compute(s.monthIdx)
+        .blocks
+        .where((b) => s._entryKindOf(s.catByKey(b.key)) == kind)
+        .toList();
+    if (blocks.isEmpty) {
+      s.flash('No ${entryWords(kind).noun} block yet — add one in Settings');
+      return;
+    }
+    setState(() {
+      _cat = blocks.first.key;
+      if (kind == 'income') _cardId = null;
+    });
+  }
+
+  Widget _amountHero() {
+    final n = parseEntryAmount(_amount.text);
+    final err = _amount.text.trim().isEmpty
+        ? null
+        : entryAmountError(_amount.text);
+    final tone = n == null
+        ? B.amountEmpty
+        : _kind == 'income'
+        ? B.green
+        : B.ink;
     final cap = _capInfo;
-    final amountLen = _amount.text.length;
-    final err = entryAmountError(_amount.text);
-    return _section(
-      'amount',
-      'Amount',
-      Column(
+    final capLine = cap.show ? cap.short : cap.alt;
+    return Column(
+      children: [
+        edBigAmount(
+          key: const ValueKey('entry-amount'),
+          controller: _amount,
+          prefix: _kindSign[_kind]!,
+          color: tone,
+          onChanged: (_) => setState(() {}),
+          caption: err ?? 'Amount in euros',
+          captionColor: err != null ? B.red : B.muted,
+        ),
+        if (err == null && capLine != null && capLine.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              capLine,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: cap.show ? cap.col : B.muted,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _what() {
+    final w = entryWords(_kind);
+    return EdSection(
+      label: 'What is it?',
+      hint: 'One of the two is enough',
+      child: edGroup([
+        edBareInput(
+          key: const ValueKey('entry-payee'),
+          controller: _payee,
+          hint: w.payeePh,
+          capitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {}),
+        ),
+        edBareInput(
+          key: const ValueKey('entry-label'),
+          controller: _label,
+          hint: 'Note or subcategory',
+          capitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+        ),
+      ]),
+    );
+  }
+
+  Widget _blockChips() {
+    final blocks = s
+        .compute(s.monthIdx)
+        .blocks
+        .where((b) => s._entryKindOf(s.catByKey(b.key)) == _kind)
+        .toList();
+    return EdSection(
+      label: 'Budget block',
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              const Text(
-                '€',
-                style: TextStyle(
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
+          edChipWrap([
+            for (final b in blocks)
+              edChip(
+                key: ValueKey('entry-move-block-${b.key}'),
+                label: b.title,
+                selected: b.key == _cat,
+                tone: b.tone,
+                leading: b.emoji != null && b.emoji!.isNotEmpty
+                    ? Text(b.emoji!, style: const TextStyle(fontSize: 14))
+                    : null,
+                onTap: () => setState(() => _cat = b.key),
+              ),
+          ]),
+          if (_editing && _cat != widget.cat)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Moving recounts both caps from ${kMonthsEn[s.monthIdx]} '
+                'onward. History stays.',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                   color: B.muted,
                 ),
               ),
-              const SizedBox(width: 5),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: IntrinsicWidth(
-                  child: TextField(
-                    key: const ValueKey('entry-amount'),
-                    controller: _amount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    textAlign: TextAlign.center,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      isCollapsed: true,
-                      border: InputBorder.none,
-                      hintText: '0,00',
-                    ),
-                    style: TextStyle(
-                      fontSize: amountLen > 9 ? 28 : 38,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -1,
-                      color: B.ink,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (err != null && _amount.text.trim().isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                err,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: B.red,
-                ),
-              ),
             ),
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Row(
-              children: [
-                if (cap.show) ...[
-                  Container(
-                    width: 120,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: B.track,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: (cap.pct / 100).clamp(0.0, 1.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: cap.col,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      cap.short,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: cap.col,
-                      ),
-                    ),
-                  ),
-                ] else if (cap.alt != null)
-                  Expanded(
-                    child: Text(
-                      cap.alt!,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: B.muted,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  /// Who it is and what it was for. The design's note stands: one of the two
-  /// is enough, which is exactly what [_reason] enforces.
-  Widget _aboutCard() {
+  // ------------------------------------------------------------- details
+
+  /// Which Details row is open (one at a time).
+  String? _open;
+  bool _openInit = false;
+
+  static const _wdShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  String _fmtDay(int d) {
+    final dt = DateTime(s.year, s.monthIdx + 1, d);
+    return '${_wdShort[dt.weekday - 1]} $d ${kMonthsShortEn[s.monthIdx]}';
+  }
+
+  bool _isWeekend(int d) {
+    final wd = DateTime(s.year, s.monthIdx + 1, d).weekday;
+    return wd == DateTime.saturday || wd == DateTime.sunday;
+  }
+
+  String get _dayValue {
+    if (_day == null) return 'Unscheduled';
+    final dim = daysInMonthOf(s.year, s.monthIdx);
+    final d = _day!.clamp(1, dim);
+    final r = resolveMoneyDay(_day!, _shift, s.year, s.monthIdx);
+    return r.movedFrom != null
+        ? 'The ${ordinal(_day!)} · moves to ${_fmtDay(r.day)}'
+        : 'The ${ordinal(_day!)} · ${_fmtDay(d)}';
+  }
+
+  String get _everyText => _recurEvery == 1
+      ? 'every month'
+      : _recurEvery == 12
+      ? 'every year'
+      : 'every $_recurEvery months';
+
+  String get _repeatValue {
+    if (!_recurring) return 'One-off — only this ${kMonthsEn[s.monthIdx]}';
+    final end = _endOrd == null || _endBad
+        ? ''
+        : ' · until ${kMonthsShortEn[_endOrd! % 12]} ${_endOrd! ~/ 12}';
+    return 'Repeats $_everyText$end';
+  }
+
+  String get _accountValue {
     final w = entryWords(_kind);
-    return _section(
-      'about',
-      w.noun,
-      Column(
+    final a = s.accountsForMonth(s.monthIdx).where((x) => x.key == _account);
+    final name = a.isEmpty ? '—' : a.first.name;
+    return '$name · ${_paid ? w.paid : w.unpaid}';
+  }
+
+  String get _cardValue {
+    final gone = _cardId != null && s.cards.every((c) => c.id != _cardId);
+    if (gone) return 'Card deleted';
+    final card = s.cards.where((c) => c.id == _cardId).firstOrNull;
+    return card?.name ?? 'No card';
+  }
+
+  Widget _detailRow({
+    required String id,
+    required String icon,
+    required String label,
+    required String value,
+    required bool valueSet,
+    required Widget tray,
+    bool divider = false,
+    Color? valueColor,
+  }) {
+    final open = _open == id;
+    return Container(
+      decoration: BoxDecoration(
+        color: open ? B.rowOpen : Colors.white,
+        border: divider ? const Border(top: BorderSide(color: B.line)) : null,
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          studioTextField(
-            key: const ValueKey('entry-payee'),
-            controller: _payee,
-            hint: w.payeePh,
-            onChanged: (_) => setState(() {}),
-            capitalization: TextCapitalization.sentences,
-            margin: const EdgeInsets.only(bottom: 8),
-          ),
-          studioTextField(
-            key: const ValueKey('entry-label'),
-            controller: _label,
-            hint: 'Note or subcategory',
-            onChanged: (_) => setState(() {}),
-            capitalization: TextCapitalization.sentences,
-            margin: EdgeInsets.zero,
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 7),
-            child: Text(
-              'One of the two is enough.',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: B.muted,
+          GestureDetector(
+            key: ValueKey('entry-section-$id'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _open = open ? null : id),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 54),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: B.soft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ic(icon, size: 16, sw: 2.1, color: B.deep),
+                  ),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: B.ink,
+                          ),
+                        ),
+                        Text(
+                          value,
+                          key: ValueKey('entry-value-$id'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                valueColor ??
+                                (valueSet ? B.soft2 : B.placeholder),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: open ? .5 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    child: ic('cdown', size: 16, sw: 2.2, color: B.placeholder),
+                  ),
+                ],
               ),
             ),
           ),
+          if (open)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 2, 12, 14),
+              child: tray,
+            ),
         ],
       ),
     );
   }
 
-  /// The paid flag, which the ticket wore as a rotated stamp. It sits with
-  /// the account that pays, as the design files it.
-  Widget _paidRow() {
-    final w = entryWords(_kind);
-    return studioToggleRow(
-      key: const ValueKey('entry-stamp'),
-      label: 'Mark ${w.paid.toLowerCase()}',
-      sub: _paid ? '${w.paid} — it counts as settled' : 'Not yet settled',
-      value: _paid,
-      onChanged: () {
-        if (_closed) {
-          s.flash(
-            '${kMonthsEn[s.monthIdx]} is closed — the flag can\u2019t change',
-          );
-          return;
-        }
-        setState(() => _paid = !_paid);
-      },
-    );
-  }
-
-  // --------------------------------------------------------------- trays
-
-  Widget _chip(
-    Key key,
-    String label,
-    bool on,
-    VoidCallback onTap, {
-    Widget? leading,
-  }) {
-    return GestureDetector(
-      key: key,
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        alignment: Alignment.center,
+  Widget _note(String text, {Color bg = B.page, Color fg = B.soft2}) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: on ? B.soft : Colors.white,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: on ? B.primary : B.line, width: 1.5),
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leading != null) ...[leading, const SizedBox(width: 6)],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: on ? B.deep : B.text,
-              ),
-            ),
-          ],
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: fg,
+            height: 1.45,
+          ),
         ),
-      ),
-    );
-  }
+      );
 
-  /// Day tray (#288): a real 1–31 grid, weekends tinted, plus an explicit
-  /// Unscheduled row; shift chips (#289) and the resolved-date hint.
+  /// Day tray (#288): a real month calendar (Mon-first, weekends muted),
+  /// the weekend question (#289) and an explicit Unscheduled chip.
   Widget _trayDay() {
     final dim = daysInMonthOf(s.year, s.monthIdx);
+    final lead = DateTime(s.year, s.monthIdx + 1, 1).weekday - 1;
     final r = _day == null
         ? null
         : resolveMoneyDay(_day!, _shift, s.year, s.monthIdx);
+    final d = _day?.clamp(1, dim);
+    final weekend = d != null && _isWeekend(d);
+    final shiftChips = edChipWrap([
+      for (final o in [
+        ('none', 'Keep the ${ordinal(_day ?? 1)}'),
+        ('before', 'Friday before'),
+        ('after', 'Monday after'),
+      ])
+        edChip(
+          key: ValueKey('entry-shift-${o.$1}'),
+          label: o.$2,
+          small: true,
+          selected: _shift == o.$1,
+          tone: B.amber,
+          onTap: () => setState(() => _shift = o.$1),
+        ),
+    ]);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            for (final h in const ['M', 'T', 'W', 'T', 'F', 'S', 'S'])
+              Expanded(
+                child: Text(
+                  h,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: B.muted,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
         GridView.count(
           crossAxisCount: 7,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 5,
-          crossAxisSpacing: 5,
-          children: [for (int i = 1; i <= dim; i++) _dayCell(i, r)],
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+          childAspectRatio: 1.15,
+          children: [
+            for (int i = 0; i < lead; i++) const SizedBox.shrink(),
+            for (int i = 1; i <= dim; i++) _dayCell(i, r),
+          ],
         ),
-        const SizedBox(height: 9),
-        GestureDetector(
+        const SizedBox(height: 8),
+        if (_day != null) ...[
+          if (weekend)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: B.amberSoft,
+                border: Border.all(color: B.amberLine),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'The ${ordinal(_day!)} is a '
+                    '${DateTime(s.year, s.monthIdx + 1, d).weekday == DateTime.saturday ? 'Saturday' : 'Sunday'}. '
+                    'Should it move?',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: B.amberText,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  shiftChips,
+                ],
+              ),
+            )
+          else ...[
+            const Text(
+              'If it lands on a weekend in other months',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: B.muted,
+              ),
+            ),
+            const SizedBox(height: 6),
+            shiftChips,
+          ],
+          const SizedBox(height: 8),
+        ],
+        edSoftChip(
           key: const ValueKey('entry-day-unscheduled'),
+          label: _day == null
+              ? '✓ Unscheduled — off the calendar'
+              : 'Unscheduled — keep it off the calendar',
+          selected: _day == null,
+          expand: true,
           onTap: () => setState(() {
             _day = _day == null ? 1 : null;
             _reviewDay = false;
           }),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: 44),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _day == null ? B.soft : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: _day == null
-                  ? Border.all(color: B.primary, width: 1.5)
-                  : Border.all(color: const Color(0xffcfd8e3)),
-            ),
-            child: Text(
-              _day == null
-                  ? '✓ Unscheduled — off the calendar'
-                  : 'Unscheduled — keep it off the calendar',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: _day == null ? B.deep : B.soft2,
-              ),
-            ),
-          ),
         ),
-        if (_day != null) ...[
-          const SizedBox(height: 9),
-          Row(
-            children: [
-              for (final o in const [
-                ('none', 'No shift'),
-                ('before', 'Fri before'),
-                ('after', 'Mon after'),
-              ]) ...[
-                if (o.$1 != 'none') const SizedBox(width: 6),
-                Expanded(
-                  child: _chip(
-                    ValueKey('entry-shift-${o.$1}'),
-                    o.$2,
-                    _shift == o.$1,
-                    () => setState(() => _shift = o.$1),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ],
-        const SizedBox(height: 9),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: B.page,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            _dayHint(r),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: B.soft2,
-              height: 1.5,
-            ),
-          ),
-        ),
+        const SizedBox(height: 8),
+        _note(_dayHint(r)),
       ],
     );
   }
 
   Widget _dayCell(int i, ({int day, int? movedFrom})? r) {
-    final wd = DateTime(s.year, s.monthIdx + 1, i).weekday;
-    final weekend = wd == DateTime.saturday || wd == DateTime.sunday;
     final sel = _day == i;
     final resolved = r != null && _day != null && r.day == i && !sel;
     return GestureDetector(
       key: ValueKey('entry-day-$i'),
+      behavior: HitTestBehavior.opaque,
       onTap: () => setState(() {
         _day = i;
         _reviewDay = false;
       }),
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: sel
-              ? B.primary
-              : weekend
-              ? const Color(0xfffdf6e3)
-              : const Color(0xfff1f5f9),
-          borderRadius: BorderRadius.circular(10),
-          border: resolved ? Border.all(color: B.primary, width: 1.5) : null,
-        ),
-        child: Text(
-          '$i',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: sel
-                ? Colors.white
-                : resolved
-                ? B.deep
-                : B.text,
+      child: Center(
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: sel ? B.primary : Colors.transparent,
+            shape: BoxShape.circle,
+            border: resolved ? Border.all(color: B.primary, width: 1.5) : null,
+          ),
+          child: Text(
+            '$i',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: sel
+                  ? Colors.white
+                  : resolved
+                  ? B.deep
+                  : _isWeekend(i)
+                  ? B.placeholder
+                  : B.ink,
+            ),
           ),
         ),
       ),
@@ -906,16 +905,12 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           : 'Kept off the calendar — shown in the “unscheduled” bucket and left out of the balance projection.';
     }
     final resolved = r!;
-    const wdShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dt = DateTime(s.year, s.monthIdx + 1, resolved.day);
     var line =
-        'Posts ${wdShort[dt.weekday - 1]} ${resolved.day} ${kMonthsShortEn[s.monthIdx]}';
-    final wdRaw = DateTime(
-      s.year,
-      s.monthIdx + 1,
+        'Posts ${_wdShort[dt.weekday - 1]} ${resolved.day} ${kMonthsShortEn[s.monthIdx]}';
+    final rawWeekend = _isWeekend(
       _day!.clamp(1, daysInMonthOf(s.year, s.monthIdx)),
-    ).weekday;
-    final rawWeekend = wdRaw == DateTime.saturday || wdRaw == DateTime.sunday;
+    );
     if (resolved.movedFrom != null) {
       line += ' — the ${ordinal(_day!)} is a weekend';
     } else if (_shift != 'none' && rawWeekend) {
@@ -939,157 +934,111 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     return line;
   }
 
-  /// Repeat tray (#291): One-off/Repeats, monthly cadences only (a disabled
-  /// "Weekly · future" pill reserves the space), and the 12-month year strip.
+  /// Repeat tray (#291): One-off/Repeats, the cadence chips and the last
+  /// month as a scrolling chip row (Never + the next 12 months).
   Widget _trayRepeat() {
+    const cadences = [
+      (1, 'Monthly'),
+      (2, 'Every 2 months'),
+      (3, 'Every 3 months'),
+      (12, 'Yearly'),
+    ];
+    final custom = cadences.every((c) => c.$1 != _recurEvery);
+    final endChoices = [for (int i = 1; i <= 12; i++) _anchorOrd + i];
+    final endExtra = _endOrd != null && !endChoices.contains(_endOrd)
+        ? _endOrd
+        : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             Expanded(
-              child: _chip(
-                const ValueKey('entry-repeat-off'),
-                'One-off',
-                !_recurring,
-                () => setState(() => _recurring = false),
+              child: edSoftChip(
+                key: const ValueKey('entry-repeat-off'),
+                label: 'One-off',
+                selected: !_recurring,
+                expand: true,
+                onTap: () => setState(() => _recurring = false),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _chip(
-                const ValueKey('entry-repeat-on'),
-                'Repeats',
-                _recurring,
+              child: edSoftChip(
+                key: const ValueKey('entry-repeat-on'),
+                label: 'Repeats',
+                selected: _recurring,
+                expand: true,
                 // Toggling back on restores the prior cadence and end —
                 // they're preserved, never cleared (#291).
-                () => setState(() => _recurring = true),
+                onTap: () => setState(() => _recurring = true),
               ),
             ),
           ],
         ),
         if (_recurring) ...[
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (final n in const [1, 2, 3, 6, 12])
-                _chip(
-                  ValueKey('entry-every-$n'),
-                  n == 1
-                      ? 'Monthly'
-                      : n == 12
-                      ? 'Yearly'
-                      : 'Every $n',
-                  _recurEvery == n,
-                  () => setState(() => _recurEvery = n),
-                ),
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: B.line),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _stepBtn(
-                      const ValueKey('entry-every-minus'),
-                      '−',
-                      () => setState(
-                        () => _recurEvery = (_recurEvery - 1).clamp(1, 60),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 24,
-                      child: Text(
-                        '$_recurEvery',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: B.text,
-                        ),
-                      ),
-                    ),
-                    _stepBtn(
-                      const ValueKey('entry-every-plus'),
-                      '+',
-                      () => setState(
-                        () => _recurEvery = (_recurEvery + 1).clamp(1, 60),
-                      ),
-                    ),
-                  ],
-                ),
+          edChipWrap([
+            for (final c in cadences)
+              edChip(
+                key: ValueKey('entry-every-${c.$1}'),
+                label: c.$2,
+                small: true,
+                selected: _recurEvery == c.$1,
+                onTap: () => setState(() => _recurEvery = c.$1),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: const Color(0xffcfd8e3)),
-                ),
-                child: const Text(
-                  'Weekly · future',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: B.muted,
-                  ),
-                ),
+            if (custom)
+              edChip(
+                key: ValueKey('entry-every-$_recurEvery'),
+                label: 'Every $_recurEvery months',
+                small: true,
+                selected: true,
+                onTap: () {},
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GridView.count(
-            crossAxisCount: 6,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 5,
-            crossAxisSpacing: 5,
-            childAspectRatio: 1.15,
-            children: [
-              for (int m = _anchorOrd; m < _anchorOrd + 12; m++) _monthCell(m),
-            ],
-          ),
-          const SizedBox(height: 7),
+          ]),
+          const SizedBox(height: 12),
           const Text(
-            'Filled months get the bill. Tap a month to end the series there — tap it again to keep it going.',
+            'LAST MONTH',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .4,
               color: B.muted,
-              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final ord in <int?>[null, ?endExtra, ...endChoices]) ...[
+                  edChip(
+                    key: ValueKey('entry-month-${ord ?? 'never'}'),
+                    label: ord == null
+                        ? 'Never'
+                        : '${kMonthsShortEn[ord % 12]} ${ord ~/ 12}',
+                    small: true,
+                    selected: _endOrd == ord,
+                    onTap: () => setState(() => _endOrd = ord),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+              ],
             ),
           ),
         ],
-        const SizedBox(height: 9),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: _endBad ? B.redSoft : B.page,
-            borderRadius: BorderRadius.circular(12),
+        const SizedBox(height: 10),
+        _note(
+          entryRecurSummary(
+            recurring: _recurring,
+            every: _recurEvery,
+            day: _day,
+            shift: _shift,
+            anchorOrd: _anchorOrd,
+            endOrd: _endOrd,
           ),
-          child: Text(
-            entryRecurSummary(
-              recurring: _recurring,
-              every: _recurEvery,
-              day: _day,
-              shift: _shift,
-              anchorOrd: _anchorOrd,
-              endOrd: _endOrd,
-            ),
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: _endBad ? B.red : B.soft2,
-              height: 1.5,
-            ),
-          ),
+          bg: _endBad ? B.redSoft : B.page,
+          fg: _endBad ? B.red : B.soft2,
         ),
       ],
     );
@@ -1097,93 +1046,11 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
 
   bool get _endBad => _endOrd != null && _endOrd! < _anchorOrd;
 
-  Widget _stepBtn(Key key, String label, VoidCallback onTap) {
-    return GestureDetector(
-      key: key,
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: const Color(0xfff1f5f9),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Color(0xff475569),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _monthCell(int ord) {
-    final hit =
-        ((ord - _anchorOrd) % _recurEvery == 0) &&
-        (_endOrd == null || ord <= _endOrd!);
-    final isEnd = _endOrd == ord;
-    final ended = _endOrd != null && ord > _endOrd!;
-    final name =
-        kMonthsShortEn[ord % 12] +
-        ((ord == _anchorOrd || ord % 12 == 0) ? ' ’${(ord ~/ 12) % 100}' : '');
-    return GestureDetector(
-      key: ValueKey('entry-month-$ord'),
-      onTap: () => setState(() => _endOrd = _endOrd == ord ? null : ord),
-      child: Container(
-        decoration: BoxDecoration(
-          color: hit
-              ? B.soft
-              : ended
-              ? const Color(0xfffafbfc)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: isEnd
-                ? B.ink
-                : hit
-                ? B.primary
-                : B.track,
-            width: isEnd ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              name,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                color: ended
-                    ? const Color(0xffc3ccd6)
-                    : hit
-                    ? B.deep
-                    : B.soft2,
-                decoration: ended ? TextDecoration.lineThrough : null,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: hit ? B.primary : const Color(0xffe2e7ee),
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Account tray (#299): chips from the family's accounts.
+  /// Account tray (#299): the family's accounts and the paid toggle.
   Widget _trayAccount() {
+    final w = entryWords(_kind);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_accountReassigned)
           Padding(
@@ -1198,38 +1065,37 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               ),
             ),
           ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final a in s.accountsForMonth(s.monthIdx))
-              _chip(
-                ValueKey('entry-acc-${a.key}'),
-                a.short,
-                _account == a.key,
-                () => setState(() {
-                  _account = a.key;
-                  _accountReassigned = false;
-                }),
-                leading: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: a.color,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    a.initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+        edChipWrap([
+          for (final a in s.accountsForMonth(s.monthIdx))
+            edChip(
+              key: ValueKey('entry-acc-${a.key}'),
+              label: a.name,
+              selected: _account == a.key,
+              tone: a.color,
+              leading: a.emoji != null && a.emoji!.isNotEmpty
+                  ? Text(a.emoji!, style: const TextStyle(fontSize: 14))
+                  : null,
+              onTap: () => setState(() {
+                _account = a.key;
+                _accountReassigned = false;
+              }),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        edToggleRow(
+          key: const ValueKey('entry-stamp'),
+          label: 'Mark ${w.paid.toLowerCase()}',
+          sub: _paid ? '${w.paid} — it counts as settled' : 'Not yet settled',
+          value: _paid,
+          onTap: () {
+            if (_closed) {
+              s.flash(
+                '${kMonthsEn[s.monthIdx]} is closed — the flag can\u2019t change',
+              );
+              return;
+            }
+            setState(() => _paid = !_paid);
+          },
         ),
       ],
     );
@@ -1239,6 +1105,14 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
   /// deleted-card state with an explicit Unlink.
   Widget _trayCard() {
     final cardGone = _cardId != null && s.cards.every((c) => c.id != _cardId);
+    Widget dot(Color c) => Container(
+      width: 16,
+      height: 11,
+      decoration: BoxDecoration(
+        color: c,
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1249,7 +1123,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             decoration: BoxDecoration(
               color: B.orangeSoft,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xfffed7aa)),
+              border: Border.all(color: B.amberLine),
             ),
             child: Row(
               children: [
@@ -1259,7 +1133,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xff9a5b13),
+                      color: B.orangeText,
                     ),
                   ),
                 ),
@@ -1288,166 +1162,80 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               ],
             ),
           ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            _chip(
-              const ValueKey('entry-card-none'),
-              'No card',
-              _cardId == null,
-              () => setState(() => _cardId = null),
+        edChipWrap([
+          edChip(
+            key: const ValueKey('entry-card-none'),
+            label: 'No card',
+            selected: _cardId == null,
+            leading: dot(B.barTrack),
+            onTap: () => setState(() => _cardId = null),
+          ),
+          for (final c in s.cards)
+            edChip(
+              key: ValueKey('entry-card-${c.id}'),
+              label: c.name,
+              selected: _cardId == c.id,
+              leading: dot(c.color),
+              onTap: () => setState(() => _cardId = c.id),
             ),
-            for (final c in s.cards)
-              _chip(
-                ValueKey('entry-card-${c.id}'),
-                c.name,
-                _cardId == c.id,
-                () => setState(() => _cardId = c.id),
-                leading: Container(
-                  width: 16,
-                  height: 11,
-                  decoration: BoxDecoration(
-                    color: c.color,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            _chip(const ValueKey('entry-card-scan'), '📷 Scan new', false, () {
+          edChip(
+            key: const ValueKey('entry-card-scan'),
+            label: '📷 Scan new',
+            selected: false,
+            onTap: () {
               Navigator.of(context).pop();
               s.openCardScan();
-            }),
-          ],
-        ),
+            },
+          ),
+        ]),
       ],
     );
   }
 
-  /// Block tray (#294): move the entry — filtered to the same direction.
-  Widget _trayBlock() {
-    final c = s.compute(s.monthIdx);
-    final blocks = c.blocks
-        .where((b) => b.isIncome == _block.isIncome)
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final b in blocks)
-          _EntryBlockRow(
-            key: ValueKey('entry-move-block-${b.key}'),
-            block: b,
-            selected: b.key == _cat,
-            onTap: () => setState(() {
-              _cat = b.key;
-              if (s._entryKindOf(s.catByKey(b.key)) == 'income') {
-                _cardId = null;
-              }
-            }),
-          ),
-        Text(
-          'Moving recounts both caps from ${kMonthsEn[s.monthIdx]} onward. History stays.',
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: B.muted,
-            height: 1.5,
-          ),
+  Widget _details() {
+    final w = entryWords(_kind);
+    final cardGone = _cardId != null && s.cards.every((c) => c.id != _cardId);
+    return EdSection(
+      label: 'Details',
+      child: edGroup([
+        _detailRow(
+          id: 'day',
+          icon: 'cal',
+          label: w.dayHead,
+          value: _dayValue,
+          valueSet: _day != null,
+          tray: _trayDay(),
         ),
-      ],
-    );
-  }
-
-  /// One labelled white card in the editor's scroll — the same shape the
-  /// event editor, the category editor and the import studio use.
-  Widget _section(String id, String title, Widget child, {String? value}) {
-    return Container(
-      key: ValueKey('entry-section-$id'),
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: studioSectionLabel(
-                  title,
-                  padding: const EdgeInsets.only(bottom: 8),
-                ),
-              ),
-              // The design's per-card value (1b): the card states its own
-              // answer next to its label, so the scroll reads as a summary
-              // even before you open anything.
-              if (value != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8, left: 8),
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.deep,
-                    ),
-                  ),
-                ),
-            ],
+        _detailRow(
+          id: 'repeat',
+          icon: 'repeat',
+          label: 'Repeat',
+          value: _repeatValue,
+          valueSet: true,
+          tray: _trayRepeat(),
+          valueColor: _endBad ? B.red : null,
+        ),
+        _detailRow(
+          id: 'account',
+          icon: 'wallet',
+          label: w.accHead,
+          value: _accountValue,
+          valueSet: true,
+          tray: _trayAccount(),
+        ),
+        if (_kind != 'income')
+          _detailRow(
+            id: 'card',
+            icon: 'card',
+            label: 'Discount card',
+            value: _cardValue,
+            valueSet: _cardId != null,
+            tray: _trayCard(),
+            valueColor: cardGone ? B.orangeText : null,
           ),
-          child,
-        ],
-      ),
+      ]),
     );
   }
-
-  /// The day card's own answer: the chosen day, and where a weekend shift
-  /// actually lands it.
-  String get _dayValue {
-    if (_day == null) return 'Unscheduled';
-    final r = resolveMoneyDay(_day!, _shift, s.year, s.monthIdx);
-    return r.movedFrom != null
-        ? '${ordinal(_day!)} → ${ordinal(r.day)}'
-        : ordinal(_day!);
-  }
-
-  String get _repeatValue => !_recurring
-      ? 'One-off'
-      : _recurEvery == 1
-      ? '↻ Monthly'
-      : _recurEvery == 12
-      ? '↻ Yearly'
-      : '↻ Every $_recurEvery mo';
-
-  String get _cardValue {
-    final gone = _cardId != null && s.cards.every((c) => c.id != _cardId);
-    if (gone) return '⚠ Card deleted';
-    final card = s.cards.where((c) => c.id == _cardId).firstOrNull;
-    return card != null ? '💳 ${card.name}' : '+ Card';
-  }
-
-  /// The blocked-save reason, shown where the design puts it: just above the
-  /// footer, in amber, never as a dead button.
-  Widget _reasonNote(String reason) => Container(
-    margin: const EdgeInsets.only(top: 4, bottom: 8),
-    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-    decoration: BoxDecoration(
-      color: const Color(0xfffffbeb),
-      border: Border.all(color: const Color(0xfffde68a)),
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Text(
-      reason,
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w800,
-        color: B.amberText,
-      ),
-    ),
-  );
 
   /// Read-only attribution line (#300): "Added by Erik · 12 Aug" or "—".
   Widget _addedBy() {
@@ -1464,159 +1252,112 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
       final d = p.length > 2 ? int.tryParse(p[2]) : null;
       if (m != null && d != null) when = ' · $d ${kMonthsShortEn[m - 1]}';
     }
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (member != null) ...[
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: member.color,
-                borderRadius: BorderRadius.circular(99),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                member.initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            const SizedBox(width: 7),
-          ],
-          Text(
-            'Added by $who$when',
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: B.soft2,
-            ),
-          ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (member != null) ...[
+          s.editorAvatar(member, 20),
+          const SizedBox(width: 7),
         ],
-      ),
+        Text(
+          'Added by $who$when',
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: B.soft2,
+          ),
+        ),
+      ],
     );
+  }
+
+  String get _summary {
+    final n = parseEntryAmount(_amount.text);
+    final amt = n != null && !n.isNaN && n > 0 ? n : 0.0;
+    return '${_kindSign[_kind]} ${eur(amt)} · ${_block.title} · '
+        '${_day == null ? 'unscheduled' : 'the ${ordinal(_day!)}'} · '
+        '${_recurring ? _everyText : 'one-off'}';
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_openInit) {
+      _openInit = true;
+      _open = _editing ? null : 'day';
+    }
     final w = entryWords(_kind);
-    final title = _editing ? 'Edit ${w.noun}' : 'New ${w.noun}';
-    final ready = _reason == null && !_closed;
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_editing && _recurring && !_closed && !(_item?.exception ?? false))
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xffeef6ff),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xffd3e5f8)),
-            ),
-            child: Text(
-              'Part of a series — edits apply ${kMonthsEn[s.monthIdx]} onward, never backwards.',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xff1d4ed8),
-              ),
-            ),
-          ),
-        _amountCard(),
-        _aboutCard(),
-        _section('block', 'Budget block', _trayBlock()),
-        _section(
-          'day',
-          '${entryWords(_kind).dayHead} — which day of the month?',
-          _trayDay(),
-          value: _dayValue,
+    final reason = _closed
+        ? '${kMonthsEn[s.monthIdx]} is closed'
+        : _reason?.replaceFirst(RegExp(r'\.$'), '');
+    final form = <Widget>[
+      EdSegmented<String>(
+        keyPrefix: 'entry-kind',
+        options: const [
+          ('expense', 'Expense'),
+          ('income', 'Income'),
+          ('savings', 'Savings'),
+        ],
+        value: _kind,
+        onChanged: _setKind,
+      ),
+      if (_editing && _recurring && !_closed && !(_item?.exception ?? false))
+        edNotice(
+          'Part of a series — edits apply ${kMonthsEn[s.monthIdx]} onward, '
+          'never backwards.',
+          bg: B.infoSoft,
+          fg: B.infoText,
+          border: B.infoLine,
         ),
-        _section(
-          'repeat',
-          'Does it repeat?',
-          _trayRepeat(),
-          value: _repeatValue,
-        ),
-        _section(
-          'account',
-          entryWords(_kind).accHead,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [_trayAccount(), const SizedBox(height: 6), _paidRow()],
-          ),
-        ),
-        if (_kind != 'income')
-          _section('card', 'Discount card', _trayCard(), value: _cardValue),
-        if (_reason != null && !_closed) _reasonNote(_reason!),
-        if (_editing || _createdBy != null) _addedBy(),
-        if (_editing && !_closed)
-          GestureDetector(
-            key: const ValueKey('entry-delete'),
-            onTap: _delete,
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 48),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: const Text(
-                'Remove from the budget…',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: B.red,
+      _amountHero(),
+      _what(),
+      _blockChips(),
+      _details(),
+      if (_editing || _createdBy != null) _addedBy(),
+    ];
+    return EditorSheet(
+      title: _editing ? 'Edit ${w.noun}' : 'New ${w.noun}',
+      subtitle: '${kMonthsEn[s.monthIdx]} ${s.year}',
+      summary: _summary,
+      confirmLabel: _editing ? 'Save changes' : 'Add ${w.noun}',
+      blockedReason: reason,
+      onConfirm: _submit,
+      deleteLabel: _editing && !_closed ? 'Remove from the budget…' : null,
+      onDelete: _delete,
+      confirmKey: const ValueKey('sheet-confirm'),
+      deleteKey: const ValueKey('entry-delete'),
+      children: _closed
+          ? [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: B.amberSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED — this '
+                  'entry is a snapshot. Reopen the month from Money to edit.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: B.amberText,
+                  ),
                 ),
               ),
-            ),
-          ),
-        if (_closed)
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xfff1ebdd),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED — this entry is a '
-              'snapshot. Reopen the month from Money to edit.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: Color(0xff7c6a3c),
+              // Sealed (#298): desaturated and inert; Cancel stays live.
+              Opacity(
+                opacity: .75,
+                child: IgnorePointer(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final f in form) ...[f, const SizedBox(height: 18)],
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-      ],
-    );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sheetHeadWithTick(
-          context,
-          title,
-          sub: _editing
-              ? 'One card per decision'
-              : 'One card per decision — nothing hidden',
-          onConfirm: _submit,
-          confirmEnabled: ready,
-        ),
-        Flexible(
-          child: SingleChildScrollView(
-            // Sealed ticket (#298): desaturated and inert; the header's
-            // close button stays live so the user can leave.
-            child: _closed
-                ? Opacity(opacity: .75, child: IgnorePointer(child: body))
-                : body,
-          ),
-        ),
-      ],
+            ]
+          : form,
     );
   }
 }

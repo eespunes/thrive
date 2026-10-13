@@ -256,7 +256,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     String? current,
   ) {
     if (childBlocked(kChildMealPlanReadOnly)) return;
-    _showSheet(
+    openEditorSheet<void>(
       (ctx) => _MealEditSheet(
         state: this,
         dateIso: dateIso,

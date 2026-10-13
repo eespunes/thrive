@@ -17,40 +17,53 @@ Future<void> openEditor(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('every decision is a card on one page, nothing behind a tap', (
+  testWidgets('Event Editor v2: essentials up front, the rest folded', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await openEditor(tester);
 
-    // The editor is a scroll of labelled cards (design "Event & finance
-    // editors" 1a) — there are no trays to open, so every decision is
-    // readable at once.
-    for (final card in [
-      'kind',
-      'category',
-      'when',
-      'repeat',
-      'reminder',
-      'people',
-      'colour',
-      'place',
-    ]) {
+    // The Event/To-do switch is pinned; name, category, when and who are
+    // always on the page.
+    expect(find.byKey(const ValueKey('event-kind-event')), findsOneWidget);
+    expect(find.byKey(const ValueKey('event-kind-todo')), findsOneWidget);
+    expect(find.text('What’s happening?'), findsOneWidget);
+    for (final card in ['category', 'when', 'people']) {
       expect(
         find.byKey(ValueKey('event-card-$card')),
         findsOneWidget,
-        reason: 'card $card is missing',
+        reason: 'section $card is missing',
       );
     }
-    expect(find.text('KIND & LAYER'), findsOneWidget);
-    expect(find.text('WHEN'), findsOneWidget);
-    expect(find.text('Does it happen again?'), findsOneWidget);
-    expect(find.text('Want a heads-up?'), findsOneWidget);
-    expect(find.text('PLACE & NOTES'), findsOneWidget);
+    expect(find.text('When'), findsOneWidget);
+    expect(find.text("Who's involved"), findsOneWidget);
 
-    // And the pinned preview strip answers them.
-    expect(find.byKey(const ValueKey('event-editor-preview')), findsOneWidget);
-    expect(find.text('HOW IT WILL LOOK'), findsOneWidget);
+    // Everything else is an Options row, folded until tapped.
+    expect(find.text('Options'), findsOneWidget);
+    for (final row in ['repeat', 'reminder', 'place', 'notes', 'colour']) {
+      expect(find.byKey(ValueKey('event-row-$row')), findsOneWidget);
+      expect(find.byKey(ValueKey('event-row-$row-open')), findsNothing);
+    }
+    expect(find.text("Doesn't repeat"), findsOneWidget);
+    expect(find.text('1 hour before'), findsOneWidget);
+    expect(find.text('Add a place'), findsOneWidget);
+    expect(find.text('Calendar & colour'), findsOneWidget);
+
+    // Only one row is open at a time.
+    await openEventOption(tester, 'repeat');
+    expect(find.byKey(const ValueKey('event-row-repeat-open')), findsOneWidget);
+    await openEventOption(tester, 'reminder');
+    expect(find.byKey(const ValueKey('event-row-repeat-open')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('event-row-reminder-open')),
+      findsOneWidget,
+    );
+
+    // The colour row already folds, so its selector shows directly.
+    await openEventOption(tester, 'colour');
+    expect(find.byKey(const ValueKey('colour-toggle')), findsNothing);
+    expect(find.text('Palette'), findsOneWidget);
+    expect(find.text('RGB / Hex'), findsOneWidget);
   });
 
   testWidgets('save is disabled until the title is non-empty', (tester) async {
@@ -117,10 +130,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('event-cat-sport')));
     await tester.pumpAndSettle();
 
-    // Colour tray shows the locked "from category" swatch (#266).
-    await tester.ensureVisible(find.byKey(const ValueKey('event-card-colour')));
-    await tester.pumpAndSettle();
-    expect(find.text("The event takes the category's colour"), findsOneWidget);
+    // The category owns the colour, so the selector is replaced (#266).
+    expect(find.text('Sets colour & people'), findsOneWidget);
+    await openEventOption(tester, 'colour');
+    expect(
+      find.text(
+        'Uses the Sport colour. Pick “None” as category to choose your own.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Palette'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('sheet-confirm')));
     await tester.pumpAndSettle();
@@ -138,11 +157,10 @@ void main() {
     await setTicketRepeatFor(tester);
     await tester.ensureVisible(find.byKey(const ValueKey('event-card-when')));
     await tester.pumpAndSettle();
-    expect(find.text('Multi-day'), findsNothing);
-    expect(
-      find.text('Multi-day is off while the event repeats'),
-      findsOneWidget,
-    );
+    expect(find.text('Off while the event repeats'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('event-multi-day')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('event-end-date')), findsNothing);
   });
 
   testWidgets('reminder tray: no thanks clears, ring line matches the event', (
@@ -152,10 +170,7 @@ void main() {
     await openEditor(tester);
     await tester.enterText(find.byType(TextField).first, 'Dentist');
     await tester.pump();
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('event-card-reminder')),
-    );
-    await tester.pumpAndSettle();
+    await openEventOption(tester, 'reminder');
     // Default 1h → the ring line shows an actual time.
     expect(find.byKey(const ValueKey('ticket-ring-line')), findsOneWidget);
     expect(find.textContaining('Rings '), findsOneWidget);
@@ -254,8 +269,7 @@ void main() {
 
 /// Same as calendar_test's helper (kept local to avoid cross-imports).
 Future<void> setTicketRepeatFor(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(const ValueKey('event-card-repeat')));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(const ValueKey('ticket-again-yes')));
+  await openEventOption(tester, 'repeat');
+  await tester.tap(find.byKey(const ValueKey('ticket-cad-weekly')));
   await tester.pumpAndSettle();
 }

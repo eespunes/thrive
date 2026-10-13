@@ -85,7 +85,7 @@ class _CalendarLayersScreen extends StatelessWidget {
                   toggle: s.layerFilter.contains(l.id),
                   toggleKey: ValueKey('layers-toggle-${l.id}'),
                   onToggle: () => s.toggleLayerVisibilityGuarded(l.id),
-                  onTap: () => s.pushSettingsPage<void>(
+                  onTap: () => s.openEditorSheet<void>(
                     (_) => _LayerStudio(state: s, layerId: l.id),
                   ),
                 );
@@ -168,26 +168,26 @@ class _LayerStudioState extends State<_LayerStudio> {
   @override
   Widget build(BuildContext context) {
     final canDelete = s.calendarLayers.length > 1;
-    return BadgeStudioScaffold(
+    return EditorSheet(
       title: 'Edit layer',
-      subtitle: 'Label, colour & glyph',
-      accent: _color,
-      saveLabel: 'Save layer',
-      saveEnabled: _label.trim().isNotEmpty,
-      onSave: _save,
-      deleteLabel: canDelete
-          ? 'Delete layer — its events move to another layer'
-          : null,
+      summary: 'Filter and colour group in the calendar',
+      confirmLabel: 'Save layer',
+      blockedReason: _label.trim().isEmpty ? 'Give it a name first' : null,
+      onConfirm: _save,
+      deleteLabel: canDelete ? 'Delete layer' : null,
       onDelete: canDelete ? _delete : null,
+      confirmKey: const ValueKey('studio-save'),
+      deleteKey: const ValueKey('studio-delete'),
       children: [
-        BadgeStage(
+        EdBadgeHeader(
           color: _color,
           name: _label,
           onName: (v) => setState(() => _label = v),
+          picks: kEditorPicks['layer']!,
           emoji: _emoji,
           picture: _picture,
-          fallbackGlyph: '🗂',
-          namePlaceholder: 'Name it… e.g. Workouts',
+          fallbackFace: '📅',
+          namePlaceholder: 'Name it… e.g. Chores',
           onEmoji: (g) => setState(() {
             _emoji = g;
             _picture = null;
@@ -198,10 +198,7 @@ class _LayerStudioState extends State<_LayerStudio> {
           },
           onToast: s.flash,
         ),
-        _ColorPickerPanel(
-          selected: _color,
-          onChanged: (c) => setState(() => _color = c),
-        ),
+        edColourSection(_color, (c) => setState(() => _color = c)),
       ],
     );
   }

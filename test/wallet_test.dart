@@ -60,7 +60,7 @@ void main() {
     // (scanner path unchanged).
     await tester.tap(find.byKey(const ValueKey('wallet-sub-add')));
     await tester.pumpAndSettle();
-    expect(find.text('Scan a discount card'), findsOneWidget);
+    expect(find.text('Scan a card'), findsOneWidget);
     expect(find.text('Take a photo of the card'), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-scan-camera')), findsOneWidget);
     expect(find.byKey(const ValueKey('wallet-scan-gallery')), findsOneWidget);
@@ -126,14 +126,24 @@ void main() {
     // No code in a plain photo; the colour was sampled; name always asked.
     expect(find.text('Type the number'), findsOneWidget);
     expect(find.text('Colour matched'), findsOneWidget);
-    expect(find.text('Add the shop name'), findsOneWidget);
+    // The status chip and the blocked save button both ask for the name.
+    expect(find.text('Add the shop name'), findsNWidgets(2));
 
-    // Save is disabled until a shop name is entered.
+    // Save is disabled until a shop name and a number are entered.
     await tester.tap(find.byKey(const ValueKey('card-save')));
     await tester.pumpAndSettle();
     expect(thriveDebug.cards, isEmpty);
 
-    await tester.enterText(find.byType(TextField).first, 'Kruidvat');
+    await tester.enterText(find.byKey(const ValueKey('card-name')), 'Kruidvat');
+    await tester.pump();
+    expect(find.text('Type the card number'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('card-save')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.cards, isEmpty);
+    await tester.enterText(
+      find.byKey(const ValueKey('card-number')),
+      '8710400123456',
+    );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('card-type-qr')));
     await tester.pump();
@@ -152,7 +162,7 @@ void main() {
     expect(kAnalyticsEvents.map((e) => e.name), contains('card_scanned'));
     // The design opens the fresh card's face right away.
     expect(find.text('Ready for the scanner'), findsOneWidget);
-    expect(find.text('Kruidvat'), findsNWidgets(2)); // sheet head + card face
+    expect(find.text('Kruidvat'), findsWidgets); // card face
     await dismissSheet(tester);
   });
 
@@ -161,9 +171,14 @@ void main() {
     thriveDebug.importCardFromBytes(_redPhoto());
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('card-retake')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.byKey(const ValueKey('card-retake')));
     await tester.pumpAndSettle();
-    expect(find.text('Scan a discount card'), findsOneWidget);
+    expect(find.text('Scan a card'), findsOneWidget);
     await dismissSheet(tester);
   });
 
@@ -179,7 +194,9 @@ void main() {
       find.byKey(const ValueKey('entry-section-card')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('DISCOUNT CARD'), findsOneWidget);
+    expect(find.text('Discount card'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('entry-section-card')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('entry-card-none')), findsOneWidget);
     expect(find.byKey(const ValueKey('entry-card-scan')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('entry-card-c1')));
@@ -340,7 +357,7 @@ void main() {
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Scan a discount card'), findsOneWidget);
+    expect(find.text('Scan a card'), findsOneWidget);
     await dismissSheet(tester);
   });
 
@@ -351,7 +368,7 @@ void main() {
     expect(find.text('Snap a loyalty card'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('quickadd-card')));
     await tester.pumpAndSettle();
-    expect(find.text('Scan a discount card'), findsOneWidget);
+    expect(find.text('Scan a card'), findsOneWidget);
     await dismissSheet(tester);
   });
 

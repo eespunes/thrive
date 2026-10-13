@@ -527,7 +527,7 @@ class _ProfileScreen extends StatelessWidget {
                   decoration: const BoxDecoration(
                     border: Border(top: BorderSide(color: B.faint)),
                   ),
-                  child: _ColorPickerPanel(
+                  child: EdColourFold(
                     selected: identity.color ?? Colors.transparent,
                     onChanged: s.saveProfileColor,
                   ),
