@@ -657,7 +657,10 @@ extension _ThriveScreens on _ThriveHomeState {
                 : (item.payee.trim().isNotEmpty
                       ? item.payee.trim()
                       : block.title),
-            subtitle: block.title,
+            subtitle:
+                item.label.trim().isNotEmpty && item.payee.trim().isNotEmpty
+                ? '${item.payee.trim()} · ${block.title}'
+                : block.title,
             amount: item.amount,
             done: item.paid,
             isIncome: block.isIncome,

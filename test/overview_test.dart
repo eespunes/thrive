@@ -109,6 +109,35 @@ void main() {
     );
   });
 
+  testWidgets('finance rows show the payee alongside the label (#400)', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    thriveDebug.saveExpense(
+      'add',
+      'food',
+      null,
+      payee: 'Acme Market',
+      label: 'Weekly shop',
+      amount: 42,
+      paid: false,
+      account: 'shared',
+      recurring: false,
+    );
+    await tester.pump(const Duration(seconds: 3));
+
+    await tester.tap(find.byKey(const ValueKey('envelope-food')));
+    await tester.pumpAndSettle();
+    expect(find.text('Weekly shop'), findsWidgets);
+    expect(_textStartingWith('Acme Market · '), findsOneWidget);
+    Navigator.of(tester.element(find.text('Weekly shop').first)).pop();
+    await tester.pumpAndSettle();
+
+    await goToTab(tester, 'list');
+    expect(find.text('Weekly shop'), findsOneWidget);
+    expect(_textStartingWith('Acme Market · '), findsOneWidget);
+  });
+
   testWidgets('stats tab switches scopes', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'stats');
