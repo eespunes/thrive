@@ -114,7 +114,7 @@ extension _ThriveKitchenDashboard on _ThriveHomeState {
           title: title.trim().isEmpty ? 'Picture item' : title.trim(),
           allDay: true,
           date: todayIso(),
-          color: member?.color ?? B.primary,
+          color: member?.color ?? context.tc.primary,
           attendees: [assignee],
           layerId: '',
           todo: true,
@@ -292,8 +292,14 @@ const LinearGradient kKitchenGoldGradient = LinearGradient(
   colors: [Color(0xfff6c344), Color(0xffe8a317)],
 );
 const Color kKitchenGoldInk = Color(0xff7a5200);
-const Color kKitchenTileBg = Color(0xfffafbfc);
-const Color kKitchenTileLine = Color(0xffeef1f5);
+Color get kKitchenTileBg => ThriveColors.current.pick(
+  const Color(0xfffafbfc),
+  ThriveColors.current.rowOpen,
+);
+Color get kKitchenTileLine => ThriveColors.current.pick(
+  const Color(0xffeef1f5),
+  ThriveColors.current.track,
+);
 
 /// Full-screen kitchen wall: a fixed weekly-schedule panel on the left and
 /// one column per family member on the right.
@@ -362,13 +368,21 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
       // The wall is edge-to-edge: no letterboxing frame around the panel, so
       // the Scaffold itself carries the panel colour and nothing darker can
       // show through at the screen edges.
-      backgroundColor: const Color(0xffe8ecf1),
+      backgroundColor: context.tc.pick(
+        const Color(0xffe8ecf1),
+        context.tc.line,
+      ),
       body: SafeArea(
         child: Stack(
           children: [
             Positioned.fill(
               child: Container(
-                decoration: const BoxDecoration(color: Color(0xffe8ecf1)),
+                decoration: BoxDecoration(
+                  color: context.tc.pick(
+                    const Color(0xffe8ecf1),
+                    context.tc.line,
+                  ),
+                ),
                 clipBehavior: Clip.antiAlias,
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -381,10 +395,13 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                     const SizedBox(width: 13),
                     Expanded(
                       child: members.isEmpty
-                          ? const Center(
+                          ? Center(
                               child: Text(
                                 'No family members yet',
-                                style: TextStyle(color: B.muted, fontSize: 16),
+                                style: TextStyle(
+                                  color: context.tc.muted,
+                                  fontSize: 16,
+                                ),
                               ),
                             )
                           : Row(
@@ -423,7 +440,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: B.ink.withValues(alpha: .8),
+                    color: context.tc.ink.withValues(alpha: .8),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Center(
@@ -451,16 +468,20 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xff12b3a4), B.primary, B.deep],
+                      colors: [
+                        Color(0xff12b3a4),
+                        context.tc.primary,
+                        context.tc.deep,
+                      ],
                       stops: [0.0, .55, 1.0],
                     ),
                     borderRadius: BorderRadius.circular(19),
                     boxShadow: [
                       BoxShadow(
-                        color: B.primary.withValues(alpha: .45),
+                        color: context.tc.primary.withValues(alpha: .45),
                         blurRadius: 28,
                         spreadRadius: -10,
                         offset: const Offset(0, 14),
@@ -484,7 +505,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: B.ink,
+                      color: context.tc.ink,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -554,7 +575,7 @@ class _KitchenLeftPanel extends StatelessWidget {
       width: 252,
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -562,31 +583,31 @@ class _KitchenLeftPanel extends StatelessWidget {
         children: [
           Text(
             _weekNumberLabelIso(today).toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: .8,
-              color: B.primary,
+              color: context.tc.primary,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             kitchenMainDateLabel(d),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 21,
               fontWeight: FontWeight.w800,
               letterSpacing: -.5,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'WEEKLY SCHEDULE',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
               letterSpacing: .8,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 8),
@@ -629,20 +650,27 @@ class _KitchenLeftPanel extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 2),
               child: Row(
                 children: [
-                  const Expanded(child: Divider(height: 1, color: B.line)),
+                  Expanded(
+                    child: Divider(height: 1, color: ThriveColors.current.line),
+                  ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
                       _weekNumberLabelIso(iso).toUpperCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         letterSpacing: .8,
-                        color: Color(0xffb3bcc9),
+                        color: ThriveColors.current.pick(
+                          const Color(0xffb3bcc9),
+                          ThriveColors.current.toggleOff,
+                        ),
                       ),
                     ),
                   ),
-                  const Expanded(child: Divider(height: 1, color: B.line)),
+                  Expanded(
+                    child: Divider(height: 1, color: ThriveColors.current.line),
+                  ),
                 ],
               ),
             ),
@@ -653,7 +681,12 @@ class _KitchenLeftPanel extends StatelessWidget {
               vertical: 3,
             ),
             decoration: BoxDecoration(
-              color: isToday ? const Color(0xffe7f5f3) : Colors.transparent,
+              color: isToday
+                  ? ThriveColors.current.pick(
+                      const Color(0xffe7f5f3),
+                      ThriveColors.current.soft,
+                    )
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(7),
             ),
             child: Text(
@@ -661,20 +694,25 @@ class _KitchenLeftPanel extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
-                color: isToday ? B.deep : B.muted,
+                color: isToday
+                    ? ThriveColors.current.deep
+                    : ThriveColors.current.muted,
               ),
             ),
           ),
           const SizedBox(height: 4),
           if (appts.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 2, bottom: 6),
               child: Text(
                 'Nothing planned',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xffb3bcc9),
+                  color: ThriveColors.current.pick(
+                    const Color(0xffb3bcc9),
+                    ThriveColors.current.toggleOff,
+                  ),
                 ),
               ),
             )
@@ -716,7 +754,7 @@ class _KitchenScheduleRow extends StatelessWidget {
     final allDay = ev.allDay || ev.start.isEmpty;
     final time = allDay ? 'All day' : ev.start;
     // All-day items are a solid block of their colour, not tint + rule.
-    final ink = allDay ? contrastOn(color) : B.ink;
+    final ink = allDay ? contrastOn(color) : context.tc.ink;
     return Container(
       key: ValueKey('kitchen-schedule-row-${ev.id}-${occurrence.date}'),
       decoration: BoxDecoration(
@@ -733,7 +771,7 @@ class _KitchenScheduleRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             constraints: const BoxConstraints(minWidth: 38),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -864,7 +902,7 @@ class _KitchenMemberColumn extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(11, 12, 11, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border(top: BorderSide(color: member.color, width: 4)),
       ),
@@ -887,10 +925,10 @@ class _KitchenMemberColumn extends StatelessWidget {
                 child: Text(
                   member.name,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
               ),
@@ -964,10 +1002,10 @@ class _KitchenMemberColumn extends StatelessWidget {
           const SizedBox(height: 8),
           Expanded(
             child: (occ.isEmpty && events.isEmpty)
-                ? const Center(
+                ? Center(
                     child: Text(
                       'Free day 🎈',
-                      style: TextStyle(color: B.muted, fontSize: 13),
+                      style: TextStyle(color: context.tc.muted, fontSize: 13),
                     ),
                   )
                 : ListView(
@@ -990,7 +1028,7 @@ class _KitchenMemberColumn extends StatelessWidget {
                           padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
                           child: Row(
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Divider(
                                   height: 1,
                                   color: kKitchenTileLine,
@@ -1008,7 +1046,7 @@ class _KitchenMemberColumn extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const Expanded(
+                              Expanded(
                                 child: Divider(
                                   height: 1,
                                   color: kKitchenTileLine,
@@ -1100,9 +1138,14 @@ class _KitchenTextTile extends StatelessWidget {
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: done ? member.color : Colors.white,
+                  color: done ? member.color : context.tc.surface,
                   border: Border.all(
-                    color: done ? member.color : const Color(0xffcbd5e1),
+                    color: done
+                        ? member.color
+                        : context.tc.pick(
+                            const Color(0xffcbd5e1),
+                            context.tc.toggleOff,
+                          ),
                     width: 2,
                   ),
                 ),
@@ -1125,7 +1168,7 @@ class _KitchenTextTile extends StatelessWidget {
                       fontSize: 12,
                       height: 1.3,
                       fontWeight: FontWeight.w800,
-                      color: done ? B.muted : B.ink,
+                      color: done ? context.tc.muted : context.tc.ink,
                       decoration: done ? TextDecoration.lineThrough : null,
                     ),
                   ),
@@ -1141,7 +1184,11 @@ class _KitchenTextTile extends StatelessWidget {
                           layer.color.withValues(alpha: .08),
                         ),
                       if (ev.recur != 'none')
-                        _kitchenChip('↻ repeats', B.muted, B.faint),
+                        _kitchenChip(
+                          '↻ repeats',
+                          context.tc.muted,
+                          context.tc.faint,
+                        ),
                     ],
                   ),
                 ],
@@ -1162,10 +1209,13 @@ class _KitchenTextTile extends StatelessWidget {
                   width: 22,
                   height: 22,
                   decoration: BoxDecoration(
-                    color: const Color(0xfff1f5f9),
+                    color: context.tc.pick(
+                      const Color(0xfff1f5f9),
+                      context.tc.faint,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.close, size: 13, color: B.muted),
+                  child: Icon(Icons.close, size: 13, color: context.tc.muted),
                 ),
               ),
             ],
@@ -1213,7 +1263,7 @@ class _KitchenStarRow extends StatelessWidget {
               child: Icon(
                 i <= stars ? Icons.star : Icons.star_border,
                 size: 14,
-                color: i <= stars ? const Color(0xffe8a827) : B.muted,
+                color: i <= stars ? const Color(0xffe8a827) : context.tc.muted,
               ),
             ),
         ],
@@ -1289,7 +1339,7 @@ class _KitchenPictureTile extends StatelessWidget {
                       fallback: Center(
                         child: Icon(
                           hasGlyph ? Icons.edit : Icons.add_photo_alternate,
-                          color: B.muted,
+                          color: context.tc.muted,
                           size: 30,
                         ),
                       ),
@@ -1305,7 +1355,7 @@ class _KitchenPictureTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
-                    color: done ? B.muted : B.text,
+                    color: done ? context.tc.muted : context.tc.text,
                     decoration: done ? TextDecoration.lineThrough : null,
                   ),
                 ),
@@ -1342,7 +1392,7 @@ class _KitchenPictureTile extends StatelessWidget {
                   color: Colors.white.withValues(alpha: .92),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, size: 13, color: B.muted),
+                child: Icon(Icons.close, size: 13, color: context.tc.muted),
               ),
             ),
           ),
@@ -1360,7 +1410,7 @@ class _KitchenPictureTile extends StatelessWidget {
                     color: Colors.white.withValues(alpha: .92),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.edit, size: 13, color: B.muted),
+                  child: Icon(Icons.edit, size: 13, color: context.tc.muted),
                 ),
               ),
             ),
@@ -1499,17 +1549,20 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
             color: kKitchenTileBg,
             borderRadius: BorderRadius.circular(14),
           ),
-          foregroundDecoration: const _DottedBoxDecoration(
-            color: Color(0xffcbd5e1),
+          foregroundDecoration: _DottedBoxDecoration(
+            color: context.tc.pick(
+              const Color(0xffcbd5e1),
+              context.tc.toggleOff,
+            ),
             radius: 14,
             width: 2,
           ),
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: B.text,
+              color: context.tc.text,
             ),
           ),
         ),
@@ -1544,9 +1597,9 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                       decoration: BoxDecoration(
                         color: _assignee == m.id
                             ? m.color.withValues(alpha: .08)
-                            : Colors.white,
+                            : context.tc.surface,
                         border: Border.all(
-                          color: _assignee == m.id ? m.color : B.line,
+                          color: _assignee == m.id ? m.color : context.tc.line,
                           width: 1.5,
                         ),
                         borderRadius: BorderRadius.circular(999),
@@ -1569,7 +1622,9 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
-                              color: _assignee == m.id ? m.color : B.soft2,
+                              color: _assignee == m.id
+                                  ? m.color
+                                  : context.tc.soft2,
                             ),
                           ),
                         ],
@@ -1587,8 +1642,11 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                       key: const ValueKey('kitchen-add-photo-ready'),
                       padding: const EdgeInsets.fromLTRB(11, 9, 11, 9),
                       decoration: BoxDecoration(
-                        color: B.soft,
-                        border: Border.all(color: B.primary, width: 1.5),
+                        color: context.tc.soft,
+                        border: Border.all(
+                          color: context.tc.primary,
+                          width: 1.5,
+                        ),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
@@ -1605,13 +1663,13 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Photo ready ✓',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
-                                color: B.deep,
+                                color: context.tc.deep,
                               ),
                             ),
                           ),
@@ -1624,15 +1682,15 @@ class _KitchenQuickAddSheetState extends State<_KitchenQuickAddSheet> {
                                 vertical: 7,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: context.tc.surface,
                                 borderRadius: BorderRadius.circular(9),
                               ),
-                              child: const Text(
+                              child: Text(
                                 'Retake',
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
-                                  color: B.soft2,
+                                  color: context.tc.soft2,
                                 ),
                               ),
                             ),

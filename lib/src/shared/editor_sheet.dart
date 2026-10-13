@@ -27,7 +27,7 @@ Future<T?> showEditorSheet<T>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: B.scrim,
+    barrierColor: context.tc.scrim,
     builder: (ctx) {
       final sheet = Builder(builder: builder);
       return Padding(
@@ -159,8 +159,8 @@ class EditorSheet extends StatelessWidget {
             : MediaQuery.of(context).size.height * .94;
         return Container(
           constraints: BoxConstraints(maxHeight: maxH),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: context.tc.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
           ),
           clipBehavior: Clip.antiAlias,
@@ -208,7 +208,7 @@ class EditorSheet extends StatelessWidget {
             height: 5,
             margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
-              color: B.handle,
+              color: context.tc.handle,
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -224,7 +224,7 @@ class EditorSheet extends StatelessWidget {
                       key: cancelKey,
                       behavior: HitTestBehavior.opaque,
                       onTap: onCancel ?? () => Navigator.of(context).maybePop(),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(
                           vertical: 10,
                           horizontal: 4,
@@ -234,7 +234,7 @@ class EditorSheet extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: B.soft2,
+                            color: context.tc.soft2,
                           ),
                         ),
                       ),
@@ -250,11 +250,11 @@ class EditorSheet extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -.2,
-                          color: B.ink,
+                          color: context.tc.ink,
                         ),
                       ),
                       if (subtitle != null && subtitle!.isNotEmpty)
@@ -263,10 +263,10 @@ class EditorSheet extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                     ],
@@ -284,19 +284,19 @@ class EditorSheet extends StatelessWidget {
   Widget _footer(BuildContext context) {
     final blocked = blockedReason != null;
     final bg = blocked
-        ? B.faint
+        ? context.tc.faint
         : destructiveConfirm
         ? Colors.white
-        : B.primary;
+        : context.tc.primary;
     final bd = blocked
-        ? B.faint
+        ? context.tc.faint
         : destructiveConfirm
-        ? B.redLine
-        : B.primary;
+        ? context.tc.redLine
+        : context.tc.primary;
     final fg = blocked
-        ? B.placeholder
+        ? context.tc.placeholder
         : destructiveConfirm
-        ? B.red
+        ? context.tc.red
         : Colors.white;
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -305,9 +305,9 @@ class EditorSheet extends StatelessWidget {
         16,
         14 + MediaQuery.of(context).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: B.line)),
+      decoration: BoxDecoration(
+        color: context.tc.surface,
+        border: Border(top: BorderSide(color: context.tc.line)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -322,10 +322,10 @@ class EditorSheet extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                 ),
               ),
             ),
@@ -369,17 +369,17 @@ class EditorSheet extends StatelessWidget {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.redLine, width: 1.5),
+          color: ThriveColors.current.surface,
+          border: Border.all(color: ThriveColors.current.redLine, width: 1.5),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Text(
           deleteLabel!,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w800,
-            color: B.red,
+            color: ThriveColors.current.red,
           ),
         ),
       ),
@@ -416,20 +416,20 @@ class EdSection extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: B.text,
+                  color: context.tc.text,
                 ),
               ),
             ),
             if (hint != null)
               Text(
                 hint!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
           ],
@@ -442,24 +442,22 @@ class EdSection extends StatelessWidget {
 }
 
 /// A tinted one-line notice (series info, weekend question, temporary).
-Widget edNotice(
-  String text, {
-  Key? key,
-  Color bg = B.amberSoft,
-  Color fg = B.amberText,
-  Color? border,
-}) {
+Widget edNotice(String text, {Key? key, Color? bg, Color? fg, Color? border}) {
   return Container(
     key: key,
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
     decoration: BoxDecoration(
-      color: bg,
+      color: (bg ?? ThriveColors.current.amberSoft),
       borderRadius: BorderRadius.circular(12),
       border: border == null ? null : Border.all(color: border),
     ),
     child: Text(
       text,
-      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: fg),
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: (fg ?? ThriveColors.current.amberText),
+      ),
     ),
   );
 }
@@ -485,7 +483,7 @@ class EdSegmented<T> extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: B.track,
+        color: context.tc.track,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -501,7 +499,7 @@ class EdSegmented<T> extends StatelessWidget {
                   constraints: const BoxConstraints(minHeight: 38),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: v == value ? Colors.white : Colors.transparent,
+                    color: v == value ? context.tc.surface : Colors.transparent,
                     borderRadius: BorderRadius.circular(9),
                     boxShadow: v == value
                         ? const [
@@ -519,7 +517,7 @@ class EdSegmented<T> extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: v == value ? B.ink : B.segIdle,
+                      color: v == value ? context.tc.ink : context.tc.segIdle,
                     ),
                   ),
                 ),
@@ -543,14 +541,14 @@ Widget edChip({
   Widget? leading,
   bool small = false,
 }) {
-  final f = tone ?? B.primary;
+  final f = tone ?? ThriveColors.current.primary;
   return _edChipBase(
     key: key,
     label: label,
     onTap: onTap,
     bg: selected ? f : Colors.white,
-    bd: selected ? f : B.line,
-    fg: selected ? contrastOn(f) : B.soft2,
+    bd: selected ? f : ThriveColors.current.line,
+    fg: selected ? contrastOn(f) : ThriveColors.current.soft2,
     leading: leading,
     small: small,
   );
@@ -570,9 +568,9 @@ Widget edSoftChip({
     key: key,
     label: label,
     onTap: onTap,
-    bg: selected ? B.soft : Colors.white,
-    bd: selected ? B.primary : B.line,
-    fg: selected ? B.deep : B.text,
+    bg: selected ? ThriveColors.current.soft : Colors.white,
+    bd: selected ? ThriveColors.current.primary : ThriveColors.current.line,
+    fg: selected ? ThriveColors.current.deep : ThriveColors.current.text,
     leading: leading,
     small: small,
     expand: expand,
@@ -651,8 +649,15 @@ Widget edChoiceTile({
       duration: const Duration(milliseconds: 120),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: selected ? B.soft : Colors.white,
-        border: Border.all(color: selected ? B.primary : B.line, width: 1.5),
+        color: selected
+            ? ThriveColors.current.soft
+            : ThriveColors.current.surface,
+        border: Border.all(
+          color: selected
+              ? ThriveColors.current.primary
+              : ThriveColors.current.line,
+          width: 1.5,
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -671,7 +676,9 @@ Widget edChoiceTile({
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: selected ? B.deep : B.text,
+                    color: selected
+                        ? ThriveColors.current.deep
+                        : ThriveColors.current.text,
                   ),
                 ),
                 if (sub != null)
@@ -679,10 +686,10 @@ Widget edChoiceTile({
                     sub,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: ThriveColors.current.muted,
                     ),
                   ),
               ],
@@ -709,14 +716,14 @@ class EdSwitch extends StatelessWidget {
       padding: const EdgeInsets.all(2.5),
       alignment: on ? Alignment.centerRight : Alignment.centerLeft,
       decoration: BoxDecoration(
-        color: on ? B.primary : B.toggleOff,
+        color: on ? context.tc.primary : context.tc.toggleOff,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Container(
         width: 20,
         height: 20,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: context.tc.surface,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(color: B.segShadow, blurRadius: 2, offset: Offset(0, 1)),
@@ -747,13 +754,13 @@ Widget edToggleRow({
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: boxed
           ? BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line, width: 1.5),
+              color: ThriveColors.current.surface,
+              border: Border.all(color: ThriveColors.current.line, width: 1.5),
               borderRadius: BorderRadius.circular(14),
             )
           : BoxDecoration(
               border: divider
-                  ? const Border(top: BorderSide(color: B.line))
+                  ? Border(top: BorderSide(color: ThriveColors.current.line))
                   : null,
             ),
       child: Row(
@@ -765,19 +772,19 @@ Widget edToggleRow({
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: B.ink,
+                    color: ThriveColors.current.ink,
                   ),
                 ),
                 if (sub != null && sub.isNotEmpty)
                   Text(
                     sub,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: ThriveColors.current.muted,
                     ),
                   ),
               ],
@@ -797,8 +804,8 @@ Widget edToggleRow({
 Widget edGroup(List<Widget> rows, {double radius = 14}) {
   return Container(
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: B.line, width: 1.5),
+      color: ThriveColors.current.surface,
+      border: Border.all(color: ThriveColors.current.line, width: 1.5),
       borderRadius: BorderRadius.circular(radius),
     ),
     clipBehavior: Clip.antiAlias,
@@ -809,8 +816,10 @@ Widget edGroup(List<Widget> rows, {double radius = 14}) {
           i == 0
               ? rows[i]
               : DecoratedBox(
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: B.line)),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: ThriveColors.current.line),
+                    ),
                   ),
                   child: rows[i],
                 ),
@@ -819,16 +828,16 @@ Widget edGroup(List<Widget> rows, {double radius = 14}) {
   );
 }
 
-const TextStyle _edInputStyle = TextStyle(
+TextStyle _edInputStyle = TextStyle(
   fontSize: 14,
   fontWeight: FontWeight.w700,
-  color: B.ink,
+  color: ThriveColors.current.ink,
 );
 
-const TextStyle _edHintStyle = TextStyle(
+TextStyle _edHintStyle = TextStyle(
   fontSize: 14,
   fontWeight: FontWeight.w600,
-  color: B.placeholder,
+  color: ThriveColors.current.placeholder,
 );
 
 /// Borderless input for use inside an [edGroup].
@@ -876,8 +885,8 @@ Widget edBoxedInput({
   return Container(
     padding: EdgeInsets.only(left: prefix != null ? 14 : 0),
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: B.line, width: 1.5),
+      color: ThriveColors.current.surface,
+      border: Border.all(color: ThriveColors.current.line, width: 1.5),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Row(
@@ -920,7 +929,7 @@ Widget edBigAmount({
   String hint = '0,00',
   ValueChanged<String>? onChanged,
   String? caption,
-  Color captionColor = B.muted,
+  Color? captionColor,
 }) {
   final style = TextStyle(
     fontSize: controller.text.length > 9 ? 30 : 40,
@@ -959,7 +968,9 @@ Widget edBigAmount({
                   isCollapsed: true,
                   border: InputBorder.none,
                   hintText: hint,
-                  hintStyle: style.copyWith(color: B.amountEmpty),
+                  hintStyle: style.copyWith(
+                    color: ThriveColors.current.amountEmpty,
+                  ),
                 ),
                 style: style,
               ),
@@ -975,7 +986,7 @@ Widget edBigAmount({
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
-                color: captionColor,
+                color: (captionColor ?? ThriveColors.current.muted),
               ),
             ),
           ),
@@ -1039,7 +1050,7 @@ Widget edPeopleRow({
                           height: 18,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: B.primary,
+                            color: ThriveColors.current.primary,
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 2),
                           ),
@@ -1061,7 +1072,9 @@ Widget edPeopleRow({
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: selected.contains(m.id) ? B.ink : B.muted,
+                    color: selected.contains(m.id)
+                        ? ThriveColors.current.ink
+                        : ThriveColors.current.muted,
                   ),
                 ),
               ],
@@ -1195,16 +1208,19 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
         height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? B.soft : Colors.white,
-          border: Border.all(color: on ? B.primary : B.line, width: 1.5),
+          color: on ? context.tc.soft : context.tc.surface,
+          border: Border.all(
+            color: on ? context.tc.primary : context.tc.line,
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(13),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 19,
             fontWeight: FontWeight.w800,
-            color: B.text,
+            color: context.tc.text,
           ),
         ),
       ),
@@ -1251,7 +1267,7 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
         Container(
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: named ? c : B.line, width: 2),
+              bottom: BorderSide(color: named ? c : context.tc.line, width: 2),
             ),
           ),
           child: TextField(
@@ -1265,18 +1281,18 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
               border: InputBorder.none,
               contentPadding: const EdgeInsets.fromLTRB(0, 6, 0, 10),
               hintText: widget.namePlaceholder,
-              hintStyle: const TextStyle(
+              hintStyle: TextStyle(
                 fontSize: 21,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -.4,
-                color: B.placeholder,
+                color: context.tc.placeholder,
               ),
             ),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 21,
               fontWeight: FontWeight.w800,
               letterSpacing: -.4,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
         ),
@@ -1319,20 +1335,25 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onPickPhoto,
                 child: CustomPaint(
-                  painter: _EdDashedPainter(color: B.dash, radius: 13),
+                  painter: _EdDashedPainter(color: context.tc.dash, radius: 13),
                   child: Container(
                     height: 42,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
-                        ic('camera', size: 14, sw: 2.2, color: B.soft2),
+                        ic(
+                          'camera',
+                          size: 14,
+                          sw: 2.2,
+                          color: context.tc.soft2,
+                        ),
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           'Photo',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: B.soft2,
+                            color: context.tc.soft2,
                           ),
                         ),
                       ],
@@ -1351,8 +1372,8 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: B.primary, width: 1.5),
+                      color: context.tc.surface,
+                      border: Border.all(color: context.tc.primary, width: 1.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
@@ -1360,7 +1381,7 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
                       controller: _emoji,
                       autofocus: true,
                       onSubmitted: (_) => _applyEmoji(),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
@@ -1371,7 +1392,7 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
                         hintStyle: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: B.placeholder,
+                          color: context.tc.placeholder,
                         ),
                       ),
                       style: const TextStyle(
@@ -1391,7 +1412,7 @@ class _EdBadgeHeaderState extends State<EdBadgeHeader> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: B.primary,
+                      color: context.tc.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -1491,10 +1512,10 @@ class _EdColourFoldState extends State<EdColourFold> {
                 Expanded(
                   child: Text(
                     widget.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: B.text,
+                      color: context.tc.text,
                     ),
                   ),
                 ),
@@ -1504,14 +1525,19 @@ class _EdColourFoldState extends State<EdColourFold> {
                   decoration: BoxDecoration(
                     color: widget.selected,
                     shape: BoxShape.circle,
-                    border: Border.all(color: B.line),
+                    border: Border.all(color: context.tc.line),
                   ),
                 ),
                 const SizedBox(width: 6),
                 AnimatedRotation(
                   turns: _open ? .5 : 0,
                   duration: const Duration(milliseconds: 150),
-                  child: ic('cdown', size: 18, sw: 2.4, color: B.placeholder),
+                  child: ic(
+                    'cdown',
+                    size: 18,
+                    sw: 2.4,
+                    color: context.tc.placeholder,
+                  ),
                 ),
               ],
             ),

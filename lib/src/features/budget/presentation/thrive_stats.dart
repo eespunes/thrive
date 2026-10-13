@@ -395,10 +395,10 @@ extension _ThriveStats on _ThriveHomeState {
     final up = v >= 0;
     final bg = dark
         ? (good ? const Color(0x2922C77C) : const Color(0x2EE2526A))
-        : (good ? B.greenSoft : B.redSoft);
+        : (good ? context.tc.greenSoft : context.tc.redSoft);
     final fg = dark
         ? (good ? const Color(0xff54d99a) : const Color(0xffff8fa3))
-        : (good ? B.greenText : B.red);
+        : (good ? context.tc.greenText : context.tc.red);
     return Container(
       padding: const EdgeInsets.fromLTRB(5, 3, 7, 3),
       decoration: BoxDecoration(
@@ -443,16 +443,16 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 17, 18, 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xff0FA08E), B.deep, Color(0xff1684B4)],
+          colors: [Color(0xff0FA08E), context.tc.deep, Color(0xff1684B4)],
           stops: [0, 0.55, 1],
         ),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: B.deep.withValues(alpha: .5),
+            color: context.tc.deep.withValues(alpha: .5),
             blurRadius: 34,
             offset: const Offset(0, 18),
             spreadRadius: -22,
@@ -587,7 +587,7 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: B.ink,
+        color: context.tc.ink,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
@@ -602,10 +602,13 @@ extension _ThriveStats on _ThriveHomeState {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: Color(0xffcbd5e1),
+              color: context.tc.pick(
+                const Color(0xffcbd5e1),
+                context.tc.toggleOff,
+              ),
             ),
           ),
           Text(
@@ -633,8 +636,8 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.fromLTRB(13, 13, 13, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(17),
       ),
       child: Column(
@@ -657,11 +660,11 @@ extension _ThriveStats on _ThriveHomeState {
                 child: Text(
                   label.toUpperCase(),
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .4,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ),
@@ -683,10 +686,10 @@ extension _ThriveStats on _ThriveHomeState {
                 child: Text(
                   sub,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ),
@@ -709,7 +712,7 @@ extension _ThriveStats on _ThriveHomeState {
         : 'received · ${_kEur(_statsPerMonth(p).income)}/mo',
     delta: _statsChangePct(p.receivedIncome, p.prev?.receivedIncome),
     icon: 'wallet',
-    color: B.green,
+    color: context.tc.green,
     invert: false,
   );
 
@@ -721,7 +724,7 @@ extension _ThriveStats on _ThriveHomeState {
         : '${_kEur(_statsPerMonth(p).expenses)}/mo',
     delta: _statsChangePct(p.expenses, p.prev?.expenses),
     icon: 'cart',
-    color: B.red,
+    color: context.tc.red,
     invert: true,
   );
 
@@ -731,7 +734,7 @@ extension _ThriveStats on _ThriveHomeState {
     sub: 'of income kept',
     delta: p.prev == null ? null : p.rate - p.prev!.rate,
     icon: 'gauge',
-    color: B.primary,
+    color: context.tc.primary,
     invert: false,
   );
 
@@ -761,10 +764,10 @@ extension _ThriveStats on _ThriveHomeState {
       const SizedBox(width: 5),
       Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
-          color: B.soft2,
+          color: context.tc.soft2,
         ),
       ),
     ],
@@ -780,8 +783,8 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.fromLTRB(15, 15, 15, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(19),
       ),
       child: Column(
@@ -802,33 +805,33 @@ extension _ThriveStats on _ThriveHomeState {
                   ),
                   Text(
                     caption,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ],
               ),
               Row(
                 children: [
-                  _legendDot(B.green, 'In'),
+                  _legendDot(context.tc.green, 'In'),
                   const SizedBox(width: 11),
-                  _legendDot(B.red, 'Out'),
+                  _legendDot(context.tc.red, 'Out'),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (points.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Text(
                 'Not enough data yet.',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             )
@@ -857,8 +860,8 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.fromLTRB(13, 13, 13, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(17),
       ),
       child: Column(
@@ -880,10 +883,10 @@ extension _ThriveStats on _ThriveHomeState {
                 child: Text(
                   c.title,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ),
@@ -904,10 +907,10 @@ extension _ThriveStats on _ThriveHomeState {
             children: [
               Text(
                 '${c.share.round()}% of spending',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
               if (c.delta != null)
@@ -916,7 +919,7 @@ extension _ThriveStats on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: c.delta! > 0 ? B.red : B.greenText,
+                    color: c.delta! > 0 ? context.tc.red : context.tc.greenText,
                   ),
                 ),
             ],
@@ -973,35 +976,35 @@ extension _ThriveStats on _ThriveHomeState {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'WHERE IT WENT',
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             Text(
               eur(p.expenses, cents: false),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
         if (rows.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text(
               'No expenses recorded yet.',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           )
@@ -1015,8 +1018,8 @@ extension _ThriveStats on _ThriveHomeState {
     return Container(
       padding: const EdgeInsets.fromLTRB(15, 4, 15, 6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(19),
       ),
       child: Column(
@@ -1032,8 +1035,8 @@ extension _ThriveStats on _ThriveHomeState {
           for (final a in p.byYear.reversed)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 9),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: B.faint)),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: context.tc.faint)),
               ),
               child: Row(
                 children: [
@@ -1051,10 +1054,10 @@ extension _ThriveStats on _ThriveHomeState {
                     child: Text(
                       '${_kEur(a.income)} in \u00b7 ${_kEur(a.expenses)} out',
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ),
@@ -1064,7 +1067,7 @@ extension _ThriveStats on _ThriveHomeState {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: a.net >= 0 ? B.greenText : B.red,
+                      color: a.net >= 0 ? context.tc.greenText : context.tc.red,
                     ),
                   ),
                   SizedBox(
@@ -1072,10 +1075,10 @@ extension _ThriveStats on _ThriveHomeState {
                     child: Text(
                       '${a.rate.round()}%',
                       textAlign: TextAlign.right,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ),

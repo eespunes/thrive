@@ -108,11 +108,11 @@ class _AuthScreenState extends State<_AuthScreen> {
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
               label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
           ),
@@ -130,17 +130,17 @@ class _AuthScreenState extends State<_AuthScreen> {
               widget.state.dismissError();
             },
             onSubmitted: (_) => (onSubmitted ?? _emailAuth)(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: B.ink,
+              color: context.tc.ink,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: const TextStyle(
+              hintStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
               ),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
@@ -151,11 +151,11 @@ class _AuthScreenState extends State<_AuthScreen> {
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.line),
+                borderSide: BorderSide(color: context.tc.line),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.primary),
+                borderSide: BorderSide(color: context.tc.primary),
               ),
             ),
           ),
@@ -168,7 +168,7 @@ class _AuthScreenState extends State<_AuthScreen> {
   Widget build(BuildContext context) {
     final reg = _register;
     return Material(
-      color: B.page,
+      color: context.tc.page,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.only(
@@ -183,7 +183,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                 bottom: Radius.circular(30),
               ),
               child: Container(
-                decoration: const BoxDecoration(gradient: B.grad),
+                decoration: BoxDecoration(gradient: context.tc.grad),
                 child: Stack(
                   children: [
                     // soft radial highlight in the top-right corner
@@ -211,7 +211,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                                 height: 50,
                                 padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: context.tc.surface,
                                   borderRadius: BorderRadius.circular(15),
                                   boxShadow: [
                                     BoxShadow(
@@ -284,11 +284,11 @@ class _AuthScreenState extends State<_AuthScreen> {
                 children: [
                   Text(
                     reg ? 'Create your account' : 'Welcome back',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -.3,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -296,10 +296,10 @@ class _AuthScreenState extends State<_AuthScreen> {
                     reg
                         ? 'Set up your family workspace in seconds.'
                         : 'Sign in to your family workspace.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -310,21 +310,21 @@ class _AuthScreenState extends State<_AuthScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.tc.surface,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: B.line),
+                        border: Border.all(color: context.tc.line),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           _googleLogo(size: 19),
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             'Continue with Google',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
-                              color: B.ink,
+                              color: context.tc.ink,
                             ),
                           ),
                         ],
@@ -336,23 +336,23 @@ class _AuthScreenState extends State<_AuthScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     child: Row(
                       children: [
-                        const Expanded(
-                          child: Divider(color: B.line, height: 1),
+                        Expanded(
+                          child: Divider(color: context.tc.line, height: 1),
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: const Text(
+                          child: Text(
                             'OR',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: .5,
-                              color: B.muted,
+                              color: context.tc.muted,
                             ),
                           ),
                         ),
-                        const Expanded(
-                          child: Divider(color: B.line, height: 1),
+                        Expanded(
+                          child: Divider(color: context.tc.line, height: 1),
                         ),
                       ],
                     ),
@@ -393,7 +393,9 @@ class _AuthScreenState extends State<_AuthScreen> {
                       margin: const EdgeInsets.only(top: 2),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       decoration: BoxDecoration(
-                        color: B.primary.withValues(alpha: _busy ? .7 : 1),
+                        color: context.tc.primary.withValues(
+                          alpha: _busy ? .7 : 1,
+                        ),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
@@ -422,16 +424,16 @@ class _AuthScreenState extends State<_AuthScreen> {
                           text: reg
                               ? 'Already have an account? '
                               : 'New to Thrive? ',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
-                            color: B.soft2,
+                            color: context.tc.soft2,
                           ),
                           children: [
                             TextSpan(
                               text: reg ? 'Sign in' : 'Create one',
-                              style: const TextStyle(
-                                color: B.primary,
+                              style: TextStyle(
+                                color: context.tc.primary,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -441,7 +443,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Center(
+                  Center(
                     child: Text(
                       'Email auth syncs across devices when Firebase is configured',
                       textAlign: TextAlign.center,
@@ -449,7 +451,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
                         height: 1.5,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ),

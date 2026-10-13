@@ -316,7 +316,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
       return (
         show: false,
         pct: 0,
-        col: B.muted,
+        col: context.tc.muted,
         short: '',
         alt:
             '${kMonthsEn[s.monthIdx]} income so far: '
@@ -327,7 +327,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
       return (
         show: false,
         pct: 0,
-        col: B.muted,
+        col: context.tc.muted,
         short: '',
         alt:
             '${eur(b.total - orig, cents: false)} put aside → '
@@ -338,17 +338,17 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
       return (
         show: false,
         pct: 0,
-        col: B.muted,
+        col: context.tc.muted,
         short: '',
         alt: '${eur(total, cents: false)} planned with this',
       );
     }
     final pct = (total / b.cap! * 100).round();
     final col = pct > 100
-        ? B.red
+        ? context.tc.red
         : pct >= 85
-        ? B.amber
-        : B.soft2;
+        ? context.tc.amber
+        : context.tc.soft2;
     return (
       show: true,
       pct: pct,
@@ -480,10 +480,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
         ? null
         : entryAmountError(_amount.text);
     final tone = n == null
-        ? B.amountEmpty
+        ? context.tc.amountEmpty
         : _kind == 'income'
-        ? B.green
-        : B.ink;
+        ? context.tc.green
+        : context.tc.ink;
     final cap = _capInfo;
     final capLine = cap.show ? cap.short : cap.alt;
     return Column(
@@ -495,7 +495,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           color: tone,
           onChanged: (_) => setState(() {}),
           caption: err ?? 'Amount in euros',
-          captionColor: err != null ? B.red : B.muted,
+          captionColor: err != null ? context.tc.red : context.tc.muted,
         ),
         if (err == null && capLine != null && capLine.isNotEmpty)
           Padding(
@@ -506,7 +506,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: cap.show ? cap.col : B.muted,
+                color: cap.show ? cap.col : context.tc.muted,
               ),
             ),
           ),
@@ -568,10 +568,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               child: Text(
                 'Moving recounts both caps from ${kMonthsEn[s.monthIdx]} '
                 'onward. History stays.',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ),
@@ -649,8 +649,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     final open = _open == id;
     return Container(
       decoration: BoxDecoration(
-        color: open ? B.rowOpen : Colors.white,
-        border: divider ? const Border(top: BorderSide(color: B.line)) : null,
+        color: open ? context.tc.rowOpen : context.tc.surface,
+        border: divider
+            ? Border(top: BorderSide(color: context.tc.line))
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -669,10 +671,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                     height: 32,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: B.soft,
+                      color: context.tc.soft,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: ic(icon, size: 16, sw: 2.1, color: B.deep),
+                    child: ic(icon, size: 16, sw: 2.1, color: context.tc.deep),
                   ),
                   const SizedBox(width: 11),
                   Expanded(
@@ -682,10 +684,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                       children: [
                         Text(
                           label,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                         Text(
@@ -698,7 +700,9 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                             fontWeight: FontWeight.w600,
                             color:
                                 valueColor ??
-                                (valueSet ? B.soft2 : B.placeholder),
+                                (valueSet
+                                    ? context.tc.soft2
+                                    : context.tc.placeholder),
                           ),
                         ),
                       ],
@@ -707,7 +711,12 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                   AnimatedRotation(
                     turns: open ? .5 : 0,
                     duration: const Duration(milliseconds: 150),
-                    child: ic('cdown', size: 16, sw: 2.2, color: B.placeholder),
+                    child: ic(
+                      'cdown',
+                      size: 16,
+                      sw: 2.2,
+                      color: context.tc.placeholder,
+                    ),
                   ),
                 ],
               ),
@@ -723,23 +732,22 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
     );
   }
 
-  Widget _note(String text, {Color bg = B.page, Color fg = B.soft2}) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            color: fg,
-            height: 1.45,
-          ),
-        ),
-      );
+  Widget _note(String text, {Color? bg, Color? fg}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: bg ?? ThriveColors.current.page,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: fg ?? ThriveColors.current.soft2,
+        height: 1.45,
+      ),
+    ),
+  );
 
   /// Day tray (#288): a real month calendar (Mon-first, weekends muted),
   /// the weekend question (#289) and an explicit Unscheduled chip.
@@ -762,7 +770,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           label: o.$2,
           small: true,
           selected: _shift == o.$1,
-          tone: B.amber,
+          tone: context.tc.amber,
           onTap: () => setState(() => _shift = o.$1),
         ),
     ]);
@@ -776,10 +784,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                 child: Text(
                   h,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ),
@@ -804,8 +812,8 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               decoration: BoxDecoration(
-                color: B.amberSoft,
-                border: Border.all(color: B.amberLine),
+                color: context.tc.amberSoft,
+                border: Border.all(color: context.tc.amberLine),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -815,10 +823,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                     'The ${ordinal(_day!)} is a '
                     '${DateTime(s.year, s.monthIdx + 1, d).weekday == DateTime.saturday ? 'Saturday' : 'Sunday'}. '
                     'Should it move?',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: B.amberText,
+                      color: context.tc.amberText,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -827,12 +835,12 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               ),
             )
           else ...[
-            const Text(
+            Text(
               'If it lands on a weekend in other months',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const SizedBox(height: 6),
@@ -874,9 +882,11 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: sel ? B.primary : Colors.transparent,
+            color: sel ? context.tc.primary : Colors.transparent,
             shape: BoxShape.circle,
-            border: resolved ? Border.all(color: B.primary, width: 1.5) : null,
+            border: resolved
+                ? Border.all(color: context.tc.primary, width: 1.5)
+                : null,
           ),
           child: Text(
             '$i',
@@ -886,10 +896,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               color: sel
                   ? Colors.white
                   : resolved
-                  ? B.deep
+                  ? context.tc.deep
                   : _isWeekend(i)
-                  ? B.placeholder
-                  : B.ink,
+                  ? context.tc.placeholder
+                  : context.tc.ink,
             ),
           ),
         ),
@@ -997,13 +1007,13 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               ),
           ]),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'LAST MONTH',
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .4,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 6),
@@ -1037,8 +1047,8 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             anchorOrd: _anchorOrd,
             endOrd: _endOrd,
           ),
-          bg: _endBad ? B.redSoft : B.page,
-          fg: _endBad ? B.red : B.soft2,
+          bg: _endBad ? context.tc.redSoft : context.tc.page,
+          fg: _endBad ? context.tc.red : context.tc.soft2,
         ),
       ],
     );
@@ -1058,10 +1068,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             child: Text(
               'The original account was deleted — this entry moved to '
               '${s.accByKey(_account).short}.',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
-                color: B.amberText,
+                color: context.tc.amberText,
               ),
             ),
           ),
@@ -1121,19 +1131,19 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             margin: const EdgeInsets.only(bottom: 9),
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
             decoration: BoxDecoration(
-              color: B.orangeSoft,
+              color: context.tc.orangeSoft,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: B.amberLine),
+              border: Border.all(color: context.tc.amberLine),
             ),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'This card was deleted from the wallet.',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: B.orangeText,
+                      color: context.tc.orangeText,
                     ),
                   ),
                 ),
@@ -1146,7 +1156,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: B.ink,
+                      color: context.tc.ink,
                       borderRadius: BorderRadius.circular(9),
                     ),
                     child: const Text(
@@ -1167,7 +1177,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             key: const ValueKey('entry-card-none'),
             label: 'No card',
             selected: _cardId == null,
-            leading: dot(B.barTrack),
+            leading: dot(context.tc.barTrack),
             onTap: () => setState(() => _cardId = null),
           ),
           for (final c in s.cards)
@@ -1213,7 +1223,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
           value: _repeatValue,
           valueSet: true,
           tray: _trayRepeat(),
-          valueColor: _endBad ? B.red : null,
+          valueColor: _endBad ? context.tc.red : null,
         ),
         _detailRow(
           id: 'account',
@@ -1231,7 +1241,7 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
             value: _cardValue,
             valueSet: _cardId != null,
             tray: _trayCard(),
-            valueColor: cardGone ? B.orangeText : null,
+            valueColor: cardGone ? context.tc.orangeText : null,
           ),
       ]),
     );
@@ -1261,10 +1271,10 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
         ],
         Text(
           'Added by $who$when',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w700,
-            color: B.soft2,
+            color: context.tc.soft2,
           ),
         ),
       ],
@@ -1304,9 +1314,9 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
         edNotice(
           'Part of a series — edits apply ${kMonthsEn[s.monthIdx]} onward, '
           'never backwards.',
-          bg: B.infoSoft,
-          fg: B.infoText,
-          border: B.infoLine,
+          bg: context.tc.infoSoft,
+          fg: context.tc.infoText,
+          border: context.tc.infoLine,
         ),
       _amountHero(),
       _what(),
@@ -1330,17 +1340,17 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: B.amberSoft,
+                  color: context.tc.amberSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '🔒 ${kMonthsEn[s.monthIdx].toUpperCase()} · CLOSED — this '
                   'entry is a snapshot. Reopen the month from Money to edit.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
-                    color: B.amberText,
+                    color: context.tc.amberText,
                   ),
                 ),
               ),
@@ -1391,9 +1401,13 @@ class _EntryScopeSheet extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
           constraints: const BoxConstraints(minHeight: 48),
           decoration: BoxDecoration(
-            color: deleting ? const Color(0xfffff5f5) : const Color(0xfff8fafc),
+            color: deleting
+                ? const Color(0xfffff5f5)
+                : context.tc.pick(const Color(0xfff8fafc), context.tc.rowOpen),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: deleting ? B.redLine : B.line),
+            border: Border.all(
+              color: deleting ? context.tc.redLine : context.tc.line,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1403,7 +1417,7 @@ class _EntryScopeSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: deleting ? B.red : B.ink,
+                  color: deleting ? context.tc.red : context.tc.ink,
                 ),
               ),
               const SizedBox(height: 3),
@@ -1412,7 +1426,7 @@ class _EntryScopeSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: deleting ? const Color(0xff9b6b6b) : B.soft2,
+                  color: deleting ? const Color(0xff9b6b6b) : context.tc.soft2,
                   height: 1.45,
                 ),
               ),
@@ -1454,7 +1468,7 @@ class _EntryScopeSheet extends StatelessWidget {
             constraints: const BoxConstraints(minHeight: 44),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xfff1f5f9),
+              color: context.tc.pick(const Color(0xfff1f5f9), context.tc.faint),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(

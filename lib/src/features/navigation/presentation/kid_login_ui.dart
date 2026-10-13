@@ -24,7 +24,7 @@ Future<T?> showKidSheet<T>(
       barrierDismissible: dismissible,
       barrierColor: const Color(0x73101828),
       builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.tc.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
@@ -52,8 +52,8 @@ Future<T?> showKidSheet<T>(
           16,
           20 + MediaQuery.of(ctx).padding.bottom,
         ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: context.tc.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
         child: SingleChildScrollView(
@@ -67,7 +67,10 @@ Future<T?> showKidSheet<T>(
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xffe2e8f0),
+                    color: context.tc.pick(
+                      const Color(0xffe2e8f0),
+                      context.tc.line,
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -87,11 +90,11 @@ Widget kidSheetTitle(String title, [String? body]) => Column(
   children: [
     Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w800,
         letterSpacing: -.3,
-        color: B.ink,
+        color: ThriveColors.current.ink,
       ),
     ),
     if (body != null)
@@ -99,10 +102,10 @@ Widget kidSheetTitle(String title, [String? body]) => Column(
         padding: const EdgeInsets.fromLTRB(0, 3, 0, 12),
         child: Text(
           body,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
-            color: B.muted,
+            color: ThriveColors.current.muted,
             height: 1.35,
           ),
         ),
@@ -115,10 +118,26 @@ Widget kidSheetTitle(String title, [String? body]) => Column(
 enum KidTone { teal, amber, red, grey }
 
 ({Color bg, Color line, Color fg}) _kidToneColors(KidTone t) => switch (t) {
-  KidTone.teal => (bg: B.soft, line: const Color(0xffc4e8e2), fg: B.deep),
-  KidTone.amber => (bg: B.amberSoft, line: B.amberLine, fg: B.amberText),
-  KidTone.red => (bg: B.redSoft, line: B.redLine, fg: B.red),
-  KidTone.grey => (bg: B.faint, line: B.line, fg: B.soft2),
+  KidTone.teal => (
+    bg: ThriveColors.current.soft,
+    line: const Color(0xffc4e8e2),
+    fg: ThriveColors.current.deep,
+  ),
+  KidTone.amber => (
+    bg: ThriveColors.current.amberSoft,
+    line: ThriveColors.current.amberLine,
+    fg: ThriveColors.current.amberText,
+  ),
+  KidTone.red => (
+    bg: ThriveColors.current.redSoft,
+    line: ThriveColors.current.redLine,
+    fg: ThriveColors.current.red,
+  ),
+  KidTone.grey => (
+    bg: ThriveColors.current.faint,
+    line: ThriveColors.current.line,
+    fg: ThriveColors.current.soft2,
+  ),
 };
 
 /// An inline notice box (teal info, amber offline, red error).
@@ -228,10 +247,10 @@ Widget studioInfoRow(
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w700,
-            color: B.muted,
+            color: ThriveColors.current.muted,
           ),
         ),
         const SizedBox(width: 10),
@@ -244,10 +263,10 @@ Widget studioInfoRow(
                   value ?? '',
                   textAlign: TextAlign.right,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: ThriveColors.current.ink,
                   ),
                 ),
           ),
@@ -266,15 +285,17 @@ Widget kidActionRow({
   required VoidCallback? onTap,
   bool danger = false,
 }) {
-  final fg = onTap == null ? B.muted : (danger ? B.red : B.ink);
+  final fg = onTap == null
+      ? ThriveColors.current.muted
+      : (danger ? ThriveColors.current.red : ThriveColors.current.ink);
   return GestureDetector(
     key: key,
     behavior: HitTestBehavior.opaque,
     onTap: onTap,
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 9),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: B.track)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: ThriveColors.current.track)),
       ),
       child: Row(
         children: [
@@ -282,7 +303,9 @@ Widget kidActionRow({
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: danger ? B.redSoft : B.faint,
+              color: danger
+                  ? ThriveColors.current.redSoft
+                  : ThriveColors.current.faint,
               borderRadius: BorderRadius.circular(9),
             ),
             child: Center(
@@ -290,7 +313,9 @@ Widget kidActionRow({
                 icon,
                 size: 13,
                 sw: 2.2,
-                color: danger ? B.red : B.text,
+                color: danger
+                    ? ThriveColors.current.red
+                    : ThriveColors.current.text,
               ),
             ),
           ),
@@ -311,16 +336,16 @@ Widget kidActionRow({
                 if (sub != null)
                   Text(
                     sub,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: ThriveColors.current.muted,
                     ),
                   ),
               ],
             ),
           ),
-          ic('cright', size: 13, sw: 2.2, color: B.muted),
+          ic('cright', size: 13, sw: 2.2, color: ThriveColors.current.muted),
         ],
       ),
     ),
@@ -336,9 +361,9 @@ Widget kidConsequenceList(
   ConsequenceKind kind = ConsequenceKind.keep,
 }) {
   final (fg, glyph) = switch (kind) {
-    ConsequenceKind.lose => (B.red, 'x'),
-    ConsequenceKind.keep => (B.green, 'check'),
-    ConsequenceKind.gets => (B.primary, 'check'),
+    ConsequenceKind.lose => (ThriveColors.current.red, 'x'),
+    ConsequenceKind.keep => (ThriveColors.current.green, 'check'),
+    ConsequenceKind.gets => (ThriveColors.current.primary, 'check'),
   };
   return Padding(
     padding: const EdgeInsets.only(bottom: 10),
@@ -357,10 +382,10 @@ Widget kidConsequenceList(
                 Expanded(
                   child: Text(
                     it,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: B.text,
+                      color: ThriveColors.current.text,
                     ),
                   ),
                 ),
@@ -386,9 +411,16 @@ Widget kidButton({
   final bg = secondary
       ? Colors.white
       : (!enabled && !busy
-            ? const Color(0xffe2e8f0)
-            : (danger ? B.red : B.primary));
-  final fg = secondary ? B.text : (!enabled && !busy ? B.muted : Colors.white);
+            ? ThriveColors.current.pick(
+                const Color(0xffe2e8f0),
+                ThriveColors.current.line,
+              )
+            : (danger
+                  ? ThriveColors.current.red
+                  : ThriveColors.current.primary));
+  final fg = secondary
+      ? ThriveColors.current.text
+      : (!enabled && !busy ? ThriveColors.current.muted : Colors.white);
   return GestureDetector(
     key: key,
     behavior: HitTestBehavior.opaque,
@@ -398,7 +430,7 @@ Widget kidButton({
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bg,
-        border: secondary ? Border.all(color: B.line) : null,
+        border: secondary ? Border.all(color: ThriveColors.current.line) : null,
         borderRadius: BorderRadius.circular(13),
       ),
       child: Row(
@@ -436,10 +468,10 @@ Widget kidCancelLink(BuildContext ctx, {String label = 'Cancel', Key? key}) =>
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w800,
-            color: B.soft2,
+            color: ThriveColors.current.soft2,
           ),
         ),
       ),
@@ -470,8 +502,11 @@ Widget kidToggleRow({
     margin: const EdgeInsets.only(bottom: 7),
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: const Color(0xfff8fafc),
-      border: Border.all(color: B.track),
+      color: ThriveColors.current.pick(
+        const Color(0xfff8fafc),
+        ThriveColors.current.rowOpen,
+      ),
+      border: Border.all(color: ThriveColors.current.track),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Row(
@@ -486,22 +521,32 @@ Widget kidToggleRow({
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: disabledReason != null ? B.muted : B.ink,
+                  color: disabledReason != null
+                      ? ThriveColors.current.muted
+                      : ThriveColors.current.ink,
                 ),
               ),
               Row(
                 children: [
                   if (disabledReason != null) ...[
-                    ic('lock', size: 10, sw: 2.4, color: B.muted),
+                    ic(
+                      'lock',
+                      size: 10,
+                      sw: 2.4,
+                      color: ThriveColors.current.muted,
+                    ),
                     const SizedBox(width: 4),
                   ],
                   Expanded(
                     child: Text(
                       disabledReason ?? busyText!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xff8a96a8),
+                        color: ThriveColors.current.pick(
+                          const Color(0xff8a96a8),
+                          ThriveColors.current.placeholder,
+                        ),
                       ),
                     ),
                   ),
@@ -512,10 +557,13 @@ Widget kidToggleRow({
         ),
         const SizedBox(width: 9),
         if (busyText != null)
-          const SizedBox(
+          SizedBox(
             width: 18,
             height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: B.primary),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: ThriveColors.current.primary,
+            ),
           )
         else
           Opacity(
@@ -526,14 +574,19 @@ Widget kidToggleRow({
               padding: const EdgeInsets.all(3),
               alignment: value ? Alignment.centerRight : Alignment.centerLeft,
               decoration: BoxDecoration(
-                color: value ? B.primary : const Color(0xffcbd5e1),
+                color: value
+                    ? ThriveColors.current.primary
+                    : ThriveColors.current.pick(
+                        const Color(0xffcbd5e1),
+                        ThriveColors.current.toggleOff,
+                      ),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Container(
                 width: 19,
                 height: 19,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: ThriveColors.current.surface,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -565,10 +618,10 @@ Widget kidField({
             child: Text(
               error,
               key: const ValueKey('kid-field-error'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: B.red,
+                color: ThriveColors.current.red,
               ),
             ),
           )
@@ -577,10 +630,10 @@ Widget kidField({
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               helper,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: ThriveColors.current.muted,
               ),
             ),
           ),
@@ -622,9 +675,9 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
       PasswordStrength.strong => 4,
     };
     final tone = switch (st) {
-      PasswordStrength.weak => B.red,
-      PasswordStrength.okay => B.amber,
-      _ => B.green,
+      PasswordStrength.weak => context.tc.red,
+      PasswordStrength.okay => context.tc.amber,
+      _ => context.tc.green,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,8 +686,10 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
         studioSectionLabel(widget.label),
         Container(
           decoration: BoxDecoration(
-            color: B.page,
-            border: Border.all(color: widget.error != null ? B.red : B.line),
+            color: context.tc.page,
+            border: Border.all(
+              color: widget.error != null ? context.tc.red : context.tc.line,
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -650,12 +705,12 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
                     setState(() {});
                     widget.onChanged?.call();
                   },
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
@@ -666,7 +721,7 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
                     hintStyle: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ),
@@ -681,7 +736,7 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
                     _show ? 'eyeoff' : 'eye',
                     size: 16,
                     sw: 2.2,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ),
@@ -700,15 +755,15 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: B.soft,
+                    color: context.tc.soft,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Generate',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: B.deep,
+                      color: context.tc.deep,
                     ),
                   ),
                 ),
@@ -726,7 +781,7 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
                     height: 4,
                     margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
                     decoration: BoxDecoration(
-                      color: i < filled ? tone : B.track,
+                      color: i < filled ? tone : context.tc.track,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -741,7 +796,7 @@ class _KidPasswordFieldState extends State<KidPasswordField> {
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
-              color: widget.error != null ? B.red : tone,
+              color: widget.error != null ? context.tc.red : tone,
             ),
           ),
         ],

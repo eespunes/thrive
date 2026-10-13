@@ -167,7 +167,7 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(11),
               border: Border.all(color: const Color(0xffe5e9ef)),
             ),
@@ -185,8 +185,14 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
                   size: 13,
                   sw: 2.4,
                   color: fixed || !picked
-                      ? const Color(0xffcbd5e1)
-                      : const Color(0xff94a3b8),
+                      ? context.tc.pick(
+                          const Color(0xffcbd5e1),
+                          context.tc.toggleOff,
+                        )
+                      : context.tc.pick(
+                          const Color(0xff94a3b8),
+                          context.tc.placeholder,
+                        ),
                 ),
                 const SizedBox(width: 9),
                 Expanded(
@@ -195,7 +201,7 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: picked ? B.ink : const Color(0xff64748b),
+                      color: picked ? context.tc.ink : const Color(0xff64748b),
                     ),
                   ),
                 ),
@@ -210,11 +216,11 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
 
   Widget _tag(String text) => Text(
     text.toUpperCase(),
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 9,
       fontWeight: FontWeight.w800,
       letterSpacing: .4,
-      color: Color(0xff94a3b8),
+      color: context.tc.pick(const Color(0xff94a3b8), context.tc.placeholder),
     ),
   );
 
@@ -222,7 +228,7 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
     width: 20,
     height: 20,
     decoration: BoxDecoration(
-      color: B.primary,
+      color: context.tc.primary,
       borderRadius: BorderRadius.circular(6),
     ),
     child: Center(child: ic('check', size: 12, sw: 3, color: Colors.white)),
@@ -295,10 +301,13 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
             'Pick $kNavPickCount of ${kNavSections.length} · unpicked '
             'sections stay one tap away in More',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: Color(0xff94a3b8),
+              color: context.tc.pick(
+                const Color(0xff94a3b8),
+                context.tc.placeholder,
+              ),
             ),
           ),
         ),

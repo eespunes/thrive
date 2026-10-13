@@ -143,7 +143,7 @@ class SettingsListRow extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: B.page,
+          color: context.tc.page,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -157,20 +157,23 @@ class SettingsListRow extends StatelessWidget {
                   Text(
                     label,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   if (sub != null && sub!.isNotEmpty)
                     Text(
                       sub!,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xff8a96a8),
+                        color: context.tc.pick(
+                          const Color(0xff8a96a8),
+                          context.tc.placeholder,
+                        ),
                       ),
                     ),
                 ],
@@ -182,8 +185,13 @@ class SettingsListRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: warnVal
-                      ? B.amberSoft
-                      : (goodVal ? B.greenSoft : const Color(0xffe8ecf2)),
+                      ? context.tc.amberSoft
+                      : (goodVal
+                            ? context.tc.greenSoft
+                            : context.tc.pick(
+                                const Color(0xffe8ecf2),
+                                context.tc.line,
+                              )),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -192,15 +200,23 @@ class SettingsListRow extends StatelessWidget {
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     color: warnVal
-                        ? B.amberText
-                        : (goodVal ? B.greenText : B.soft2),
+                        ? context.tc.amberText
+                        : (goodVal ? context.tc.greenText : context.tc.soft2),
                   ),
                 ),
               ),
             ],
             if (onTap != null && !noChev) ...[
               const SizedBox(width: 4),
-              ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+              ic(
+                'cright',
+                size: 14,
+                sw: 2.2,
+                color: context.tc.pick(
+                  const Color(0xffc2cad6),
+                  context.tc.toggleOff,
+                ),
+              ),
             ],
           ],
         ),
@@ -266,14 +282,19 @@ class _StudioToggle extends StatelessWidget {
           padding: const EdgeInsets.all(2.5),
           alignment: on ? Alignment.centerRight : Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: on ? B.primary : const Color(0xffcfd6df),
+            color: on
+                ? context.tc.primary
+                : context.tc.pick(
+                    const Color(0xffcfd6df),
+                    context.tc.toggleOff,
+                  ),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Container(
             width: 20,
             height: 20,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            decoration: BoxDecoration(
+              color: context.tc.surface,
               shape: BoxShape.circle,
             ),
           ),
@@ -305,16 +326,16 @@ class _StarStepper extends StatelessWidget {
       height: 26,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: ThriveColors.current.surface,
+        border: Border.all(color: ThriveColors.current.line),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         glyph,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w800,
-          color: B.text,
+          color: ThriveColors.current.text,
         ),
       ),
     ),
@@ -331,10 +352,10 @@ class _StarStepper extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             '★ $stars',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: B.amberText,
+              color: context.tc.amberText,
             ),
           ),
         ),
@@ -389,11 +410,11 @@ Widget studioSectionLabel(String label, {EdgeInsets? padding}) => Padding(
   padding: padding ?? const EdgeInsets.only(bottom: 6, top: 2),
   child: Text(
     label.toUpperCase(),
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 10.5,
       fontWeight: FontWeight.w800,
       letterSpacing: .4,
-      color: B.muted,
+      color: ThriveColors.current.muted,
     ),
   ),
 );
@@ -408,7 +429,7 @@ Widget studioChip({
   Color? tone,
   bool expand = false,
 }) {
-  final t = tone ?? B.primary;
+  final t = tone ?? ThriveColors.current.primary;
   final chip = GestureDetector(
     key: key,
     behavior: HitTestBehavior.opaque,
@@ -418,7 +439,9 @@ Widget studioChip({
       alignment: expand ? Alignment.center : null,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
-        color: selected ? t.withValues(alpha: .12) : Colors.white,
+        color: selected
+            ? t.withValues(alpha: .12)
+            : ThriveColors.current.surface,
         border: Border.all(
           color: selected ? t : const Color(0xffe2e7ee),
           width: 1.5,
@@ -456,19 +479,22 @@ Widget studioToggleRow({
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: ThriveColors.current.ink,
               ),
             ),
             if (sub != null && sub.isNotEmpty)
               Text(
                 sub,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xff8a96a8),
+                  color: ThriveColors.current.pick(
+                    const Color(0xff8a96a8),
+                    ThriveColors.current.placeholder,
+                  ),
                 ),
               ),
           ],
@@ -487,8 +513,11 @@ Widget studioToggleRow({
             margin: const EdgeInsets.only(bottom: 7),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xfff8fafc),
-              border: Border.all(color: B.track),
+              color: ThriveColors.current.pick(
+                const Color(0xfff8fafc),
+                ThriveColors.current.rowOpen,
+              ),
+              border: Border.all(color: ThriveColors.current.track),
               borderRadius: BorderRadius.circular(12),
             ),
             child: row,
@@ -515,8 +544,8 @@ Widget studioTextField({
   return Container(
     margin: margin,
     decoration: BoxDecoration(
-      color: B.page,
-      border: Border.all(color: B.line),
+      color: ThriveColors.current.page,
+      border: Border.all(color: ThriveColors.current.line),
       borderRadius: BorderRadius.circular(12),
     ),
     child: TextField(
@@ -537,16 +566,16 @@ Widget studioTextField({
           vertical: 12,
         ),
         hintText: hint,
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: B.muted,
+          color: ThriveColors.current.muted,
         ),
       ),
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13.5,
         fontWeight: FontWeight.w700,
-        color: B.ink,
+        color: ThriveColors.current.ink,
       ),
     ),
   );
@@ -559,8 +588,8 @@ Widget studioCard({required String title, required List<Widget> children}) {
     margin: const EdgeInsets.only(bottom: 10),
     padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: B.line),
+      color: ThriveColors.current.surface,
+      border: Border.all(color: ThriveColors.current.line),
       borderRadius: BorderRadius.circular(16),
     ),
     child: Column(

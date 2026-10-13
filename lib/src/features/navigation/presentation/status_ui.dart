@@ -23,7 +23,10 @@ enum StatusChipKind {
   Color lightTrack() => switch (this) {
     saving || syncing => const Color(0xffb7e3db),
     loading => const Color(0xffbfdcea),
-    _ => const Color(0xffe2e8f0),
+    _ => ThriveColors.current.pick(
+      const Color(0xffe2e8f0),
+      ThriveColors.current.line,
+    ),
   };
 
   bool get spins => this == saving || this == syncing || this == loading;
@@ -130,7 +133,12 @@ class StatusChip extends StatelessWidget {
               style: TextStyle(
                 fontSize: compact ? 11.5 : 13.5,
                 fontWeight: FontWeight.w700,
-                color: dark ? const Color(0xfff8fafc) : B.ink,
+                color: dark
+                    ? context.tc.pick(
+                        const Color(0xfff8fafc),
+                        context.tc.rowOpen,
+                      )
+                    : context.tc.ink,
               ),
             ),
           ),
@@ -172,17 +180,33 @@ Widget statusChipSwitcher(Widget? chip) => AnimatedSwitcher(
 
 /// The error sheets' tones: the icon dot, its tile and its halo.
 enum StatusTone {
-  red(Color(0xffef4444), Color(0xfffee2e2)),
-  amber(Color(0xfff59e0b), Color(0xfffef3c7)),
-  blue(Color(0xff1684b4), Color(0xffe0f0f8)),
-  slate(Color(0xff64748b), Color(0xffeef1f5));
+  red(Color(0xffef4444)),
+  amber(Color(0xfff59e0b)),
+  blue(Color(0xff1684b4)),
+  slate(Color(0xff64748b));
 
-  const StatusTone(this.tone, this.soft);
+  const StatusTone(this.tone);
   final Color tone;
-  final Color soft;
+
+  Color get soft => switch (this) {
+    red => ThriveColors.current.pick(
+      const Color(0xfffee2e2),
+      ThriveColors.current.redSoft,
+    ),
+    amber => ThriveColors.current.pick(
+      const Color(0xfffef3c7),
+      ThriveColors.current.amberSoft,
+    ),
+    blue => const Color(0xffe0f0f8),
+    slate => ThriveColors.current.pick(
+      const Color(0xffeef1f5),
+      ThriveColors.current.track,
+    ),
+  };
 
   /// Red sheets use a dark button; every other tone the brand teal.
-  Color get button => this == red ? B.ink : const Color(0xff0b9a89);
+  Color get button =>
+      this == red ? ThriveColors.current.ink : const Color(0xff0b9a89);
 }
 
 /// The card of the error sheet: a toned dot, title, body, a primary button
@@ -221,7 +245,7 @@ class StatusSheetCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(30),
         boxShadow: const [
           BoxShadow(
@@ -265,12 +289,12 @@ class StatusSheetCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.3,
                     height: 1.25,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
               ),
@@ -414,7 +438,7 @@ class CloudOfflineScreen extends StatelessWidget {
     height: h,
     padding: child == null ? null : const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: ThriveColors.current.surface,
       borderRadius: BorderRadius.circular(r),
       boxShadow: const [BoxShadow(color: Color(0x0d0f172a), spreadRadius: 1)],
     ),
@@ -432,7 +456,7 @@ class CloudOfflineScreen extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                gradient: B.grad,
+                gradient: ThriveColors.current.grad,
                 borderRadius: BorderRadius.circular(11),
               ),
             ),
@@ -440,15 +464,37 @@ class CloudOfflineScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _bar(70, 11, const Color(0xffcbd5e1)),
+                _bar(
+                  70,
+                  11,
+                  ThriveColors.current.pick(
+                    const Color(0xffcbd5e1),
+                    ThriveColors.current.toggleOff,
+                  ),
+                ),
                 const SizedBox(height: 5),
-                _bar(110, 8, const Color(0xffe2e8f0)),
+                _bar(
+                  110,
+                  8,
+                  ThriveColors.current.pick(
+                    const Color(0xffe2e8f0),
+                    ThriveColors.current.line,
+                  ),
+                ),
               ],
             ),
           ],
         ),
         const SizedBox(height: 14),
-        _bar(double.infinity, 38, const Color(0xffe2e8f0), r: 12),
+        _bar(
+          double.infinity,
+          38,
+          ThriveColors.current.pick(
+            const Color(0xffe2e8f0),
+            ThriveColors.current.line,
+          ),
+          r: 12,
+        ),
         const SizedBox(height: 14),
         _card(
           150,
@@ -456,11 +502,33 @@ class CloudOfflineScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _bar(90, 9, const Color(0xffe2e8f0)),
+              _bar(
+                90,
+                9,
+                ThriveColors.current.pick(
+                  const Color(0xffe2e8f0),
+                  ThriveColors.current.line,
+                ),
+              ),
               const SizedBox(height: 10),
-              _bar(160, 22, const Color(0xffcbd5e1), r: 8),
+              _bar(
+                160,
+                22,
+                ThriveColors.current.pick(
+                  const Color(0xffcbd5e1),
+                  ThriveColors.current.toggleOff,
+                ),
+                r: 8,
+              ),
               const Spacer(),
-              _bar(double.infinity, 10, const Color(0xffe2e8f0)),
+              _bar(
+                double.infinity,
+                10,
+                ThriveColors.current.pick(
+                  const Color(0xffe2e8f0),
+                  ThriveColors.current.line,
+                ),
+              ),
             ],
           ),
         ),
@@ -484,7 +552,7 @@ class CloudOfflineScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey('cloud-offline-screen'),
-      color: B.page,
+      color: context.tc.page,
       child: Stack(
         children: [
           Positioned.fill(

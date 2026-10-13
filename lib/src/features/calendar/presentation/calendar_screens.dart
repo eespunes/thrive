@@ -179,15 +179,20 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           height: 34,
           decoration: BoxDecoration(
             color: active
-                ? B.ink
+                ? context.tc.ink
                 : ringTeal
-                ? B.soft
-                : Colors.white,
+                ? context.tc.soft
+                : context.tc.surface,
             borderRadius: BorderRadius.circular(11),
             border: active
                 ? null
                 : Border.all(
-                    color: ringTeal ? B.primary : const Color(0xffdde3ea),
+                    color: ringTeal
+                        ? context.tc.primary
+                        : context.tc.pick(
+                            const Color(0xffdde3ea),
+                            context.tc.line,
+                          ),
                     width: ringTeal ? 1.5 : 1,
                   ),
           ),
@@ -205,7 +210,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: B.primary,
+                      color: context.tc.primary,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 1.5),
                     ),
@@ -227,7 +232,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           icon,
           size: 16,
           sw: 2.2,
-          color: active ? Colors.white : B.soft2,
+          color: active ? Colors.white : context.tc.soft2,
         ),
       );
     }
@@ -252,7 +257,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 toggleKitchenEnabled();
               }
             },
-            child: ic('display', size: 16, sw: 2.2, color: B.soft2),
+            child: ic('display', size: 16, sw: 2.2, color: context.tc.soft2),
           ),
         squareBtn(
           key: const ValueKey('cal-header-filter'),
@@ -267,7 +272,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             'filter',
             size: 15,
             sw: 2.2,
-            color: filtersOn ? B.deep : B.soft2,
+            color: filtersOn ? context.tc.deep : context.tc.soft2,
           ),
         ),
       ],
@@ -290,16 +295,16 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               height: 22,
               margin: const EdgeInsets.only(right: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: B.line),
+                color: context.tc.surface,
+                border: Border.all(color: context.tc.line),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
                 child: Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
-                    color: B.primary,
+                  decoration: BoxDecoration(
+                    color: context.tc.primary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -378,8 +383,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       margin: const EdgeInsets.only(top: 12),
       constraints: const BoxConstraints(minHeight: 360),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(18),
         boxShadow: cardShadow(),
       ),
@@ -411,7 +416,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: dayIndex >= 5 ? B.muted : B.soft2,
+                          color: dayIndex >= 5
+                              ? context.tc.muted
+                              : context.tc.soft2,
                         ),
                       ),
                     ),
@@ -568,7 +575,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           ),
         // Month travel is swipe-only — there are deliberately no ‹ › arrows
         // and no Today button in the header (design §2a).
-        const Padding(
+        Padding(
           key: ValueKey('cal-swipe-hint'),
           padding: EdgeInsets.fromLTRB(0, 5, 0, 4),
           child: Text(
@@ -577,7 +584,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: Color(0xffb3bcc9),
+              color: context.tc.pick(
+                const Color(0xffb3bcc9),
+                context.tc.toggleOff,
+              ),
             ),
           ),
         ),
@@ -585,7 +595,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  static const Color _kMonthGridLine = Color(0xffeef1f5);
+  static Color get _kMonthGridLine => ThriveColors.current.pick(
+    const Color(0xffeef1f5),
+    ThriveColors.current.track,
+  );
 
   Widget _calMonthWeekRow(
     List<String> week, {
@@ -665,7 +678,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         : isToday
         ? const Color(0xfff0faf8)
         : weekend
-        ? const Color(0xfffafbfc)
+        ? context.tc.pick(const Color(0xfffafbfc), context.tc.rowOpen)
         : Colors.white;
 
     return GestureDetector(
@@ -733,10 +746,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       '+$more',
                       maxLines: 1,
                       overflow: TextOverflow.clip,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ),
@@ -764,7 +777,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         height: 20,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: isToday ? B.primary : Colors.transparent,
+          color: isToday ? context.tc.primary : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Text(
@@ -776,7 +789,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 ? Colors.white
                 : ghost
                 ? const Color(0xffa3adbb)
-                : B.ink,
+                : context.tc.ink,
           ),
         ),
       ),
@@ -950,10 +963,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                               : _agendaHeadingIso(agendaDay),
                           key: const ValueKey('cal-agenda-day-heading'),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ),
@@ -961,17 +974,17 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       Text(
                         count == 0 ? '' : '$count event${count > 1 ? 's' : ''}',
                         key: const ValueKey('cal-agenda-day-count'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: B.primary,
+                          color: context.tc.primary,
                         ),
                       ),
                     ],
                   ),
                 ),
                 _agendaDaySections(agendaDay, dayOcc),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Text(
                     '‹ swipe to change month ›',
@@ -979,7 +992,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xffb3bcc9),
+                      color: context.tc.pick(
+                        const Color(0xffb3bcc9),
+                        context.tc.toggleOff,
+                      ),
                     ),
                   ),
                 ),
@@ -1052,11 +1068,11 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           Text(
             _weekStripLabel(weekStart).toUpperCase(),
             key: ValueKey('cal-week-label-$weekStart'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .6,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
           const SizedBox(height: 6),
@@ -1080,7 +1096,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     final isToday = iso == today;
     final d = _parseIso(iso);
     final hasEvents = eventOccurrences(iso, iso).isNotEmpty;
-    final ink = selected ? B.deep : B.text;
+    final ink = selected ? context.tc.deep : context.tc.text;
     return GestureDetector(
       key: ValueKey('cal-week-strip-$iso'),
       onTap: () => update(() {
@@ -1090,7 +1106,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xffe7f5f3) : Colors.transparent,
+          color: selected
+              ? context.tc.pick(const Color(0xffe7f5f3), context.tc.soft)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -1110,7 +1128,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
               height: 24,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isToday ? B.primary : Colors.transparent,
+                color: isToday ? context.tc.primary : Colors.transparent,
                 shape: BoxShape.circle,
               ),
               child: Text(
@@ -1133,7 +1151,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                       width: 5,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: selected ? B.deep : B.primary,
+                        color: selected ? context.tc.deep : context.tc.primary,
                         shape: BoxShape.circle,
                       ),
                     )
@@ -1218,15 +1236,15 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
       id: 'kind:imported',
       keyId: 'imported',
       label: 'Imported',
-      color: B.soft2,
+      color: context.tc.soft2,
       swatch: swatchFor(
-        B.soft2,
-        const Text(
+        context.tc.soft2,
+        Text(
           '\u21E9',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: B.soft2,
+            color: context.tc.soft2,
           ),
         ),
       ),
@@ -1266,10 +1284,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             child: Text(
               sec.label,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ),
@@ -1292,10 +1310,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 ? 'No layers enabled — turn one on to see its agenda.'
                 : 'Nothing scheduled — enjoy the calm.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -1474,7 +1492,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     switch (a.kind) {
       case CalEventKind.todo:
         return BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(radius),
         );
       case CalEventKind.birthday:
@@ -1507,7 +1525,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
   (Color title, Color sub) _evRowInk(_EvAnatomy a) {
     switch (a.kind) {
       case CalEventKind.todo:
-        return (a.color, B.muted);
+        return (a.color, context.tc.muted);
       case CalEventKind.birthday:
         return (kBirthdayInk, kBirthdaySubInk);
       case CalEventKind.imported:

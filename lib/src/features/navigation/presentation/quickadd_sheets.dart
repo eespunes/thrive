@@ -94,8 +94,8 @@ class _QuickAddSheet extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
+          color: context.tc.surface,
+          border: Border.all(color: context.tc.line),
           borderRadius: BorderRadius.circular(14),
           boxShadow: cardShadow(),
         ),
@@ -105,11 +105,11 @@ class _QuickAddSheet extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: B.soft,
+                color: context.tc.soft,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: ic(icon, size: 18, sw: 2.1, color: B.primary),
+                child: ic(icon, size: 18, sw: 2.1, color: context.tc.primary),
               ),
             ),
             const SizedBox(width: 12),
@@ -120,24 +120,24 @@ class _QuickAddSheet extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Text(
                     sub,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ],
               ),
             ),
-            ic('cright', size: 17, sw: 2.2, color: B.muted),
+            ic('cright', size: 17, sw: 2.2, color: context.tc.muted),
           ],
         ),
       ),
@@ -234,9 +234,9 @@ class _PickListSheet extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 9),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.tc.surface,
                 borderRadius: BorderRadius.circular(13),
-                border: Border.all(color: B.line),
+                border: Border.all(color: context.tc.line),
               ),
               child: Row(
                 children: [
@@ -244,14 +244,14 @@ class _PickListSheet extends StatelessWidget {
                     child: Text(
                       name,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                     ),
                   ),
-                  ic('cright', size: 16, sw: 2.2, color: B.muted),
+                  ic('cright', size: 16, sw: 2.2, color: context.tc.muted),
                 ],
               ),
             ),

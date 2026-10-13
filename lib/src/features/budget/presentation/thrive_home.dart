@@ -379,7 +379,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // for the session), plus session-local "future" toggles — visible homes
   // for not-yet-implemented preferences, never persisted.
   String? hubOpenCard;
-  bool futureDark = false;
 
   /// Imported calendars whose last sync attempt failed this session (#330):
   /// drives the hub's amber "N failing" value. Session-only — the data model
@@ -2277,7 +2276,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     }
     final bottomSystemInset = shellReady ? _bottomSystemInset(context) : 0.0;
     return Scaffold(
-      backgroundColor: B.page,
+      backgroundColor: context.tc.page,
       // Resize above the keyboard whenever a full-screen, text-entry gate is
       // shown so its fields scroll into view instead of hiding behind the
       // keyboard (issue #129). The budget screen edits via bottom sheets, which
@@ -2304,11 +2303,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                               ),
                           ],
                         )
-                      : const Center(
+                      : Center(
                           child: Text(
                             'Loading budget…',
                             style: TextStyle(
-                              color: B.muted,
+                              color: context.tc.muted,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2382,7 +2381,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         margin: const EdgeInsets.symmetric(horizontal: 14),
         padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
         decoration: BoxDecoration(
-          color: B.ink,
+          color: context.tc.ink,
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
@@ -2429,11 +2428,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                     msg,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                       height: 1.35,
-                      color: Color(0xfff8fafc),
+                      color: context.tc.pick(
+                        const Color(0xfff8fafc),
+                        context.tc.rowOpen,
+                      ),
                     ),
                   ),
                   if (body != null)
@@ -2441,11 +2443,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         body,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,
                           height: 1.45,
-                          color: Color(0xffcbd5e1),
+                          color: context.tc.pick(
+                            const Color(0xffcbd5e1),
+                            context.tc.toggleOff,
+                          ),
                         ),
                       ),
                     ),
@@ -2548,7 +2553,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         _calMonthIsPast(calView == 'agenda' ? agendaDay : calAnchor);
 
     return Container(
-      color: B.page,
+      color: context.tc.page,
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
       child: Column(
         children: [
@@ -2596,11 +2601,11 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                       Text(
                         title,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -.3,
-                          color: B.ink,
+                          color: context.tc.ink,
                         ),
                       ),
                       Row(
@@ -2615,7 +2620,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                                 fontWeight: isCalendar
                                     ? FontWeight.w800
                                     : FontWeight.w600,
-                                color: isCalendar ? B.primary : B.muted,
+                                color: isCalendar
+                                    ? context.tc.primary
+                                    : context.tc.muted,
                               ),
                             ),
                           ),
@@ -2625,7 +2632,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                               'cdown',
                               size: isCalendar ? 10 : 12,
                               sw: 2.4,
-                              color: isCalendar ? B.primary : B.muted,
+                              color: isCalendar
+                                  ? context.tc.primary
+                                  : context.tc.muted,
                             ),
                           ],
                           // A past month is view-only — say so quietly
@@ -2682,7 +2691,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(vertical: 7),
             decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.transparent,
+              color: active ? context.tc.surface : Colors.transparent,
               borderRadius: BorderRadius.circular(9),
               boxShadow: active
                   ? [
@@ -2699,7 +2708,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
-                color: active ? B.primary : const Color(0xff8995a6),
+                color: active
+                    ? context.tc.primary
+                    : context.tc.pick(
+                        const Color(0xff8995a6),
+                        context.tc.segIdle,
+                      ),
               ),
             ),
           ),
@@ -2710,7 +2724,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xffe8ecf2),
+        color: context.tc.pick(const Color(0xffe8ecf2), context.tc.line),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
@@ -2759,14 +2773,14 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       color: Colors.transparent,
       child: Stack(
         children: [
-          Positioned.fill(child: Container(color: B.page)),
+          Positioned.fill(child: Container(color: context.tc.page)),
           Positioned(
             left: 0,
             right: 0,
             top: 0,
             height: cutHeight,
-            child: const DecoratedBox(
-              decoration: BoxDecoration(gradient: B.grad),
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: context.tc.grad),
             ),
           ),
           Padding(
@@ -2866,7 +2880,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                         height: 32,
                         decoration: BoxDecoration(
                           color: closed
-                              ? Colors.white
+                              ? context.tc.surface
                               : Colors.white.withValues(alpha: .2),
                           borderRadius: BorderRadius.circular(11),
                         ),
@@ -2875,7 +2889,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                             closed ? 'lock' : 'unlock',
                             size: 15,
                             sw: 2.3,
-                            color: closed ? B.ink : Colors.white,
+                            color: closed ? context.tc.ink : Colors.white,
                           ),
                         ),
                       ),
@@ -3017,7 +3031,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: active ? B.primary : Colors.transparent,
+              color: active ? context.tc.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -3026,7 +3040,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
-                color: active ? Colors.white : B.soft2,
+                color: active ? Colors.white : context.tc.soft2,
               ),
             ),
           ),
@@ -3036,7 +3050,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -3181,8 +3195,8 @@ class _FamilyLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Material(
-      color: B.page,
+    return Material(
+      color: context.tc.page,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -3192,14 +3206,14 @@ class _FamilyLoadingScreen extends StatelessWidget {
               height: 26,
               child: CircularProgressIndicator(
                 strokeWidth: 2.6,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
             SizedBox(height: 14),
             Text(
               'Loading your family…',
               style: TextStyle(
-                color: B.muted,
+                color: context.tc.muted,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -3234,9 +3248,13 @@ class _SaveConflictDialog extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 13),
           decoration: BoxDecoration(
-            color: filled ? B.primary : Colors.white,
+            color: filled
+                ? ThriveColors.current.primary
+                : ThriveColors.current.surface,
             borderRadius: BorderRadius.circular(13),
-            border: filled ? null : Border.all(color: B.line),
+            border: filled
+                ? null
+                : Border.all(color: ThriveColors.current.line),
           ),
           child: Text(
             label,
@@ -3244,7 +3262,7 @@ class _SaveConflictDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: filled ? Colors.white : B.text,
+              color: filled ? Colors.white : ThriveColors.current.text,
             ),
           ),
         ),
@@ -3262,7 +3280,7 @@ class _SaveConflictDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 312),
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
@@ -3272,33 +3290,33 @@ class _SaveConflictDialog extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: B.amberSoft,
+                color: context.tc.amberSoft,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Center(
-                child: ic('users', size: 23, sw: 2.2, color: B.amber),
+                child: ic('users', size: 23, sw: 2.2, color: context.tc.amber),
               ),
             ),
             const SizedBox(height: 15),
             Text(
               '$who also edited $what',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
                 letterSpacing: -.2,
               ),
             ),
             const SizedBox(height: 7),
-            const Text(
+            Text(
               'You both changed the same thing at the same time. Your version '
               'was saved — keep it, or switch to theirs.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: B.soft2,
+                color: context.tc.soft2,
                 height: 1.55,
               ),
             ),
@@ -3342,7 +3360,7 @@ class _ConfirmDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 312),
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
@@ -3352,21 +3370,21 @@ class _ConfirmDialog extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: B.redSoft,
+                color: context.tc.redSoft,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Center(
-                child: ic('trash', size: 23, sw: 2.2, color: B.red),
+                child: ic('trash', size: 23, sw: 2.2, color: context.tc.red),
               ),
             ),
             const SizedBox(height: 15),
             Text(
               '$confirmLabel ${name.isNotEmpty ? '\u201C$name\u201D' : 'this'}?',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
                 letterSpacing: -.2,
               ),
             ),
@@ -3374,10 +3392,10 @@ class _ConfirmDialog extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: B.soft2,
+                color: context.tc.soft2,
                 height: 1.55,
               ),
             ),
@@ -3390,17 +3408,17 @@ class _ConfirmDialog extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.tc.surface,
                         borderRadius: BorderRadius.circular(13),
-                        border: Border.all(color: B.line),
+                        border: Border.all(color: context.tc.line),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Cancel',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: B.text,
+                          color: context.tc.text,
                         ),
                       ),
                     ),
@@ -3413,7 +3431,7 @@ class _ConfirmDialog extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       decoration: BoxDecoration(
-                        color: B.red,
+                        color: context.tc.red,
                         borderRadius: BorderRadius.circular(13),
                       ),
                       child: Text(
@@ -3444,21 +3462,25 @@ Map<String, dynamic> _jsonDecodeMap(String raw) =>
 /// The toast's tones: a coloured glyph before the message.
 enum ToastTone {
   /// Done (✓ green).
-  success('✓', B.green),
+  success('✓'),
 
   /// Removed / discarded (– slate).
-  neutral('–', B.soft2),
+  neutral('–'),
 
   /// For your information (i slate).
-  info('i', B.soft2),
+  info('i'),
 
   /// Not yet, will retry (↻ amber).
-  retry('↻', B.amber),
+  retry('↻'),
 
   /// Something went wrong (! amber).
-  alert('!', B.amber);
+  alert('!');
 
-  const ToastTone(this.glyph, this.color);
+  const ToastTone(this.glyph);
   final String glyph;
-  final Color color;
+  Color get color => switch (this) {
+    success => ThriveColors.current.green,
+    neutral || info => ThriveColors.current.soft2,
+    retry || alert => ThriveColors.current.amber,
+  };
 }

@@ -64,9 +64,9 @@ extension _ThriveAppShell on _ThriveHomeState {
       key: const ValueKey('app-bottom-nav'),
       onLongPress: openNavTabEditor,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: B.line)),
+        decoration: BoxDecoration(
+          color: context.tc.surface,
+          border: Border(top: BorderSide(color: context.tc.line)),
           boxShadow: [
             BoxShadow(
               color: Color(0x40101828),
@@ -90,7 +90,7 @@ extension _ThriveAppShell on _ThriveHomeState {
   Widget _navItem(String key, String label, String icon) {
     final active = _navActive(key);
     final badge = navTabBadge(key);
-    final ink = active ? B.primary : const Color(0xff9aa6b4);
+    final ink = active ? context.tc.primary : const Color(0xff9aa6b4);
     return GestureDetector(
       key: ValueKey('nav-$key'),
       onTap: () => goTab(key),
@@ -109,7 +109,7 @@ extension _ThriveAppShell on _ThriveHomeState {
                 decoration: BoxDecoration(
                   // The pill is the active marker; an inactive tab has no
                   // background at all, so only one thing on the bar is lit.
-                  color: active ? B.soft : Colors.transparent,
+                  color: active ? context.tc.soft : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: ic(icon, size: 19, sw: active ? 2.3 : 2.1, color: ink),
@@ -172,11 +172,11 @@ extension _ThriveAppShell on _ThriveHomeState {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            gradient: B.grad,
+            gradient: context.tc.grad,
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: B.primary.withValues(alpha: .55),
+                color: context.tc.primary.withValues(alpha: .55),
                 blurRadius: 30,
                 spreadRadius: -8,
                 offset: const Offset(0, 16),
@@ -282,7 +282,7 @@ extension _ThriveAppShell on _ThriveHomeState {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xffe8ecf2),
+        color: context.tc.pick(const Color(0xffe8ecf2), context.tc.line),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(4),
@@ -299,7 +299,7 @@ extension _ThriveAppShell on _ThriveHomeState {
                     horizontal: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: val == key ? Colors.white : Colors.transparent,
+                    color: val == key ? context.tc.surface : Colors.transparent,
                     borderRadius: BorderRadius.circular(9),
                     boxShadow: val == key
                         ? [
@@ -317,7 +317,12 @@ extension _ThriveAppShell on _ThriveHomeState {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: val == key ? B.primary : const Color(0xff8995a6),
+                      color: val == key
+                          ? context.tc.primary
+                          : context.tc.pick(
+                              const Color(0xff8995a6),
+                              context.tc.segIdle,
+                            ),
                     ),
                   ),
                 ),

@@ -84,7 +84,7 @@ extension _ThriveListScreens on _ThriveHomeState {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: B.faint,
+          color: context.tc.faint,
           borderRadius: BorderRadius.circular(size / 2),
         ),
       );
@@ -169,7 +169,7 @@ extension _ThriveListScreens on _ThriveHomeState {
         children: [
           _sortChips(),
           if (notes.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Text(
                 'Nothing with your name on it — or up for grabs.',
@@ -177,7 +177,7 @@ extension _ThriveListScreens on _ThriveHomeState {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ),
@@ -205,16 +205,23 @@ extension _ThriveListScreens on _ThriveHomeState {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: on ? B.ink : Colors.white,
+            color: on ? context.tc.ink : context.tc.surface,
             borderRadius: BorderRadius.circular(999),
-            border: on ? null : Border.all(color: const Color(0xffdde3ea)),
+            border: on
+                ? null
+                : Border.all(
+                    color: context.tc.pick(
+                      const Color(0xffdde3ea),
+                      context.tc.line,
+                    ),
+                  ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: on ? Colors.white : B.soft2,
+              color: on ? Colors.white : context.tc.soft2,
             ),
           ),
         ),
@@ -244,14 +251,14 @@ extension _ThriveListScreens on _ThriveHomeState {
           border: Border.all(color: const Color(0xffc9d0da), width: 2),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const Text(
+        child: Text(
           '＋ pin a new note',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Caveat',
             fontVariations: [FontVariation('wght', 700)],
             fontSize: 20,
-            color: B.soft2,
+            color: context.tc.soft2,
           ),
         ),
       ),
