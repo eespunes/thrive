@@ -109,7 +109,7 @@ void main() {
     );
   });
 
-  testWidgets('finance rows show the payee alongside the label (#400)', (
+  testWidgets('finance rows show the payee as title and label below (#400)', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -128,14 +128,14 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('envelope-food')));
     await tester.pumpAndSettle();
-    expect(find.text('Weekly shop'), findsWidgets);
-    expect(_textStartingWith('Acme Market · '), findsOneWidget);
-    Navigator.of(tester.element(find.text('Weekly shop').first)).pop();
+    expect(find.text('Acme Market'), findsWidgets);
+    expect(_textStartingWith('Weekly shop · '), findsOneWidget);
+    Navigator.of(tester.element(find.text('Acme Market').first)).pop();
     await tester.pumpAndSettle();
 
     await goToTab(tester, 'list');
-    expect(find.text('Weekly shop'), findsOneWidget);
-    expect(_textStartingWith('Acme Market · '), findsOneWidget);
+    expect(find.text('Acme Market'), findsOneWidget);
+    expect(_textStartingWith('Weekly shop · '), findsOneWidget);
   });
 
   testWidgets('stats tab switches scopes', (tester) async {

@@ -831,9 +831,9 @@ class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
           for (int i = 0; i < block.items.length; i++) ...[
             if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
             _FinanceToggleRow(
-              label: block.items[i].item.label.trim().isNotEmpty
-                  ? block.items[i].item.label.trim()
-                  : block.items[i].item.payee.trim(),
+              label: block.items[i].item.payee.trim().isNotEmpty
+                  ? block.items[i].item.payee.trim()
+                  : block.items[i].item.label.trim(),
               day: _financeItemDayLabel(
                 block.items[i].item,
                 widget.state.monthIdx,
@@ -926,9 +926,9 @@ class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
           for (int i = 0; i < rows.length; i++) ...[
             if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
             _FinanceToggleRow(
-              label: rows[i].row.item.label.trim().isNotEmpty
-                  ? rows[i].row.item.label.trim()
-                  : rows[i].row.item.payee.trim(),
+              label: rows[i].row.item.payee.trim().isNotEmpty
+                  ? rows[i].row.item.payee.trim()
+                  : rows[i].row.item.label.trim(),
               day: _financeItemDayLabel(
                 rows[i].row.item,
                 widget.state.monthIdx,
@@ -1932,9 +1932,9 @@ String _numStr(double v) {
 String _financeItemDayLabel(ExpenseItem item, int monthIdx) {
   final day = item.day ?? dayNumFromMarker(item.marker);
   final dayLabel = day == null ? 'No date' : '$day ${kMonthsEn[monthIdx]}';
-  // When the label is the title, surface the payee here (#400).
-  final payee = item.payee.trim();
-  return item.label.trim().isNotEmpty && payee.isNotEmpty
-      ? '$payee · $dayLabel'
+  // When the payee is the title, surface the label here (#400).
+  final label = item.label.trim();
+  return label.isNotEmpty && item.payee.trim().isNotEmpty
+      ? '$label · $dayLabel'
       : dayLabel;
 }

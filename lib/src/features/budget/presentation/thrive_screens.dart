@@ -652,14 +652,14 @@ extension _ThriveScreens on _ThriveHomeState {
           _FinanceListRow(
             id: item.id,
             day: item.day ?? dayNumFromMarker(item.marker),
-            label: item.label.trim().isNotEmpty
-                ? item.label.trim()
-                : (item.payee.trim().isNotEmpty
-                      ? item.payee.trim()
+            label: item.payee.trim().isNotEmpty
+                ? item.payee.trim()
+                : (item.label.trim().isNotEmpty
+                      ? item.label.trim()
                       : block.title),
             subtitle:
                 item.label.trim().isNotEmpty && item.payee.trim().isNotEmpty
-                ? '${item.payee.trim()} · ${block.title}'
+                ? '${item.label.trim()} · ${block.title}'
                 : block.title,
             amount: item.amount,
             done: item.paid,
