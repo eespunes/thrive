@@ -255,7 +255,8 @@ enum _ChangeType {
     RecordKind.kitchen ||
     RecordKind.mealsYear ||
     RecordKind.mealsMonth ||
-    RecordKind.mealDay => meal,
+    RecordKind.mealDay ||
+    RecordKind.savedMeal => meal,
     RecordKind.unknown => note,
     _ => budget,
   };
@@ -474,9 +475,16 @@ class _RingPainter extends CustomPainter {
       old.track != track || old.tone != tone;
 }
 
-/// The set-aside tray's 1.5px dashed amber outline.
+/// A 1.5px dashed rounded-rect outline: the set-aside tray's amber one by
+/// default, also the meal plan's empty "Plan dinner" button.
 class _DashedRRectPainter extends CustomPainter {
-  const _DashedRRectPainter();
+  const _DashedRRectPainter({
+    this.color = const Color(0xfff2c96b),
+    this.radius = 20,
+  });
+
+  final Color color;
+  final double radius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -484,13 +492,13 @@ class _DashedRRectPainter extends CustomPainter {
       ..addRRect(
         RRect.fromRectAndRadius(
           (Offset.zero & size).deflate(.75),
-          const Radius.circular(20),
+          Radius.circular(radius),
         ),
       );
     final p = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..color = const Color(0xfff2c96b);
+      ..color = color;
     for (final m in path.computeMetrics()) {
       for (double d = 0; d < m.length; d += 9) {
         canvas.drawPath(m.extractPath(d, math.min(d + 5, m.length)), p);
@@ -499,7 +507,8 @@ class _DashedRRectPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DashedRRectPainter old) => false;
+  bool shouldRepaint(_DashedRRectPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// Settings → Unsaved changes: "Saving" (retried automatically) and "Set

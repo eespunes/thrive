@@ -317,6 +317,15 @@ class ThriveDebugController {
   void openHomeWidgetOptions(int i) => _s.openHomeWidgetOptions(i);
   void runHomeQuickAction(String id) => _s.runHomeQuickAction(id);
   Map<String, DayPlan> get weeklyPlan => _s.weeklyPlan;
+  List<SavedMeal> get savedMeals => _s.savedMeals;
+  void saveDayPlan(String dateIso, DayPlan draft) =>
+      _s.saveDayPlan(dateIso, draft);
+  bool toggleFavouriteMeal(String name, List<String> ingredients) =>
+      _s.toggleFavouriteMeal(name, ingredients);
+  void toggleIngredientOnGroceries(String ingredient) =>
+      _s.toggleIngredientOnGroceries(ingredient);
+  int addMissingToGroceries(List<String> ingredients) =>
+      _s.addMissingToGroceries(ingredients);
   Map<String, int> get starsMap => _s.starsMap;
   List<ImportedCalendar> get importedCalendars => _s.importedCalendars;
   List<Account> get accounts => _s.accounts;
@@ -418,6 +427,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   set shoppingLists(List<ShoppingList> v) => _activeWs.shoppingLists = v;
   Map<String, DayPlan> get weeklyPlan => _activeWs.weeklyPlan;
   set weeklyPlan(Map<String, DayPlan> v) => _activeWs.weeklyPlan = v;
+  List<SavedMeal> get savedMeals => _activeWs.savedMeals;
+  set savedMeals(List<SavedMeal> v) => _activeWs.savedMeals = v;
   List<CalendarEvent> get events => _activeWs.events;
   set events(List<CalendarEvent> v) => _activeWs.events = v;
   List<EventCategory> get eventCategories => _activeWs.eventCategories;
@@ -472,6 +483,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// null means "never customised", which reads as [kDefaultNavTabs].
   List<String>? navTabs;
   int weekOffset = 0; // 0 = current week, +/- N weeks navigated
+  /// Day picked on the meal plan's day strip (ISO date); null = today.
+  String? mealDaySel;
   final FocusNode shopQuickAddFocus = FocusNode();
   final PageController calPageController = PageController(initialPage: 10000);
   final PageController calWeekPageController = PageController(

@@ -270,6 +270,7 @@ const RECORD_PATHS = [
   'notes/l1',
   'notes/l1/lines/t1',
   'cards/k1',
+  'savedMeals/sm1',
 ];
 const recRef = (d, path, fam = FAM) =>
   doc(d, 'families', fam, ...path.split('/'));
@@ -321,6 +322,8 @@ describe('collection-group record queries', () => {
       await setDoc(recRef(f, 'calendar/main/recurring/ev1'), { familyId: FAM });
       await setDoc(recRef(f, 'meals/2026/months/05/days/04'), { familyId: FAM });
       await setDoc(recRef(f, 'cards/x', 'fam2'), { familyId: 'fam2' });
+      await setDoc(recRef(f, 'savedMeals/sm1'), { familyId: FAM });
+      await setDoc(recRef(f, 'savedMeals/sm2', 'fam2'), { familyId: 'fam2' });
     });
   });
   const q = async (d, col, fam) => {
@@ -332,9 +335,12 @@ describe('collection-group record queries', () => {
     const snap = await assertSucceeds(q(db(MEMBER), 'recurring', FAM));
     if (snap.size !== 2) throw new Error(`expected 2, got ${snap.size}`);
     await assertSucceeds(q(db(OWNER), 'days', FAM));
+    const meals = await assertSucceeds(q(db(MEMBER), 'savedMeals', FAM));
+    if (meals.size !== 1) throw new Error(`expected 1, got ${meals.size}`);
   });
   it('cannot query another family', async () => {
     await assertFails(q(db(MEMBER), 'cards', 'fam2'));
+    await assertFails(q(db(MEMBER), 'savedMeals', 'fam2'));
     await assertFails(q(db(OTHER), 'recurring', FAM));
     await assertFails(q(db(null), 'recurring', FAM));
   });
@@ -446,6 +452,7 @@ describe('kid accounts and admins', () => {
       await setDoc(recRef(f, 'finance/main/recurring/rent'), { familyId: FAM });
       await setDoc(recRef(f, 'finance/main/accounts/a'), { familyId: FAM });
       await setDoc(recRef(f, 'cards/c'), { familyId: FAM });
+      await setDoc(recRef(f, 'savedMeals/s'), { familyId: FAM });
       await setDoc(recRef(f, 'meals/2026/months/05/days/04'), { familyId: FAM });
       await setDoc(recRef(f, 'notes/kn'), { familyId: FAM, createdBy: KID });
       await setDoc(recRef(f, 'notes/kn/lines/l'), { familyId: FAM });
@@ -469,7 +476,7 @@ describe('kid accounts and admins', () => {
     }
     for (const p of ['calendar/main/months/2026-05/events/other',
       'finance/main/recurring/rent', 'finance/main/accounts/a', 'cards/c',
-      'notes/on', 'notes/on/lines/l']) {
+      'savedMeals/s', 'notes/on', 'notes/on/lines/l']) {
       await assertFails(getDoc(recRef(k, p)));
     }
   });
@@ -488,7 +495,7 @@ describe('kid accounts and admins', () => {
     await assertSucceeds(cg(k, 'notes', where('createdBy', '==', KID)));
     await assertSucceeds(getDocs(collection(k, 'families', FAM, 'notes/kn/lines')));
     for (const col of ['events', 'recurring', 'notes', 'accounts', 'cards',
-      'months', 'entries', 'lines']) {
+      'savedMeals', 'months', 'entries', 'lines']) {
       await assertFails(cg(k, col));
     }
     await assertFails(getDocs(collection(k, 'families', FAM, 'notes/on/lines')));

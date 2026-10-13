@@ -22,10 +22,12 @@ Future<T?> showEditorSheet<T>(
   WidgetBuilder builder, {
   ValueNotifier<String?>? toast,
   Widget Function(String msg)? toastBuilder,
+  bool enableDrag = true,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
+    enableDrag: enableDrag,
     backgroundColor: Colors.transparent,
     barrierColor: B.scrim,
     builder: (ctx) {
@@ -59,10 +61,13 @@ Future<T?> showEditorSheet<T>(
 
 extension _ThriveEditorSheets on _ThriveHomeState {
   /// Opens an editor sheet with the app toast hosted above it. With
-  /// [monthScoped] it refuses to open on a closed month.
+  /// [monthScoped] it refuses to open on a closed month. Sheets guarding
+  /// unsaved edits turn [enableDrag] off: a drag-to-close would bypass their
+  /// `PopScope`.
   Future<T?> openEditorSheet<T>(
     WidgetBuilder builder, {
     bool monthScoped = false,
+    bool enableDrag = true,
   }) async {
     if (monthScoped && isClosed()) {
       showError('Month is closed');
@@ -74,6 +79,7 @@ extension _ThriveEditorSheets on _ThriveHomeState {
       builder,
       toast: _toastNotifier,
       toastBuilder: _buildToast,
+      enableDrag: enableDrag,
     );
   }
 
@@ -107,6 +113,7 @@ class EditorSheet extends StatelessWidget {
     this.onDelete,
     this.onCancel,
     this.showFooter = true,
+    this.headerConfirmLabel,
     this.confirmKey = const ValueKey('editor-confirm'),
     this.deleteKey = const ValueKey('editor-delete'),
     this.cancelKey = const ValueKey('editor-cancel'),
@@ -137,6 +144,11 @@ class EditorSheet extends StatelessWidget {
   /// Defaults to popping the sheet.
   final VoidCallback? onCancel;
   final bool showFooter;
+
+  /// When set, the confirm action sits in the header (`Cancel | title |
+  /// Save`) under this label instead of the footer button — pair it with
+  /// `showFooter: false`.
+  final String? headerConfirmLabel;
   final Key confirmKey;
   final Key deleteKey;
   final Key cancelKey;
@@ -272,7 +284,35 @@ class EditorSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 72),
+                SizedBox(
+                  width: 72,
+                  child: headerConfirmLabel == null
+                      ? null
+                      : Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            key: confirmKey,
+                            behavior: HitTestBehavior.opaque,
+                            onTap: blockedReason != null ? null : onConfirm,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 4,
+                              ),
+                              child: Text(
+                                headerConfirmLabel!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: blockedReason != null
+                                      ? B.placeholder
+                                      : B.deep,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                ),
               ],
             ),
           ),

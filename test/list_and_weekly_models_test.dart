@@ -200,4 +200,114 @@ void main() {
       expect(day.isEmpty, isTrue);
     });
   });
+
+  group('meal plan 2a (#495)', () {
+    test('an old day record reads and writes back unchanged', () {
+      const old = {'dateIso': '2026-08-01', 'dinner': 'Pasta', 'note': 'Hi'};
+      final day = DayPlan.fromJson(old);
+      expect(day.ingredients, isEmpty);
+      expect(day.dinnerMinutes, isNull);
+      expect(day.toJson(), old);
+    });
+
+    test('ingredients and time to make round-trip', () {
+      final day = DayPlan(
+        dateIso: '2026-08-01',
+        dinner: 'Curry',
+        ingredients: ['Chicken', 'Rice'],
+        dinnerMinutes: 35,
+      );
+      final back = DayPlan.fromJson(day.toJson());
+      expect(back.ingredients, ['Chicken', 'Rice']);
+      expect(back.dinnerMinutes, 35);
+      expect(DayPlan(dateIso: 'x', ingredients: ['Rice']).isEmpty, isFalse);
+    });
+
+    test('SavedMeal round-trips', () {
+      final m = SavedMeal(
+        id: 'm1',
+        name: 'Curry',
+        ingredients: ['Chicken'],
+        minutes: 30,
+      );
+      final back = SavedMeal.fromJson(m.toJson());
+      expect(back.id, 'm1');
+      expect(back.name, 'Curry');
+      expect(back.ingredients, ['Chicken']);
+      expect(back.minutes, 30);
+      expect(SavedMeal(id: 'm2', name: 'Soup').toJson(), {
+        'id': 'm2',
+        'name': 'Soup',
+      });
+    });
+
+    test('cleanIngredients trims, drops blanks and case-insensitive dupes', () {
+      expect(cleanIngredients([' Rice ', '', 'rice', 'Peas', 'PEAS']), [
+        'Rice',
+        'Peas',
+      ]);
+    });
+
+    test('cleanDayPlan drops ingredients and time without a dinner', () {
+      final day = cleanDayPlan(
+        '2026-08-01',
+        DayPlan(
+          dateIso: '',
+          dinner: '  ',
+          lunch: ' Soup ',
+          ingredients: ['Rice'],
+          dinnerMinutes: 20,
+        ),
+      );
+      expect(day.dateIso, '2026-08-01');
+      expect(day.dinner, isNull);
+      expect(day.lunch, 'Soup');
+      expect(day.ingredients, isEmpty);
+      expect(day.dinnerMinutes, isNull);
+    });
+
+    final library = [
+      SavedMeal(id: '1', name: 'Chicken curry', ingredients: ['Rice']),
+      SavedMeal(id: '2', name: 'Fried rice', ingredients: ['Eggs']),
+      SavedMeal(id: '3', name: 'Pizza', ingredients: ['Dough', 'Basmati rice']),
+    ];
+
+    test('search matches names first, then ingredients', () {
+      expect(searchSavedMeals(library, '  '), isEmpty);
+      final hits = searchSavedMeals(library, 'RICE');
+      expect(hits.map((h) => h.meal.id).toSet(), {'1', '2', '3'});
+      final byId = {for (final h in hits) h.meal.id: h.ingredient};
+      expect(byId['2'], isNull); // name match
+      expect(byId['1'], 'Rice');
+      expect(byId['3'], 'Basmati rice');
+      expect(searchSavedMeals(library, 'zzz'), isEmpty);
+    });
+
+    test('savedMealNamed ignores case and spacing', () {
+      expect(savedMealNamed(library, ' pizza ')?.id, '3');
+      expect(savedMealNamed(library, ''), isNull);
+    });
+
+    test('Groceries detection is case-insensitive and skips ticked lines', () {
+      final other = ShoppingList(id: 'a', name: 'Hardware');
+      final groceries = ShoppingList(
+        id: 'g',
+        name: 'groceries',
+        items: [
+          ShopItem(id: '1', name: 'TOMATOES'),
+          ShopItem(id: '2', name: 'Pasta', checked: true),
+        ],
+      );
+      expect(groceriesListOf([other, groceries]), groceries);
+      expect(groceriesListOf([other]), other);
+      expect(groceriesListOf([]), isNull);
+      expect(groceryLineFor(groceries, 'tomatoes')?.id, '1');
+      expect(groceryLineFor(groceries, 'pasta'), isNull);
+      expect(missingGroceries(groceries, ['Tomatoes', 'Pasta', 'Basil']), [
+        'Pasta',
+        'Basil',
+      ]);
+      expect(missingGroceries(null, ['Basil']), ['Basil']);
+    });
+  });
 }

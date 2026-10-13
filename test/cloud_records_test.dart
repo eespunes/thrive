@@ -71,7 +71,24 @@ Workspace _ws({List<ExpenseItem>? home}) {
         'events': [],
       }),
     ],
-    weeklyPlan: {'2026-09-24': DayPlan(dateIso: '2026-09-24', dinner: 'Pasta')},
+    weeklyPlan: {
+      '2026-09-24': DayPlan(dateIso: '2026-09-24', dinner: 'Pasta'),
+      '2026-09-25': DayPlan(
+        dateIso: '2026-09-25',
+        dinner: 'Chicken curry',
+        ingredients: ['Chicken', 'Rice'],
+        dinnerMinutes: 35,
+      ),
+    },
+    savedMeals: [
+      SavedMeal(
+        id: 'sm1',
+        name: 'Chicken curry',
+        ingredients: ['Chicken', 'Rice'],
+        minutes: 35,
+      ),
+      SavedMeal(id: 'sm2', name: 'Pizza'),
+    ],
     events: [
       CalendarEvent.fromJson({
         'id': 'ev1',
@@ -197,6 +214,7 @@ void main() {
       expect(keys, contains('notes/sl1/lines/s1'));
       expect(keys, contains('meals/2026/months/09/days/24'));
       expect(keys, contains('calendar/main/months/2026-09/events/ev1'));
+      expect(keys, contains('savedMeals/sm1'));
       expect(keys, contains('finance/main/months/2026-09'));
       final month = normalizedRecords(_ws())['finance/main/months/2026-09']!;
       expect(month.containsKey('blocks'), isFalse);
@@ -209,6 +227,18 @@ void main() {
       expect(m.blocks.keys, ['home', 'food']);
       expect(m.blocks['home']!.map((e) => e.id), ['rent', 'water']);
       expect(ws.taskLists.single.tasks.map((t) => t.id), ['t1', 't2']);
+    });
+
+    test('meal ingredients, time and the favourites library round-trip', () {
+      final ws = workspaceFromRecords(normalizedRecords(_ws()));
+      final day = ws.weeklyPlan['2026-09-25']!;
+      expect(day.ingredients, ['Chicken', 'Rice']);
+      expect(day.dinnerMinutes, 35);
+      expect(ws.weeklyPlan['2026-09-24']!.ingredients, isEmpty);
+      expect(ws.savedMeals.map((m) => m.id), ['sm1', 'sm2']);
+      expect(ws.savedMeals.first.ingredients, ['Chicken', 'Rice']);
+      expect(ws.savedMeals.first.minutes, 35);
+      expect(ws.savedMeals.last.ingredients, isEmpty);
     });
 
     ExpenseItem gen(String id, {bool paid = false, bool exception = false}) =>
