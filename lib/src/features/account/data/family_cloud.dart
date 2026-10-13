@@ -282,6 +282,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         for (final d in snap.docs) MapEntry(d.id, d.data()),
       ];
       if (docs.isNotEmpty) {
+        _noteKidStatuses(docs);
         await _fetchAllRecords([for (final d in docs) d.key]);
         _applyFamilyDocs(meUid, docs, userData);
         if (families.isNotEmpty) {
@@ -337,6 +338,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       for (final (i, s) in snaps.indexed)
         if (s.data() != null) MapEntry(ids[i], s.data()!),
     ];
+    _noteKidStatuses(docs);
     await _fetchAllRecords([for (final d in docs) d.key]);
     _applyFamilyDocs(meUid, docs, userData);
   }
@@ -347,7 +349,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// or deleted there blind.
   Future<void> _fetchAllRecords(List<String> fids) async {
     await Future.wait([
-      for (final fid in fids)
+      for (final fid in fids.where(_isKidFamily)) _fetchKidRecords(fid),
+      for (final fid in fids.where((f) => !_isKidFamily(f)))
         for (final col in kRecordCollections)
           _recordQuery(fid, col)
               .get(const GetOptions(source: Source.server))
@@ -613,6 +616,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// once all collections are loaded, so nothing already migrated (by
   /// another member) is overwritten. Idempotent; retried on failure.
   Future<void> _migrateLegacyData(String fid) async {
+    // A kid can't read (or rewrite) most of the family's data.
+    if (_isKidFamily(fid)) return;
     if (!_hasLegacyData(fid)) return;
     final loaded = _cloudLoaded[fid] ?? const <String>{};
     if (!kRecordCollections.every(loaded.contains)) return;
@@ -851,6 +856,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   void _dropFamilyLocally(String fid) {
     final present = families.any((f) => f.id == fid);
     if (!present && fid != familyId) return;
+    _noteKidFamilyDropped(fid);
     _applyingCloudSnapshot = true;
     families = families.where((f) => f.id != fid).toList();
     workspaces.remove(fid);
@@ -873,39 +879,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
   /// else is at least surfaced instead of dying unnoticed.
   void _onFamilyStreamError(String fid, String label, Object e) {
     if (e is FirebaseException && e.code == 'permission-denied') {
-      if (label == 'family') {
-        debugPrint('[cloud] family stream denied for $fid — dropping family');
-        _dropFamilyLocally(fid);
-      } else {
-        unawaited(_confirmEvictedOr(fid, label, e));
-      }
+      // Possibly a kid restriction rather than a removal — re-check first.
+      debugPrint('[cloud] $label stream denied for $fid — re-checking access');
+      unawaited(_recheckAccessAfterDenied(fid, label, e));
       return;
     }
     _onFamilyStreamBroken(fid, label, e);
-  }
-
-  /// A record stream of [fid] was denied: drops the family only when the
-  /// server confirms we're no longer a member; otherwise it's a broken stream.
-  Future<void> _confirmEvictedOr(String fid, String label, Object e) async {
-    final meUid = _firebaseUid();
-    bool evicted;
-    try {
-      final snap = await _familyDocRef(
-        fid,
-      ).get(const GetOptions(source: Source.server)).timeout(kCloudOpTimeout);
-      final uids = snap.data()?['memberUids'];
-      evicted = uids is! List || !uids.contains(meUid);
-    } on FirebaseException catch (err) {
-      evicted = err.code == 'permission-denied';
-    } catch (_) {
-      evicted = false;
-    }
-    if (evicted) {
-      debugPrint('[cloud] $label stream denied for $fid — dropping family');
-      _dropFamilyLocally(fid);
-    } else {
-      _onFamilyStreamBroken(fid, label, e);
-    }
   }
 
   void _onFamilyStreamBroken(String fid, String label, Object e) {
@@ -951,6 +930,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       sub.cancel();
     }
     _recordSubs.clear();
+    _cancelKidLineSubs();
   }
 
   void _bindActiveFamily(String meUid) {
@@ -965,7 +945,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       // workspace always converges on what Firestore holds. Only the docs
       // that changed are applied (docChanges), and they are rebased onto
       // this device's pending edits instead of overwriting them.
+      if (_isKidFamily(fid)) _bindKidRecordListeners(fid);
       for (final col in kRecordCollections) {
+        if (_isKidFamily(fid)) break;
         var first = true;
         _recordSubs.add(
           _recordQuery(fid, col).snapshots().listen((snap) {
@@ -989,6 +971,15 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
         final uids = data['memberUids'];
         if (uids is! List || !uids.contains(meUid)) {
           _dropFamilyLocally(fid);
+          return;
+        }
+        // An admin made this login a kid (or lifted it): kid and full
+        // members load through different queries, so reload.
+        if (_noteKidStatus(fid, data)) {
+          _metaBase[fid] = _metaFromDoc(fid, data);
+          final idx = families.indexWhere((f) => f.id == fid);
+          if (idx >= 0) families[idx] = _familyFromDoc(fid, data);
+          _reloadFamilyAccess(fid);
           return;
         }
         final rawBlob = data['workspace'];
@@ -1136,6 +1127,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     final loaded = _cloudLoaded[fid] ?? const <String>{};
     final view = _serverView(fid);
     final local = _localRecords(fid, ws, view);
+    _scopeKidWrites(fid, base, local);
     final legacyPending = _hasLegacyData(fid);
     final intents = _deleteIntents[fid] ?? <String>{};
     final gone = _goneNotes[fid] ?? const <String>{};
@@ -1452,6 +1444,8 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
     if (!_cloudBacked || !mounted) return;
     final fid = familyId;
     if (!_cloudBase.containsKey(fid)) return;
+    // A kid's scoped listeners are the only reads the rules allow them.
+    if (_isKidFamily(fid)) return;
     final now = DateTime.now();
     final due = [
       for (final c in cols)
@@ -2118,6 +2112,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
           // — otherwise this path adopted an empty workspace, and an edit in
           // the following seconds could persist that emptiness over the
           // family's real shared data.
+          _noteKidStatus(fid, mineData);
           await _fetchAllRecords([fid]);
           _adoptJoinedFamily(fid, mineData, meUid);
           await _recordMembership(meUid);

@@ -27,8 +27,11 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 ],
                 _hubPlanningCard(),
                 const SizedBox(height: 10),
-                _hubMoneyCard(),
-                const SizedBox(height: 10),
+                // Kid profiles never see money or discount cards.
+                if (!isChildUser) ...[
+                  _hubMoneyCard(),
+                  const SizedBox(height: 10),
+                ],
                 _hubFamilyCard(),
                 const SizedBox(height: 10),
                 _hubAccountCard(),
@@ -106,16 +109,20 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     final layersOn = calendarLayers
         .where((l) => layerFilter.contains(l.id))
         .length;
+    final child = isChildUser;
     return _hubCard(
       id: 'planning',
       icon: 'moon',
       title: 'Planning',
-      summary:
-          '$layersOn of ${calendarLayers.length} layers on · '
-          'wall ${kitchenEnabled ? 'on' : 'off'}',
-      hint: kitchenEnabled
-          ? 'Per-member: photo tile toggle + reward stars (0–5).'
-          : null,
+      summary: child
+          ? '$layersOn of ${calendarLayers.length} layers on'
+          : '$layersOn of ${calendarLayers.length} layers on · '
+                'wall ${kitchenEnabled ? 'on' : 'off'}',
+      hint: child
+          ? 'The meal plan is read-only on a kid profile.'
+          : (kitchenEnabled
+                ? 'Per-member: photo tile toggle + reward stars (0–5).'
+                : null),
       rows: [
         _hubRow(
           key: 'more-weekly',
@@ -123,29 +130,31 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           val: '$planned of 7 planned',
           onTap: openWeeklyPlanScreen,
         ),
-        _hubRow(
-          key: 'more-calmanage',
-          label: 'Categories',
-          val: '$catCount badge${catCount == 1 ? '' : 's'}',
-          onTap: openCategoriesScreen,
-        ),
-        _hubRow(
-          key: 'more-memcolors',
-          label: 'Member colours',
-          sub: 'Each person’s identity colour',
-          val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
-          onTap: openMemberColoursScreen,
-        ),
-        _hubRow(
-          key: 'more-calimports',
-          label: 'Imported calendars',
-          val: impCount == 0
-              ? 'None yet'
-              : (failing > 0 ? '$failing failing' : 'All synced'),
-          warnVal: failing > 0,
-          goodVal: impCount > 0 && failing == 0,
-          onTap: openImportedCalendarsScreen,
-        ),
+        if (!child) ...[
+          _hubRow(
+            key: 'more-calmanage',
+            label: 'Categories',
+            val: '$catCount badge${catCount == 1 ? '' : 's'}',
+            onTap: openCategoriesScreen,
+          ),
+          _hubRow(
+            key: 'more-memcolors',
+            label: 'Member colours',
+            sub: 'Each person’s identity colour',
+            val: '$activeMembers member${activeMembers == 1 ? '' : 's'}',
+            onTap: openMemberColoursScreen,
+          ),
+          _hubRow(
+            key: 'more-calimports',
+            label: 'Imported calendars',
+            val: impCount == 0
+                ? 'None yet'
+                : (failing > 0 ? '$failing failing' : 'All synced'),
+            warnVal: failing > 0,
+            goodVal: impCount > 0 && failing == 0,
+            onTap: openImportedCalendarsScreen,
+          ),
+        ],
         _hubRow(
           key: 'more-callayers',
           label: 'Calendar layers',
@@ -153,14 +162,15 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           val: '$layersOn of ${calendarLayers.length} on',
           onTap: openCalendarLayersScreen,
         ),
-        _hubRow(
-          key: 'more-kitchen-settings',
-          label: 'Kitchen wall',
-          sub: 'The shared tablet screen',
-          val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
-          warnVal: !kitchenEnabled,
-          onTap: openKitchenWallScreen,
-        ),
+        if (!child)
+          _hubRow(
+            key: 'more-kitchen-settings',
+            label: 'Kitchen wall',
+            sub: 'The shared tablet screen',
+            val: kitchenEnabled ? '$visible of ${layers.length} layers' : 'Off',
+            warnVal: !kitchenEnabled,
+            onTap: openKitchenWallScreen,
+          ),
       ],
     );
   }
@@ -225,7 +235,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
       summary:
           '${members.length} member${members.length == 1 ? '' : 's'} · '
           '${owner ? 'you own this family' : 'owned by ${ownerName ?? '?'}'}',
-      hint: owner ? null : 'Only owners can manage members.',
+      hint: isChildUser
+          ? 'Only family admins can change family settings.'
+          : (owner ? null : 'Only owners can manage members.'),
       rows: [
         // The member list lives directly on the card (#330): avatar, role and
         // status per row. Tapping opens the family management page (#275).
@@ -269,12 +281,27 @@ extension _ThriveMoreScreen on _ThriveHomeState {
 
   Widget _hubAccountCard() {
     final u = user;
+    final me = curFamily()?.members.where((m) => m.id == myId).firstOrNull;
+    // A login an admin gave this kid profile (Flow B): admins own it, so no
+    // password reset or account deletion from here.
+    final adminLogin = isChildUser && me?.loginMethod != null;
+    final managed = adminLogin && (me?.managed ?? false);
     return _hubCard(
       id: 'account',
       icon: 'gear',
       title: 'Account',
       summary: '${_hubProviderLabel()} · ${u?.email ?? 'not signed in'}',
       rows: [
+        if (managed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: kidNotice(
+              '${adminNames()} can change your email or password.',
+              key: const ValueKey('more-managed-notice'),
+              title: 'Managed by your family admins',
+              margin: EdgeInsets.zero,
+            ),
+          ),
         ValueListenableBuilder<int>(
           valueListenable: pendingChangesTick,
           builder: (context, _, _) {
@@ -362,34 +389,40 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           noChev: true,
           onTap: () => flash('Only English (UK) for now'),
         ),
-        _hubRow(
-          key: 'hub-resetpw',
-          label: 'Reset password',
-          sub: u?.provider == 'google'
-              ? 'You sign in with Google — no password here'
-              : 'We’ll email you a reset link',
-          disabled: u?.provider == 'google',
-          disHint: 'You sign in with Google — there’s no password to reset',
-          onTap: openResetPasswordSheet,
-        ),
+        if (!adminLogin)
+          _hubRow(
+            key: 'hub-resetpw',
+            label: 'Reset password',
+            sub: u?.provider == 'google'
+                ? 'You sign in with Google — no password here'
+                : 'We’ll email you a reset link',
+            disabled: u?.provider == 'google',
+            disHint: 'You sign in with Google — there’s no password to reset',
+            onTap: openResetPasswordSheet,
+          ),
         _hubRow(
           key: 'more-signout',
           label: 'Sign out',
-          sub: 'You stay in your families — nothing is deleted',
+          sub: adminLogin
+              ? 'You can sign in again any time'
+              : (isChildUser
+                    ? 'You stay in your family. Nothing is deleted.'
+                    : 'You stay in your families — nothing is deleted'),
           danger: true,
           bg: const Color(0xfffef7f7),
           noChev: true,
           onTap: signOut,
         ),
-        _hubRow(
-          key: 'more-delete-account',
-          label: 'Delete account',
-          sub: _deleteAccountConsequence(),
-          danger: true,
-          bg: B.redSoft,
-          noChev: true,
-          onTap: openDeleteAccountSheet,
-        ),
+        if (!adminLogin)
+          _hubRow(
+            key: 'more-delete-account',
+            label: 'Delete account',
+            sub: _deleteAccountConsequence(),
+            danger: true,
+            bg: B.redSoft,
+            noChev: true,
+            onTap: openDeleteAccountSheet,
+          ),
       ],
     );
   }

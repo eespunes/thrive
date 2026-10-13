@@ -8,10 +8,15 @@ part of 'package:family_money_management_app/main.dart';
 /// (bottom sheet with barcode + Remove); add card via the scanner path.
 extension _ThriveWeeklyWalletScreens on _ThriveHomeState {
   void openWeeklyPlanScreen() {
+    // The inline editor isn't for kids — they get the read-only Weekly tab.
+    if (isChildUser) return goTab('weekly');
     pushSettingsPage<void>((_) => _WeeklyPlanSubScreen(state: this));
   }
 
   void openWalletSubScreen() {
+    if (childBlocked('Discount cards aren’t available on a kid profile')) {
+      return;
+    }
     pushSettingsPage<void>((_) => _WalletSubScreen(state: this));
   }
 }

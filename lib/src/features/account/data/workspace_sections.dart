@@ -19,6 +19,8 @@ Map<String, dynamic> familyMetaDoc(Family f) => {
   if (f.picture != null) 'picture': f.picture,
   'ownerUid': f.ownerUid,
   'memberUids': f.memberUids,
+  if (f.adminUids.isNotEmpty) 'adminUids': f.adminUids,
+  if (f.kidUids.isNotEmpty) 'kidUids': f.kidUids,
   'members': f.members.map((m) => m.toJson()).toList(),
   'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
   'updatedAt': FieldValue.serverTimestamp(),

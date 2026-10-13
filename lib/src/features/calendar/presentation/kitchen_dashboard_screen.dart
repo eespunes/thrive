@@ -9,6 +9,9 @@ part of 'package:family_money_management_app/main.dart';
 /// shared [_ThriveHomeState], so every change syncs family-wide.
 extension _ThriveKitchenDashboard on _ThriveHomeState {
   void openKitchenDashboard() {
+    if (childBlocked('The kitchen wall isn’t available on a kid profile')) {
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => _KitchenDashboardScreen(state: this)),

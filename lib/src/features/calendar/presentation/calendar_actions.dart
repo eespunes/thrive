@@ -598,6 +598,8 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     List<String>? cats,
   }) {
     if (!layers.contains(ev.layerId)) return false;
+    // Child users only ever see their own events, whatever the filters say.
+    if (isChildUser && !childSeesEvent(ev)) return false;
     final cflt = cats ?? calCatFilter;
     final category = ev.category;
     if (cflt.isNotEmpty && category != null && !cflt.contains(category)) {
@@ -623,6 +625,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
   }) {
     if (!cal.visible) return false;
     if (!layers.contains(kLayerAppt)) return false;
+    if (isChildUser && !childSeesImported(cal)) return false;
     final cflt = cats ?? calCatFilter;
     if (cflt.isNotEmpty &&
         cal.category != null &&

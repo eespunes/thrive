@@ -26,12 +26,16 @@ extension _ThriveNavTabs on _ThriveHomeState {
   /// The three sections this person's bar shows, always valid: unknown or
   /// duplicate keys are dropped and the list is topped up from the defaults,
   /// so a stale or hand-edited value can never produce a short bar.
-  List<String> get navPickedTabs => sanitiseNavTabs(navTabs);
+  /// A child user's bar is fixed to the only sections they can use.
+  List<String> get navPickedTabs =>
+      isChildUser ? kChildNavTabs : sanitiseNavTabs(navTabs);
 
   /// Sections that didn't make the bar. They are not lost — More lists them.
   List<String> get navMoreSections => [
     for (final (key, _, _) in kNavSections)
-      if (!navPickedTabs.contains(key)) key,
+      if (!navPickedTabs.contains(key) &&
+          (!isChildUser || kChildAllowedTabs.contains(key)))
+        key,
   ];
 
   void setNavTabs(List<String> picked) {
@@ -75,7 +79,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
     switch (key) {
       case 'lists':
         var open = 0;
-        for (final l in taskLists) {
+        for (final l in visibleTaskLists) {
           open += l.tasks
               .where(
                 (t) => !t.done && (t.assignee == myId || t.assignee == null),
@@ -84,6 +88,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
         }
         return open == 0 ? null : open;
       case 'finance':
+        if (isChildUser) return null;
         final c = compute(monthIdx);
         var unpaid = 0;
         for (final b in c.blocks) {
@@ -104,6 +109,7 @@ extension _ThriveNavTabs on _ThriveHomeState {
   }
 
   void openNavTabEditor() {
+    if (isChildUser) return;
     logAnalyticsEvent('nav_tab_editor_opened', const {});
     _showSheet((ctx) => _NavTabEditorSheet(state: this));
   }
