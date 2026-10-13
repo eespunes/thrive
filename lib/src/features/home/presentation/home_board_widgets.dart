@@ -473,7 +473,9 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                         decoration: BoxDecoration(
                           color: locked
                               ? context.tc.faint
-                              : (i == 0 ? context.tc.primary : Colors.white),
+                              : (i == 0
+                                    ? context.tc.primary
+                                    : context.tc.surface),
                           border: i == 0 || locked
                               ? null
                               : Border.all(color: context.tc.line),

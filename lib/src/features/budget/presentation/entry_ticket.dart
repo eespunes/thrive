@@ -1402,7 +1402,7 @@ class _EntryScopeSheet extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 48),
           decoration: BoxDecoration(
             color: deleting
-                ? const Color(0xfffff5f5)
+                ? context.tc.pick(const Color(0xfffff5f5), context.tc.redSoft)
                 : context.tc.pick(const Color(0xfff8fafc), context.tc.rowOpen),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(

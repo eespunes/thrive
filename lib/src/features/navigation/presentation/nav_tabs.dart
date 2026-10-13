@@ -169,12 +169,20 @@ class _NavTabEditorSheetState extends State<_NavTabEditorSheet> {
             decoration: BoxDecoration(
               color: context.tc.surface,
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: const Color(0xffe5e9ef)),
+              border: Border.all(
+                color: context.tc.pick(
+                  const Color(0xffe5e9ef),
+                  context.tc.line,
+                ),
+              ),
             ),
             foregroundDecoration: picked
                 ? null
                 : _DottedBoxDecoration(
-                    color: const Color(0xffd3dae2),
+                    color: context.tc.pick(
+                      const Color(0xffd3dae2),
+                      context.tc.toggleOff,
+                    ),
                     radius: 11,
                     width: 1,
                   ),

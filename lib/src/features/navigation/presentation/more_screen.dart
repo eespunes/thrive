@@ -252,7 +252,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 ? 'owner'
                 : (m.status == 'invited' ? 'invited' : null),
             pillKind: m.role == 'owner' ? 'owner' : 'invited',
-            bg: m.status == 'invited' ? const Color(0xfffffdf5) : null,
+            bg: m.status == 'invited'
+                ? context.tc.pick(const Color(0xfffffdf5), context.tc.amberSoft)
+                : null,
             trail: avatarNode(
               photo: m.photo,
               emoji: m.emoji,
@@ -418,7 +420,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                     ? 'You stay in your family. Nothing is deleted.'
                     : 'You stay in your families — nothing is deleted'),
           danger: true,
-          bg: const Color(0xfffef7f7),
+          bg: context.tc.pick(const Color(0xfffef7f7), context.tc.redSoft),
           noChev: true,
           onTap: signOut,
         ),

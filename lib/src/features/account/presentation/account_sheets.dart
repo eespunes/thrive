@@ -86,7 +86,10 @@ Widget _familyFormButton(
         color: enabled
             ? ThriveColors.current.primary
             : ThriveColors.current.pick(
-                const Color(0xffe2e8f0),
+                ThriveColors.current.pick(
+                  const Color(0xffe2e8f0),
+                  ThriveColors.current.line,
+                ),
                 ThriveColors.current.line,
               ),
         borderRadius: BorderRadius.circular(13),

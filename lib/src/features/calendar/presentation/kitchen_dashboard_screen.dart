@@ -293,11 +293,17 @@ const LinearGradient kKitchenGoldGradient = LinearGradient(
 );
 const Color kKitchenGoldInk = Color(0xff7a5200);
 Color get kKitchenTileBg => ThriveColors.current.pick(
-  const Color(0xfffafbfc),
+  ThriveColors.current.pick(
+    const Color(0xfffafbfc),
+    ThriveColors.current.rowOpen,
+  ),
   ThriveColors.current.rowOpen,
 );
 Color get kKitchenTileLine => ThriveColors.current.pick(
-  const Color(0xffeef1f5),
+  ThriveColors.current.pick(
+    const Color(0xffeef1f5),
+    ThriveColors.current.track,
+  ),
   ThriveColors.current.track,
 );
 
@@ -662,7 +668,10 @@ class _KitchenLeftPanel extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         letterSpacing: .8,
                         color: ThriveColors.current.pick(
-                          const Color(0xffb3bcc9),
+                          ThriveColors.current.pick(
+                            const Color(0xffb3bcc9),
+                            ThriveColors.current.toggleOff,
+                          ),
                           ThriveColors.current.toggleOff,
                         ),
                       ),
@@ -683,7 +692,10 @@ class _KitchenLeftPanel extends StatelessWidget {
             decoration: BoxDecoration(
               color: isToday
                   ? ThriveColors.current.pick(
-                      const Color(0xffe7f5f3),
+                      ThriveColors.current.pick(
+                        const Color(0xffe7f5f3),
+                        ThriveColors.current.soft,
+                      ),
                       ThriveColors.current.soft,
                     )
                   : Colors.transparent,
@@ -710,7 +722,10 @@ class _KitchenLeftPanel extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: ThriveColors.current.pick(
-                    const Color(0xffb3bcc9),
+                    ThriveColors.current.pick(
+                      const Color(0xffb3bcc9),
+                      ThriveColors.current.toggleOff,
+                    ),
                     ThriveColors.current.toggleOff,
                   ),
                 ),
@@ -1034,15 +1049,20 @@ class _KitchenMemberColumn extends StatelessWidget {
                                   color: kKitchenTileLine,
                                 ),
                               ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 7),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                ),
                                 child: Text(
                                   'CHORES',
                                   style: TextStyle(
                                     fontSize: 8.5,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: .7,
-                                    color: Color(0xffc3ccd6),
+                                    color: context.tc.pick(
+                                      const Color(0xffc3ccd6),
+                                      context.tc.toggleOff,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1389,7 +1409,7 @@ class _KitchenPictureTile extends StatelessWidget {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .92),
+                  color: context.tc.surface.withValues(alpha: .92),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(Icons.close, size: 13, color: context.tc.muted),
@@ -1407,7 +1427,7 @@ class _KitchenPictureTile extends StatelessWidget {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .92),
+                    color: context.tc.surface.withValues(alpha: .92),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(Icons.edit, size: 13, color: context.tc.muted),

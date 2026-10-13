@@ -458,7 +458,7 @@ class _PendingSpinnerState extends State<_PendingSpinner>
         painter: _RingPainter(
           widget.track ??
               ThriveColors.current.pick(
-                const Color(0xffdbe3ea),
+                context.tc.pick(const Color(0xffdbe3ea), context.tc.line),
                 ThriveColors.current.line,
               ),
           widget.tone ?? ThriveColors.current.primary,

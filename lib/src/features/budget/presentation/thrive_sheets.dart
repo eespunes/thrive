@@ -537,7 +537,7 @@ class _SheetShell extends StatelessWidget {
             height: 5,
             margin: const EdgeInsets.fromLTRB(0, 8, 0, 14),
             decoration: BoxDecoration(
-              color: const Color(0xffe2e6ee),
+              color: context.tc.pick(const Color(0xffe2e6ee), context.tc.line),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -652,7 +652,10 @@ Widget _sheetHeadWithTick(
               color: confirmEnabled
                   ? ThriveColors.current.primary
                   : ThriveColors.current.pick(
-                      const Color(0xffcbd3dc),
+                      ThriveColors.current.pick(
+                        const Color(0xffcbd3dc),
+                        ThriveColors.current.toggleOff,
+                      ),
                       ThriveColors.current.toggleOff,
                     ),
               borderRadius: BorderRadius.circular(10),
@@ -1232,7 +1235,7 @@ Widget _sheetInput(
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: ThriveColors.current.surface,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: ThriveColors.current.line),
@@ -1256,7 +1259,10 @@ Widget _primaryBtn(String label, VoidCallback? onTap, {bool enabled = true}) {
         color: enabled
             ? ThriveColors.current.primary
             : ThriveColors.current.pick(
-                const Color(0xffcbd3dc),
+                ThriveColors.current.pick(
+                  const Color(0xffcbd3dc),
+                  ThriveColors.current.toggleOff,
+                ),
                 ThriveColors.current.toggleOff,
               ),
         borderRadius: BorderRadius.circular(14),
@@ -1347,7 +1353,12 @@ Widget _switch(bool on, Color activeColor) {
     width: 42,
     height: 24,
     decoration: BoxDecoration(
-      color: on ? activeColor : const Color(0xffcfd6e0),
+      color: on
+          ? activeColor
+          : ThriveColors.current.pick(
+              const Color(0xffcfd6e0),
+              ThriveColors.current.toggleOff,
+            ),
       borderRadius: BorderRadius.circular(999),
     ),
     child: Stack(
@@ -1901,7 +1912,7 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.tc.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1917,10 +1928,10 @@ class _GlyphPickerState extends State<_GlyphPicker> {
               height: 340,
               emojiViewConfig: ep.EmojiViewConfig(
                 emojiSizeMax: 28,
-                backgroundColor: Colors.white,
+                backgroundColor: context.tc.surface,
               ),
               categoryViewConfig: ep.CategoryViewConfig(
-                backgroundColor: Colors.white,
+                backgroundColor: context.tc.surface,
                 indicatorColor: context.tc.primary,
                 iconColorSelected: context.tc.primary,
                 backspaceColor: context.tc.primary,

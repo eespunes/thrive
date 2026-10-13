@@ -24,7 +24,10 @@ enum StatusChipKind {
     saving || syncing => const Color(0xffb7e3db),
     loading => const Color(0xffbfdcea),
     _ => ThriveColors.current.pick(
-      const Color(0xffe2e8f0),
+      ThriveColors.current.pick(
+        const Color(0xffe2e8f0),
+        ThriveColors.current.line,
+      ),
       ThriveColors.current.line,
     ),
   };
@@ -190,16 +193,25 @@ enum StatusTone {
 
   Color get soft => switch (this) {
     red => ThriveColors.current.pick(
-      const Color(0xfffee2e2),
+      ThriveColors.current.pick(
+        const Color(0xfffee2e2),
+        ThriveColors.current.redSoft,
+      ),
       ThriveColors.current.redSoft,
     ),
     amber => ThriveColors.current.pick(
-      const Color(0xfffef3c7),
+      ThriveColors.current.pick(
+        const Color(0xfffef3c7),
+        ThriveColors.current.amberSoft,
+      ),
       ThriveColors.current.amberSoft,
     ),
     blue => const Color(0xffe0f0f8),
     slate => ThriveColors.current.pick(
-      const Color(0xffeef1f5),
+      ThriveColors.current.pick(
+        const Color(0xffeef1f5),
+        ThriveColors.current.track,
+      ),
       ThriveColors.current.track,
     ),
   };
@@ -468,7 +480,10 @@ class CloudOfflineScreen extends StatelessWidget {
                   70,
                   11,
                   ThriveColors.current.pick(
-                    const Color(0xffcbd5e1),
+                    ThriveColors.current.pick(
+                      const Color(0xffcbd5e1),
+                      ThriveColors.current.toggleOff,
+                    ),
                     ThriveColors.current.toggleOff,
                   ),
                 ),
@@ -477,7 +492,10 @@ class CloudOfflineScreen extends StatelessWidget {
                   110,
                   8,
                   ThriveColors.current.pick(
-                    const Color(0xffe2e8f0),
+                    ThriveColors.current.pick(
+                      const Color(0xffe2e8f0),
+                      ThriveColors.current.line,
+                    ),
                     ThriveColors.current.line,
                   ),
                 ),
@@ -490,7 +508,10 @@ class CloudOfflineScreen extends StatelessWidget {
           double.infinity,
           38,
           ThriveColors.current.pick(
-            const Color(0xffe2e8f0),
+            ThriveColors.current.pick(
+              const Color(0xffe2e8f0),
+              ThriveColors.current.line,
+            ),
             ThriveColors.current.line,
           ),
           r: 12,
@@ -506,7 +527,10 @@ class CloudOfflineScreen extends StatelessWidget {
                 90,
                 9,
                 ThriveColors.current.pick(
-                  const Color(0xffe2e8f0),
+                  ThriveColors.current.pick(
+                    const Color(0xffe2e8f0),
+                    ThriveColors.current.line,
+                  ),
                   ThriveColors.current.line,
                 ),
               ),
@@ -515,7 +539,10 @@ class CloudOfflineScreen extends StatelessWidget {
                 160,
                 22,
                 ThriveColors.current.pick(
-                  const Color(0xffcbd5e1),
+                  ThriveColors.current.pick(
+                    const Color(0xffcbd5e1),
+                    ThriveColors.current.toggleOff,
+                  ),
                   ThriveColors.current.toggleOff,
                 ),
                 r: 8,
@@ -525,7 +552,10 @@ class CloudOfflineScreen extends StatelessWidget {
                 double.infinity,
                 10,
                 ThriveColors.current.pick(
-                  const Color(0xffe2e8f0),
+                  ThriveColors.current.pick(
+                    const Color(0xffe2e8f0),
+                    ThriveColors.current.line,
+                  ),
                   ThriveColors.current.line,
                 ),
               ),

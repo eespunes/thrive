@@ -90,7 +90,9 @@ extension _ThriveAppShell on _ThriveHomeState {
   Widget _navItem(String key, String label, String icon) {
     final active = _navActive(key);
     final badge = navTabBadge(key);
-    final ink = active ? context.tc.primary : const Color(0xff9aa6b4);
+    final ink = active
+        ? context.tc.primary
+        : context.tc.pick(const Color(0xff9aa6b4), context.tc.placeholder);
     return GestureDetector(
       key: ValueKey('nav-$key'),
       onTap: () => goTab(key),

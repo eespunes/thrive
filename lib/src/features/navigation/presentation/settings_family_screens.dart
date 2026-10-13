@@ -178,7 +178,7 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
           decoration: BoxDecoration(
             color: danger
-                ? const Color(0xfffef7f7)
+                ? context.tc.pick(const Color(0xfffef7f7), context.tc.redSoft)
                 : context.tc.pick(const Color(0xfff8fafc), context.tc.rowOpen),
             border: Border.all(
               color: danger ? context.tc.redLine : context.tc.line,
@@ -274,7 +274,10 @@ Widget _smallPillButton(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           color: disabled
-              ? const Color(0xffa8b3c2)
+              ? ThriveColors.current.pick(
+                  const Color(0xffa8b3c2),
+                  ThriveColors.current.placeholder,
+                )
               : (primary
                     ? ThriveColors.current.deep
                     : ThriveColors.current.text),
@@ -925,7 +928,12 @@ class _FamilyScreen extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: invited ? const Color(0xfffffdf5) : ThriveColors.current.page,
+          color: invited
+              ? ThriveColors.current.pick(
+                  const Color(0xfffffdf5),
+                  ThriveColors.current.amberSoft,
+                )
+              : ThriveColors.current.page,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -962,7 +970,10 @@ class _FamilyScreen extends StatelessWidget {
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: ThriveColors.current.pick(
-                        const Color(0xff8a96a8),
+                        ThriveColors.current.pick(
+                          const Color(0xff8a96a8),
+                          ThriveColors.current.placeholder,
+                        ),
                         ThriveColors.current.placeholder,
                       ),
                     ),
@@ -995,7 +1006,10 @@ class _FamilyScreen extends StatelessWidget {
               size: 14,
               sw: 2.2,
               color: ThriveColors.current.pick(
-                const Color(0xffc2cad6),
+                ThriveColors.current.pick(
+                  const Color(0xffc2cad6),
+                  ThriveColors.current.toggleOff,
+                ),
                 ThriveColors.current.toggleOff,
               ),
             ),
@@ -1424,7 +1438,7 @@ class _InviteSheetState extends State<_InviteSheet> {
         key: const ValueKey('iv-pw-hidden'),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         decoration: BoxDecoration(
-          color: const Color(0xffeef1f6),
+          color: context.tc.pick(const Color(0xffeef1f6), context.tc.line),
           borderRadius: BorderRadius.circular(11),
         ),
         child: Wrap(

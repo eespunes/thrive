@@ -352,7 +352,7 @@ extension _ThriveScreens on _ThriveHomeState {
             vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .92),
+            color: context.tc.surface.withValues(alpha: .92),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: context.tc.line),
           ),
@@ -762,7 +762,9 @@ extension _ThriveScreens on _ThriveHomeState {
         color: on ? context.tc.greenSoft : context.tc.surface,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: on ? context.tc.greenLine : const Color(0xffe5e7eb),
+          color: on
+              ? context.tc.greenLine
+              : context.tc.pick(const Color(0xffe5e7eb), context.tc.line),
         ),
       ),
       child: Row(

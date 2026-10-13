@@ -1251,7 +1251,10 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xfff6efdb),
+              color: context.tc.pick(
+                const Color(0xfff6efdb),
+                context.tc.amberSoft,
+              ),
               borderRadius: BorderRadius.circular(11),
             ),
             child: const Text(

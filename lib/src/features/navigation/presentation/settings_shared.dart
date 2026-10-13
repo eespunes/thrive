@@ -443,7 +443,12 @@ Widget studioChip({
             ? t.withValues(alpha: .12)
             : ThriveColors.current.surface,
         border: Border.all(
-          color: selected ? t : const Color(0xffe2e7ee),
+          color: selected
+              ? t
+              : ThriveColors.current.pick(
+                  const Color(0xffe2e7ee),
+                  ThriveColors.current.line,
+                ),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(999),
@@ -492,7 +497,10 @@ Widget studioToggleRow({
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: ThriveColors.current.pick(
-                    const Color(0xff8a96a8),
+                    ThriveColors.current.pick(
+                      const Color(0xff8a96a8),
+                      ThriveColors.current.placeholder,
+                    ),
                     ThriveColors.current.placeholder,
                   ),
                 ),
@@ -514,7 +522,10 @@ Widget studioToggleRow({
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: ThriveColors.current.pick(
-                const Color(0xfff8fafc),
+                ThriveColors.current.pick(
+                  const Color(0xfff8fafc),
+                  ThriveColors.current.rowOpen,
+                ),
                 ThriveColors.current.rowOpen,
               ),
               border: Border.all(color: ThriveColors.current.track),

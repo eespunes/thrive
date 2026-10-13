@@ -248,7 +248,13 @@ extension _ThriveListScreens on _ThriveHomeState {
         width: double.infinity,
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xffc9d0da), width: 2),
+          border: Border.all(
+            color: context.tc.pick(
+              const Color(0xffc9d0da),
+              context.tc.toggleOff,
+            ),
+            width: 2,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Text(

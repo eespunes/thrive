@@ -412,7 +412,10 @@ Widget kidButton({
       ? Colors.white
       : (!enabled && !busy
             ? ThriveColors.current.pick(
-                const Color(0xffe2e8f0),
+                ThriveColors.current.pick(
+                  const Color(0xffe2e8f0),
+                  ThriveColors.current.line,
+                ),
                 ThriveColors.current.line,
               )
             : (danger
@@ -503,7 +506,10 @@ Widget kidToggleRow({
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
       color: ThriveColors.current.pick(
-        const Color(0xfff8fafc),
+        ThriveColors.current.pick(
+          const Color(0xfff8fafc),
+          ThriveColors.current.rowOpen,
+        ),
         ThriveColors.current.rowOpen,
       ),
       border: Border.all(color: ThriveColors.current.track),
@@ -544,7 +550,10 @@ Widget kidToggleRow({
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: ThriveColors.current.pick(
-                          const Color(0xff8a96a8),
+                          ThriveColors.current.pick(
+                            const Color(0xff8a96a8),
+                            ThriveColors.current.placeholder,
+                          ),
                           ThriveColors.current.placeholder,
                         ),
                       ),
@@ -577,7 +586,10 @@ Widget kidToggleRow({
                 color: value
                     ? ThriveColors.current.primary
                     : ThriveColors.current.pick(
-                        const Color(0xffcbd5e1),
+                        ThriveColors.current.pick(
+                          const Color(0xffcbd5e1),
+                          ThriveColors.current.toggleOff,
+                        ),
                         ThriveColors.current.toggleOff,
                       ),
                 borderRadius: BorderRadius.circular(999),

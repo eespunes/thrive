@@ -344,7 +344,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xffeaedf2),
+        color: context.tc.pick(const Color(0xffeaedf2), context.tc.line),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -606,7 +606,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               hintText: hint,
               isDense: true,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.tc.surface,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 13,

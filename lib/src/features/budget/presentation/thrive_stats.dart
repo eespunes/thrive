@@ -536,7 +536,7 @@ extension _ThriveStats on _ThriveHomeState {
                                   height: barH,
                                   decoration: BoxDecoration(
                                     color: trail[i].net >= 0
-                                        ? Colors.white.withValues(
+                                        ? context.tc.surface.withValues(
                                             alpha: i == trail.length - 1
                                                 ? 1
                                                 : .45,

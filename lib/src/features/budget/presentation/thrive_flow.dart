@@ -747,7 +747,12 @@ extension _ThriveFlow on _ThriveHomeState {
                   color: r.done ? context.tc.green : context.tc.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: r.done ? context.tc.green : const Color(0xffd6dde7),
+                    color: r.done
+                        ? context.tc.green
+                        : context.tc.pick(
+                            const Color(0xffd6dde7),
+                            context.tc.line,
+                          ),
                     width: 1.6,
                   ),
                 ),
@@ -1000,7 +1005,10 @@ extension _ThriveFlow on _ThriveHomeState {
                       width: 11,
                       height: 11,
                       decoration: BoxDecoration(
-                        color: const Color(0xfffffaf2),
+                        color: context.tc.pick(
+                          const Color(0xfffffaf2),
+                          context.tc.amberSoft,
+                        ),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0xfffcd9a5)),
                       ),
@@ -1220,7 +1228,9 @@ extension _ThriveFlow on _ThriveHomeState {
       decoration: BoxDecoration(
         color: context.tc.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xffd8dee8)),
+        border: Border.all(
+          color: context.tc.pick(const Color(0xffd8dee8), context.tc.line),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

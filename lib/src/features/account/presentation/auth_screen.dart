@@ -148,7 +148,7 @@ class _AuthScreenState extends State<_AuthScreen> {
                 vertical: 13,
               ),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.tc.surface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
                 borderSide: BorderSide(color: context.tc.line),

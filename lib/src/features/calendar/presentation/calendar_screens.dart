@@ -15,7 +15,10 @@ _calWeekMemo = {};
 
 /// Birthday kind palette (design §3a) — cream fill, amber rule, amber-brown
 /// ink. Shared by every surface so a birthday looks identical everywhere.
-const Color kBirthdayCream = Color(0xfffdf1d8);
+Color kBirthdayCream = ThriveColors.current.pick(
+  const Color(0xfffdf1d8),
+  ThriveColors.current.amberSoft,
+);
 const Color kBirthdayAmber = Color(0xffd97706);
 const Color kBirthdayInk = Color(0xff92610c);
 const Color kBirthdaySubInk = Color(0xffb18a45);
@@ -150,7 +153,10 @@ const List<(String, String, String)> kCalViews = [
 /// `renderCalendar()` / `monthView()` / `agendaView()` / `eventCard()`.
 extension _ThriveCalendarScreens on _ThriveHomeState {
   static const double _calendarFadedOpacity = .45;
-  static const Color _calendarHeaderBorderColor = Color(0xffd5dce8);
+  static Color get _calendarHeaderBorderColor => ThriveColors.current.pick(
+    const Color(0xffd5dce8),
+    ThriveColors.current.line,
+  );
 
   static const int _calendarPageCenter = 10000;
 
@@ -403,9 +409,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                     key: ValueKey('cal-weekday-$dayIndex'),
                     decoration: BoxDecoration(
                       border: Border(
-                        bottom: const BorderSide(
-                          color: _calendarHeaderBorderColor,
-                        ),
+                        bottom: BorderSide(color: _calendarHeaderBorderColor),
                       ),
                     ),
                     child: Padding(
@@ -595,10 +599,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     );
   }
 
-  static Color get _kMonthGridLine => ThriveColors.current.pick(
-    const Color(0xffeef1f5),
-    ThriveColors.current.track,
-  );
+  static Color get _kMonthGridLine => ThriveColors.current.track;
 
   Widget _calMonthWeekRow(
     List<String> week, {
@@ -674,12 +675,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     ];
 
     final bg = ghost
-        ? const Color(0xffe9ecf1)
+        ? context.tc.pick(const Color(0xffe9ecf1), context.tc.line)
         : isToday
-        ? const Color(0xfff0faf8)
+        ? context.tc.pick(const Color(0xfff0faf8), context.tc.soft)
         : weekend
         ? context.tc.pick(const Color(0xfffafbfc), context.tc.rowOpen)
-        : Colors.white;
+        : context.tc.surface;
 
     return GestureDetector(
       key: ValueKey('cal-day-bg-$iso'),
@@ -788,7 +789,10 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             color: isToday
                 ? Colors.white
                 : ghost
-                ? const Color(0xffa3adbb)
+                ? context.tc.pick(
+                    const Color(0xffa3adbb),
+                    context.tc.placeholder,
+                  )
                 : context.tc.ink,
           ),
         ),

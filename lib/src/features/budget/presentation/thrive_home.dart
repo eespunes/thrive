@@ -2648,7 +2648,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xfff6efdb),
+                                color: context.tc.pick(
+                                  const Color(0xfff6efdb),
+                                  context.tc.amberSoft,
+                                ),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: const Text(
