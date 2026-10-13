@@ -245,9 +245,29 @@ service cloud.firestore {
       // id with one collection-group query (rule below). A write must stamp
       // this family's id — which also locks out outdated app versions that
       // still write the old flat layout.
+      // Push bookkeeping (#469) is not family data: `members/{uid}/devices`
+      // holds each phone's FCM token (owner-only, below) and the push*/
+      // rewardClaims collections belong to the Cloud Functions alone.
+      function isFamilyRecord(sub) {
+        return !(sub in ['members', 'pushLog', 'pushQueue', 'pushMoney',
+                         'rewardClaims']);
+      }
       match /{sub}/{document=**} {
-        allow read, delete: if isFullMember();
-        allow create, update: if isFullMember() && versionOk() && familyIdOk();
+        allow read, delete: if isFamilyRecord(sub) && isFullMember();
+        allow create, update: if isFamilyRecord(sub) && isFullMember()
+          && versionOk() && familyIdOk();
+      }
+
+      // This phone's push registration: only its own user, kids included,
+      // and only while in the family. Removing it needs no membership, so
+      // signing out or leaving can always clean up.
+      match /members/{memberUid}/devices/{token} {
+        allow read: if request.auth != null
+          && request.auth.uid == memberUid && isFamilyMember();
+        allow create, update: if request.auth != null
+          && request.auth.uid == memberUid && isFamilyMember()
+          && request.resource.data.get('token', token) == token;
+        allow delete: if request.auth != null && request.auth.uid == memberUid;
       }
 
       // Kid accounts only reach their own world: the kitchen settings (for

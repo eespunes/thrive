@@ -46,8 +46,11 @@ class NotificationService implements NotificationScheduler {
       await _plugin.initialize(
         settings: const InitializationSettings(android: android, iOS: ios),
         onDidReceiveNotificationResponse: _onTap,
+        onDidReceiveBackgroundNotificationResponse:
+            notificationActionInBackground,
       );
       _initialized = true;
+      await _createChannels();
     } catch (e) {
       debugPrint('[notifications] init failed: $e');
     }
@@ -84,10 +87,217 @@ class NotificationService implements NotificationScheduler {
   }
 
   static void _onTap(NotificationResponse response) {
+    if (response.notificationResponseType ==
+            NotificationResponseType.selectedNotificationAction &&
+        response.actionId != null &&
+        response.actionId != kNotifOpenAction) {
+      unawaited(runNotificationAction(response.actionId!, response.payload));
+      return;
+    }
     final payload = response.payload;
     if (payload == null) return;
-    pendingNotificationDeepLink.value = payload;
+    pendingNotificationDeepLink.value = linkOfPayload(payload);
   }
+
+  /// Creates every Android channel up front (#471) so each one shows in
+  /// Android settings and its on/off state can be read before the first
+  /// notification arrives.
+  static Future<void> _createChannels() async {
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return;
+      for (final c in kNotifChannels) {
+        await android.createNotificationChannel(
+          AndroidNotificationChannel(c.id, c.name, importance: c.importance),
+        );
+      }
+    } catch (e) {
+      debugPrint('[notifications] channel setup failed: $e');
+    }
+  }
+
+  // ------------------------------------------------------ device state (#483)
+
+  static const MethodChannel _native = MethodChannel(
+    'cat.eespunes.thrive/notifications',
+  );
+
+  /// How many times Thrive has shown the system permission prompt on this
+  /// phone. Tells "never asked" (2a) from "blocked" (2d) — Android reports
+  /// both as "disabled, no rationale".
+  static const String kAskCountKey = 'notif_permission_asks';
+
+  /// Pure mapping of the platform signals to the page's permission state.
+  static NotifPermission classifyPermission({
+    required bool enabled,
+    required bool rationale,
+    required int askCount,
+    int sdk = 33,
+  }) {
+    if (enabled) return NotifPermission.granted;
+    // Before Android 13 there's no runtime prompt: off means switched off in
+    // Android settings.
+    if (sdk < 33) return NotifPermission.blocked;
+    if (rationale) return NotifPermission.denied;
+    return askCount == 0 ? NotifPermission.undecided : NotifPermission.blocked;
+  }
+
+  static Future<int> _askCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(kAskCountKey) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static Future<void> _noteAsked() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(kAskCountKey, (prefs.getInt(kAskCountKey) ?? 0) + 1);
+    } catch (_) {}
+  }
+
+  /// Reads the permission, every channel's on/off and exact-alarm access.
+  /// Called on every resume and whenever the page opens (§2). Platforms
+  /// without the native channel (web, tests, iOS) report "granted".
+  static Future<NotifDeviceState> readDeviceState() async {
+    final asks = await _askCount();
+    try {
+      final raw = await _native.invokeMapMethod<String, Object?>('state', {
+        'channels': [for (final c in kNotifChannels) c.id],
+      });
+      if (raw == null) return NotifDeviceState.granted();
+      final channels = <String, bool>{};
+      final rawChannels = raw['channels'];
+      if (rawChannels is Map) {
+        for (final e in rawChannels.entries) {
+          channels[e.key.toString()] = e.value != false;
+        }
+      }
+      final state = NotifDeviceState(
+        permission: classifyPermission(
+          enabled: raw['enabled'] == true,
+          rationale: raw['rationale'] == true,
+          askCount: asks,
+          sdk: (raw['sdk'] as num?)?.toInt() ?? 33,
+        ),
+        channels: channels,
+        exactAlarms: raw['exact'] != false,
+      );
+      _notificationsGranted = state.permission == NotifPermission.granted;
+      _exactAlarmsGranted = state.exactAlarms;
+      return state;
+    } on MissingPluginException {
+      return NotifDeviceState.granted();
+    } catch (e) {
+      debugPrint('[notifications] state read failed: $e');
+      return NotifDeviceState.granted();
+    }
+  }
+
+  /// Shows the Android 13 system prompt (2b). Only ever called from "Turn on
+  /// notifications" / "Ask again" and the first reminder set on an event —
+  /// never at app start.
+  static Future<bool> askPermission() async {
+    await _noteAsked();
+    final granted = await _requestPermissionFromPlatform();
+    _notificationsGranted = granted;
+    return granted;
+  }
+
+  /// Opens a native settings screen: `app` (ACTION_APP_NOTIFICATION_SETTINGS),
+  /// `channel` (ACTION_CHANNEL_NOTIFICATION_SETTINGS for [channel]) or
+  /// `exact` (the "Alarms & reminders" special access page).
+  static Future<void> openSystemSettings(String what, {String? channel}) async {
+    try {
+      await _native.invokeMethod<void>('open', {
+        'what': what,
+        'channel': ?channel,
+      });
+    } catch (e) {
+      debugPrint('[notifications] open settings failed: $e');
+    }
+  }
+
+  /// Shows "Test notification" now on the family channel; false when the
+  /// plugin isn't usable or notifications are off.
+  static Future<bool> showTest() async {
+    if (!_initialized) return false;
+    try {
+      await _plugin.show(
+        id: 0x7ffffff0,
+        title: 'Thrive test notification',
+        body: 'Notifications work on this phone.',
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'family_members',
+            'Family',
+            importance: Importance.defaultImportance,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[notifications] test failed: $e');
+      return false;
+    }
+  }
+
+  /// Displays a push that arrived while Thrive was open (or a data message
+  /// with actions in the background), on its own channel with the server's
+  /// tag so a later update replaces it (#471, §5).
+  static Future<void> showRemote(RemoteNotif n) async {
+    if (!_initialized) return;
+    final spec = kNotifChannels.firstWhere(
+      (c) => c.id == n.channel,
+      orElse: () => kNotifChannels.first,
+    );
+    try {
+      await _plugin.show(
+        id: (n.tag.isEmpty ? n.title : n.tag).hashCode & 0x7fffffff,
+        title: n.title,
+        body: n.body,
+        payload: n.encodedPayload(),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            spec.id,
+            spec.name,
+            importance: spec.importance,
+            priority: spec.importance == Importance.high
+                ? Priority.high
+                : Priority.defaultPriority,
+            tag: n.tag.isEmpty ? null : n.tag,
+            groupKey: n.group,
+            silent: spec.importance == Importance.low,
+            actions: [
+              for (final a in n.actions)
+                AndroidNotificationAction(
+                  a.id,
+                  a.title,
+                  showsUserInterface: a.id == kNotifOpenAction,
+                  cancelNotification: true,
+                ),
+            ],
+          ),
+          iOS: DarwinNotificationDetails(threadIdentifier: n.group),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[notifications] remote show failed: $e');
+    }
+  }
+
+  // ------------------------------------------------- reminder plan (#484/#485)
+
+  /// What the next [syncEventReminders] schedules: the user's own reminders
+  /// (the master "Event reminders" switch), event-start notifications for
+  /// events in their Calendar scope, and quiet hours.
+  static ReminderPlan plan = const ReminderPlan();
 
   /// Stable notification id derived from a string key.
   int _notificationId(String key) => key.hashCode & 0x7fffffff;
@@ -98,16 +308,25 @@ class NotificationService implements NotificationScheduler {
   @override
   Future<void> scheduleEventReminder(CalendarEvent event) async {
     if (!_initialized) return;
+    // The first reminder set on an event is the one in-context moment the
+    // system prompt may appear (§2); later ones never ask again.
+    if (event.reminder != 'none' && plan.reminders) {
+      await _requestPermission();
+    }
     await cancelEventReminder(event.id);
     await _scheduleEventOccurrences(event);
   }
 
   Future<void> _scheduleEventOccurrences(CalendarEvent event) async {
-    if (event.reminder == 'none') return;
+    final p = plan;
+    final wantsReminder = p.reminders && event.reminder != 'none';
+    // Skipped when the event already rings at its start (#485).
+    final wantsStart = event.reminder != 'at' || !p.reminders
+        ? (p.startFor?.call(event) ?? false)
+        : false;
+    if (!wantsReminder && !wantsStart) return;
 
     try {
-      final granted = await _requestPermission();
-      if (!granted) return;
       final scheduleMode = await _androidScheduleMode();
       final now = tz.TZDateTime.now(tz.local);
       var scheduled = 0;
@@ -135,8 +354,11 @@ class NotificationService implements NotificationScheduler {
       for (final occurrenceDate in occurrenceDates) {
         if (scheduled >= 8) break;
         if (!event.exceptions.contains(occurrenceDate)) {
-          final when = _eventReminderTime(event, occurrenceDate);
-          if (when != null && when.isAfter(now)) {
+          var any = false;
+          final when = wantsReminder
+              ? _eventReminderTime(event, occurrenceDate)
+              : null;
+          if (when != null && when.isAfter(now) && p.allowsAt(when)) {
             await _scheduleEventNotification(
               id: _eventNotificationId(event.id, occurrenceDate),
               title: event.title,
@@ -145,8 +367,24 @@ class NotificationService implements NotificationScheduler {
               scheduleMode: scheduleMode,
               payload: 'event:${event.id}:$occurrenceDate',
             );
-            scheduled++;
+            any = true;
           }
+          final start = wantsStart
+              ? _eventStartTime(event, occurrenceDate)
+              : null;
+          if (start != null && start.isAfter(now) && p.allowsAt(start)) {
+            await _scheduleEventNotification(
+              id: _notificationId('start:${event.id}:$occurrenceDate'),
+              title: eventStartTitle(event, p.memberNames?.call(event) ?? ''),
+              body: eventStartBody(event),
+              when: start,
+              scheduleMode: scheduleMode,
+              payload: 'event:${event.id}:$occurrenceDate',
+              channel: kEventStartChannel,
+            );
+            any = true;
+          }
+          if (any) scheduled++;
         }
       }
     } catch (e) {
@@ -218,7 +456,37 @@ class NotificationService implements NotificationScheduler {
     return timeText;
   }
 
-  tz.TZDateTime? _eventReminderTime(CalendarEvent event, String iso) {
+  /// Event-start copy (#485, §5): "{event} · {member} starts now", or
+  /// "{event} is today" for all-day events.
+  static String eventStartTitle(CalendarEvent event, String members) {
+    if (event.allDay || event.start.isEmpty) return '${event.title} is today';
+    return members.isEmpty
+        ? '${event.title} starts now'
+        : '${event.title} · $members starts now';
+  }
+
+  /// "{start}–{end} – {location}", dropping the parts the event lacks.
+  static String eventStartBody(CalendarEvent event) {
+    final time = event.allDay || event.start.isEmpty
+        ? ''
+        : event.end.isEmpty
+        ? event.start
+        : '${event.start}–${event.end}';
+    return [
+      if (time.isNotEmpty) time,
+      if (event.location.isNotEmpty) event.location,
+    ].join(' – ');
+  }
+
+  /// Start instant of the occurrence on [iso]; all-day events at 09:00.
+  tz.TZDateTime? _eventStartTime(CalendarEvent event, String iso) =>
+      _eventReminderTime(event, iso, 'at');
+
+  tz.TZDateTime? _eventReminderTime(
+    CalendarEvent event,
+    String iso, [
+    String? offset,
+  ]) {
     final date = DateTime.tryParse(iso);
     if (date == null) return null;
     var hour = 9;
@@ -237,7 +505,7 @@ class NotificationService implements NotificationScheduler {
       DateTime(date.year, date.month, date.day, hour, minute),
       tz.local,
     );
-    final reminder = event.reminder;
+    final reminder = offset ?? event.reminder;
     if (reminder != 'at') {
       final amount = int.tryParse(
         reminder.substring(0, reminder.length > 1 ? reminder.length - 1 : 0),
@@ -260,20 +528,21 @@ class NotificationService implements NotificationScheduler {
     required tz.TZDateTime when,
     required AndroidScheduleMode scheduleMode,
     required String payload,
+    String channel = 'event_reminders',
   }) async {
     Future<void> schedule(AndroidScheduleMode mode) => _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
       scheduledDate: when,
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          'event_reminders',
-          'Event reminders',
+          channel,
+          channel == kEventStartChannel ? 'Event starts' : 'Event reminders',
           importance: Importance.high,
           priority: Priority.high,
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(),
       ),
       androidScheduleMode: mode,
       payload: payload,
@@ -301,7 +570,7 @@ class NotificationService implements NotificationScheduler {
         (e) =>
             '${e.id}|${e.date}|${e.endDate}|${e.start}|${e.allDay}|'
             '${e.reminder}|${e.recur}|${e.exceptions.join(',')}|'
-            '${e.title}|${e.location}',
+            '${e.title}|${e.location}|${e.end}|${e.attendees.join(',')}',
       )
       .join('\n');
 
@@ -328,7 +597,7 @@ class NotificationService implements NotificationScheduler {
   Future<void> syncEventReminders(Iterable<CalendarEvent> events) async {
     if (!_initialized) return;
     final eventList = events.toList();
-    final digest = _reminderDigest(eventList);
+    final digest = '${plan.key}\n${_reminderDigest(eventList)}';
     if (digest == _lastSyncDigest) return;
     try {
       // Only event reminders are cancelled (other notification kinds, e.g.
@@ -355,12 +624,19 @@ class NotificationService implements NotificationScheduler {
     final pending = _notificationPermissionRequest;
     if (pending != null) return pending;
 
-    final request = _requestPermissionFromPlatform();
+    final request = _askOnce();
     _notificationPermissionRequest = request;
     final granted = await request;
     _notificationsGranted = granted;
     _notificationPermissionRequest = null;
     return granted;
+  }
+
+  /// The system prompt appears at most once from an event reminder: after
+  /// that, "Ask again" on the page is the only way to show it.
+  Future<bool> _askOnce() async {
+    if (await _askCount() > 0) return false;
+    return askPermission();
   }
 
   Future<AndroidScheduleMode> _androidScheduleMode() async {
@@ -391,16 +667,34 @@ class NotificationService implements NotificationScheduler {
             AndroidFlutterLocalNotificationsPlugin
           >();
       if (android == null) return true;
-      if (await android.canScheduleExactNotifications() == true) return true;
-      if (await android.requestExactAlarmsPermission() == true) return true;
+      // Checked only: the "Alarms & reminders" page opens solely from the
+      // page's Allow button (2f), never on its own.
       return await android.canScheduleExactNotifications() == true;
     } catch (e) {
-      debugPrint('[notifications] exact alarm permission request failed: $e');
+      debugPrint('[notifications] exact alarm check failed: $e');
       return false;
     }
   }
 
-  Future<bool> _requestPermissionFromPlatform() async {
+  /// "Allow" on "On time to the minute" (2f): opens Android's special
+  /// access page; the result is read on resume.
+  static Future<bool> requestExactAlarms() async {
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return true;
+      final ok = await android.requestExactAlarmsPermission() == true;
+      _exactAlarmsGranted = ok ? true : null;
+      return ok;
+    } catch (e) {
+      debugPrint('[notifications] exact alarm request failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> _requestPermissionFromPlatform() async {
     try {
       final android = _plugin
           .resolvePlatformSpecificImplementation<

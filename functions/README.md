@@ -33,6 +33,55 @@ Errors (`HttpsError`, `details.reason`):
 - `already-exists` – reason `member` (+ `memberName`): another member uses that email/loginEmail; reason `thrive`: an Auth user (or another member's pending Google link) already has that email.
 - `failed-precondition` – reason `state`: member is in the wrong state for the action; reason `provider`: `kidClaimLogin` caller isn't a verified Google sign-in.
 
+## Push notifications (epic #469)
+
+- `push_logic.js` – pure rules (unit tested): `notifPrefs` defaults + kid
+  restrictions, scope filtering, §5 copy/channel/tag/group per row, FCM
+  message shape, quiet hours (device timezone), digest, debounce buckets,
+  money-day projection.
+- `push_handlers.js` – Firestore/FCM orchestration
+  (`createPushHandlers({db, messaging, enqueue, now})`).
+
+Recipients = family members with a `uid` (not `invited`), minus the writer
+(trigger auth context, falling back to the record's `_by`), filtered by
+`users/{uid}.notifPrefs` (missing ⇒ defaults; type on + event ticked + scope).
+Kids only get chores (scope me), calendar (scope me), money (own member id),
+family and wall. Sent to `families/{fid}/members/{uid}/devices/{token}` docs
+that are `enabled` and whose `channelState[channel]` isn't `false`; a
+`messaging/registration-token-not-registered` error deletes the device doc.
+Every message carries `data.{title, body, link, channel, tag, group?}`;
+Reward claimed is **data-only** (client renders "Approve"/"Open";
+`data.actions`, `data.approve` = JSON args for `approveReward`).
+
+| Export | Kind | Does |
+|---|---|---|
+| `pushOnCalendarEvent` / `pushOnCalendarSeries` | `onDocumentWrittenWithAuthContext` `calendar/main/months/{m}/events/{id}`, `calendar/main/recurring/{id}` | Event added / moved (date/time) / cancelled (delete or new exception date). Kitchen-origin chores ticked done → `chores` bucket. |
+| `pushOnListLine` | `notes/{listId}/lines/{lineId}` | Line added / ticked → `list_{listId}` bucket. |
+| `pushOnMoneyEntry` / `pushOnMoneyOccurrence` / `pushOnMoneySeries` | `finance/main/months/{m}/entries/{id}`, `…/months/{m}/recurring/{id}`, `finance/main/recurring/{id}` | Added (3+ expenses by one person in 10 min → bundle), edited, removed; marked paid → "Paid out"/"Received" now (skips the 09:00 one). |
+| `pushOnKitchen` | `settings/kitchen` | `starsMap[kid]` 5+ → 0 = Reward claimed; writes `rewardClaims/{memberId}`. |
+| `pushOnFamily` | `families/{fid}` | Joined / left or removed / role changed (also sent to the person). |
+| `pushFlush` | `onTaskDispatched` (Cloud Tasks) | Flushes a debounce bucket: chores 15 min after the first tick (grouped "Liv and Leo finished 3 chores"), lists 10 min after the last change ("List finished" replaces "Items added"). |
+| `pushMoneyDay` | `onSchedule` `0 * * * *` | For users whose local time is 09:xx: planned entries due today (series projected like the app), group `money-day`. |
+| `pushQuietDigest` | `onSchedule` `*/15 * * * *` | One `family_digest` per user whose quiet hours are over, then clears held items. |
+| `approveReward` | `onCall`, **`enforceAppCheck: true`** | `{familyId, memberId, claimId?}` – any adult (non-kid) family member; sets `approvedBy`/`approvedAt` on `rewardClaims/{memberId}` (idempotent). Returns `{ok: true}`. |
+
+Server-only collections (Admin SDK; clients never need them – deny in rules;
+enable Firestore TTL on `expireAt` for each):
+
+- `families/{fid}/pushLog/{eventId}` – trigger dedupe (no duplicates on retries).
+- `families/{fid}/pushQueue/{chores|list_{id}|money_{uid}}` – debounce/bundle state.
+- `families/{fid}/pushMoney/{yyyy-mm}_{itemId}` – `paidSentAt`, `scheduledUids` (paid vs 09:00 dedupe).
+- `families/{fid}/rewardClaims/{memberId}` – `claimId`, `cost`, `claimedAt`, `approvedBy`, `approvedAt`.
+- `users/{uid}/pushHeld/{fid}_{tag}` – messages held during quiet hours (same tag replaces).
+
+Quiet hours are checked in the timezone of the user's most recently updated
+device (default `Europe/Amsterdam`); a window crossing midnight belongs to the
+day it starts (day chips Mon..Sun). Requires **Blaze**, the **Cloud Tasks**
+and **Cloud Scheduler** APIs, and FCM. Tests: `push_logic.test.js` (every §5
+row, scopes, kids, quiet hours across timezones, digest order, money-day) and
+`push_handlers.test.js` (in-memory fakes: dedupe, stale tokens, held/digest,
+buckets, paid-vs-scheduled, approve).
+
 ## Develop / deploy
 
 ```sh

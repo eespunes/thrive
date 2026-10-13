@@ -1,9 +1,12 @@
 package cat.eespunes.thrive
 
 import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -12,6 +15,7 @@ import android.os.Looper
 import android.provider.CalendarContract
 import android.provider.CalendarContract.Calendars
 import android.provider.CalendarContract.Events
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -26,6 +30,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val deviceCalendarChannel = "cat.eespunes.thrive/device_calendar"
+    private val notificationsChannel = "cat.eespunes.thrive/notifications"
     private val calendarPermissionRequest = 8417
     private val thriveAccountName = "Thrive"
     private val thriveAccountType = "cat.eespunes.thrive.calendar"
@@ -50,6 +55,86 @@ class MainActivity : FlutterActivity() {
                 "syncThriveCalendar" -> syncThriveCalendar(call, result)
                 else -> result.notImplemented()
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            notificationsChannel,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "state" -> result.success(notificationState(call))
+                "open" -> {
+                    openNotificationSettings(call)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    /**
+     * What Android allows for Thrive on this phone (#483): the app switch,
+     * whether the system will still show the permission dialog, each
+     * channel's switch and the exact-alarm grant.
+     */
+    private fun notificationState(call: MethodCall): Map<String, Any> {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
+        val ids = (call.argument<List<*>>("channels") ?: emptyList<Any?>())
+            .mapNotNull { it?.toString() }
+        val channels = HashMap<String, Boolean>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            for (id in ids) {
+                val channel = manager?.getNotificationChannel(id)
+                // Not created yet means Android will create it switched on.
+                channels[id] = channel == null ||
+                    channel.importance != NotificationManager.IMPORTANCE_NONE
+            }
+        }
+        val rationale = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+        val exact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (getSystemService(ALARM_SERVICE) as? AlarmManager)?.canScheduleExactAlarms() ?: false
+        } else {
+            true
+        }
+        return mapOf(
+            "enabled" to (
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.N ||
+                    manager?.areNotificationsEnabled() != false
+                ),
+            "rationale" to rationale,
+            "sdk" to Build.VERSION.SDK_INT,
+            "exact" to exact,
+            "channels" to channels,
+        )
+    }
+
+    private fun openNotificationSettings(call: MethodCall) {
+        val what = call.argument<String>("what") ?: "app"
+        val channel = call.argument<String>("channel")
+        val intent = when {
+            what == "exact" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    .setData(Uri.parse("package:$packageName"))
+            what == "channel" && channel != null &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                    .putExtra(Settings.EXTRA_CHANNEL_ID, channel)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+            else ->
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:$packageName"))
+        }
+        try {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+            startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:$packageName"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         }
     }
 

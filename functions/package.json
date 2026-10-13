@@ -1,7 +1,7 @@
 {
   "name": "thrive-functions",
   "private": true,
-  "description": "Cloud Functions for Thrive (kid logins).",
+  "description": "Cloud Functions for Thrive (kid logins, push notifications).",
   "main": "index.js",
   "engines": {
     "node": "22"

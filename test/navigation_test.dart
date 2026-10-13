@@ -183,9 +183,24 @@ void main() {
         80,
         scrollable: find.byType(Scrollable).first,
       );
+      // The hub row opens Settings → Notifications (#473); event reminders
+      // are a switch under "On this phone".
       await tester.tap(find.byKey(const ValueKey('hub-notifications')));
       await tester.pumpAndSettle();
+      expect(find.text('What reaches you on this phone'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('notif-reminders')),
+        80,
+        scrollable: find.descendant(
+          of: find.byKey(const ValueKey('notif-list')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('notif-reminders')));
+      await tester.pumpAndSettle();
       expect(thriveDebug.notificationsEnabled, isFalse);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('hub-calsync')));
       await tester.pumpAndSettle();
