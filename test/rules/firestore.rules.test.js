@@ -22,11 +22,8 @@ const OWNER = 'owner-uid';
 const MEMBER = 'member-uid';
 const OTHER = 'other-uid';
 const JOINER = 'joiner-uid';
-// Signed in, but never added to the allowlist.
 const STRANGER = 'stranger-uid';
 const FAM = 'fam1';
-const ALLOWLISTED = [OWNER, MEMBER, OTHER, JOINER];
-const emailOf = (uid) => `${uid}@Example.com`;
 
 const baseFamily = {
   ownerUid: OWNER,
@@ -45,22 +42,13 @@ const baseFamily = {
 
 let env;
 
-// Every signed-in context carries a verified email (`<uid>@Example.com`,
-// mixed case to prove the rules lower-case it) unless [token] overrides it.
-function db(uid, token = {}) {
+function db(uid) {
   return (uid
-    ? env.authenticatedContext(uid,
-      { email: emailOf(uid), email_verified: true, ...token })
+    ? env.authenticatedContext(uid)
     : env.unauthenticatedContext()
   ).firestore();
 }
 const famRef = (d, id = FAM) => doc(d, 'families', id);
-
-async function allow(email, data = {}) {
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), 'allowlist', email.toLowerCase()), data);
-  });
-}
 
 async function seed(data = baseFamily, id = FAM) {
   await env.withSecurityRulesDisabled(async (ctx) => {
@@ -78,7 +66,6 @@ after(async () => { await env?.cleanup(); });
 beforeEach(async () => {
   await env.clearFirestore();
   await seed();
-  for (const uid of ALLOWLISTED) await allow(emailOf(uid));
 });
 
 describe('family doc reads', () => {
@@ -405,13 +392,13 @@ describe('family_handles', () => {
       familyId: FAM,
     }));
   });
-  it('an allowlisted user can get a known handle; others cannot', async () => {
+  it('any signed-in user can get a known handle', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
         { familyId: FAM });
     });
     await assertSucceeds(getDoc(doc(db(OTHER), 'family_handles', 'thefam')));
-    await assertFails(getDoc(doc(db(STRANGER), 'family_handles', 'thefam')));
+    await assertSucceeds(getDoc(doc(db(STRANGER), 'family_handles', 'thefam')));
     await assertFails(getDoc(doc(db(null), 'family_handles', 'thefam')));
   });
   it('create only carries familyId, ownerUid and joinSalt', async () => {
@@ -454,94 +441,26 @@ describe('family_handles', () => {
   });
 });
 
-describe('allowlist collection', () => {
-  it('a user can get only their own entry', async () => {
-    await assertSucceeds(getDoc(doc(db(MEMBER), 'allowlist',
-      emailOf(MEMBER).toLowerCase())));
-    await assertFails(getDoc(doc(db(MEMBER), 'allowlist',
-      emailOf(OWNER).toLowerCase())));
-    await assertFails(getDoc(doc(db(null), 'allowlist',
-      emailOf(MEMBER).toLowerCase())));
-  });
-  it('a stranger can look up (the absence of) their own entry', async () => {
-    const snap = await assertSucceeds(getDoc(doc(db(STRANGER), 'allowlist',
-      emailOf(STRANGER).toLowerCase())));
-    if (snap.exists()) throw new Error('stranger should not be allowlisted');
-  });
-  it('an unverified email cannot read the entry it claims', async () => {
-    await assertFails(getDoc(doc(db(MEMBER, { email_verified: false }),
-      'allowlist', emailOf(MEMBER).toLowerCase())));
-  });
-  it('nobody can list it or write it', async () => {
-    await assertFails(getDocs(collection(db(OWNER), 'allowlist')));
-    for (const uid of [OWNER, MEMBER, STRANGER]) {
-      const ref = doc(db(uid), 'allowlist', emailOf(uid).toLowerCase());
-      await assertFails(setDoc(ref, { uids: [uid] }));
-      await assertFails(deleteDoc(ref));
-    }
-    await assertFails(setDoc(doc(db(STRANGER), 'allowlist', 'x@example.com'),
-      {}));
-  });
-});
-
-describe('allowlist gates (#465)', () => {
-  const newFamily = (uid, id, d = db(uid)) => setDoc(doc(d, 'families', id), {
-    ...baseFamily, ownerUid: uid, memberUids: [uid], username: id,
-  });
-  const join = (d) => updateDoc(famRef(d), {
-    joinProof: 'hash-abc',
-    memberUids: [OWNER, MEMBER, STRANGER],
-  });
-
-  it('a non-allowlisted account cannot sign up (write its user doc)', async () => {
-    await assertFails(setDoc(doc(db(STRANGER), 'users', STRANGER),
+describe('sign-in without a family allowlist', () => {
+  it('a signed-in account can write its own user doc and create a family', async () => {
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'users', STRANGER),
       { familyIds: [] }));
-    await assertFails(setDoc(doc(db(STRANGER), 'users', STRANGER,
-      'unsavedChanges', 'c1'), { a: 1 }));
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'users', STRANGER,
+      'unsavedChanges', 'c1'), { op: 'save' }));
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'families', 'famx'), {
+      ...baseFamily, ownerUid: STRANGER, memberUids: [STRANGER],
+      username: 'famx',
+    }));
   });
-  it('a non-allowlisted account cannot create a family', async () => {
-    await assertFails(newFamily(STRANGER, 'famx'));
+  it('an account can join a family with the correct password proof', async () => {
+    await assertSucceeds(updateDoc(famRef(db(STRANGER)), {
+      joinProof: 'hash-abc',
+      memberUids: [OWNER, MEMBER, STRANGER],
+    }));
   });
-  it('a non-allowlisted account cannot join, even with the password', async () => {
-    await assertFails(join(db(STRANGER)));
-    await allow(emailOf(STRANGER));
-    await assertSucceeds(join(db(STRANGER)));
-  });
-  it('an unverified email does not count, unless its uid is pinned', async () => {
-    const unverified = db(STRANGER, { email_verified: false });
-    await allow(emailOf(STRANGER));
-    await assertFails(newFamily(STRANGER, 'famx', unverified));
-    await assertFails(setDoc(doc(unverified, 'users', STRANGER), { a: 1 }));
-    // Pinning the uid only helps that uid (an existing member's account).
-    await allow(emailOf(STRANGER), { uids: [STRANGER] });
-    await assertSucceeds(setDoc(doc(unverified, 'users', STRANGER), { a: 1 }));
-    await assertSucceeds(newFamily(STRANGER, 'famx', unverified));
-    const impostor = env.authenticatedContext('impostor-uid', {
-      email: emailOf(STRANGER), email_verified: false,
-    }).firestore();
-    await assertFails(setDoc(doc(impostor, 'users', 'impostor-uid'),
-      { a: 1 }));
-  });
-  it('a token without an email is never allowlisted', async () => {
-    const noEmail = env.authenticatedContext(STRANGER, {}).firestore();
-    await assertFails(setDoc(doc(noEmail, 'users', STRANGER), { a: 1 }));
-    await assertFails(getDoc(doc(noEmail, 'family_handles', 'thefam')));
-  });
-  it('existing members keep family access after leaving the allowlist', async () => {
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await deleteDoc(doc(ctx.firestore(), 'allowlist',
-        emailOf(MEMBER).toLowerCase()));
-    });
-    await assertSucceeds(getDoc(famRef(db(MEMBER))));
-    await assertSucceeds(updateDoc(famRef(db(MEMBER)), { name: 'Still here' }));
-    await assertSucceeds(setDoc(recRef(db(MEMBER), 'cards/k1'),
-      { familyId: FAM }));
-    // ...and can still read or delete their own user doc.
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), 'users', MEMBER), { familyIds: [FAM] });
-    });
-    await assertSucceeds(getDoc(doc(db(MEMBER), 'users', MEMBER)));
-    await assertSucceeds(deleteDoc(doc(db(MEMBER), 'users', MEMBER)));
+  it('the retired allowlist collection is inaccessible', async () => {
+    await assertFails(getDoc(doc(db(OWNER), 'allowlist', 'a@example.com')));
+    await assertFails(setDoc(doc(db(OWNER), 'allowlist', 'a@example.com'), {}));
   });
 });
 

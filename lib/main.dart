@@ -59,7 +59,6 @@ part 'src/features/wallet/data/card_import.dart';
 part 'src/features/wallet/presentation/wallet_screens.dart';
 part 'src/features/wallet/presentation/wallet_sheets.dart';
 part 'src/features/account/models/account_models.dart';
-part 'src/features/account/data/allowlist.dart';
 part 'src/features/account/data/family_cloud.dart';
 part 'src/features/account/data/workspace_sections.dart';
 part 'src/features/account/data/cloud_records.dart';

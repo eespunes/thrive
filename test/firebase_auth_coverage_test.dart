@@ -67,17 +67,6 @@ class _FakeUser extends UserPlatform {
   @override
   String? get photoURL => _photoUrl;
 
-  int deleteCalls = 0;
-  int verificationEmails = 0;
-
-  @override
-  Future<void> delete() async => deleteCalls += 1;
-
-  @override
-  Future<void> sendEmailVerification(
-    ActionCodeSettings? actionCodeSettings,
-  ) async => verificationEmails += 1;
-
   @override
   Future<void> updateProfile(Map<String, String?> profile) async {
     _displayName = profile['displayName'] ?? _displayName;
@@ -272,7 +261,6 @@ void main() {
 
   tearDown(() async {
     app.firebaseAppsAvailableOverride = null;
-    app.allowlistCheckOverride = null;
     FirebaseAuthPlatform.instance = MethodChannelFirebaseAuth.instance;
     GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform();
   });
@@ -458,121 +446,5 @@ void main() {
     );
     final unsupportedResult = await app.thriveDebug.signInWithGoogle();
     expect(unsupportedResult, 'Google sign-in is not supported on this device');
-  });
-
-  testWidgets('sign-in turns away accounts that are not on the allowlist', (
-    tester,
-  ) async {
-    await Firebase.initializeApp();
-    final auth = _sharedAuth();
-    late _FakeUser lastUser;
-    UserCredentialPlatform credentialFor(String email) {
-      lastUser = _FakeUser(
-        auth: auth,
-        multiFactor: _NoopMultiFactor(auth),
-        uid: 'uid-$email',
-        email: email,
-      );
-      return _FakeUserCredential(auth: auth, user: lastUser);
-    }
-
-    auth.onCreateUser = (email, _) => credentialFor(email);
-    auth.onSignInEmail = (email, _) => credentialFor(email);
-    auth.onSignInCredential = (_) => credentialFor('kid@example.com');
-    FirebaseAuthPlatform.instance = auth;
-    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform();
-
-    var status = app.AllowlistStatus.notInvited;
-    final checked = <String?>[];
-    app.allowlistCheckOverride = (user) async {
-      checked.add(user.email);
-      return status;
-    };
-
-    await pumpApp(tester, signedIn: false);
-
-    // A brand-new uninvited account is deleted again and signed out.
-    expect(
-      await app.thriveDebug.signInWithEmail(
-        email: 'stranger@example.com',
-        password: 'secret1',
-        register: true,
-        name: 'Stranger',
-      ),
-      app.kNotInvitedMessage,
-    );
-    expect(lastUser.deleteCalls, 1);
-    expect(auth.signOutCalls, 1);
-    expect(app.thriveDebug.user, isNull);
-
-    // An existing account that's not invited is only signed out.
-    expect(
-      await app.thriveDebug.signInWithEmail(
-        email: 'old@example.com',
-        password: 'secret1',
-        register: false,
-      ),
-      app.kNotInvitedMessage,
-    );
-    expect(lastUser.deleteCalls, 0);
-    expect(auth.signOutCalls, 2);
-
-    // An unverified email gets a verification link instead.
-    status = app.AllowlistStatus.unverified;
-    expect(
-      await app.thriveDebug.signInWithEmail(
-        email: 'new@example.com',
-        password: 'secret1',
-        register: true,
-      ),
-      app.verifyEmailMessage('new@example.com'),
-    );
-    expect(lastUser.verificationEmails, 1);
-    expect(lastUser.deleteCalls, 0);
-    expect(app.thriveDebug.user, isNull);
-
-    // Google sign-in goes through the same gate.
-    status = app.AllowlistStatus.notInvited;
-    GoogleSignInPlatform.instance = _FakeGoogleSignInPlatform(
-      authResult: GoogleSignInUserData(email: 'kid@example.com', id: 'kid'),
-      idToken: 'kid-token',
-    );
-    expect(await app.thriveDebug.signInWithGoogle(), app.kNotInvitedMessage);
-    expect(app.thriveDebug.user, isNull);
-
-    // Allowed, or a check that couldn't run, signs in as usual.
-    for (final ok in [
-      app.AllowlistStatus.allowed,
-      app.AllowlistStatus.unknown,
-    ]) {
-      status = ok;
-      expect(
-        await app.thriveDebug.signInWithEmail(
-          email: 'mum@example.com',
-          password: 'secret1',
-          register: false,
-        ),
-        isNull,
-      );
-      expect(app.thriveDebug.user?.email, 'mum@example.com');
-      app.thriveDebug.signOut();
-      await tester.pumpAndSettle();
-    }
-    expect(checked, [
-      'stranger@example.com',
-      'old@example.com',
-      'new@example.com',
-      'kid@example.com',
-      'mum@example.com',
-      'mum@example.com',
-    ]);
-  });
-
-  test('allowlist messages', () {
-    expect(app.kNotInvitedMessage, contains('isn\u2019t invited'));
-    expect(
-      app.verifyEmailMessage('a@b.co'),
-      'We sent a link to a@b.co. Verify your email, then sign in again.',
-    );
   });
 }
