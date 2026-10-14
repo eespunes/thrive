@@ -64,9 +64,13 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: _filter == k ? B.soft : Colors.white,
+                      color: _filter == k
+                          ? context.tc.soft
+                          : context.tc.surface,
                       border: Border.all(
-                        color: _filter == k ? B.primary : B.line,
+                        color: _filter == k
+                            ? context.tc.primary
+                            : context.tc.line,
                       ),
                       borderRadius: BorderRadius.circular(999),
                     ),
@@ -75,7 +79,9 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: _filter == k ? B.deep : B.soft2,
+                        color: _filter == k
+                            ? context.tc.deep
+                            : context.tc.soft2,
                       ),
                     ),
                   ),
@@ -114,8 +120,8 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(color: B.line),
+                              color: context.tc.surface,
+                              border: Border.all(color: context.tc.line),
                               borderRadius: BorderRadius.circular(13),
                             ),
                             child: Row(
@@ -124,7 +130,7 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: B.soft,
+                                    color: context.tc.soft,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Center(
@@ -132,7 +138,7 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                                       def.icon,
                                       size: 16,
                                       sw: 2.1,
-                                      color: B.primary,
+                                      color: context.tc.primary,
                                     ),
                                   ),
                                 ),
@@ -144,18 +150,18 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                                     children: [
                                       Text(
                                         def.title,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.w800,
-                                          color: B.ink,
+                                          color: context.tc.ink,
                                         ),
                                       ),
                                       Text(
                                         grey ? 'Already on your home' : def.sub,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
-                                          color: B.muted,
+                                          color: context.tc.muted,
                                         ),
                                       ),
                                     ],
@@ -165,10 +171,10 @@ class _HomeWidgetPickerSheetState extends State<_HomeWidgetPickerSheet> {
                                   def.sizes
                                       .map((z) => z.toUpperCase())
                                       .join(' · '),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w800,
-                                    color: B.muted,
+                                    color: context.tc.muted,
                                   ),
                                 ),
                               ],
@@ -238,8 +244,8 @@ class _HomeWidgetOptionsSheetState extends State<_HomeWidgetOptionsSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: on ? B.soft : Colors.white,
-          border: Border.all(color: on ? B.primary : B.line),
+          color: on ? context.tc.soft : context.tc.surface,
+          border: Border.all(color: on ? context.tc.primary : context.tc.line),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -247,7 +253,7 @@ class _HomeWidgetOptionsSheetState extends State<_HomeWidgetOptionsSheet> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: on ? B.deep : B.text,
+            color: on ? context.tc.deep : context.tc.text,
           ),
         ),
       ),
@@ -312,7 +318,7 @@ class _HomeWidgetOptionsSheetState extends State<_HomeWidgetOptionsSheet> {
             'Only my tasks',
             _opts['onlyMine'] == true,
             () => setState(() => _opts['onlyMine'] = _opts['onlyMine'] != true),
-            activeColor: B.primary,
+            activeColor: context.tc.primary,
           ),
         );
       case 'shopping':

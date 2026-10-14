@@ -52,6 +52,32 @@ int _onGroceries(String name) {
 }
 
 void main() {
+  testWidgets('meal view and editor use the dark palette', (tester) async {
+    themeModeNotifier.value = ThemeMode.dark;
+    addTearDown(() => themeModeNotifier.value = ThemeMode.system);
+    await pumpApp(tester, landOnDefaultTab: true);
+    await goToWeekly(tester);
+
+    expect(
+      tester.widget<Text>(_key('week-range')).style!.color,
+      ThriveColors.dark.ink,
+    );
+    expect(
+      tester.widget<Text>(find.text('Plan dinner')).style!.color,
+      ThriveColors.dark.orangeText,
+    );
+
+    await _tap(tester, 'meal-plan-dinner');
+    expect(
+      tester.widget<TextField>(_key('day-dinner')).style!.color,
+      ThriveColors.dark.ink,
+    );
+    expect(
+      tester.widget<TextField>(_key('day-fav-search')).style!.color,
+      ThriveColors.dark.ink,
+    );
+  });
+
   testWidgets('week view: day strip, empty dinner card and tiles (#496)', (
     tester,
   ) async {

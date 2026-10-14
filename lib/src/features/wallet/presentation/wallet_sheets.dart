@@ -79,7 +79,7 @@ class _WalletSheetState extends State<_WalletSheet> {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        color: Colors.white,
+        color: context.tc.surface,
         child: Row(
           children: [
             Container(
@@ -114,25 +114,25 @@ class _WalletSheetState extends State<_WalletSheet> {
                   Text(
                     c.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Text(
                     '${c.maskedNumber} · '
                     '${cardLastUsedLabel(c.lastUsedMillis, DateTime.now())}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ],
               ),
             ),
-            ic('cright', size: 17, sw: 2.2, color: B.muted),
+            ic('cright', size: 17, sw: 2.2, color: context.tc.muted),
           ],
         ),
       ),
@@ -142,7 +142,7 @@ class _WalletSheetState extends State<_WalletSheet> {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: B.line),
+        border: Border.all(color: context.tc.line),
       ),
       child: _SwipeRow(
         key: ValueKey('wallet-swipe-${c.id}'),
@@ -186,18 +186,23 @@ class _WalletSheetState extends State<_WalletSheet> {
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Column(
                           children: [
-                            ic('card', size: 32, sw: 1.8, color: B.muted),
+                            ic(
+                              'card',
+                              size: 32,
+                              sw: 1.8,
+                              color: context.tc.muted,
+                            ),
                             const SizedBox(height: 9),
-                            const Text(
+                            Text(
                               'No cards yet',
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w800,
-                                color: B.ink,
+                                color: context.tc.ink,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Padding(
+                            Padding(
                               padding: EdgeInsets.symmetric(horizontal: 30),
                               child: Text(
                                 'Snap a loyalty card once — everyone in the '
@@ -206,7 +211,7 @@ class _WalletSheetState extends State<_WalletSheet> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: B.muted,
+                                  color: context.tc.muted,
                                 ),
                               ),
                             ),
@@ -239,28 +244,33 @@ class _WalletSheetState extends State<_WalletSheet> {
                         margin: const EdgeInsets.only(top: 9),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: B.line),
+                          color: context.tc.surface,
+                          border: Border.all(color: context.tc.line),
                           borderRadius: BorderRadius.circular(13),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            ic('home', size: 15, sw: 2.2, color: B.deep),
+                            ic(
+                              'home',
+                              size: 15,
+                              sw: 2.2,
+                              color: context.tc.deep,
+                            ),
                             const SizedBox(width: 7),
-                            const Text(
+                            Text(
                               'Pin the wallet to my home',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
-                                color: B.deep,
+                                color: context.tc.deep,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.fromLTRB(10, 11, 10, 0),
                       child: Text(
                         'Photograph the barcode side. Thrive reads the number '
@@ -270,7 +280,7 @@ class _WalletSheetState extends State<_WalletSheet> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: B.muted,
+                          color: context.tc.muted,
                           height: 1.55,
                         ),
                       ),
@@ -386,10 +396,12 @@ class _CardScanSheetState extends State<_CardScanSheet> {
     width: 72,
     height: 72,
     decoration: BoxDecoration(
-      color: B.soft,
+      color: context.tc.soft,
       borderRadius: BorderRadius.circular(22),
     ),
-    child: Center(child: ic('camera', size: 30, sw: 2, color: B.primary)),
+    child: Center(
+      child: ic('camera', size: 30, sw: 2, color: context.tc.primary),
+    ),
   );
 
   Widget _wideBtn(
@@ -409,8 +421,10 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         decoration: link
             ? null
             : BoxDecoration(
-                color: filled ? B.primary : Colors.white,
-                border: filled ? null : Border.all(color: B.line, width: 1.5),
+                color: filled ? context.tc.primary : context.tc.surface,
+                border: filled
+                    ? null
+                    : Border.all(color: context.tc.line, width: 1.5),
                 borderRadius: BorderRadius.circular(15),
               ),
         child: Text(
@@ -421,8 +435,8 @@ class _CardScanSheetState extends State<_CardScanSheet> {
             color: filled
                 ? Colors.white
                 : link
-                ? B.deep
-                : B.ink,
+                ? context.tc.deep
+                : context.tc.ink,
           ),
         ),
       ),
@@ -436,23 +450,23 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         children: [
           _cameraTile(),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'Take a photo of the card',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Barcode side up. We read the number and match the colour.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
           const SizedBox(height: 14),
@@ -491,12 +505,12 @@ class _CardScanSheetState extends State<_CardScanSheet> {
         children: [
           _cameraTile(),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Finding the barcode…',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: B.deep,
+              color: context.tc.deep,
             ),
           ),
         ],
@@ -509,14 +523,14 @@ class _CardScanSheetState extends State<_CardScanSheet> {
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: ok ? B.soft : B.amberSoft,
+        color: ok ? context.tc.soft : context.tc.amberSoft,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (ok) ...[
-            ic('check', size: 12, sw: 2.6, color: B.deep),
+            ic('check', size: 12, sw: 2.6, color: context.tc.deep),
             const SizedBox(width: 5),
           ],
           Text(
@@ -524,7 +538,7 @@ class _CardScanSheetState extends State<_CardScanSheet> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: ok ? B.deep : B.amberText,
+              color: ok ? context.tc.deep : context.tc.amberText,
             ),
           ),
         ],
@@ -567,7 +581,7 @@ class _CardScanSheetState extends State<_CardScanSheet> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
@@ -581,11 +595,11 @@ class _CardScanSheetState extends State<_CardScanSheet> {
                 const SizedBox(height: 6),
                 Text(
                   code.isEmpty ? '— — — —' : code,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.5,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
               ],
@@ -742,7 +756,7 @@ class _EdCodePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = B.ink;
+    final p = Paint()..color = ThriveColors.current.ink;
     if (qr) {
       const cell = 5.0;
       for (var y = 0.0; y < size.height; y += cell) {

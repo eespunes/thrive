@@ -107,8 +107,8 @@ Future<String?> showLoginMethodSheet(BuildContext context, FamilyMember m) {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line, width: 1.5),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line, width: 1.5),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -118,7 +118,7 @@ Future<String?> showLoginMethodSheet(BuildContext context, FamilyMember m) {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: B.soft,
+              color: context.tc.soft,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(child: icon),
@@ -130,19 +130,19 @@ Future<String?> showLoginMethodSheet(BuildContext context, FamilyMember m) {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: B.muted,
+                    color: context.tc.muted,
                     height: 1.35,
                   ),
                 ),
@@ -173,7 +173,7 @@ Future<String?> showLoginMethodSheet(BuildContext context, FamilyMember m) {
               'You create and manage $first’s login. Good for younger kids '
               'without their own email.',
           tag: 'Managed by admins',
-          icon: ic('lock', size: 17, sw: 2.2, color: B.deep),
+          icon: ic('lock', size: 17, sw: 2.2, color: context.tc.deep),
         ),
         option(
           id: 'google',
@@ -238,7 +238,10 @@ class _KidSetupPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff8fafc),
+      backgroundColor: context.tc.pick(
+        const Color(0xfff8fafc),
+        context.tc.rowOpen,
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -274,8 +277,8 @@ Widget _kidMemberHeader(_ThriveHomeState s, FamilyMember m, String sub) {
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.all(11),
     decoration: BoxDecoration(
-      color: Colors.white,
-      border: Border.all(color: B.line),
+      color: ThriveColors.current.surface,
+      border: Border.all(color: ThriveColors.current.line),
       borderRadius: BorderRadius.circular(14),
     ),
     child: Row(
@@ -296,18 +299,18 @@ Widget _kidMemberHeader(_ThriveHomeState s, FamilyMember m, String sub) {
             children: [
               Text(
                 m.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: ThriveColors.current.ink,
                 ),
               ),
               Text(
                 sub,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: ThriveColors.current.muted,
                 ),
               ),
             ],
@@ -326,8 +329,10 @@ Widget _kidEmailInput(
   VoidCallback? onChanged,
 }) => Container(
   decoration: BoxDecoration(
-    color: B.page,
-    border: Border.all(color: error ? B.red : B.line),
+    color: ThriveColors.current.page,
+    border: Border.all(
+      color: error ? ThriveColors.current.red : ThriveColors.current.line,
+    ),
     borderRadius: BorderRadius.circular(12),
   ),
   child: TextField(
@@ -336,20 +341,20 @@ Widget _kidEmailInput(
     keyboardType: TextInputType.emailAddress,
     autocorrect: false,
     onChanged: (_) => onChanged?.call(),
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 13.5,
       fontWeight: FontWeight.w700,
-      color: B.ink,
+      color: ThriveColors.current.ink,
     ),
     decoration: InputDecoration(
       isDense: true,
       border: InputBorder.none,
       contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       hintText: hint,
-      hintStyle: const TextStyle(
+      hintStyle: TextStyle(
         fontSize: 12.5,
         fontWeight: FontWeight.w600,
-        color: B.muted,
+        color: ThriveColors.current.muted,
       ),
     ),
   ),
@@ -594,8 +599,8 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
             key: const ValueKey('kid-login-card'),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line, width: 1.5),
+              color: context.tc.surface,
+              border: Border.all(color: context.tc.line, width: 1.5),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -615,23 +620,23 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
                     children: [
                       Text(
                         '$_first · Thrive',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: B.ink,
+                          color: context.tc.ink,
                         ),
                       ),
                       const SizedBox(height: 4),
                       studioInfoRow('Email', value: widget.email),
                       studioInfoRow('Password', value: widget.password),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Open Thrive, enter these details and tap Sign in. '
                         'Keep this card somewhere safe.',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                     ],
@@ -661,8 +666,8 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
       decoration: BoxDecoration(
-        color: B.page,
-        border: Border.all(color: B.line),
+        color: context.tc.page,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -674,10 +679,10 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
                 studioSectionLabel(label, padding: EdgeInsets.zero),
                 SelectableText(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -697,11 +702,11 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
     final body = <Widget>[
       Text(
         widget.reset ? 'New password for $first' : '$first can now sign in',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 19,
           fontWeight: FontWeight.w800,
           letterSpacing: -.4,
-          color: B.ink,
+          color: context.tc.ink,
         ),
       ),
       Padding(
@@ -712,10 +717,10 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
                     'password.'
               : 'Give $first these details. No joining or family password '
                     'needed.',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: B.muted,
+            color: context.tc.muted,
           ),
         ),
       ),
@@ -734,7 +739,7 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
               _revealed ? 'eyeoff' : 'eye',
               size: 17,
               sw: 2.2,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
         ),
@@ -795,16 +800,16 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
                     width: 18,
                     height: 18,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: B.soft,
+                    decoration: BoxDecoration(
+                      color: context.tc.soft,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '${i + 1}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: B.deep,
+                        color: context.tc.deep,
                       ),
                     ),
                   ),
@@ -812,10 +817,10 @@ class _KidHandoffScreenState extends State<_KidHandoffScreen> {
                   Expanded(
                     child: Text(
                       step,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: B.text,
+                        color: context.tc.text,
                       ),
                     ),
                   ),
@@ -1307,10 +1312,10 @@ class _KidLoginCardState extends State<_KidLoginCard> {
                       'Thrive on their own phone or tablet.'
                 : '$first doesn’t have a login yet.',
             key: const ValueKey('kid-login-none'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: B.text,
+              color: context.tc.text,
               height: 1.35,
             ),
           ),
@@ -1377,10 +1382,10 @@ class _KidLoginCardState extends State<_KidLoginCard> {
               padding: const EdgeInsets.only(top: 2, bottom: 6),
               child: Text(
                 'Linked ${kidShortDate(m.linkedAt)} by ${m.linkedBy ?? 'an admin'}.',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ),
@@ -1463,7 +1468,7 @@ class _KidLoginCardState extends State<_KidLoginCard> {
       title: 'Login',
       children: [
         if (_loading)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Text(
               'Loading login details…',
@@ -1471,7 +1476,7 @@ class _KidLoginCardState extends State<_KidLoginCard> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -1482,10 +1487,10 @@ class _KidLoginCardState extends State<_KidLoginCard> {
             children: [
               Text(
                 google ? 'Google account' : 'Email & password',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
               if (m.managed) ...[
@@ -1549,14 +1554,14 @@ class _KidLoginCardState extends State<_KidLoginCard> {
           danger: true,
           onTap: action == null ? null : removeSheet,
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 6),
           child: Text(
             'Only admins can see and change this.',
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
