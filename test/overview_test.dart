@@ -75,29 +75,25 @@ void main() {
     }
   });
 
-  testWidgets('Finance tabs clear the hero tiles on a phone-sized screen', (
+  testWidgets('Finance tabs stay close to hero tiles at phone widths', (
     tester,
   ) async {
     await pumpApp(tester);
-    tester.view.physicalSize = const Size(780, 1600);
-    await tester.pumpAndSettle();
+    for (final width in [540.0, 423.0, 390.0]) {
+      tester.view.physicalSize = Size(width * 2, 1600);
+      await tester.pumpAndSettle();
 
-    final incomeTile = find
-        .ancestor(
-          of: find.text('EXPECTED INCOME'),
-          matching: find.byType(Container),
-        )
-        .first;
-    final tabs = tester.getRect(find.byKey(const ValueKey('finance-tabs')));
-    expect(
-      tabs.top,
-      greaterThanOrEqualTo(tester.getRect(incomeTile).bottom + 8),
-    );
-    final tabBackground = tester.widget<Container>(
-      find.byKey(const ValueKey('finance-tabs')),
-    );
-    expect((tabBackground.decoration as BoxDecoration).color, B.page);
-    expect(tester.takeException(), isNull);
+      final tile = tester.getRect(
+        find.byKey(const ValueKey('finance-hero-tile-expected-income')),
+      );
+      final tabs = tester.getRect(find.byKey(const ValueKey('finance-tabs')));
+      expect(tabs.top - tile.bottom, inInclusiveRange(8, 24));
+      final tabBackground = tester.widget<Container>(
+        find.byKey(const ValueKey('finance-tabs')),
+      );
+      expect((tabBackground.decoration as BoxDecoration).color, Colors.white);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('a capped envelope fills across the full card width', (

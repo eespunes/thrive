@@ -458,6 +458,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// Whether the Home tab is currently in board-edit mode (issue #236).
   bool homeEditMode = false;
   bool _headerScrolled = false;
+  double? _financeHeroHeight;
+  double? _financeTabsHeight;
 
   /// Hide amounts on the Android home-screen widgets (issue #257).
   bool _widgetHideAmounts = false;
@@ -2734,7 +2736,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
-  double _financeHeaderHeight() => screen == 'overview' ? 344 : 110;
+  double _financeHeaderHeight() => screen == 'overview'
+      ? 60 + (_financeHeroHeight ?? 228) + 12 + (_financeTabsHeight ?? 62)
+      : 110;
 
   Widget _buildFinanceStickyHeader(double height, bool scrolled) {
     final closed = isClosed();
@@ -2781,13 +2785,35 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
               top: 60,
               left: 18,
               right: 18,
-              child: _buildFinanceHero(),
+              child: Builder(
+                builder: (heroContext) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted || !heroContext.mounted) return;
+                    final height = heroContext.size?.height;
+                    if (height != null && height != _financeHeroHeight) {
+                      setState(() => _financeHeroHeight = height);
+                    }
+                  });
+                  return _buildFinanceHero();
+                },
+              ),
             ),
           Positioned(
             left: 18,
             right: 18,
             bottom: 0,
-            child: _buildFinanceTabs(),
+            child: Builder(
+              builder: (tabsContext) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || !tabsContext.mounted) return;
+                  final height = tabsContext.size?.height;
+                  if (height != null && height != _financeTabsHeight) {
+                    setState(() => _financeTabsHeight = height);
+                  }
+                });
+                return _buildFinanceTabs();
+              },
+            ),
           ),
         ],
       ),
@@ -2803,6 +2829,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       bool clickable = false,
     }) {
       final child = Container(
+        key: ValueKey(
+          'finance-hero-tile-${label.toLowerCase().replaceAll(' ', '-')}',
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: .16),
@@ -2934,7 +2963,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     return Container(
       key: const ValueKey('finance-tabs'),
       decoration: BoxDecoration(
-        color: B.page,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
