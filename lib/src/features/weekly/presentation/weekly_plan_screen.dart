@@ -10,37 +10,64 @@ const List<String> _kWeekdaysShort = [
   'Sun',
 ];
 
-const List<(String, String, String)> _kMealSlots = [
-  ('breakfast', 'coffee', 'Breakfast'),
-  ('lunch', 'sun', 'Lunch'),
-  ('dinner', 'moon', 'Dinner'),
+const List<String> _kWeekdaysLong = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
 ];
 
-/// The weekly meal plan (#157): a Mon–Sun grid with breakfast/lunch/dinner
-/// slots and a per-day note, ported from the design's `renderWeekly()` /
-/// `weekSubHeader()`.
+/// [d] moved by [n] calendar days (DST-safe: built from y/m/d, not hours).
+DateTime _addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);
+
+/// "Tuesday" for an ISO date.
+String _weekdayLong(String dateIso) {
+  final d = DateTime.tryParse(dateIso);
+  return d == null ? dateIso : _kWeekdaysLong[d.weekday - 1];
+}
+
+/// ISO-8601 week number of [d].
+int _isoWeekNumber(DateTime d) {
+  final thursday = DateTime.utc(d.year, d.month, d.day + 4 - d.weekday);
+  return thursday.difference(DateTime.utc(thursday.year)).inDays ~/ 7 + 1;
+}
+
+/// The weekly meal plan, 2a redesign (#496, epic #500): a Mon–Sun day strip
+/// in the sub-header and, for the picked day, a dinner-first card with its
+/// ingredient checklist (#497) plus breakfast / lunch / note tiles. Every
+/// tap opens the whole-day editor (#498).
 extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
   /// Monday of the week `weekOffset` weeks from the current one.
   DateTime _weekStart() {
-    final today = DateTime.now();
-    final base = DateTime(today.year, today.month, today.day);
-    final monday = base.subtract(Duration(days: base.weekday - 1));
-    return monday.add(Duration(days: 7 * weekOffset));
+    final now = debugNowOverride?.call() ?? DateTime.now();
+    final base = DateTime(now.year, now.month, now.day);
+    return _addDays(base, 1 - base.weekday + 7 * weekOffset);
   }
 
-  String _iso(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-'
-      '${d.month.toString().padLeft(2, '0')}-'
-      '${d.day.toString().padLeft(2, '0')}';
+  String _iso(DateTime d) => _isoDate(d);
 
-  /// Sub-header shown under the "Weekly plan" title: prev/next week nav plus
-  /// the visible date range, mirrors `weekSubHeader()`.
+  /// The day shown in the card: the picked day when it's in the visible
+  /// week, else today when it is, else that week's Monday.
+  String mealSelectedDay() {
+    final start = _iso(_weekStart());
+    final end = _iso(_addDays(_weekStart(), 6));
+    bool inWeek(String? iso) =>
+        iso != null && iso.compareTo(start) >= 0 && iso.compareTo(end) <= 0;
+    if (inWeek(mealDaySel)) return mealDaySel!;
+    final today = todayIso();
+    return inWeek(today) ? today : start;
+  }
+
+  /// Pinned under the tab title: "MEALS · WEEK 42 / October 12–18" with
+  /// prev/next, then the seven-day strip.
   Widget _weekSubHeader() {
     final start = _weekStart();
-    final end = start.add(const Duration(days: 6));
-    final sameMonth = start.month == end.month;
-    final range = sameMonth
-        ? '${kMonthsShort[start.month - 1]} ${start.day}–${end.day}'
+    final end = _addDays(start, 6);
+    final range = start.month == end.month
+        ? '${kMonthsEn[start.month - 1]} ${start.day}–${end.day}'
         : '${kMonthsShort[start.month - 1]} ${start.day} – '
               '${kMonthsShort[end.month - 1]} ${end.day}';
     Widget stepBtn(String icon, VoidCallback onTap, String key) =>
@@ -60,197 +87,112 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
             ),
           ),
         );
-    return Row(
-      children: [
-        stepBtn('cleft', () => shiftWeek(-1), 'week-prev'),
-        Expanded(
-          child: Text(
-            range,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: context.tc.ink,
-            ),
-          ),
-        ),
-        stepBtn('cright', () => shiftWeek(1), 'week-next'),
-      ],
-    );
-  }
-
-  /// [embed] drops the tab body's own side padding for when this is reused
-  /// inside a bottom sheet (which already has its own horizontal inset), so
-  /// the content doesn't get double-padded or overflow the sheet width.
-  Widget _buildWeeklyPlan({bool embed = false}) {
-    final start = _weekStart();
     final today = todayIso();
-    final hPad = embed ? 0.0 : 14.0;
-    return ListView(
-      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 28),
+    final sel = mealSelectedDay();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < 7; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 11),
-            child: _dayCard(start.add(Duration(days: i)), i, today),
-          ),
-      ],
-    );
-  }
-
-  Widget _dayCard(DateTime date, int weekdayIdx, String todayIso) {
-    final dateIso = _iso(date);
-    final isToday = dateIso == todayIso;
-    final day = weeklyPlan[dateIso];
-    return Container(
-      key: ValueKey('weekday-$dateIso'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: context.tc.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isToday ? context.tc.primary : context.tc.line,
-        ),
-        boxShadow: cardShadow(),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '${_kWeekdaysShort[weekdayIdx]} ${date.day}',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: context.tc.ink,
-                ),
-              ),
-              if (isToday) ...[
-                const SizedBox(width: 7),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.tc.soft,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'TODAY',
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'MEALS · WEEK ${_isoWeekNumber(start)}',
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .4,
-                      color: context.tc.deep,
+                      color: context.tc.muted,
                     ),
                   ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final (slot, icon, label) in _kMealSlots)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: _mealRow(dateIso, slot, icon, label, day),
-            ),
-          _noteRow(dateIso, day),
-        ],
-      ),
-    );
-  }
-
-  Widget _mealRow(
-    String dateIso,
-    String slot,
-    String icon,
-    String label,
-    DayPlan? day,
-  ) {
-    final value = switch (slot) {
-      'breakfast' => day?.breakfast,
-      'lunch' => day?.lunch,
-      'dinner' => day?.dinner,
-      _ => null,
-    };
-    return GestureDetector(
-      key: ValueKey('meal-$dateIso-$slot'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => openMealSheet(dateIso, slot, label, value),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: context.tc.soft,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Center(
-              child: ic(icon, size: 15, sw: 2.1, color: context.tc.primary),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            width: 66,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: context.tc.soft2,
+                  const SizedBox(height: 2),
+                  Text(
+                    range,
+                    key: const ValueKey('week-range'),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -.5,
+                      color: context.tc.ink,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: Text(
-              (value?.isNotEmpty ?? false) ? value! : 'Add $label',
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: (value?.isNotEmpty ?? false)
-                    ? context.tc.ink
-                    : context.tc.muted,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _noteRow(String dateIso, DayPlan? day) {
-    final note = day?.note;
-    return GestureDetector(
-      key: ValueKey('note-$dateIso'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => openNoteSheet(dateIso, note),
-      child: Container(
-        margin: const EdgeInsets.only(top: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.tc.faint,
-          borderRadius: BorderRadius.circular(9),
+            stepBtn('cleft', () => shiftWeek(-1), 'week-prev'),
+            const SizedBox(width: 6),
+            stepBtn('cright', () => shiftWeek(1), 'week-next'),
+          ],
         ),
-        child: Row(
+        const SizedBox(height: 12),
+        Row(
           children: [
-            ic('edit', size: 13, sw: 2.1, color: context.tc.soft2),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(
-                (note?.isNotEmpty ?? false) ? note! : 'Add a note',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: (note?.isNotEmpty ?? false)
-                      ? context.tc.text
-                      : context.tc.muted,
+            for (int i = 0; i < 7; i++) ...[
+              if (i > 0) const SizedBox(width: 5),
+              Expanded(child: _dayStripCell(_addDays(start, i), i, sel, today)),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _dayStripCell(DateTime date, int i, String sel, String today) {
+    final iso = _iso(date);
+    final active = iso == sel;
+    final planned = weeklyPlan[iso]?.dinner?.isNotEmpty ?? false;
+    final fg = active ? context.tc.surface : context.tc.ink;
+    return GestureDetector(
+      key: ValueKey('meal-day-$iso'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => selectMealDay(iso),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 9),
+        decoration: BoxDecoration(
+          color: active ? context.tc.ink : context.tc.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: active
+              ? null
+              : Border.all(
+                  color: iso == today ? context.tc.primary : context.tc.line,
+                  width: iso == today ? 1.5 : 1,
                 ),
+        ),
+        child: Column(
+          children: [
+            Opacity(
+              opacity: .75,
+              child: Text(
+                _kWeekdaysShort[i],
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .3,
+                  color: fg,
+                ),
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${date.day}',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Container(
+              key: planned ? ValueKey('meal-dot-$iso') : null,
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: planned ? context.tc.orangeText : Colors.transparent,
               ),
             ),
           ],
@@ -259,29 +201,362 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     );
   }
 
-  void openMealSheet(
-    String dateIso,
-    String slot,
-    String label,
-    String? current,
-  ) {
-    if (childBlocked(kChildMealPlanReadOnly)) return;
-    openEditorSheet<void>(
-      (ctx) => _MealEditSheet(
-        state: this,
-        dateIso: dateIso,
-        slot: slot,
-        label: label,
-        initial: current ?? '',
+  Widget _buildWeeklyPlan() {
+    final iso = mealSelectedDay();
+    final day = weeklyPlan[iso];
+    String? v(String? s) => (s?.trim().isEmpty ?? true) ? null : s!.trim();
+    final breakfast = v(day?.breakfast);
+    final lunch = v(day?.lunch);
+    final note = v(day?.note);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+      children: [
+        _dinnerCard(iso, day),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _mealTile(iso, 'breakfast', 'BREAKFAST', breakfast),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: _mealTile(iso, 'lunch', 'LUNCH', lunch)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          key: const ValueKey('meal-tile-note'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => openDayEditor(iso),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+            decoration: BoxDecoration(
+              color: context.tc.faint,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              note ?? 'Add a note for the family…',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: note != null ? context.tc.text : context.tc.placeholder,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _mealTile(String iso, String slot, String label, String? value) {
+    return GestureDetector(
+      key: ValueKey('meal-tile-$slot'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => openDayEditor(iso),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        decoration: BoxDecoration(
+          color: context.tc.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: context.tc.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: .4,
+                color: context.tc.muted,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              value ?? 'Add $slot',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: value != null ? context.tc.ink : context.tc.placeholder,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void openNoteSheet(String dateIso, String? current) {
+  Widget _dinnerCard(String iso, DayPlan? day) {
+    final dinner = day?.dinner?.trim() ?? '';
+    final has = dinner.isNotEmpty;
+    return Container(
+      key: const ValueKey('meal-dinner-card'),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.tc.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: context.tc.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x73101828),
+            blurRadius: 30,
+            spreadRadius: -24,
+            offset: Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'DINNER · ${_weekdayLong(iso).toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: context.tc.orangeText,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                key: const ValueKey('meal-edit'),
+                onTap: () => openDayEditor(iso),
+                child: Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 11),
+                  decoration: BoxDecoration(
+                    color: context.tc.faint,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ic('edit', size: 14, sw: 2, color: context.tc.text),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Edit',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: context.tc.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (has) ..._plannedDinner(day!, dinner) else _planDinnerButton(iso),
+        ],
+      ),
+    );
+  }
+
+  Widget _planDinnerButton(String iso) {
+    return GestureDetector(
+      key: const ValueKey('meal-plan-dinner'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => openDayEditor(iso),
+      child: CustomPaint(
+        foregroundPainter: _DashedRRectPainter(
+          color: context.tc.isDark
+              ? context.tc.orangeText
+              : const Color(0xfffed7aa),
+          radius: 16,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: context.tc.orangeSoft,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Plan dinner',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.4,
+                  color: context.tc.orangeText,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Type it, or pick from favourites',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: context.tc.orangeText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _plannedDinner(DayPlan day, String dinner) {
+    final ings = day.ingredients;
+    final groceries = groceriesListOf(shoppingLists);
+    final missing = missingGroceries(groceries, ings).length;
+    final meta = [
+      '${ings.length} ingredient${ings.length == 1 ? '' : 's'}',
+      if (day.dinnerMinutes != null) '${day.dinnerMinutes} min',
+    ].join(' · ');
+    return [
+      Text(
+        dinner,
+        key: const ValueKey('meal-dinner-name'),
+        style: TextStyle(
+          fontSize: 27,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -.7,
+          height: 1.1,
+          color: context.tc.ink,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        meta,
+        key: const ValueKey('meal-dinner-meta'),
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: context.tc.soft2,
+        ),
+      ),
+      if (ings.isNotEmpty) ...[
+        const SizedBox(height: 14),
+        Container(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: context.tc.line)),
+          ),
+          child: Column(
+            children: [
+              for (final ing in ings)
+                _ingredientRow(ing, groceryLineFor(groceries, ing) != null),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        GestureDetector(
+          key: const ValueKey('meal-groceries-all'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => addMissingToGroceries(ings),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            decoration: BoxDecoration(
+              color: missing > 0 ? context.tc.primary : context.tc.soft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ic(
+                  'cart',
+                  size: 16,
+                  sw: 2,
+                  color: missing > 0 ? context.tc.surface : context.tc.deep,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  missing > 0
+                      ? 'Add $missing missing to Groceries'
+                      : 'Everything is on Groceries',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: missing > 0 ? context.tc.surface : context.tc.deep,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  Widget _ingredientRow(String ing, bool onList) {
+    return GestureDetector(
+      key: ValueKey('meal-ing-$ing'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => toggleIngredientOnGroceries(ing),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 9),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.tc.line)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: onList ? context.tc.primary : context.tc.surface,
+                borderRadius: BorderRadius.circular(7),
+                border: onList
+                    ? null
+                    : Border.all(color: context.tc.line, width: 1.5),
+              ),
+              child: onList
+                  ? Center(
+                      child: ic(
+                        'check',
+                        size: 12,
+                        sw: 2.8,
+                        color: context.tc.surface,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                ing,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: onList ? context.tc.soft2 : context.tc.ink,
+                ),
+              ),
+            ),
+            if (onList)
+              Text(
+                'On list',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: context.tc.deep,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens the whole-day editor (#498) for [dateIso].
+  void openDayEditor(String dateIso) {
     if (childBlocked(kChildMealPlanReadOnly)) return;
-    _showSheet(
-      (ctx) =>
-          _DayNoteSheet(state: this, dateIso: dateIso, initial: current ?? ''),
+    openEditorSheet<void>(
+      (ctx) => _DayEditorSheet(
+        state: this,
+        dateIso: dateIso,
+        initial: weeklyPlan[dateIso]?.copy() ?? DayPlan(dateIso: dateIso),
+      ),
+      enableDrag: false,
     );
   }
 }

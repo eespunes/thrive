@@ -55,6 +55,10 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['circle', 19, 21, 1.6],
     ['path', 'M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h9a2 2 0 0 0 2-1.6L21 7H5'],
   ],
+  'search': [
+    ['circle', 11, 11, 7],
+    ['path', 'm20 20-3.5-3.5'],
+  ],
   'heart': [
     [
       'path',

@@ -334,5 +334,6 @@ String recordKindLabel(String key) => switch (recordKind(key)) {
   RecordKind.note => 'Note',
   RecordKind.line => 'Note item',
   RecordKind.card => 'Card',
+  RecordKind.savedMeal => 'Favourite meal',
   _ => 'Item',
 };

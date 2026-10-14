@@ -84,7 +84,8 @@ users can share one budget:
     `finance/main/months/{YYYY-MM}/{entries,recurring}/{id}`
   - `calendar/main/{layers,categories,imports,recurring}/{id}`,
     `calendar/main/months/{YYYY-MM}/events/{id}`
-  - `meals/{YYYY}/months/{MM}/days/{DD}`
+  - `meals/{YYYY}/months/{MM}/days/{DD}` (dinner ingredients + time to make
+    ride on the day), `savedMeals/{id}` (the favourite-meals library)
   - `notes/{id}/lines/{lineId}`, `cards/{id}`
 
   Every record stores `familyId`; the app loads each collection name with one
