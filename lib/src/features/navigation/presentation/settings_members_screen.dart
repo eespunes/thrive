@@ -10,6 +10,20 @@ extension _ThriveMembersScreen on _ThriveHomeState {
     pushSettingsPage<void>((_) => _MemberColoursScreen(state: this));
   }
 
+  void openMemberEditor(String memberId) {
+    final member = curFamily()?.members
+        .where((m) => m.id == memberId)
+        .firstOrNull;
+    if (member == null) return;
+    if (!canEditMemberRow(member)) {
+      flash('Only owners can edit this member');
+      return;
+    }
+    pushSettingsPage<void>(
+      (_) => _MemberStudio(state: this, memberId: memberId),
+    );
+  }
+
   /// Saves a member-studio edit in one go: identity fields plus colour, and
   /// mirrors the change onto the signed-in user when editing yourself so the
   /// hero/profile stay in sync everywhere.
@@ -161,9 +175,7 @@ class _MemberColoursScreen extends StatelessWidget {
           ),
           label: m.id == s.myId ? '${m.name} (you)' : m.name,
           sub: memberRowSubtitle(m, loginless: s.isLoginlessMember(m)),
-          onTap: () => s.pushSettingsPage<void>(
-            (_) => _MemberStudio(state: s, memberId: m.id),
-          ),
+          onTap: () => s.openMemberEditor(m.id),
         ),
         if (pill != null)
           Positioned(

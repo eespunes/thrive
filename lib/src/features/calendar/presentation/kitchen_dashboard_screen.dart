@@ -502,7 +502,7 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 20,
+                top: 20,
                 child: Center(
                   child: Container(
                     key: const ValueKey('kitchen-toast'),

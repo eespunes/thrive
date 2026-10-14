@@ -1,36 +1,12 @@
 part of 'package:family_money_management_app/main.dart';
 
 /// Shared plumbing for the Settings v2 sub-screens (#325–#329, #276, #281,
-/// #282, `Settings v2.dc.html`): the studio page wrapper (which re-hosts the
-/// app toast above pushed full-screen routes), the standard list row, chips,
+/// #282, `Settings v2.dc.html`): the studio page wrapper, standard list row, chips,
 /// toggle rows and the photo-picking helper every badge editor reuses.
 extension _ThriveSettingsShared on _ThriveHomeState {
-  /// Pushes a settings page full screen, re-rendering the global toast pill
-  /// on top of it (the home Scaffold's own toast sits BELOW pushed routes).
+  /// Pushes a settings page full screen.
   Future<T?> pushSettingsPage<T>(WidgetBuilder builder) {
-    return pushBadgeStudio<T>(
-      context,
-      (ctx) => Stack(
-        children: [
-          Positioned.fill(child: Builder(builder: builder)),
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 24,
-            // The pill is purely informative — never swallow taps meant for
-            // the save/delete footer underneath it.
-            child: IgnorePointer(
-              child: ValueListenableBuilder<String?>(
-                valueListenable: _toastNotifier,
-                builder: (context, msg, _) => msg == null
-                    ? const SizedBox.shrink()
-                    : Center(child: _buildToast(msg)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return pushBadgeStudio<T>(context, builder);
   }
 
   // coverage:ignore-start

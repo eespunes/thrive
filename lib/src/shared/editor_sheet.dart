@@ -14,14 +14,10 @@ part of 'package:family_money_management_app/main.dart';
 ///
 /// Every colour comes from the app colour module ([B]).
 
-/// Opens [builder] as an editor sheet. When [toast] is given, the app toast
-/// is re-hosted above the sheet so feedback raised while it is open (e.g.
-/// "Emoji set") is not hidden behind the scrim.
+/// Opens [builder] as an editor sheet. Toasts are hosted above the Navigator.
 Future<T?> showEditorSheet<T>(
   BuildContext context,
   WidgetBuilder builder, {
-  ValueNotifier<String?>? toast,
-  Widget Function(String msg)? toastBuilder,
   bool enableDrag = true,
 }) {
   return showModalBottomSheet<T>(
@@ -31,37 +27,17 @@ Future<T?> showEditorSheet<T>(
     backgroundColor: Colors.transparent,
     barrierColor: context.tc.scrim,
     builder: (ctx) {
-      final sheet = Builder(builder: builder);
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: toast == null || toastBuilder == null
-            ? sheet
-            : Stack(
-                children: [
-                  sheet,
-                  Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: 44,
-                    child: IgnorePointer(
-                      child: ValueListenableBuilder<String?>(
-                        valueListenable: toast,
-                        builder: (context, msg, _) => msg == null
-                            ? const SizedBox.shrink()
-                            : Center(child: toastBuilder(msg)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        child: Builder(builder: builder),
       );
     },
   );
 }
 
 extension _ThriveEditorSheets on _ThriveHomeState {
-  /// Opens an editor sheet with the app toast hosted above it. With
-  /// [monthScoped] it refuses to open on a closed month. Sheets guarding
+  /// Opens an editor sheet. With [monthScoped] it refuses to open on a closed
+  /// month. Sheets guarding
   /// unsaved edits turn [enableDrag] off: a drag-to-close would bypass their
   /// `PopScope`.
   Future<T?> openEditorSheet<T>(
@@ -74,13 +50,7 @@ extension _ThriveEditorSheets on _ThriveHomeState {
       return null;
     }
     update(() => swipedId = null);
-    return showEditorSheet<T>(
-      context,
-      builder,
-      toast: _toastNotifier,
-      toastBuilder: _buildToast,
-      enableDrag: enableDrag,
-    );
+    return showEditorSheet<T>(context, builder, enableDrag: enableDrag);
   }
 
   /// A member's round avatar for editor people rows.

@@ -235,7 +235,7 @@ void main() {
       expect(f.members.length, greaterThanOrEqualTo(8));
 
       await openMoreHub(tester); // hub family card lists every member
-      await tapHubRow(tester, 'family', 'more-member-me'); // family page
+      await tapHubRow(tester, 'family', 'more-family-settings');
       expect(
         find.text('Sophie-Alexandra van der Berg-Janssen the 1th'),
         findsWidgets,

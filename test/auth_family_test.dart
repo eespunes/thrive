@@ -187,7 +187,7 @@ void main() {
     Future<void> openFamily(WidgetTester tester) async {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tapHubRow(tester, 'family', 'more-member-me');
+      await tapHubRow(tester, 'family', 'more-family-settings');
     }
 
     testWidgets('opens the family page with members', (tester) async {
@@ -243,7 +243,7 @@ void main() {
     Future<void> openFamily(WidgetTester tester) async {
       await tester.tap(find.byKey(const ValueKey('nav-more')));
       await tester.pumpAndSettle();
-      await tapHubRow(tester, 'family', 'more-member-me');
+      await tapHubRow(tester, 'family', 'more-family-settings');
     }
 
     Future<String> inviteLisa(WidgetTester tester) async {

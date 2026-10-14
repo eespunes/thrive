@@ -506,11 +506,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   Map<String, bool> collapsed = {};
   String? swipedId;
 
-  /// Toast text streams through a notifier so showing/hiding it repaints only
-  /// the toast overlay via its ValueListenableBuilder — a `flash()` used to
-  /// trigger two full-tree setState rebuilds per toast.
-  final ValueNotifier<String?> _toastNotifier = ValueNotifier<String?>(null);
-  String? get toast => _toastNotifier.value;
+  String? get toast =>
+      appToastNotifier.value?.$1 == this ? appToastNotifier.value?.$2 : null;
   Timer? _toastTimer;
 
   /// Write-status pill on the Settings v2 sub-page headers (#283): every
@@ -796,6 +793,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     _saveRetryTimer?.cancel();
     DeviceCalendarSync.instance.cancelPending();
     _toastTimer?.cancel();
+    if (appToastNotifier.value?.$1 == this) appToastNotifier.value = null;
     _syncSettleTimer?.cancel();
     _syncClearTimer?.cancel();
     shopQuickAddFocus.dispose();
@@ -1669,13 +1667,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     toastTone = tone;
     toastBody = body;
     // Re-notify even when the text repeats (the tone/body may differ).
-    _toastNotifier.value = null;
-    _toastNotifier.value = msg;
+    appToastNotifier.value = null;
+    appToastNotifier.value = (this, msg);
     _toastTimer?.cancel();
     _toastTimer = Timer(Duration(milliseconds: body == null ? 2100 : 4000), () {
       if (mounted) {
         toastUndo = null;
-        _toastNotifier.value = null;
+        if (appToastNotifier.value?.$1 == this) appToastNotifier.value = null;
       }
     });
   }
@@ -1687,12 +1685,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     toastUndo = onUndo;
     toastTone = ToastTone.success;
     toastBody = null;
-    _toastNotifier.value = msg;
+    appToastNotifier.value = (this, msg);
     _toastTimer?.cancel();
     _toastTimer = Timer(const Duration(milliseconds: 4000), () {
       if (mounted) {
         toastUndo = null;
-        _toastNotifier.value = null;
+        if (appToastNotifier.value?.$1 == this) appToastNotifier.value = null;
       }
     });
   }
@@ -2364,17 +2362,6 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                 if (shellReady) _buildNav(),
               ],
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 36 + bottomSystemInset,
-              child: ValueListenableBuilder<String?>(
-                valueListenable: _toastNotifier,
-                builder: (context, msg, _) => msg == null
-                    ? const SizedBox.shrink()
-                    : Center(child: _buildToast(msg)),
-              ),
-            ),
             ?(shellReady
                 ? _buildFab(bottomSystemInset: bottomSystemInset)
                 : null),
@@ -2419,8 +2406,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   /// The dark toast: a tone glyph, the message and an optional second line.
   Widget _buildToast(String msg) {
     final body = toastBody;
-    // Transparent Material: settings pages re-host the toast outside any
-    // Scaffold, where text would otherwise get the debug fallback style.
+    // The global host sits above the Navigator, outside any Scaffold.
     return Material(
       type: MaterialType.transparency,
       child: Container(
@@ -2512,7 +2498,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
                   final undo = toastUndo;
                   toastUndo = null;
                   _toastTimer?.cancel();
-                  _toastNotifier.value = null;
+                  if (appToastNotifier.value?.$1 == this) {
+                    appToastNotifier.value = null;
+                  }
                   undo?.call();
                 },
                 // The pill is small; pad the label up to a comfortable target.

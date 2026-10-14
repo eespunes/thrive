@@ -93,6 +93,10 @@ Future<void> _initFirebase() async {
 /// dismisses it. This guarantees errors are never lost or left stuck silently.
 final ValueNotifier<String?> appErrorNotifier = ValueNotifier<String?>(null);
 
+/// The active transient toast, rendered above every Navigator route.
+final ValueNotifier<(_ThriveHomeState, String)?> appToastNotifier =
+    ValueNotifier<(_ThriveHomeState, String)?>(null);
+
 /// Surfaces [message] in the global, user-closable error popup. Blank messages
 /// are ignored so callers can forward nullable error strings safely.
 void showAppError(String? message) {
@@ -145,13 +149,45 @@ class ThriveApp extends StatelessWidget {
               maxScaleFactor: 1.3,
               child: Stack(
                 textDirection: TextDirection.ltr,
-                children: [?child, const _GlobalErrorPopup()],
+                children: [
+                  ?child,
+                  const _GlobalToast(),
+                  const _GlobalErrorPopup(),
+                ],
               ),
             ),
           );
         },
         home: const ThriveHome(),
       ),
+    );
+  }
+}
+
+class _GlobalToast extends StatelessWidget {
+  const _GlobalToast();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<(_ThriveHomeState, String)?>(
+      valueListenable: appToastNotifier,
+      builder: (context, active, _) {
+        if (active == null || !active.$1.mounted) {
+          return const SizedBox.shrink();
+        }
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: IgnorePointer(
+                ignoring: active.$1.toastUndo == null,
+                child: active.$1._buildToast(active.$2),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

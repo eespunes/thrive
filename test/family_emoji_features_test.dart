@@ -8,7 +8,7 @@ Future<void> _openFamilyPage(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
   await openHubCard(tester, 'family', 'more-invite');
-  final row = find.byKey(ValueKey('more-member-${thriveDebug.myId}'));
+  final row = find.byKey(const ValueKey('more-family-settings'));
   await tester.scrollUntilVisible(
     row,
     80,

@@ -399,7 +399,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
       await openMoreHub(tester);
-      await tapHubRow(tester, 'family', 'more-member-me');
+      await tapHubRow(tester, 'family', 'more-family-settings');
       await tester.tap(find.byKey(const ValueKey('family-username-copy')));
       await tester.pumpAndSettle();
       expect(find.text('"@beach-house" copied'), findsOneWidget);

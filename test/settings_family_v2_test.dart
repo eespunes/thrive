@@ -14,7 +14,7 @@ import 'settings_v2_seed.dart';
 void main() {
   Future<void> openFamilyPage(WidgetTester tester) async {
     await openMoreHub(tester);
-    await tapHubRow(tester, 'family', 'more-member-me');
+    await tapHubRow(tester, 'family', 'more-family-settings');
   }
 
   void demoteMe() {

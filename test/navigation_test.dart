@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
+import 'settings_v2_seed.dart';
 
 void main() {
   testWidgets('fresh boot lands on the Home dashboard', (tester) async {
@@ -332,16 +333,44 @@ void main() {
     expect(find.text('eva.janssen@gmail.com'), findsWidgets);
   });
 
-  testWidgets('More → Family opens the family management page (#275)', (
+  testWidgets('More → Family settings opens family management (#275)', (
     tester,
   ) async {
     await pumpApp(tester, landOnDefaultTab: true);
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();
 
-    await tapHubRow(tester, 'family', 'more-member-me');
+    await tapHubRow(tester, 'family', 'more-family-settings');
     expect(find.byKey(const ValueKey('family-name-input')), findsOneWidget);
     expect(find.byKey(const ValueKey('family-leave')), findsOneWidget);
+  });
+
+  testWidgets('More member row opens that member’s editor directly', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
+    await tapHubRow(tester, 'family', 'more-member-m2');
+    expect(find.text('Edit member'), findsOneWidget);
+    expect(find.byKey(const ValueKey('family-name-input')), findsNothing);
+    expect(find.text('Erik Janssen'), findsWidgets);
+  });
+
+  testWidgets('More member row respects edit permissions', (tester) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    thriveDebug.mutateState(() {
+      final members = thriveDebug.curFamily()!.members;
+      members.firstWhere((m) => m.id == 'me').role = 'member';
+      members.firstWhere((m) => m.id == 'm2').role = 'owner';
+    });
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
+    await tapHubRow(tester, 'family', 'more-member-m2');
+    expect(find.byKey(const ValueKey('ma-edit')), findsOneWidget);
+    expect(find.text('Edit member'), findsNothing);
   });
 
   testWidgets('More → Categories opens the categories sub-screen (#325)', (

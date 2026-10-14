@@ -251,10 +251,18 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           '${owner ? 'you own this family' : 'owned by ${ownerName ?? '?'}'}',
       hint: isChildUser
           ? 'Only family admins can change family settings.'
-          : (owner ? null : 'Only owners can manage members.'),
+          : (owner
+                ? null
+                : 'You can edit your own row and members without a login.'),
       rows: [
+        _hubRow(
+          key: 'more-family-settings',
+          label: 'Family settings',
+          sub: 'Name, members and permissions',
+          onTap: openFamilyScreen,
+        ),
         // The member list lives directly on the card (#330): avatar, role and
-        // status per row. Tapping opens the family management page (#275).
+        // status per row. Editable rows open that member's studio directly.
         for (final m in members)
           _hubRow(
             key: 'more-member-${m.id}',
@@ -279,7 +287,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               fs: 10,
               opacity: m.status == 'invited' ? .55 : 1,
             ),
-            onTap: openFamilyScreen,
+            onTap: () => canEditMemberRow(m)
+                ? openMemberEditor(m.id)
+                : showMemberActionsSheet(m.id),
           ),
         _hubRow(
           key: 'more-invite',

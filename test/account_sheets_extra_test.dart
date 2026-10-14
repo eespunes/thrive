@@ -11,7 +11,7 @@ import 'helpers.dart';
 Future<void> _openFamily(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('nav-more')));
   await tester.pumpAndSettle();
-  await tapHubRow(tester, 'family', 'more-member-me');
+  await tapHubRow(tester, 'family', 'more-family-settings');
 }
 
 Future<void> _submitField(
