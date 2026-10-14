@@ -144,38 +144,48 @@ void main() {
   });
 
   testWidgets('light slot combinations match the golden', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: RepaintBoundary(
-            key: const ValueKey('header-slots-golden'),
-            child: SizedBox(
-              width: 380,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppHeader(title: 'Lists', subtitle: '4 notes · 7 things to do'),
-                  AppHeader(
-                    title: 'Groceries',
-                    subtitle: '6 left · 14 total',
-                    leading: AppHeaderLeading.back,
-                    actions: [
-                      AppHeaderAction(icon: 'dots', tooltip: 'More', onPressed: () {}),
-                    ],
-                  ),
-                  AppHeader(
-                    title: 'A long editor title that must be truncated before Save',
-                    subtitle: 'Badge & colour',
-                    leading: AppHeaderLeading.close,
-                    textAction: 'Save',
-                  ),
-                ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: RepaintBoundary(
+              key: const ValueKey('header-slots-golden'),
+              child: SizedBox(
+                width: 380,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppHeader(
+                      title: 'Lists',
+                      subtitle: '4 notes · 7 things to do',
+                    ),
+                    AppHeader(
+                      title: 'Groceries',
+                      subtitle: '6 left · 14 total',
+                      leading: AppHeaderLeading.back,
+                      actions: [
+                        AppHeaderAction(
+                          icon: 'dots',
+                          tooltip: 'More',
+                          onPressed: () {},
+                        ),
+                      ],
+                    ),
+                    AppHeader(
+                      title:
+                          'A long editor title that must be truncated before Save',
+                      subtitle: 'Badge & colour',
+                      leading: AppHeaderLeading.close,
+                      textAction: 'Save',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await expectLater(
       find.byKey(const ValueKey('header-slots-golden')),
       matchesGoldenFile('goldens/app_header_slots.png'),
@@ -183,29 +193,36 @@ void main() {
   });
 
   testWidgets('gradient hero matches the golden', (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: RepaintBoundary(
-            key: const ValueKey('header-hero-golden'),
-            child: Container(
-              width: 380,
-              decoration: const BoxDecoration(gradient: B.grad),
-              child: AppHeader(
-                hero: true,
-                title: 'Finance',
-                subtitle: 'October 2026',
-                subtitleOnPressed: () {},
-                statusPill: 'CLOSED',
-                actions: [
-                  AppHeaderAction(icon: 'lock', tooltip: 'Reopen month', onPressed: () {}, filled: true),
-                ],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: RepaintBoundary(
+              key: const ValueKey('header-hero-golden'),
+              child: Container(
+                width: 380,
+                decoration: const BoxDecoration(gradient: B.grad),
+                child: AppHeader(
+                  hero: true,
+                  title: 'Finance',
+                  subtitle: 'October 2026',
+                  subtitleOnPressed: () {},
+                  statusPill: 'CLOSED',
+                  actions: [
+                    AppHeaderAction(
+                      icon: 'lock',
+                      tooltip: 'Reopen month',
+                      onPressed: () {},
+                      filled: true,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await expectLater(
       find.byKey(const ValueKey('header-hero-golden')),
       matchesGoldenFile('goldens/app_header_hero.png'),
