@@ -759,6 +759,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       calFilter = _savedIdList(userData['calFilter']);
       calCatFilter = _savedIdList(userData['calCatFilter']);
       homeBoard = parseHomeBoard(userData['homeBoard']) ?? homeBoard;
+      _adoptNotifPrefs(userData['notifPrefs']);
     }
     _migrateLegacyMeIdsAll(meUid);
     // Move families still on the pre-record layout (legacy array docs or the
@@ -817,6 +818,12 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
                 ])) {
           homeBoard = remoteBoard;
           if (mounted) update(() {});
+        }
+        // Notification choices changed on another phone (#473).
+        if (!snap.metadata.hasPendingWrites &&
+            _adoptNotifPrefs(data['notifPrefs'])) {
+          if (mounted) update(() {});
+          unawaited(_rescheduleReminders());
         }
         // `activeFamilyId` is treated as per-device view state: every
         // device's persist rewrites it in the user doc, so adopting it from
@@ -1879,6 +1886,9 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       'calCatFilter': calCatFilter,
       if (homeBoard != null)
         'homeBoard': homeBoard!.map((e) => e.toJson()).toList(),
+      // Notification choices follow the account (#473); the server reads
+      // them to decide who gets each push.
+      if (_notifPrefs != null) 'notifPrefs': _notifPrefs!.toJson(),
       'updatedAtMillis': DateTime.now().millisecondsSinceEpoch,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

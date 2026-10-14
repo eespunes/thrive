@@ -9,6 +9,7 @@ Future<void> main() async {
     _initFirebase(),
     loadThemeMode(),
   ]);
+  _initPush();
   runApp(const ThriveApp());
   // NotificationService.init parses the full timezone database — real CPU
   // that used to gate the first frame. Reminders aren't needed at first
@@ -33,6 +34,22 @@ Future<void> _lockPortraitOrientation() =>
 
 Future<void> _lockLandscapeOrientation() =>
     SystemChrome.setPreferredOrientations(_landscapeOrientations);
+
+/// Wires Firebase Cloud Messaging (#471) when Firebase is up on a mobile
+/// platform. Nothing here asks for permission: that only happens from the
+/// Notifications page or the first reminder set on an event (#483).
+// Needs the Firebase Messaging platform plugin.
+// coverage:ignore-start
+void _initPush() {
+  if (!firebaseAppsAvailable || foundation.kIsWeb) return;
+  try {
+    FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessage);
+    PushService.messaging = FirebasePushMessaging();
+  } catch (e) {
+    debugPrint('[push] setup failed: $e');
+  }
+}
+// coverage:ignore-end
 
 Future<void> _initFirebase() async {
   try {

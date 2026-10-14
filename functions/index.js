@@ -9,7 +9,7 @@ const { onCall } = require('firebase-functions/v2/https');
 const { createHandlers } = require('./handlers');
 
 const REGION = 'europe-west1';
-const CALL_OPTIONS = { region: REGION, enforceAppCheck: false };
+const CALL_OPTIONS = { region: REGION, enforceAppCheck: false, maxInstances: 3 };
 
 let handlers;
 function getHandlers() {
@@ -34,3 +34,86 @@ exports.kidSignOutEverywhere = callable('kidSignOutEverywhere');
 exports.kidRemoveLogin = callable('kidRemoveLogin');
 exports.kidLoginDetails = callable('kidLoginDetails');
 exports.loginKind = callable('loginKind');
+
+// ---------------------------------------------------------------------------
+// Push notifications (epic #469). Pure rules: push_logic.js; orchestration:
+// push_handlers.js. See README "Push notifications".
+
+const { onDocumentWrittenWithAuthContext } = require('firebase-functions/v2/firestore');
+const { onTaskDispatched } = require('firebase-functions/v2/tasks');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+
+const FLUSH_FUNCTION = 'pushFlush';
+
+let pushHandlers;
+function getPushHandlers() {
+  if (!pushHandlers) {
+    const { initializeApp, getApps } = require('firebase-admin/app');
+    const { getFirestore } = require('firebase-admin/firestore');
+    const { getMessaging } = require('firebase-admin/messaging');
+    const { getFunctions } = require('firebase-admin/functions');
+    const { createPushHandlers } = require('./push_handlers');
+    if (!getApps().length) initializeApp();
+    pushHandlers = createPushHandlers({
+      db: getFirestore(),
+      messaging: getMessaging(),
+      enqueue: (data, opts) =>
+        getFunctions().taskQueue(`locations/${REGION}/functions/${FLUSH_FUNCTION}`).enqueue(data, opts),
+    });
+  }
+  return pushHandlers;
+}
+
+const onWrite = (document, run) =>
+  onDocumentWrittenWithAuthContext({ document, region: REGION, maxInstances: 3 }, (event) => run(getPushHandlers(), event));
+
+exports.pushOnCalendarEvent = onWrite('families/{fid}/calendar/main/months/{month}/events/{eventId}', (h, e) => h.onCalendarEvent(e));
+exports.pushOnCalendarSeries = onWrite('families/{fid}/calendar/main/recurring/{eventId}', (h, e) => h.onCalendarEvent(e));
+exports.pushOnCalendarImport = onWrite('families/{fid}/calendar/main/imports/{importId}', (h, e) => h.onCalendarImport(e));
+exports.pushOnDevice = onWrite('families/{fid}/members/{uid}/devices/{token}', (h, e) => h.onDeviceWrite(e));
+exports.pushOnListLine = onWrite('families/{fid}/notes/{listId}/lines/{lineId}', (h, e) => h.onListLine(e));
+exports.pushOnMoneyEntry = onWrite('families/{fid}/finance/main/months/{month}/entries/{itemId}', (h, e) => h.onMoneyEntry(e, 'entries'));
+exports.pushOnMoneyOccurrence = onWrite('families/{fid}/finance/main/months/{month}/recurring/{itemId}', (h, e) => h.onMoneyEntry(e, 'occurrence'));
+exports.pushOnMoneySeries = onWrite('families/{fid}/finance/main/recurring/{itemId}', (h, e) => h.onMoneyEntry(e, 'series'));
+exports.pushOnKitchen = onWrite('families/{fid}/settings/kitchen', (h, e) => h.onKitchen(e));
+exports.pushOnFamily = onWrite('families/{fid}', (h, e) => h.onFamily(e));
+
+exports[FLUSH_FUNCTION] = onTaskDispatched(
+  {
+    region: REGION,
+    maxInstances: 3,
+    retryConfig: { maxAttempts: 3, minBackoffSeconds: 30 },
+    rateLimits: { maxConcurrentDispatches: 20 },
+  },
+  (req) => getPushHandlers().flushBucket(req.data || {}),
+);
+
+exports.pushEventReminders = onSchedule(
+  { schedule: '* * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1, timeoutSeconds: 120 },
+  () => getPushHandlers().runDueReminders(),
+);
+
+exports.pushReminderRefresh = onSchedule(
+  { schedule: '15 0 * * *', region: REGION, timeZone: 'UTC', maxInstances: 1, timeoutSeconds: 120 },
+  () => getPushHandlers().refreshReminders(),
+);
+
+exports.pushMoneyDay = onSchedule(
+  { schedule: '0 * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1 },
+  () => getPushHandlers().runMoneyDay(),
+);
+
+exports.pushQuietDigest = onSchedule(
+  { schedule: '*/15 * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1 },
+  () => getPushHandlers().runQuietDigest(),
+);
+
+exports.approveReward = onCall(
+  { region: REGION, enforceAppCheck: true, maxInstances: 3 },
+  (request) => getPushHandlers().approveReward(request),
+);
+
+exports.sendTestPush = onCall(
+  { region: REGION, enforceAppCheck: true, maxInstances: 3 },
+  (request) => getPushHandlers().sendTestPush(request),
+);

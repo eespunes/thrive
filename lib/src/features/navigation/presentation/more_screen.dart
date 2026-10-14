@@ -369,9 +369,11 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         _hubRow(
           key: 'hub-notifications',
           label: 'Notifications',
-          sub: 'Event reminders on this phone',
-          tog: notificationsEnabled,
-          onTog: toggleNotificationsEnabled,
+          sub: 'Family updates and reminders',
+          val: notificationsHubValue,
+          goodVal: notifDevice.value.granted,
+          warnVal: !notifDevice.value.granted,
+          onTap: openNotificationsScreen,
         ),
         _hubRow(
           key: 'hub-calsync',

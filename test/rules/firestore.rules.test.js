@@ -574,3 +574,73 @@ describe('kid accounts and admins', () => {
     await assertFails(setDoc(doc(db(OWNER), 'kid_links', 'a@b.c'), { x: 1 }));
   });
 });
+
+describe('push devices and push bookkeeping (#469)', () => {
+  const KID_UID = 'kid-push-uid';
+  const dev = (d, uid, token = 'tok1') =>
+    doc(d, 'families', FAM, 'members', uid, 'devices', token);
+  const reg = (token = 'tok1') => ({
+    token, platform: 'android', timezone: 'Europe/Madrid', enabled: true,
+  });
+
+  beforeEach(async () => {
+    await seed({
+      ...baseFamily,
+      memberUids: [OWNER, MEMBER, KID_UID],
+      kidUids: { [KID_UID]: 'kid1' },
+    });
+  });
+
+  it('a member registers, reads and removes their own phone', async () => {
+    await assertSucceeds(setDoc(dev(db(MEMBER), MEMBER), reg()));
+    await assertSucceeds(getDoc(dev(db(MEMBER), MEMBER)));
+    await assertSucceeds(deleteDoc(dev(db(MEMBER), MEMBER)));
+  });
+  it('a kid login registers its own phone', async () => {
+    await assertSucceeds(setDoc(dev(db(KID_UID), KID_UID), reg()));
+  });
+  it('the doc id must be the token it holds', async () => {
+    await assertFails(setDoc(dev(db(MEMBER), MEMBER), reg('other')));
+  });
+  it("nobody reads or writes another member's tokens", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(dev(ctx.firestore(), MEMBER), reg());
+    });
+    await assertFails(getDoc(dev(db(OWNER), MEMBER)));
+    await assertFails(setDoc(dev(db(OWNER), MEMBER, 'x'), reg('x')));
+    await assertFails(deleteDoc(dev(db(OWNER), MEMBER)));
+    await assertFails(
+      getDocs(collection(db(OWNER), 'families', FAM, 'members', MEMBER,
+        'devices')));
+  });
+  it('a non-member cannot register under the family', async () => {
+    await assertFails(setDoc(dev(db(OTHER), OTHER), reg()));
+  });
+  it('someone who left can still remove their old phone', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(dev(ctx.firestore(), OTHER), reg());
+    });
+    await assertSucceeds(deleteDoc(dev(db(OTHER), OTHER)));
+  });
+  for (const col of ['pushLog', 'pushQueue', 'pushMoney', 'rewardClaims']) {
+    it(`${col} is server-only`, async () => {
+      const ref = doc(db(OWNER), 'families', FAM, col, 'x');
+      await assertFails(getDoc(ref));
+      await assertFails(setDoc(ref, { familyId: FAM }));
+    });
+  }
+  it('cloud reminder queue is server-only', async () => {
+    const ref = doc(db(OWNER), 'pushReminders', 'due1');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { dueAt: Date.now() }));
+  });
+  it("users/{uid}/pushHeld is server-only", async () => {
+    const ref = doc(db(MEMBER), 'users', MEMBER, 'pushHeld', 'x');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { a: 1 }));
+  });
+  it('family records still work for full members', async () => {
+    await assertSucceeds(setDoc(doc(db(MEMBER), 'families', FAM, 'cards', 'c1'),
+      { familyId: FAM }));
+  });
+});

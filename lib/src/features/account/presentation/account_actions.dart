@@ -289,6 +289,12 @@ extension _ThriveAccountActions on _ThriveHomeState {
   // coverage:ignore-end
 
   Future<void> signOut() async {
+    // This phone stops receiving the account's pushes (#471).
+    if (PushService.messaging != null) {
+      await _unregisterPushDevice([
+        for (final f in families) f.id,
+      ], dropToken: true);
+    }
     // Edits are saved immediately; wait (bounded by [kCloudOpTimeout] so
     // sign-out can't hang offline) for a save still in flight so the last
     // edit isn't lost, and stop retrying failed saves for this account.
@@ -310,6 +316,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       familyId = 'fam_main';
       _resolvingFamilies = false;
       _cloudUnreachable = false;
+      _notifPrefs = null;
     });
     _cloudSub?.cancel();
     _cloudSub = null;
@@ -1037,6 +1044,9 @@ extension _ThriveAccountActions on _ThriveHomeState {
     final uid = _firebaseUid();
     // coverage:ignore-start
     if (uid != null) {
+      await _unregisterPushDevice([
+        for (final f in families) f.id,
+      ], dropToken: true);
       await _deleteAccountCloud(uid);
     } else {
       // coverage:ignore-end
@@ -1161,6 +1171,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       }
     }
     if (fam == null) return;
+    unawaited(_unregisterPushDevice([id]));
 
     final selfId = myId;
     final iAmOwner = fam.members.any(

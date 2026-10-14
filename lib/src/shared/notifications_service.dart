@@ -1,17 +1,15 @@
 part of 'package:family_money_management_app/main.dart';
 
-/// Minimal surface `thrive_home.dart` schedules/cancels calendar event
-/// reminders through, so tests can substitute a fake instead of hitting the
-/// real `flutter_local_notifications` platform channel (#154).
+/// Calendar editor hook for the first notification permission prompt.
+/// Cloud Functions schedules and sends event reminders.
 abstract class NotificationScheduler {
   Future<void> scheduleEventReminder(CalendarEvent event);
   Future<void> cancelEventReminder(String eventId);
   Future<void> syncEventReminders(Iterable<CalendarEvent> events);
 }
 
-/// Local notifications for calendar event reminders. Wraps every plugin call
-/// in try/catch: a missing platform channel (tests, unsupported platform) or
-/// denied permission never blocks saving user data.
+/// Displays FCM pushes while Thrive is open and handles notification taps.
+/// It also clears reminders left by older app builds on upgrade.
 class NotificationService implements NotificationScheduler {
   NotificationService._();
 
@@ -22,15 +20,11 @@ class NotificationService implements NotificationScheduler {
   static bool _initialized = false;
   static bool? _notificationsGranted;
   static Future<bool>? _notificationPermissionRequest;
-  static bool? _exactAlarmsGranted;
-  static Future<bool>? _exactAlarmPermissionRequest;
 
   static Future<void>? _initFuture;
 
   /// Idempotent: concurrent/repeat callers share one underlying init. Boot
-  /// paths that schedule reminders await this to order themselves after the
-  /// deferred startup init (see `main()`), which no longer gates the first
-  /// frame on the timezone-database parse.
+  /// The startup path awaits this after the first frame.
   static Future<void> init() => _initFuture ??= _init();
 
   static Future<void> _init() async {
@@ -46,8 +40,19 @@ class NotificationService implements NotificationScheduler {
       await _plugin.initialize(
         settings: const InitializationSettings(android: android, iOS: ios),
         onDidReceiveNotificationResponse: _onTap,
+        onDidReceiveBackgroundNotificationResponse:
+            notificationActionInBackground,
       );
       _initialized = true;
+      await _createChannels();
+      // Clear notifications scheduled by older app builds before enabling
+      // cloud reminders, avoiding a local/cloud duplicate on upgrade.
+      final pending = await _plugin.pendingNotificationRequests();
+      for (final request in pending) {
+        if (request.payload?.startsWith('event:') == true) {
+          await _plugin.cancel(id: request.id);
+        }
+      }
     } catch (e) {
       debugPrint('[notifications] init failed: $e');
     }
@@ -84,270 +89,199 @@ class NotificationService implements NotificationScheduler {
   }
 
   static void _onTap(NotificationResponse response) {
+    if (response.notificationResponseType ==
+            NotificationResponseType.selectedNotificationAction &&
+        response.actionId != null &&
+        response.actionId != kNotifOpenAction) {
+      unawaited(runNotificationAction(response.actionId!, response.payload));
+      return;
+    }
     final payload = response.payload;
     if (payload == null) return;
-    pendingNotificationDeepLink.value = payload;
+    pendingNotificationDeepLink.value = linkOfPayload(payload);
   }
 
-  /// Stable notification id derived from a string key.
-  int _notificationId(String key) => key.hashCode & 0x7fffffff;
+  /// Creates every Android channel up front (#471) so each one shows in
+  /// Android settings and its on/off state can be read before the first
+  /// notification arrives.
+  static Future<void> _createChannels() async {
+    try {
+      final android = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (android == null) return;
+      for (final c in kNotifChannels) {
+        await android.createNotificationChannel(
+          AndroidNotificationChannel(c.id, c.name, importance: c.importance),
+        );
+      }
+    } catch (e) {
+      debugPrint('[notifications] channel setup failed: $e');
+    }
+  }
 
-  int _eventNotificationId(String eventId, String date) =>
-      _notificationId('event:$eventId:$date');
+  // ------------------------------------------------------ device state (#483)
+
+  static const MethodChannel _native = MethodChannel(
+    'cat.eespunes.thrive/notifications',
+  );
+
+  /// How many times Thrive has shown the system permission prompt on this
+  /// phone. Tells "never asked" (2a) from "blocked" (2d) — Android reports
+  /// both as "disabled, no rationale".
+  static const String kAskCountKey = 'notif_permission_asks';
+
+  /// Pure mapping of the platform signals to the page's permission state.
+  static NotifPermission classifyPermission({
+    required bool enabled,
+    required bool rationale,
+    required int askCount,
+    int sdk = 33,
+  }) {
+    if (enabled) return NotifPermission.granted;
+    // Before Android 13 there's no runtime prompt: off means switched off in
+    // Android settings.
+    if (sdk < 33) return NotifPermission.blocked;
+    if (rationale) return NotifPermission.denied;
+    return askCount == 0 ? NotifPermission.undecided : NotifPermission.blocked;
+  }
+
+  static Future<int> _askCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getInt(kAskCountKey) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static Future<void> _noteAsked() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(kAskCountKey, (prefs.getInt(kAskCountKey) ?? 0) + 1);
+    } catch (_) {}
+  }
+
+  /// Reads the permission and every channel's on/off state.
+  /// Called on every resume and whenever the page opens (§2). Platforms
+  /// without the native channel (web, tests, iOS) report "granted".
+  static Future<NotifDeviceState> readDeviceState() async {
+    final asks = await _askCount();
+    try {
+      final raw = await _native.invokeMapMethod<String, Object?>('state', {
+        'channels': [for (final c in kNotifChannels) c.id],
+      });
+      if (raw == null) return NotifDeviceState.granted();
+      final channels = <String, bool>{};
+      final rawChannels = raw['channels'];
+      if (rawChannels is Map) {
+        for (final e in rawChannels.entries) {
+          channels[e.key.toString()] = e.value != false;
+        }
+      }
+      final state = NotifDeviceState(
+        permission: classifyPermission(
+          enabled: raw['enabled'] == true,
+          rationale: raw['rationale'] == true,
+          askCount: asks,
+          sdk: (raw['sdk'] as num?)?.toInt() ?? 33,
+        ),
+        channels: channels,
+      );
+      _notificationsGranted = state.permission == NotifPermission.granted;
+      return state;
+    } on MissingPluginException {
+      return NotifDeviceState.granted();
+    } catch (e) {
+      debugPrint('[notifications] state read failed: $e');
+      return NotifDeviceState.granted();
+    }
+  }
+
+  /// Shows the Android 13 system prompt (2b). Only ever called from "Turn on
+  /// notifications" / "Ask again" and the first reminder set on an event —
+  /// never at app start.
+  static Future<bool> askPermission() async {
+    await _noteAsked();
+    final granted = await _requestPermissionFromPlatform();
+    _notificationsGranted = granted;
+    return granted;
+  }
+
+  /// Opens a native settings screen: `app` (ACTION_APP_NOTIFICATION_SETTINGS),
+  /// `channel` (ACTION_CHANNEL_NOTIFICATION_SETTINGS for [channel]) or
+  /// The native notification settings page.
+  static Future<void> openSystemSettings(String what, {String? channel}) async {
+    try {
+      await _native.invokeMethod<void>('open', {
+        'what': what,
+        'channel': ?channel,
+      });
+    } catch (e) {
+      debugPrint('[notifications] open settings failed: $e');
+    }
+  }
+
+  /// Displays a push that arrived while Thrive was open (or a data message
+  /// with actions in the background), on its own channel with the server's
+  /// tag so a later update replaces it (#471, §5).
+  static Future<void> showRemote(RemoteNotif n) async {
+    if (!_initialized) return;
+    final spec = kNotifChannels.firstWhere(
+      (c) => c.id == n.channel,
+      orElse: () => kNotifChannels.first,
+    );
+    try {
+      await _plugin.show(
+        id: (n.tag.isEmpty ? n.title : n.tag).hashCode & 0x7fffffff,
+        title: n.title,
+        body: n.body,
+        payload: n.encodedPayload(),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            spec.id,
+            spec.name,
+            importance: spec.importance,
+            priority: spec.importance == Importance.high
+                ? Priority.high
+                : Priority.defaultPriority,
+            tag: n.tag.isEmpty ? null : n.tag,
+            groupKey: n.group,
+            silent: spec.importance == Importance.low,
+            actions: [
+              for (final a in n.actions)
+                AndroidNotificationAction(
+                  a.id,
+                  a.title,
+                  showsUserInterface: a.id == kNotifOpenAction,
+                  cancelNotification: true,
+                ),
+            ],
+          ),
+          iOS: DarwinNotificationDetails(threadIdentifier: n.group),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[notifications] remote show failed: $e');
+    }
+  }
+
+  // Event reminders are sent by Cloud Functions. These methods remain as the
+  // calendar editor's notification-permission boundary; they never schedule
+  // a notification on the phone.
+  static ReminderPlan plan = const ReminderPlan();
 
   @override
   Future<void> scheduleEventReminder(CalendarEvent event) async {
-    if (!_initialized) return;
-    await cancelEventReminder(event.id);
-    await _scheduleEventOccurrences(event);
-  }
-
-  Future<void> _scheduleEventOccurrences(CalendarEvent event) async {
-    if (event.reminder == 'none') return;
-
-    try {
-      final granted = await _requestPermission();
-      if (!granted) return;
-      final scheduleMode = await _androidScheduleMode();
-      final now = tz.TZDateTime.now(tz.local);
-      var scheduled = 0;
-      // Anchor the occurrence window at "now" rather than the series start:
-      // a recurring event created over 24 months ago would otherwise get an
-      // entirely-past window and its reminders would silently stop. Events
-      // starting in the future keep their own start as the anchor.
-      final todayIso = _isoOfDate(DateTime.now());
-      final windowAnchor = event.date.compareTo(todayIso) > 0
-          ? event.date
-          : todayIso;
-      final occurrenceDates = event.recur == 'none'
-          ? [event.date]
-          : recurringEventDates(
-              event,
-              _addDaysIso(todayIso, -1),
-              event.endDate.isNotEmpty
-                  ? event.endDate
-                  : _addMonthsIso(windowAnchor, 24),
-              maxOccurrences: 5000,
-            );
-
-      // Keep a small rolling set for recurring events. App boot/resume rebuilds
-      // the set, avoiding unbounded pending notifications on iOS and Android.
-      for (final occurrenceDate in occurrenceDates) {
-        if (scheduled >= 8) break;
-        if (!event.exceptions.contains(occurrenceDate)) {
-          final when = _eventReminderTime(event, occurrenceDate);
-          if (when != null && when.isAfter(now)) {
-            await _scheduleEventNotification(
-              id: _eventNotificationId(event.id, occurrenceDate),
-              title: event.title,
-              body: _eventNotificationBody(event),
-              when: when,
-              scheduleMode: scheduleMode,
-              payload: 'event:${event.id}:$occurrenceDate',
-            );
-            scheduled++;
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[notifications] event schedule failed: $e');
-    }
-  }
-
-  /// Builds a human-readable notification body describing when the event
-  /// starts and, optionally, where. Examples:
-  /// "Starts in 1 hour · 14:30" / "Starting at 09:00 – Conference room A" /
-  /// "Starts tomorrow · 10:00 – Office".
-  String _eventNotificationBody(CalendarEvent event) {
-    final startStr = (!event.allDay && event.start.isNotEmpty)
-        ? event.start
-        : null;
-    final reminder = event.reminder;
-
-    String timeText;
-    if (reminder == 'at') {
-      if (event.allDay) {
-        timeText = 'All day today';
-      } else if (startStr != null) {
-        timeText = 'Starting at $startStr';
-      } else {
-        timeText = 'Starting now';
-      }
-    } else if (reminder == '1h') {
-      timeText = startStr != null
-          ? 'Starts in 1 hour · $startStr'
-          : 'Starts in 1 hour';
-    } else if (reminder == '1d') {
-      timeText = startStr != null
-          ? 'Starts tomorrow · $startStr'
-          : 'Starts tomorrow';
-    } else {
-      // Custom format: Xm, Xh, Xd — strip the unit suffix then parse the
-      // numeric prefix. An empty or non-numeric prefix falls to the fallback.
-      if (reminder.length <= 1) {
-        timeText = startStr != null ? 'Starts at $startStr' : 'Calendar event';
-      } else {
-        final suffix = reminder[reminder.length - 1];
-        final amount = int.tryParse(reminder.substring(0, reminder.length - 1));
-        if (amount != null && suffix == 'm') {
-          final label = amount == 1
-              ? 'Starts in 1 minute'
-              : 'Starts in $amount minutes';
-          timeText = startStr != null ? '$label · $startStr' : label;
-        } else if (amount != null && suffix == 'h') {
-          final label = amount == 1
-              ? 'Starts in 1 hour'
-              : 'Starts in $amount hours';
-          timeText = startStr != null ? '$label · $startStr' : label;
-        } else if (amount != null && suffix == 'd') {
-          final label = amount == 1
-              ? 'Starts tomorrow'
-              : 'Starts in $amount days';
-          timeText = startStr != null ? '$label · $startStr' : label;
-        } else {
-          timeText = startStr != null
-              ? 'Starts at $startStr'
-              : 'Calendar event';
-        }
-      }
-    }
-
-    if (event.location.isNotEmpty) {
-      return '$timeText – ${event.location}';
-    }
-    return timeText;
-  }
-
-  tz.TZDateTime? _eventReminderTime(CalendarEvent event, String iso) {
-    final date = DateTime.tryParse(iso);
-    if (date == null) return null;
-    var hour = 9;
-    var minute = 0;
-    if (!event.allDay && event.start.isNotEmpty) {
-      final parts = event.start.split(':');
-      if (parts.length == 2) {
-        hour = int.tryParse(parts[0]) ?? hour;
-        minute = int.tryParse(parts[1]) ?? minute;
-      }
-    }
-    // Compose with the platform's DateTime, whose UTC offset comes from the
-    // OS and is correct even when timezone detection failed and tz.local is
-    // still the package default (UTC); TZDateTime.from keeps the instant.
-    var when = tz.TZDateTime.from(
-      DateTime(date.year, date.month, date.day, hour, minute),
-      tz.local,
-    );
-    final reminder = event.reminder;
-    if (reminder != 'at') {
-      final amount = int.tryParse(
-        reminder.substring(0, reminder.length > 1 ? reminder.length - 1 : 0),
-      );
-      if (amount != null && reminder.endsWith('m')) {
-        when = when.subtract(Duration(minutes: amount));
-      } else if (amount != null && reminder.endsWith('h')) {
-        when = when.subtract(Duration(hours: amount));
-      } else if (amount != null && reminder.endsWith('d')) {
-        when = when.subtract(Duration(days: amount));
-      }
-    }
-    return when;
-  }
-
-  Future<void> _scheduleEventNotification({
-    required int id,
-    required String title,
-    required String body,
-    required tz.TZDateTime when,
-    required AndroidScheduleMode scheduleMode,
-    required String payload,
-  }) async {
-    Future<void> schedule(AndroidScheduleMode mode) => _plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
-      scheduledDate: when,
-      notificationDetails: const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'event_reminders',
-          'Event reminders',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      androidScheduleMode: mode,
-      payload: payload,
-    );
-
-    try {
-      await schedule(scheduleMode);
-    } on PlatformException {
-      if (scheduleMode != AndroidScheduleMode.exactAllowWhileIdle) rethrow;
-      _exactAlarmsGranted = false;
-      await schedule(AndroidScheduleMode.inexactAllowWhileIdle);
-    }
-  }
-
-  /// Digest of the reminder-relevant fields of the last successfully synced
-  /// event set, so redundant [syncEventReminders] calls (every Firestore
-  /// snapshot, boot and resume) skip all platform-channel work.
-  String? _lastSyncDigest;
-
-  /// Joins only the fields that influence what/when a reminder fires (or its
-  /// notification body): id, date, start, all-day flag, reminder setting,
-  /// recurrence fields, exceptions, title and location.
-  String _reminderDigest(Iterable<CalendarEvent> events) => events
-      .map(
-        (e) =>
-            '${e.id}|${e.date}|${e.endDate}|${e.start}|${e.allDay}|'
-            '${e.reminder}|${e.recur}|${e.exceptions.join(',')}|'
-            '${e.title}|${e.location}',
-      )
-      .join('\n');
-
-  @override
-  Future<void> cancelEventReminder(String eventId) async {
-    if (!_initialized) return;
-    _lastSyncDigest = null;
-    try {
-      // The exact occurrence dates that were scheduled can't be re-derived
-      // from just the event id, so one pending-list scan is still needed —
-      // but the cancels run concurrently instead of serially.
-      final pending = await _plugin.pendingNotificationRequests();
-      await Future.wait([
-        for (final notification in pending)
-          if (notification.payload?.startsWith('event:$eventId:') == true)
-            _plugin.cancel(id: notification.id),
-      ]);
-    } catch (e) {
-      debugPrint('[notifications] event cancel failed: $e');
-    }
+    if (event.reminder != 'none' && plan.reminders) await _requestPermission();
   }
 
   @override
-  Future<void> syncEventReminders(Iterable<CalendarEvent> events) async {
-    if (!_initialized) return;
-    final eventList = events.toList();
-    final digest = _reminderDigest(eventList);
-    if (digest == _lastSyncDigest) return;
-    try {
-      // Only event reminders are cancelled (other notification kinds, e.g.
-      // task payloads, must survive), so cancelAll() isn't usable — but the
-      // per-id cancels and per-event schedules run concurrently.
-      final pending = await _plugin.pendingNotificationRequests();
-      await Future.wait([
-        for (final notification in pending)
-          if (notification.payload?.startsWith('event:') == true)
-            _plugin.cancel(id: notification.id),
-      ]);
-      await Future.wait([
-        for (final event in eventList) _scheduleEventOccurrences(event),
-      ]);
-      _lastSyncDigest = digest;
-    } catch (e) {
-      debugPrint('[notifications] event sync failed: $e');
-    }
-  }
+  Future<void> cancelEventReminder(String eventId) async {}
+
+  @override
+  Future<void> syncEventReminders(Iterable<CalendarEvent> events) async {}
 
   Future<bool> _requestPermission() async {
     final cached = _notificationsGranted;
@@ -355,7 +289,7 @@ class NotificationService implements NotificationScheduler {
     final pending = _notificationPermissionRequest;
     if (pending != null) return pending;
 
-    final request = _requestPermissionFromPlatform();
+    final request = _askOnce();
     _notificationPermissionRequest = request;
     final granted = await request;
     _notificationsGranted = granted;
@@ -363,44 +297,14 @@ class NotificationService implements NotificationScheduler {
     return granted;
   }
 
-  Future<AndroidScheduleMode> _androidScheduleMode() async {
-    final exact = await _requestExactAlarmPermission();
-    return exact
-        ? AndroidScheduleMode.exactAllowWhileIdle
-        : AndroidScheduleMode.inexactAllowWhileIdle;
+  /// The system prompt appears at most once from an event reminder: after
+  /// that, "Ask again" on the page is the only way to show it.
+  Future<bool> _askOnce() async {
+    if (await _askCount() > 0) return false;
+    return askPermission();
   }
 
-  Future<bool> _requestExactAlarmPermission() async {
-    final cached = _exactAlarmsGranted;
-    if (cached != null) return cached;
-    final pending = _exactAlarmPermissionRequest;
-    if (pending != null) return pending;
-
-    final request = _requestExactAlarmPermissionFromPlatform();
-    _exactAlarmPermissionRequest = request;
-    final granted = await request;
-    _exactAlarmsGranted = granted;
-    _exactAlarmPermissionRequest = null;
-    return granted;
-  }
-
-  Future<bool> _requestExactAlarmPermissionFromPlatform() async {
-    try {
-      final android = _plugin
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-      if (android == null) return true;
-      if (await android.canScheduleExactNotifications() == true) return true;
-      if (await android.requestExactAlarmsPermission() == true) return true;
-      return await android.canScheduleExactNotifications() == true;
-    } catch (e) {
-      debugPrint('[notifications] exact alarm permission request failed: $e');
-      return false;
-    }
-  }
-
-  Future<bool> _requestPermissionFromPlatform() async {
+  static Future<bool> _requestPermissionFromPlatform() async {
     try {
       final android = _plugin
           .resolvePlatformSpecificImplementation<

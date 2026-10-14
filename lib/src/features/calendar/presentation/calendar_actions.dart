@@ -433,6 +433,15 @@ String _nextMonthKey(String m) {
 }
 
 extension _ThriveCalendarActions on _ThriveHomeState {
+  /// The editor can show the first notification permission prompt. Register
+  /// the phone immediately afterwards so cloud reminders can reach it.
+  void _requestCloudReminder(CalendarEvent event) {
+    unawaited(() async {
+      await NotificationService.instance.scheduleEventReminder(event);
+      if (_firebaseUid() != null) await refreshNotifDevice();
+    }());
+  }
+
   /// The (possibly rebuilt) event date index for the current revision.
   ({Map<String, List<CalendarEvent>> byMonth, List<CalendarEvent> recurring})
   _eventDateIndex() {
@@ -1120,7 +1129,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       saved = ev;
     }, () => flash(wasEditing ? 'Event updated' : 'Event added'));
     if (saved != null) {
-      NotificationService.instance.scheduleEventReminder(saved!);
+      _requestCloudReminder(saved!);
       _syncDeviceCalendar();
     }
   }
@@ -1247,10 +1256,10 @@ extension _ThriveCalendarActions on _ThriveHomeState {
       }
     }, () => flash('Event updated'));
     if (rescheduleOriginal != null) {
-      NotificationService.instance.scheduleEventReminder(rescheduleOriginal!);
+      _requestCloudReminder(rescheduleOriginal!);
     }
     if (rescheduleNew != null) {
-      NotificationService.instance.scheduleEventReminder(rescheduleNew!);
+      _requestCloudReminder(rescheduleNew!);
     }
     if (changed) _syncDeviceCalendar();
   }
@@ -1285,7 +1294,7 @@ extension _ThriveCalendarActions on _ThriveHomeState {
     if (removedSeries) {
       NotificationService.instance.cancelEventReminder(id);
     } else if (updated != null) {
-      NotificationService.instance.scheduleEventReminder(updated!);
+      _requestCloudReminder(updated!);
     }
     if (changed) _syncDeviceCalendar();
   }

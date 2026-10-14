@@ -52,6 +52,6 @@ void main() {
         color: const Color(0xFF112233),
       ),
     );
-    expect(scheduledCalls, hasLength(1));
+    expect(scheduledCalls, isEmpty);
   });
 }

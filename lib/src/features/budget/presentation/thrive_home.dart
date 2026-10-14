@@ -124,6 +124,10 @@ class ThriveDebugController {
   void go(String s) => _s.go(s);
   void goTab(String t) => _s.goTab(t);
   String get tab => _s.tab;
+  String get screen => _s.screen;
+  int get year => _s.year;
+  int get monthIdx => _s.monthIdx;
+  String get calSel => _s.calSel;
   void setMonth(int d) => _s.setMonth(d);
   void pickMonth(int i) => _s.pickMonth(i);
   void toggleCollapse(String k) => _s.toggleCollapse(k);
@@ -286,6 +290,15 @@ class ThriveDebugController {
   void handleWidgetLaunch(Uri uri) => _s.handleWidgetLaunch(uri);
   bool get widgetHideAmounts => _s.widgetHideAmounts;
   bool get notificationsEnabled => _s.notificationsEnabled;
+  NotifPrefs get notifPrefs => _s.notifPrefs;
+  ValueNotifier<NotifDeviceState> get notifDevice => _s.notifDevice;
+  void openNotificationsScreen() => _s.openNotificationsScreen();
+  bool adoptNotifPrefs(Object? raw) => _s._adoptNotifPrefs(raw);
+  ReminderPlan reminderPlan() => _s._reminderPlan();
+  String notifScopeHint(String type, String scope) =>
+      _s.notifScopeHint(type, scope);
+  String notifScopeLabel(String type) => _s.notifScopeLabel(type);
+  List<NotifTypeSpec> get visibleNotifTypes => _s.visibleNotifTypes;
   bool get deviceCalendarSyncEnabled => _s.deviceCalendarSyncEnabled;
   void toggleWidgetHideAmounts() => _s.toggleWidgetHideAmounts();
   List<String> get navPickedTabs => _s.navPickedTabs;
@@ -398,6 +411,17 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   // master reminder switch and the Android device-calendar mirror.
   bool notificationsEnabled = true;
   bool deviceCalendarSyncEnabled = true;
+
+  /// Notification choices (#473); null until the user changes one, so the
+  /// defaults follow their role (kid or adult) and family.
+  NotifPrefs? _notifPrefs;
+
+  /// This phone's permission, channel and exact-alarm state (#483), read on
+  /// page open and every resume.
+  final ValueNotifier<NotifDeviceState> notifDevice =
+      ValueNotifier<NotifDeviceState>(NotifDeviceState.granted());
+  final List<StreamSubscription<Object?>> _pushSubs = [];
+  String? _pushToken;
 
   /// "Warn near block limits" (#329): a toast nudge when a block's planned
   /// total crosses 90% of this month's cap. Persisted per device.
@@ -772,6 +796,10 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     kidGate.dispose();
     WidgetsBinding.instance.removeObserver(this);
     pendingNotificationDeepLink.removeListener(_handleNotificationDeepLink);
+    for (final sub in _pushSubs) {
+      sub.cancel();
+    }
+    notifDevice.dispose();
     _cloudSub?.cancel();
     _familySub?.cancel();
     for (final sub in _recordSubs) {
@@ -799,6 +827,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       syncDueImports();
       unawaited(_refreshReminderSchedule());
+      // Android settings may have changed while away (§2: "Thrive checks
+      // again when you come back").
+      unawaited(refreshNotifDevice());
       _reloadOnResume();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
@@ -871,9 +902,86 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
         });
         return;
       }
+    } else if (_routePushLink(payload)) {
+      pendingNotificationDeepLink.value = null;
+      return;
     }
     // The source item was deleted, so discard the stale deep link.
     pendingNotificationDeepLink.value = null;
+  }
+
+  /// Push payloads (#474, §5): chores and rewards, lists, money days, the
+  /// members screen and the quiet-hours summary. Returns false when the
+  /// target no longer exists.
+  bool _routePushLink(String link) {
+    final sep = link.indexOf(':');
+    final kind = sep < 0 ? link : link.substring(0, sep);
+    final arg = sep < 0 ? '' : link.substring(sep + 1);
+    switch (kind) {
+      case 'chore':
+        final ev = eventById(arg);
+        if (ev == null) return false;
+        if (isChildUser) {
+          goTab('home');
+          return true;
+        }
+        final today = _isoOfDate(DateTime.now());
+        update(() {
+          tab = 'calendar';
+          calAnchor = today;
+          calSel = today;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openEventView(arg, today);
+        });
+        return true;
+      case 'reward':
+        if (isChildUser || _memberById(arg) == null) {
+          goTab('home');
+          return true;
+        }
+        goTab('home');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openKitchenDashboard();
+        });
+        return true;
+      case 'list':
+        if (visibleTaskLists.any((l) => l.id == arg)) {
+          goTab('lists');
+          openTaskListDetail(arg);
+          return true;
+        }
+        if (visibleShoppingLists.any((l) => l.id == arg)) {
+          goTab('lists');
+          openShopListDetail(arg);
+          return true;
+        }
+        return false;
+      case 'money':
+        final d = DateTime.tryParse(arg);
+        if (d == null || isChildUser) return false;
+        ensureYear(d.year);
+        update(() {
+          tab = 'finance';
+          screen = 'calendar';
+          year = d.year;
+        });
+        pickMonth(d.month - 1);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openFlowDaySheet(d.day);
+        });
+        return true;
+      case 'members':
+        goTab('more');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) openFamilyScreen();
+        });
+        return true;
+      case 'digest':
+        goTab('home');
+        return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- boot
@@ -890,6 +998,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void _finishBoot() {
     setState(() => ready = true);
     unawaited(_rescheduleReminders());
+    _bindPush();
+    unawaited(refreshNotifDevice());
     _handleNotificationDeepLink();
   }
 
@@ -1016,32 +1126,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted calendar events. With the
-  /// master notifications switch off, everything scheduled is cancelled.
+  /// Refreshes the server's view of this phone's reminder switch. Calendar
+  /// occurrences are queued and delivered by Cloud Functions.
   Future<void> _rescheduleReminders() async {
-    // Startup defers NotificationService.init past the first frame; init()
-    // is memoised, so this await just orders scheduling after it.
     await NotificationService.init();
-    if (!notificationsEnabled) {
-      await NotificationService.instance.syncEventReminders(const []);
-      return;
-    }
-    // Only events that can still ring: recurring series always qualify;
-    // one-offs older than the longest reminder offset (2 days) can't.
-    final cutoff = _isoOfDate(DateTime.now().subtract(const Duration(days: 3)));
-    bool canStillRing(CalendarEvent e) =>
-        e.recur != 'none' ||
-        (e.endDate.isNotEmpty ? e.endDate : e.date).compareTo(cutoff) >= 0;
-    final importedEvents = [
-      for (final cal in importedCalendars)
-        if (cal.visible && cal.reminder != 'none')
-          for (final e in cal.events)
-            if (e.date.compareTo(cutoff) >= 0) importedSyntheticEvent(cal, e),
-    ];
-    await NotificationService.instance.syncEventReminders([
-      ...events.where(canStillRing),
-      ...importedEvents,
-    ]);
+    NotificationService.plan = ReminderPlan(reminders: notificationsEnabled);
+    await _registerPushDevice();
   }
 
   /// Mirrors events into the Android system calendar — or clears the mirror
@@ -1050,8 +1140,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     deviceCalendarSyncEnabled ? events : const <CalendarEvent>[],
   );
 
-  /// Master reminder switch (hub Account card). Turning it off cancels every
-  /// scheduled reminder; turning it back on reschedules them.
+  /// Master reminder switch for cloud-delivered calendar reminders.
   void toggleNotificationsEnabled() {
     update(() => notificationsEnabled = !notificationsEnabled);
     _schedulePersist();
@@ -1165,6 +1254,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     budgetLimitWarn = saved['budgetLimitWarnOff'] != true;
     notificationsEnabled = saved['notificationsEnabled'] != false;
     deviceCalendarSyncEnabled = saved['deviceCalendarSync'] != false;
+    _notifPrefs = null;
+    _adoptNotifPrefs(saved['notifPrefs']);
     _syncRecurringSeries();
   }
 
@@ -1285,9 +1376,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       workspaces[familyId] = ws;
       _syncRecurringSeries();
       _seedFamiliesAndWorkspace();
-      ready = true;
     });
-    unawaited(_rescheduleReminders());
+    _finishBoot();
     _persist();
   }
 
@@ -1589,6 +1679,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       if (!budgetLimitWarn) 'budgetLimitWarnOff': true,
       if (!notificationsEnabled) 'notificationsEnabled': false,
       if (!deviceCalendarSyncEnabled) 'deviceCalendarSync': false,
+      if (_notifPrefs != null) 'notifPrefs': _notifPrefs!.toJson(),
       'familyId': familyId,
       'families': families.map((f) => f.toJson()).toList(),
       // Workspaces live under their own per-section keys now (see
