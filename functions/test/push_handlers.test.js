@@ -36,6 +36,12 @@ function fakeDb(initial = {}) {
     doc: (path) => ref(path),
     collection: (path) => ({
       get: async () => children((k) => k.startsWith(`${path}/`) && !k.slice(path.length + 1).includes('/')),
+      where: (field, op, value) => ({
+        limit: (max) => ({ get: async () => ({
+          docs: children((k) => k.startsWith(`${path}/`) && !k.slice(path.length + 1).includes('/') &&
+            op === '<=' && store.get(k)[field] <= value).docs.slice(0, max),
+        }) }),
+      }),
     }),
     collectionGroup: (id) => ({
       get: async () => children((k) => k.split('/').slice(-2, -1)[0] === id),
@@ -368,4 +374,97 @@ test('family doc: joined, role changed (also to the person), removed', async () 
   const removed = { ...family, members: family.members.filter((m) => m.id !== 'u-bram'), memberUids: ['u-anna', 'u-liv'] };
   await h.onFamily({ id: 'fam2', authType: 'app_user', authId: 'u-anna', params: { fid: FID }, data: change(family, removed) });
   assert.deepEqual(messaging.sent.map((m) => `${m.token}:${m.notification.title}`), ['tok-liv:Anna removed Bram']);
+});
+
+// Cloud calendar reminders and event starts (#484/#485).
+test('cloud queue sends event reminder and start; device reminder switch is respected', async () => {
+  const source = `families/${FID}/calendar/main/months/2026-10/events/ev1`;
+  const { db, h, clock, messaging } = setup({ extra: {
+    [source]: { ...ev, reminder: '1h' },
+    ...device('u-anna', 'tok-anna', 'Europe/Amsterdam', { remindersEnabled: false }),
+  } });
+  const queued = await h.refreshReminders();
+  assert.ok(queued.queued > 0);
+  clock.t = Date.parse('2026-10-14T11:30:30Z');
+  await h.runDueReminders();
+  assert.deepEqual(tokens(messaging), ['tok-bram', 'tok-liv']);
+  assert.ok(messaging.sent.every((m) => m.android.notification.channelId === 'event_reminders'));
+  clock.t = Date.parse('2026-10-14T12:30:30Z');
+  await h.runDueReminders();
+  assert.ok(messaging.sent.some((m) => m.android.notification.channelId === 'event_start'));
+  assert.equal([...db.store.keys()].filter((k) => k.startsWith('pushReminders/')).length, 0);
+});
+
+test('edited source cannot send an old cloud reminder', async () => {
+  const source = `families/${FID}/calendar/main/months/2026-10/events/ev1`;
+  const { db, h, clock, messaging } = setup({ extra: { [source]: { ...ev, reminder: '1h' } } });
+  await h.refreshReminders();
+  db.store.set(source, { ...ev, start: '16:00', reminder: '1h' });
+  clock.t = Date.parse('2026-10-14T11:30:30Z');
+  await h.runDueReminders();
+  assert.equal(messaging.sent.length, 0);
+  await h.refreshReminders();
+  clock.t = Date.parse('2026-10-14T13:00:30Z');
+  await h.runDueReminders();
+  assert.ok(messaging.sent.length > 0);
+});
+
+test('imported calendar reminders are cloud delivered; hidden feed is skipped', async () => {
+  const source = `families/${FID}/calendar/main/imports/feed1`;
+  const imported = { id: 'feed1', visible: true, reminder: '1h', events: [
+    { id: 'i1', title: 'Match', date: '2026-10-14', start: '14:30' },
+  ] };
+  const { db, h, clock, messaging } = setup({ extra: { [source]: imported } });
+  await h.refreshReminders();
+  clock.t = Date.parse('2026-10-14T11:30:30Z');
+  await h.runDueReminders();
+  assert.equal(messaging.sent.length, 3);
+  assert.equal(messaging.sent[0].data.link, 'event:feed1_i1:2026-10-14');
+  db.store.set(source, { ...imported, visible: false });
+  await h.refreshReminders();
+  assert.equal([...db.store.keys()].filter((k) => k.startsWith('pushReminders/')).length, 0);
+});
+
+test('cloud reminder skips quiet hours when pass-through is off', async () => {
+  const source = `families/${FID}/calendar/main/months/2026-10/events/ev1`;
+  const late = { ...ev, start: '23:00', reminder: '1h' };
+  const { h, clock, messaging } = setup({ extra: {
+    [source]: late,
+    'users/u-anna': { notifPrefs: { quiet: { on: true, from: '21:30', to: '07:00', letReminders: false } } },
+  } });
+  await h.refreshReminders();
+  clock.t = Date.parse('2026-10-14T20:00:30Z');
+  await h.runDueReminders();
+  assert.equal(tokens(messaging).includes('tok-anna'), false);
+  assert.equal(tokens(messaging).includes('tok-bram'), true);
+});
+
+test('test push is sent by the server only to the signed-in member', async () => {
+  const { h, messaging } = setup();
+  const result = await h.sendTestPush({ auth: { uid: 'u-anna' }, data: { familyId: FID } });
+  assert.equal(result.sent, 1);
+  assert.deepEqual(tokens(messaging), ['tok-anna']);
+  await assert.rejects(h.sendTestPush({ auth: { uid: 'u-anna' }, data: { familyId: FID } }), { code: 'resource-exhausted' });
+  await assert.rejects(h.sendTestPush({ auth: { uid: 'outsider' }, data: { familyId: FID } }), { code: 'permission-denied' });
+});
+
+test('first device registration backfills events created before this phone opened', async () => {
+  const base = `families/${FID}/calendar/main/months/2026-10`;
+  const { db, h, clock, messaging } = setup({ extra: {
+    [base]: {},
+    [`${base}/events/ev1`]: { ...ev, reminder: '1h' },
+  } });
+  const deviceEvent = {
+    params: { fid: FID, uid: 'u-bram', token: 'tok-bram' },
+    data: change(null, { timezone: 'Europe/Amsterdam', token: 'tok-bram' }),
+  };
+  const result = await h.onDeviceWrite(deviceEvent);
+  assert.ok(result.queued > 0);
+  assert.equal((await h.onDeviceWrite({ ...deviceEvent, data: change(
+    { timezone: 'Europe/Amsterdam' }, { timezone: 'Europe/Amsterdam' },
+  ) })).queued, 0);
+  clock.t = Date.parse('2026-10-14T11:30:30Z');
+  await h.runDueReminders();
+  assert.ok(tokens(messaging).includes('tok-bram'));
+  assert.equal(db.store.has(base), true);
 });

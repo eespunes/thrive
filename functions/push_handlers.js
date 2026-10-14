@@ -7,6 +7,9 @@
 const { HttpsError } = require('firebase-functions/v2/https');
 const P = require('./push_logic');
 const L = require('./kid_logic');
+const R = require('./reminder_logic');
+const { createHash } = require('node:crypto');
+const { DateTime } = require('luxon');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LOG_TTL_MS = 7 * DAY_MS;
@@ -150,6 +153,154 @@ function createPushHandlers({ db, messaging, enqueue, now = () => Date.now(), lo
     if (res) await scheduleFlush(fid, bucket, res);
   }
 
+  // Calendar reminders are queued on the server. A one-minute scheduled
+  // function dispatches them; every dispatch rechecks the current source,
+  // membership and preferences so stale edits and deletions cannot ring.
+  async function queueSourceReminders(fid, path, source) {
+    if (!source) return 0;
+    const family = await loadFamily(fid);
+    if (!family) return 0;
+    const aud = await loadAudience(fid, family);
+    const items = path.includes('/imports/')
+      ? source.visible === false || source.reminder === 'none' ? []
+        : (source.events || []).map((e) => ({ ...e, reminder: source.reminder || '1h', recur: 'none', imported: true }))
+      : [{ reminder: '1h', ...source, id: source.id || path.split('/').pop() }];
+    let queued = 0;
+    for (const [uid, a] of Object.entries(aud)) {
+      const zone = DateTime.now().setZone(a.tz).isValid ? a.tz : P.DEFAULT_TZ;
+      const localToday = DateTime.fromMillis(now(), { zone }).toISODate();
+      const from = DateTime.fromISO(localToday).minus({ days: 2 }).toISODate();
+      const through = DateTime.fromISO(localToday).plus({ days: R.HORIZON_DAYS + 2 }).toISODate();
+      for (const ev of items) {
+        for (const occurrence of R.occurrenceDates(ev, from, through)) {
+          for (const kind of ev.imported ? ['reminder'] : ['reminder', 'start']) {
+            const dueAt = R.dueAt(ev, occurrence, kind, zone);
+            if (dueAt === null || dueAt <= now() || dueAt > now() + R.HORIZON_DAYS * R.DAY_MS) continue;
+            const key = [path, ev.id, uid, kind, occurrence, dueAt].join('|');
+            const id = createHash('sha256').update(key).digest('hex');
+            try {
+              await db.doc(`pushReminders/${id}`).create({
+                fid, uid, sourcePath: path, eventId: ev.id, occurrence, kind,
+                dueAt, expireAt: new Date(dueAt + R.DAY_MS),
+              });
+              queued++;
+            } catch (err) {
+              if (!(err.code === 6 || err.code === 'already-exists' || /already exists/i.test(err.message || ''))) throw err;
+            }
+          }
+        }
+      }
+    }
+    return queued;
+  }
+
+  async function runDueReminders() {
+    const due = await db.collection('pushReminders').where('dueAt', '<=', now()).limit(100).get();
+    let sent = 0;
+    for (const doc of due.docs) {
+      // Scheduler invocations can overlap. Claim each due row before sending.
+      const claimed = await db.runTransaction(async (tx) => {
+        const current = dataOf(await tx.get(doc.ref));
+        if (!current || (current.claimedAt && now() - current.claimedAt < 120_000)) return false;
+        tx.update(doc.ref, { claimedAt: now() });
+        return true;
+      });
+      if (!claimed) continue;
+      const job = doc.data();
+      let failed = false;
+      try {
+        if (now() - job.dueAt > 10 * 60_000) continue;
+        const [source, family] = await Promise.all([
+          db.doc(job.sourcePath).get(), db.doc(famPath(job.fid)).get(),
+        ]);
+        if (!source.exists || !family.exists) continue;
+        const familyData = family.data();
+        if (!P.audienceMembers(familyData).some((m) => m.uid === job.uid)) continue;
+        const raw = source.data();
+        const imported = job.sourcePath.includes('/imports/');
+        const event = imported
+          ? raw.visible === false ? null : (raw.events || []).find((e) => e.id === job.eventId)
+          : raw;
+        if (!event) continue;
+        const ev = imported ? { ...event, reminder: raw.reminder || '1h', recur: 'none' } : { reminder: '1h', ...event };
+        const devices = await devicesOf(job.fid, job.uid);
+        const zone = P.userTimezone(devices);
+        if (R.dueAt(ev, job.occurrence, job.kind, zone) !== job.dueAt) continue;
+        const user = dataOf(await db.doc(`users/${job.uid}`).get()) || {};
+        const member = P.audienceMembers(familyData).find((m) => m.uid === job.uid);
+        const prefs = P.resolvePrefs(user.notifPrefs, {
+          kid: P.isKidMember(familyData, member), memberId: member.id,
+        });
+        if (job.kind === 'start') {
+          const recips = P.selectRecipients(familyData, {
+            type: 'cal', event: 'start', ctx: { subjects: (ev.attendees || []).map(String) },
+          }, { [job.uid]: user.notifPrefs }).filter((r) => r.uid === job.uid);
+          if (!recips.length) continue;
+        }
+        if (P.inQuietHours(prefs.quiet, now(), zone) && prefs.quiet.letReminders === false) continue;
+        const names = P.joinNames((ev.attendees || []).map((id) => P.memberById(familyData, id)).filter(Boolean).map(P.nameOf));
+        const copy = job.kind === 'start' ? R.startCopy(ev, names)
+          : { title: ev.title, body: R.reminderBody(ev) };
+        const channel = job.kind === 'start' ? 'event_start' : 'event_reminders';
+        const spec = {
+          ...copy, channel, priority: 'high', ttlMs: 300_000, tag: `event_${job.eventId}_${job.occurrence}_${job.kind}`,
+          link: `event:${imported ? `${job.sourcePath.split('/').pop()}_${job.eventId}` : job.eventId}:${job.occurrence}`,
+        };
+        for (const device of devices) {
+          if (job.kind === 'reminder' && device.remindersEnabled === false) continue;
+          sent += await sendToDevices([device], spec);
+        }
+      } catch (err) {
+        failed = true;
+        logger.error?.('reminder dispatch failed', err);
+      } finally {
+        if (!failed) await doc.ref.delete();
+      }
+    }
+    return { sent, processed: due.docs.length };
+  }
+
+  // Daily backfill covers existing events on first deploy, new members and
+  // the next 30 days of recurring events without keeping years of jobs.
+  async function refreshReminders() {
+    let queued = 0;
+    for (const group of ['events', 'recurring', 'imports']) {
+      const docs = await db.collectionGroup(group).get();
+      for (const doc of docs.docs) {
+        const match = /^families\/([^/]+)\/calendar\/main\//.exec(doc.ref.path);
+        if (match) queued += await queueSourceReminders(match[1], doc.ref.path, doc.data());
+      }
+    }
+    return { queued };
+  }
+
+  async function refreshFamilyReminders(fid) {
+    let queued = 0;
+    const base = `${famPath(fid)}/calendar/main`;
+    for (const group of ['recurring', 'imports']) {
+      const docs = await db.collection(`${base}/${group}`).get();
+      for (const doc of docs.docs) queued += await queueSourceReminders(fid, doc.ref.path, doc.data());
+    }
+    const months = await db.collection(`${base}/months`).get();
+    for (const month of months.docs) {
+      const events = await db.collection(`${month.ref.path}/events`).get();
+      for (const doc of events.docs) queued += await queueSourceReminders(fid, doc.ref.path, doc.data());
+    }
+    return { queued };
+  }
+
+  async function onDeviceWrite(event) {
+    const before = dataOf(event.data && event.data.before);
+    const after = dataOf(event.data && event.data.after);
+    if (!after || (before && before.timezone === after.timezone)) return { queued: 0 };
+    return refreshFamilyReminders(event.params.fid);
+  }
+
+  async function onCalendarImport(event) {
+    const after = dataOf(event.data && event.data.after);
+    return { queued: await queueSourceReminders(event.params.fid, event.data.after.ref?.path || `families/${event.params.fid}/calendar/main/imports/${event.params.importId}`, after) };
+  }
+
   // ------------------------------------------------------------ triggers
 
   /** calendar/main/months/{m}/events/{id} and calendar/main/recurring/{id}. */
@@ -157,6 +308,8 @@ function createPushHandlers({ db, messaging, enqueue, now = () => Date.now(), lo
     const fid = event.params.fid;
     const before = dataOf(event.data && event.data.before);
     const after = dataOf(event.data && event.data.after);
+    // Reminder rows use stable ids, so retries can repair a failed queue write.
+    if (after) await queueSourceReminders(fid, event.data.after.ref?.path || `families/${fid}/calendar/main/${event.params.month ? `months/${event.params.month}/events` : 'recurring'}/${event.params.eventId}`, after);
     if (!(await firstDelivery(fid, event.id))) return { duplicate: true };
     const actor = actorUid(event, before, after);
 
@@ -558,6 +711,29 @@ function createPushHandlers({ db, messaging, enqueue, now = () => Date.now(), lo
     return { digests };
   }
 
+  async function sendTestPush(request) {
+    const uid = L.requireAuth(request.auth);
+    const fid = L.requireString((request.data || {}).familyId, 'familyId');
+    const family = await loadFamily(fid);
+    if (!family || !P.audienceMembers(family).some((m) => m.uid === uid)) {
+      throw new HttpsError('permission-denied', 'Family membership required.');
+    }
+    const throttle = db.doc(`${famPath(fid)}/pushQueue/test_${safeId(uid)}`);
+    await db.runTransaction(async (tx) => {
+      const previous = dataOf(await tx.get(throttle));
+      if (previous && now() - previous.lastAt < 30_000) {
+        throw new HttpsError('resource-exhausted', 'Wait before sending another test.');
+      }
+      tx.set(throttle, { lastAt: now(), expireAt: new Date(now() + DAY_MS) });
+    });
+    const devices = await devicesOf(fid, uid);
+    const sent = await sendToDevices(devices, {
+      title: 'Thrive test notification', body: 'Notifications work on this phone.',
+      channel: 'family_members', tag: `test_${uid}_${now()}`, link: '',
+    });
+    return { sent };
+  }
+
   // ------------------------------------------------------------ callable
 
   /** Approve a reward claim (#474). Any adult (non-kid) family member. */
@@ -591,6 +767,11 @@ function createPushHandlers({ db, messaging, enqueue, now = () => Date.now(), lo
 
   return {
     onCalendarEvent,
+    onCalendarImport,
+    onDeviceWrite,
+    refreshFamilyReminders,
+    runDueReminders,
+    refreshReminders,
     onListLine,
     flushBucket,
     onMoneyEntry,
@@ -599,6 +780,7 @@ function createPushHandlers({ db, messaging, enqueue, now = () => Date.now(), lo
     runMoneyDay,
     runQuietDigest,
     approveReward,
+    sendTestPush,
     // exposed for tests
     deliver,
     loadMonth,

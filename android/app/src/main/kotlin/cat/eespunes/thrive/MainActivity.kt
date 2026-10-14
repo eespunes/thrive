@@ -1,7 +1,6 @@
 package cat.eespunes.thrive
 
 import android.Manifest
-import android.app.AlarmManager
 import android.app.NotificationManager
 import android.content.ContentProviderOperation
 import android.content.ContentUris
@@ -74,7 +73,7 @@ class MainActivity : FlutterActivity() {
     /**
      * What Android allows for Thrive on this phone (#483): the app switch,
      * whether the system will still show the permission dialog, each
-     * channel's switch and the exact-alarm grant.
+     * channel's switch.
      */
     private fun notificationState(call: MethodCall): Map<String, Any> {
         val manager = getSystemService(NOTIFICATION_SERVICE) as? NotificationManager
@@ -91,11 +90,6 @@ class MainActivity : FlutterActivity() {
         }
         val rationale = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
-        val exact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (getSystemService(ALARM_SERVICE) as? AlarmManager)?.canScheduleExactAlarms() ?: false
-        } else {
-            true
-        }
         return mapOf(
             "enabled" to (
                 Build.VERSION.SDK_INT < Build.VERSION_CODES.N ||
@@ -103,7 +97,6 @@ class MainActivity : FlutterActivity() {
                 ),
             "rationale" to rationale,
             "sdk" to Build.VERSION.SDK_INT,
-            "exact" to exact,
             "channels" to channels,
         )
     }
@@ -112,9 +105,6 @@ class MainActivity : FlutterActivity() {
         val what = call.argument<String>("what") ?: "app"
         val channel = call.argument<String>("channel")
         val intent = when {
-            what == "exact" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                    .setData(Uri.parse("package:$packageName"))
             what == "channel" && channel != null &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ->
                 Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)

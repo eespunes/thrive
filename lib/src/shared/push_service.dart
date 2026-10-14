@@ -17,11 +17,7 @@ enum NotifPermission {
 
 /// Everything the page reads from the phone on open and on every resume.
 class NotifDeviceState {
-  const NotifDeviceState({
-    required this.permission,
-    this.channels = const {},
-    this.exactAlarms = true,
-  });
+  const NotifDeviceState({required this.permission, this.channels = const {}});
 
   factory NotifDeviceState.granted() =>
       const NotifDeviceState(permission: NotifPermission.granted);
@@ -30,9 +26,6 @@ class NotifDeviceState {
 
   /// Channel id → enabled. A channel missing from the map counts as on.
   final Map<String, bool> channels;
-
-  /// Android 14 "Alarms & reminders" access (2f).
-  final bool exactAlarms;
 
   bool get granted => permission == NotifPermission.granted;
   bool channelOn(String id) => channels[id] != false;
@@ -81,7 +74,7 @@ const List<NotifChannelSpec> kNotifChannels = [
 /// hides it (#472).
 const bool kEchoWallLive = false;
 
-/// What [NotificationService.syncEventReminders] schedules (#484, #485).
+/// Compatibility interface for the reminder toggle and editor permission prompt.
 class ReminderPlan {
   const ReminderPlan({
     this.reminders = true,
@@ -107,8 +100,7 @@ class ReminderPlan {
   /// Changes whenever the plan does, so a resync isn't skipped as a no-op.
   final String key;
 
-  /// Whether a local notification may ring at [when]: quiet hours skip it
-  /// unless "Let my event reminders through" is on.
+  /// Legacy plan helper retained for the calendar editor interface.
   bool allowsAt(DateTime when) => !(quiet?.covers(when) ?? false);
 }
 
@@ -269,11 +261,13 @@ Map<String, dynamic> pushDeviceDoc({
   required String platform,
   required String timezone,
   required NotifDeviceState state,
+  bool remindersEnabled = true,
 }) => {
   'platform': platform,
   'token': token,
   'timezone': timezone,
   'enabled': state.granted,
+  'remindersEnabled': remindersEnabled,
   'channelState': {
     for (final c in kNotifChannels)
       c.id: state.granted && state.channelOn(c.id),

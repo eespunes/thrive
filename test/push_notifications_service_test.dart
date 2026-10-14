@@ -22,9 +22,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   final calls = <MethodCall>[];
-  var exact = true;
   var failShow = false;
-  var failExact = false;
 
   Future<Object?> handlePlugin(MethodCall call) async {
     calls.add(call);
@@ -38,11 +36,6 @@ void main() {
         return <Map<Object?, Object?>>[];
       case 'requestNotificationsPermission':
         return true;
-      case 'canScheduleExactNotifications':
-        return exact;
-      case 'requestExactAlarmsPermission':
-        if (failExact) throw PlatformException(code: 'x');
-        return exact;
       default:
         return null;
     }
@@ -53,9 +46,7 @@ void main() {
     FlutterLocalNotificationsPlatform.instance =
         AndroidFlutterLocalNotificationsPlugin();
     calls.clear();
-    exact = true;
     failShow = false;
-    failExact = false;
     messenger.setMockMethodCallHandler(_pluginChannel, handlePlugin);
     messenger.setMockMethodCallHandler(
       _timezoneChannel,
@@ -73,30 +64,8 @@ void main() {
     notifCallable = (_, _) async {};
   });
 
-  List<MethodCall> scheduled() =>
-      calls.where((c) => c.method == 'zonedSchedule').toList();
   Map<Object?, Object?> specifics(MethodCall c) =>
       (c.arguments as Map)['platformSpecifics'] as Map<Object?, Object?>;
-
-  CalendarEvent event({
-    String reminder = 'none',
-    bool allDay = false,
-    String start = '10:00',
-    String end = '11:00',
-    String location = '',
-    List<String> attendees = const [],
-  }) => CalendarEvent(
-    id: 'ev1',
-    title: 'Swim',
-    date: '2099-01-10',
-    allDay: allDay,
-    start: start,
-    end: end,
-    location: location,
-    color: const Color(0xFF112233),
-    reminder: reminder,
-    attendees: attendees,
-  );
 
   group('classifyPermission (#483)', () {
     test('maps the platform signals to the four page states', () {
@@ -145,7 +114,7 @@ void main() {
   });
 
   group('readDeviceState', () {
-    test('reads permission, channels and exact alarms', () async {
+    test('reads permission and channels', () async {
       Object? args;
       messenger.setMockMethodCallHandler(_nativeChannel, (call) async {
         args = call.arguments;
@@ -153,14 +122,12 @@ void main() {
           'enabled': false,
           'rationale': true,
           'sdk': 34,
-          'exact': false,
           'channels': {'family_lists': false, 'family_chores': true},
         };
       });
       final s = await NotificationService.readDeviceState();
       expect(s.permission, NotifPermission.denied);
       expect(s.granted, isFalse);
-      expect(s.exactAlarms, isFalse);
       expect(s.channelOn('family_lists'), isFalse);
       expect(s.channelOn('family_chores'), isTrue);
       expect(s.channelOn('unknown'), isTrue);
@@ -177,7 +144,6 @@ void main() {
       );
       final s = await NotificationService.readDeviceState();
       expect(s.permission, NotifPermission.blocked);
-      expect(s.exactAlarms, isTrue);
     });
 
     test('no native side, a null reply or an error read as granted', () async {
@@ -224,26 +190,6 @@ void main() {
         _nativeChannel,
         (call) async => throw PlatformException(code: 'x'),
       );
-      await NotificationService.openSystemSettings('exact');
-    },
-  );
-
-  test('requestExactAlarms reports the grant and swallows failures', () async {
-    expect(await NotificationService.requestExactAlarms(), isTrue);
-    exact = false;
-    expect(await NotificationService.requestExactAlarms(), isFalse);
-    failExact = true;
-    expect(await NotificationService.requestExactAlarms(), isFalse);
-  });
-
-  test(
-    'showTest shows on the family channel; a failure returns false',
-    () async {
-      expect(await NotificationService.showTest(), isTrue);
-      final show = calls.singleWhere((c) => c.method == 'show');
-      expect(specifics(show)['channelId'], 'family_members');
-      failShow = true;
-      expect(await NotificationService.showTest(), isFalse);
     },
   );
 
@@ -346,70 +292,6 @@ void main() {
       expect(n, 0);
       notifCallable = (_, _) async => throw StateError('offline');
       await runNotificationAction('approve', '{"approve":{"a":1}}');
-    });
-  });
-
-  group('event start (#485)', () {
-    test('schedules on its own channel at the start time', () async {
-      NotificationService.plan = ReminderPlan(
-        startFor: (_) => true,
-        memberNames: (_) => 'Liv',
-      );
-      await NotificationService.instance.scheduleEventReminder(
-        event(location: 'Pool'),
-      );
-      final s = scheduled().single;
-      final args = s.arguments as Map;
-      expect(specifics(s)['channelId'], kEventStartChannel);
-      expect(args['title'], 'Swim · Liv starts now');
-      expect(args['body'], '10:00–11:00 – Pool');
-      expect(args['payload'], 'event:ev1:2099-01-10');
-      expect(args['scheduledDateTime'], '2099-01-10T10:00:00');
-    });
-
-    test('an "at" reminder already rings at the start: no duplicate', () async {
-      NotificationService.plan = ReminderPlan(startFor: (_) => true);
-      await NotificationService.instance.scheduleEventReminder(
-        event(reminder: 'at'),
-      );
-      expect(scheduled(), hasLength(1));
-      expect(specifics(scheduled().single)['channelId'], 'event_reminders');
-    });
-
-    test('reminders off still leave event starts; all-day at 09:00', () async {
-      NotificationService.plan = ReminderPlan(
-        reminders: false,
-        startFor: (_) => true,
-      );
-      await NotificationService.instance.syncEventReminders([
-        event(reminder: '1h', allDay: true, start: ''),
-      ]);
-      final s = scheduled().single;
-      expect((s.arguments as Map)['title'], 'Swim is today');
-      expect((s.arguments as Map)['body'], '');
-      expect((s.arguments as Map)['scheduledDateTime'], '2099-01-10T09:00:00');
-    });
-
-    test('out of scope or inside quiet hours nothing is scheduled', () async {
-      NotificationService.plan = ReminderPlan(startFor: (_) => false);
-      await NotificationService.instance.scheduleEventReminder(event());
-      expect(scheduled(), isEmpty);
-
-      // 2099-01-10 is a Saturday; the window starts Friday evening.
-      NotificationService.plan = ReminderPlan(
-        startFor: (_) => true,
-        quiet: NotifQuietPrefs(from: '21:00', to: '11:00'),
-      );
-      await NotificationService.instance.scheduleEventReminder(
-        event(reminder: '1h'),
-      );
-      expect(scheduled(), isEmpty);
-    });
-
-    test('the copy without people, time or place', () {
-      final e = event(start: '10:00', end: '');
-      expect(NotificationService.eventStartTitle(e, ''), 'Swim starts now');
-      expect(NotificationService.eventStartBody(e), '10:00');
     });
   });
 

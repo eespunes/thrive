@@ -76,22 +76,19 @@ extension _ThriveNotificationsScreen on _ThriveHomeState {
   void toggleQuietLetReminders() =>
       editNotifPrefs((p) => p.quiet.letReminders = !p.quiet.letReminders);
 
-  Future<void> allowExactAlarms() async {
-    final ok = await NotificationService.requestExactAlarms();
-    await refreshNotifDevice();
-    if (ok) {
-      flash('Exact timing allowed');
-      unawaited(_rescheduleReminders());
-    }
-  }
-
   Future<void> sendTestNotification() async {
     if (!notifDevice.value.granted) {
       flash('Turn on notifications first');
       return;
     }
-    await NotificationService.showTest();
-    flash('Test sent. Pull down to see it');
+    final familyId = curFamily()?.id;
+    if (familyId == null) return;
+    try {
+      await notifCallable('sendTestPush', {'familyId': familyId});
+      flash('Test sent. Pull down to see it');
+    } catch (_) {
+      flash('Test could not be sent');
+    }
   }
 
   /// The family types this user can get: kid accounts don't get Lists
@@ -1121,7 +1118,7 @@ class _NotificationsScreen extends StatelessWidget {
       _phoneRow(
         p,
         title: 'Event reminders',
-        sub: 'The reminders you set on events. Work offline.',
+        sub: 'The reminders you set on events. Sent through the cloud.',
         opacity: dev.granted ? 1 : .6,
         padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
         trailing: _notifSwitch(
@@ -1148,41 +1145,6 @@ class _NotificationsScreen extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 6),
-      _phoneRow(
-        p,
-        title: 'On time to the minute',
-        sub: dev.exactAlarms
-            ? 'Reminders ring exactly on time'
-            : 'Off · reminders can be a few minutes late',
-        trailing: dev.exactAlarms
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _notifPill('Allowed', p.grnS, p.grnT, size: 11),
-              )
-            : Semantics(
-                button: true,
-                label: 'Allow exact alarms',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  key: const ValueKey('notif-exact-allow'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => unawaited(s.allowExactAlarms()),
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: p.ambS,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Allow',
-                      style: _nt(12, FontWeight.w800, p.ambT),
-                    ),
-                  ),
-                ),
-              ),
-      ),
     ];
   }
 }

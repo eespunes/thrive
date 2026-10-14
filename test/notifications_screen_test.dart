@@ -44,6 +44,7 @@ void main() {
   setUp(() {
     state = {'enabled': true};
     opened.clear();
+    notifCallable = (_, _) async {};
     messenger.setMockMethodCallHandler(_native, (call) async {
       if (call.method == 'open') {
         opened.add(call.arguments as Map);
@@ -57,6 +58,7 @@ void main() {
     messenger.setMockMethodCallHandler(_native, null);
     messenger.setMockMethodCallHandler(_plugin, null);
     PushService.messaging = null;
+    notifCallable = (_, _) async {};
     pendingNotificationDeepLink.value = null;
   });
 
@@ -109,7 +111,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Allowed'), findsOneWidget);
   });
 
   testWidgets('undecided (2a): Turn on asks, then the page refreshes', (
@@ -182,24 +183,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('notif-fix-lists')));
     await tester.pumpAndSettle();
     expect(opened.single, {'what': 'channel', 'channel': 'family_lists'});
-  });
-
-  testWidgets('exact alarms off (2f): Allow asks Android', (tester) async {
-    state = {'enabled': true, 'exact': false};
-    FlutterLocalNotificationsPlatform.instance =
-        AndroidFlutterLocalNotificationsPlugin();
-    messenger.setMockMethodCallHandler(_plugin, (call) async {
-      if (call.method == 'requestExactAlarmsPermission') {
-        state = {'enabled': true, 'exact': true};
-        return true;
-      }
-      return null;
-    });
-    await openPage(tester);
-    expect(find.text('Off · reminders can be a few minutes late'), findsOne);
-    await tapKey(tester, 'notif-exact-allow');
-    expect(thriveDebug.toast, 'Exact timing allowed');
-    expect(find.text('Allowed'), findsOneWidget);
   });
 
   testWidgets('dark (2g) uses the Family Vault palette', (tester) async {

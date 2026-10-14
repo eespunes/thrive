@@ -622,6 +622,11 @@ describe('push devices and push bookkeeping (#469)', () => {
       await assertFails(setDoc(ref, { familyId: FAM }));
     });
   }
+  it('cloud reminder queue is server-only', async () => {
+    const ref = doc(db(OWNER), 'pushReminders', 'due1');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { dueAt: Date.now() }));
+  });
   it("users/{uid}/pushHeld is server-only", async () => {
     const ref = doc(db(MEMBER), 'users', MEMBER, 'pushHeld', 'x');
     await assertFails(getDoc(ref));

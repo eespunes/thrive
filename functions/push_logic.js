@@ -521,9 +521,10 @@ function fcmMessage(s, token) {
     android: {
       collapseKey: s.tag,
       priority,
+      ...(s.ttlMs ? { ttl: s.ttlMs } : {}),
       notification: { channelId: s.channel, tag: s.tag },
     },
-    apns: { headers: { 'apns-collapse-id': s.tag } },
+    apns: { headers: { 'apns-collapse-id': s.tag, ...(s.ttlMs ? { 'apns-expiration': String(Math.floor(Date.now() / 1000) + Math.ceil(s.ttlMs / 1000)) } : {}) } },
     data,
   };
 }

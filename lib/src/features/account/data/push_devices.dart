@@ -32,8 +32,7 @@ extension _ThrivePush on _ThriveHomeState {
     return myId;
   }
 
-  /// Edits the choices, saves them to the account and reschedules the local
-  /// event-start notifications they drive.
+  /// Edits the choices and saves them to the account for cloud delivery.
   void editNotifPrefs(void Function(NotifPrefs p) edit) {
     final next = notifPrefs.copy();
     edit(next);
@@ -83,7 +82,7 @@ extension _ThrivePush on _ThriveHomeState {
 
   // ---------------------------------------------------- phone state (#483)
 
-  /// Re-reads permission, channels and exact alarms (page open + resume),
+  /// Re-reads permission and channels (page open + resume),
   /// then refreshes this phone's device doc so the server sees it.
   Future<void> refreshNotifDevice() async {
     final state = await NotificationService.readDeviceState();
@@ -146,6 +145,7 @@ extension _ThrivePush on _ThriveHomeState {
         platform: Platform.isIOS ? 'ios' : 'android',
         timezone: tzName,
         state: notifDevice.value,
+        remindersEnabled: notificationsEnabled,
       );
       for (final f in families) {
         final devices = _familiesCol()

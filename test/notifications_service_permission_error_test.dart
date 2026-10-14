@@ -17,7 +17,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('_requestPermissionFromPlatform swallows a permission-request failure '
-      'and still stores the reminder', () async {
+      'without scheduling a device reminder', () async {
     FlutterLocalNotificationsPlatform.instance =
         AndroidFlutterLocalNotificationsPlugin();
     SharedPreferences.setMockInitialValues({});
@@ -53,10 +53,9 @@ void main() {
     );
     await NotificationService.instance.scheduleEventReminder(ev);
     await NotificationService.instance.scheduleEventReminder(ev);
-    // Asked once; a refusal never blocks saving: Android stays silent
-    // until notifications are allowed, then the reminder rings (#483).
+    // Asked once; cloud delivery waits for notification permission.
     expect(asks, 1);
-    expect(scheduledCalls, isNotEmpty);
+    expect(scheduledCalls, isEmpty);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getInt(NotificationService.kAskCountKey), 1);
   });

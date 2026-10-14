@@ -9,7 +9,7 @@ const { onCall } = require('firebase-functions/v2/https');
 const { createHandlers } = require('./handlers');
 
 const REGION = 'europe-west1';
-const CALL_OPTIONS = { region: REGION, enforceAppCheck: false };
+const CALL_OPTIONS = { region: REGION, enforceAppCheck: false, maxInstances: 3 };
 
 let handlers;
 function getHandlers() {
@@ -65,10 +65,12 @@ function getPushHandlers() {
 }
 
 const onWrite = (document, run) =>
-  onDocumentWrittenWithAuthContext({ document, region: REGION }, (event) => run(getPushHandlers(), event));
+  onDocumentWrittenWithAuthContext({ document, region: REGION, maxInstances: 3 }, (event) => run(getPushHandlers(), event));
 
 exports.pushOnCalendarEvent = onWrite('families/{fid}/calendar/main/months/{month}/events/{eventId}', (h, e) => h.onCalendarEvent(e));
 exports.pushOnCalendarSeries = onWrite('families/{fid}/calendar/main/recurring/{eventId}', (h, e) => h.onCalendarEvent(e));
+exports.pushOnCalendarImport = onWrite('families/{fid}/calendar/main/imports/{importId}', (h, e) => h.onCalendarImport(e));
+exports.pushOnDevice = onWrite('families/{fid}/members/{uid}/devices/{token}', (h, e) => h.onDeviceWrite(e));
 exports.pushOnListLine = onWrite('families/{fid}/notes/{listId}/lines/{lineId}', (h, e) => h.onListLine(e));
 exports.pushOnMoneyEntry = onWrite('families/{fid}/finance/main/months/{month}/entries/{itemId}', (h, e) => h.onMoneyEntry(e, 'entries'));
 exports.pushOnMoneyOccurrence = onWrite('families/{fid}/finance/main/months/{month}/recurring/{itemId}', (h, e) => h.onMoneyEntry(e, 'occurrence'));
@@ -79,23 +81,39 @@ exports.pushOnFamily = onWrite('families/{fid}', (h, e) => h.onFamily(e));
 exports[FLUSH_FUNCTION] = onTaskDispatched(
   {
     region: REGION,
+    maxInstances: 3,
     retryConfig: { maxAttempts: 3, minBackoffSeconds: 30 },
     rateLimits: { maxConcurrentDispatches: 20 },
   },
   (req) => getPushHandlers().flushBucket(req.data || {}),
 );
 
+exports.pushEventReminders = onSchedule(
+  { schedule: '* * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1, timeoutSeconds: 120 },
+  () => getPushHandlers().runDueReminders(),
+);
+
+exports.pushReminderRefresh = onSchedule(
+  { schedule: '15 0 * * *', region: REGION, timeZone: 'UTC', maxInstances: 1, timeoutSeconds: 120 },
+  () => getPushHandlers().refreshReminders(),
+);
+
 exports.pushMoneyDay = onSchedule(
-  { schedule: '0 * * * *', region: REGION, timeZone: 'UTC' },
+  { schedule: '0 * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1 },
   () => getPushHandlers().runMoneyDay(),
 );
 
 exports.pushQuietDigest = onSchedule(
-  { schedule: '*/15 * * * *', region: REGION, timeZone: 'UTC' },
+  { schedule: '*/15 * * * *', region: REGION, timeZone: 'UTC', maxInstances: 1 },
   () => getPushHandlers().runQuietDigest(),
 );
 
 exports.approveReward = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: true, maxInstances: 3 },
   (request) => getPushHandlers().approveReward(request),
+);
+
+exports.sendTestPush = onCall(
+  { region: REGION, enforceAppCheck: true, maxInstances: 3 },
+  (request) => getPushHandlers().sendTestPush(request),
 );

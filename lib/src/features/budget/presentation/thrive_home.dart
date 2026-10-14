@@ -1115,46 +1115,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     await _seedFromAsset();
   }
 
-  /// Re-derives pending reminders from persisted calendar events. With the
-  /// master notifications switch off, everything scheduled is cancelled.
+  /// Refreshes the server's view of this phone's reminder switch. Calendar
+  /// occurrences are queued and delivered by Cloud Functions.
   Future<void> _rescheduleReminders() async {
-    // Startup defers NotificationService.init past the first frame; init()
-    // is memoised, so this await just orders scheduling after it.
     await NotificationService.init();
-    final plan = _reminderPlan();
-    final familyEventIds = {for (final e in events) e.id};
-    NotificationService.plan = ReminderPlan(
-      reminders: plan.reminders,
-      // Event starts are for family events only, not imported feeds.
-      startFor: (e) =>
-          familyEventIds.contains(e.id) && (plan.startFor?.call(e) ?? false),
-      memberNames: plan.memberNames,
-      quiet: plan.quiet,
-      key: plan.key,
-    );
-    final startsOn =
-        notifPrefs.type('cal').on &&
-        notifPrefs.type('cal').events['start'] == true;
-    if (!notificationsEnabled && !startsOn) {
-      await NotificationService.instance.syncEventReminders(const []);
-      return;
-    }
-    // Only events that can still ring: recurring series always qualify;
-    // one-offs older than the longest reminder offset (2 days) can't.
-    final cutoff = _isoOfDate(DateTime.now().subtract(const Duration(days: 3)));
-    bool canStillRing(CalendarEvent e) =>
-        e.recur != 'none' ||
-        (e.endDate.isNotEmpty ? e.endDate : e.date).compareTo(cutoff) >= 0;
-    final importedEvents = [
-      for (final cal in importedCalendars)
-        if (notificationsEnabled && cal.visible && cal.reminder != 'none')
-          for (final e in cal.events)
-            if (e.date.compareTo(cutoff) >= 0) importedSyntheticEvent(cal, e),
-    ];
-    await NotificationService.instance.syncEventReminders([
-      ...events.where(canStillRing),
-      ...importedEvents,
-    ]);
+    NotificationService.plan = ReminderPlan(reminders: notificationsEnabled);
+    await _registerPushDevice();
   }
 
   /// Mirrors events into the Android system calendar — or clears the mirror
@@ -1163,8 +1129,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     deviceCalendarSyncEnabled ? events : const <CalendarEvent>[],
   );
 
-  /// Master reminder switch (hub Account card). Turning it off cancels every
-  /// scheduled reminder; turning it back on reschedules them.
+  /// Master reminder switch for cloud-delivered calendar reminders.
   void toggleNotificationsEnabled() {
     update(() => notificationsEnabled = !notificationsEnabled);
     _schedulePersist();

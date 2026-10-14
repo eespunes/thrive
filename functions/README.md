@@ -55,7 +55,12 @@ Reward claimed is **data-only** (client renders "Approve"/"Open";
 
 | Export | Kind | Does |
 |---|---|---|
-| `pushOnCalendarEvent` / `pushOnCalendarSeries` | `onDocumentWrittenWithAuthContext` `calendar/main/months/{m}/events/{id}`, `calendar/main/recurring/{id}` | Event added / moved (date/time) / cancelled (delete or new exception date). Kitchen-origin chores ticked done → `chores` bucket. |
+| `pushOnCalendarEvent` / `pushOnCalendarSeries` | `onDocumentWrittenWithAuthContext` `calendar/main/months/{m}/events/{id}`, `calendar/main/recurring/{id}` | Event added / moved / cancelled pushes; queues cloud reminders and event starts. Kitchen-origin chores ticked done → `chores` bucket. |
+| `pushOnCalendarImport` | `onDocumentWrittenWithAuthContext` `calendar/main/imports/{id}` | Queues reminders for visible imported events. |
+| `pushOnDevice` | `onDocumentWrittenWithAuthContext` `members/{uid}/devices/{token}` | Backfills reminders when a phone first registers or changes timezone. |
+| `pushEventReminders` | `onSchedule` every minute | Rechecks queued events, recipients, quiet hours, and device settings; sends due FCM reminders and event starts. |
+| `pushReminderRefresh` | `onSchedule` daily | Backfills existing events and extends recurring schedules over the next 30 days. Run the Cloud Scheduler job once after first deploy. |
+| `sendTestPush` | `onCall`, App Check enforced | Sends a test FCM push to the signed-in family member's devices. |
 | `pushOnListLine` | `notes/{listId}/lines/{lineId}` | Line added / ticked → `list_{listId}` bucket. |
 | `pushOnMoneyEntry` / `pushOnMoneyOccurrence` / `pushOnMoneySeries` | `finance/main/months/{m}/entries/{id}`, `…/months/{m}/recurring/{id}`, `finance/main/recurring/{id}` | Added (3+ expenses by one person in 10 min → bundle), edited, removed; marked paid → "Paid out"/"Received" now (skips the 09:00 one). |
 | `pushOnKitchen` | `settings/kitchen` | `starsMap[kid]` 5+ → 0 = Reward claimed; writes `rewardClaims/{memberId}`. |
@@ -73,14 +78,21 @@ enable Firestore TTL on `expireAt` for each):
 - `families/{fid}/pushMoney/{yyyy-mm}_{itemId}` – `paidSentAt`, `scheduledUids` (paid vs 09:00 dedupe).
 - `families/{fid}/rewardClaims/{memberId}` – `claimId`, `cost`, `claimedAt`, `approvedBy`, `approvedAt`.
 - `users/{uid}/pushHeld/{fid}_{tag}` – messages held during quiet hours (same tag replaces).
+- `pushReminders/{hash}` – server-only due queue for family and imported calendar reminders; `expireAt` TTL. On first deployment, run the `pushReminderRefresh` Cloud Scheduler job once to backfill existing events.
 
-Quiet hours are checked in the timezone of the user's most recently updated
-device (default `Europe/Amsterdam`); a window crossing midnight belongs to the
-day it starts (day chips Mon..Sun). Requires **Blaze**, the **Cloud Tasks**
-and **Cloud Scheduler** APIs, and FCM. Tests: `push_logic.test.js` (every §5
-row, scopes, kids, quiet hours across timezones, digest order, money-day) and
-`push_handlers.test.js` (in-memory fakes: dedupe, stale tokens, held/digest,
-buckets, paid-vs-scheduled, approve).
+Quiet hours use the timezone of the user's most recently updated device
+(default `Europe/Amsterdam`). Event reminders bypass quiet hours when
+`letReminders` is on; otherwise the server skips them. The cloud queue covers
+30 days and checks due reminders every minute. FCM delivery can add delay,
+and a five-minute FCM time-to-live prevents very late alerts. Reminders do
+not fire offline and no longer need Android exact-alarm access.
+
+This needs **Blaze**, the **Cloud Tasks** and **Cloud Scheduler** APIs, and
+FCM. The PR defines four Cloud Scheduler jobs, including two for reminders;
+Cloud Scheduler currently includes three jobs per billing account at no
+charge and bills additional jobs. The project's €1 budget is an alert, not a
+spending limit. Tests live in `push_logic.test.js`, `reminder_logic.test.js`,
+and `push_handlers.test.js`.
 
 ## Develop / deploy
 
