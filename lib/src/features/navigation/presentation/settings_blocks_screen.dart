@@ -406,12 +406,12 @@ class _BlockStudioState extends State<_BlockStudio> {
                 decimal: true,
               ),
               onChanged: (_) => setState(() {}),
-              prefix: const Text(
+              prefix: Text(
                 '€',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                 ),
               ),
             ),

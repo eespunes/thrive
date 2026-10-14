@@ -126,27 +126,27 @@ class _MealEditSheetState extends State<_MealEditSheet> {
           controller: _ctrl,
           autofocus: widget.initial.isEmpty,
           onChanged: (_) => setState(() {}),
-          cursorColor: B.primary,
-          style: const TextStyle(
+          cursorColor: context.tc.primary,
+          style: TextStyle(
             fontSize: 21,
             fontWeight: FontWeight.w800,
             letterSpacing: -.4,
-            color: B.ink,
+            color: context.tc.ink,
           ),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.fromLTRB(2, 6, 2, 10),
             hintText: 'e.g. Pasta with tomato sauce',
-            hintStyle: const TextStyle(color: B.placeholder),
+            hintStyle: TextStyle(color: context.tc.placeholder),
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: text.isEmpty ? B.line : B.primary,
+                color: text.isEmpty ? context.tc.line : context.tc.primary,
                 width: 2,
               ),
             ),
             focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(
-                color: text.isEmpty ? B.line : B.primary,
+                color: text.isEmpty ? context.tc.line : context.tc.primary,
                 width: 2,
               ),
             ),

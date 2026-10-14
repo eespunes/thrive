@@ -524,8 +524,8 @@ class _SheetShell extends StatelessWidget {
     // already handles via `viewInsets.bottom`) — no double gap.
     return Container(
       constraints: BoxConstraints(maxHeight: maxH),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: context.tc.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
       ),
       padding: EdgeInsets.fromLTRB(18, 8, 18, 24 + media.padding.bottom),
@@ -537,7 +537,7 @@ class _SheetShell extends StatelessWidget {
             height: 5,
             margin: const EdgeInsets.fromLTRB(0, 8, 0, 14),
             decoration: BoxDecoration(
-              color: const Color(0xffe2e6ee),
+              color: context.tc.pick(const Color(0xffe2e6ee), context.tc.line),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -569,10 +569,10 @@ Widget _sheetHead(BuildContext ctx, String title, [String? sub]) {
               if (sub != null)
                 Text(
                   sub,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: B.muted,
+                    color: ThriveColors.current.muted,
                   ),
                 ),
             ],
@@ -584,10 +584,17 @@ Widget _sheetHead(BuildContext ctx, String title, [String? sub]) {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: B.faint,
+              color: ThriveColors.current.faint,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(child: ic('x', size: 17, sw: 2.4, color: B.soft2)),
+            child: Center(
+              child: ic(
+                'x',
+                size: 17,
+                sw: 2.4,
+                color: ThriveColors.current.soft2,
+              ),
+            ),
           ),
         ),
       ],
@@ -625,10 +632,10 @@ Widget _sheetHeadWithTick(
               if (sub != null)
                 Text(
                   sub,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: B.muted,
+                    color: ThriveColors.current.muted,
                   ),
                 ),
             ],
@@ -642,7 +649,15 @@ Widget _sheetHeadWithTick(
             height: 34,
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: confirmEnabled ? B.primary : const Color(0xffcbd3dc),
+              color: confirmEnabled
+                  ? ThriveColors.current.primary
+                  : ThriveColors.current.pick(
+                      ThriveColors.current.pick(
+                        const Color(0xffcbd3dc),
+                        ThriveColors.current.toggleOff,
+                      ),
+                      ThriveColors.current.toggleOff,
+                    ),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
@@ -656,10 +671,17 @@ Widget _sheetHeadWithTick(
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: B.faint,
+              color: ThriveColors.current.faint,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Center(child: ic('x', size: 17, sw: 2.4, color: B.soft2)),
+            child: Center(
+              child: ic(
+                'x',
+                size: 17,
+                sw: 2.4,
+                color: ThriveColors.current.soft2,
+              ),
+            ),
           ),
         ),
       ],
@@ -697,21 +719,21 @@ class _FinanceSheetFrame extends StatelessWidget {
             if (title != null)
               Text(
                 title!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.3,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
             if (subtitle != null) ...[
               const SizedBox(height: 2),
               Text(
                 subtitle!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ],
@@ -732,19 +754,20 @@ class _FinanceSheetFrame extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: context.tc.surface,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: B.line),
+                    border: Border.all(color: context.tc.line),
                   ),
                   child: Center(
-                    child: ic('x', size: 15, sw: 2.4, color: B.soft2),
+                    child: ic('x', size: 15, sw: 2.4, color: context.tc.soft2),
                   ),
                 ),
               ),
             ],
           ),
         ),
-        if (showDivider) const Divider(height: 1, thickness: 1, color: B.faint),
+        if (showDivider)
+          Divider(height: 1, thickness: 1, color: context.tc.faint),
         Flexible(
           child: SingleChildScrollView(padding: bodyPadding, child: child),
         ),
@@ -798,7 +821,7 @@ class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -.8,
-                    color: block.overCap ? B.red : B.ink,
+                    color: block.overCap ? context.tc.red : context.tc.ink,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
@@ -821,15 +844,16 @@ class _EnvelopeDetailSheetState extends State<_EnvelopeDetailSheet> {
             block.cap != null && block.cap! > 0
                 ? '${eur(block.paid, cents: false)} paid of ${eur(block.total, cents: false)} / limit ${eur(block.cap!, cents: false)}'
                 : '${eur(block.paid, cents: false)} paid of ${eur(block.total, cents: false)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 12),
           for (int i = 0; i < block.items.length; i++) ...[
-            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            if (i > 0)
+              Divider(height: 1, thickness: 1, color: context.tc.faint),
             _FinanceToggleRow(
               label: block.items[i].item.payee.trim().isNotEmpty
                   ? block.items[i].item.payee.trim()
@@ -886,10 +910,12 @@ class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: B.greenSoft,
+          color: context.tc.greenSoft,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Center(child: ic('trend', size: 18, sw: 2, color: B.primary)),
+        child: Center(
+          child: ic('trend', size: 18, sw: 2, color: context.tc.primary),
+        ),
       ),
       title: 'Income',
       subtitle:
@@ -899,32 +925,33 @@ class _IncomeDetailSheetState extends State<_IncomeDetailSheet> {
         children: [
           Text(
             eur(received, cents: false),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
               letterSpacing: -.8,
-              color: B.greenText,
+              color: context.tc.greenText,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
           const SizedBox(height: 10),
           widget.state._bar(
             expected <= 0 ? 0 : received / expected,
-            B.green,
+            context.tc.green,
             height: 8,
           ),
           const SizedBox(height: 6),
           Text(
             '${eur(received, cents: false)} received of ${eur(expected, cents: false)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 12),
           for (int i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            if (i > 0)
+              Divider(height: 1, thickness: 1, color: context.tc.faint),
             _FinanceToggleRow(
               label: rows[i].row.item.payee.trim().isNotEmpty
                   ? rows[i].row.item.payee.trim()
@@ -972,23 +999,23 @@ class _AccountsDetailSheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'STILL TO PAY FROM',
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .5,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             eur(compute.stillToPay, cents: false),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
               letterSpacing: -.6,
-              color: B.ink,
+              color: context.tc.ink,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
@@ -997,7 +1024,8 @@ class _AccountsDetailSheet extends StatelessWidget {
       child: Column(
         children: [
           for (int i = 0; i < compute.accounts.length; i++) ...[
-            if (i > 0) const Divider(height: 1, thickness: 1, color: B.faint),
+            if (i > 0)
+              Divider(height: 1, thickness: 1, color: context.tc.faint),
             Builder(
               builder: (context) {
                 final acc = compute.accounts[i];
@@ -1037,10 +1065,10 @@ class _AccountsDetailSheet extends StatelessWidget {
                           children: [
                             Text(
                               acc.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
-                                color: B.ink,
+                                color: context.tc.ink,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -1054,7 +1082,7 @@ class _AccountsDetailSheet extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: amount > 0 ? B.ink : B.muted,
+                          color: amount > 0 ? context.tc.ink : context.tc.muted,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -1096,20 +1124,20 @@ class _FinanceToggleRow extends StatelessWidget {
                 Text(
                   label,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: B.text,
+                    color: context.tc.text,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   day,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ],
@@ -1118,10 +1146,10 @@ class _FinanceToggleRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             amount,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
-              color: B.ink,
+              color: context.tc.ink,
               fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
@@ -1145,11 +1173,11 @@ Widget _sheetField(String label, Widget child) {
             padding: const EdgeInsets.only(bottom: 7),
             child: Text(
               label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.muted,
+                color: ThriveColors.current.muted,
               ),
             ),
           ),
@@ -1192,29 +1220,29 @@ Widget _sheetInput(
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w600,
-      color: B.ink,
+      color: ThriveColors.current.ink,
     ),
     decoration: InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
+      hintStyle: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: B.muted,
+        color: ThriveColors.current.muted,
       ),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: ThriveColors.current.surface,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: B.line),
+        borderSide: BorderSide(color: ThriveColors.current.line),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: B.primary),
+        borderSide: BorderSide(color: ThriveColors.current.primary),
       ),
     ),
   );
@@ -1228,7 +1256,15 @@ Widget _primaryBtn(String label, VoidCallback? onTap, {bool enabled = true}) {
       margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.symmetric(vertical: 15),
       decoration: BoxDecoration(
-        color: enabled ? B.primary : const Color(0xffcbd3dc),
+        color: enabled
+            ? ThriveColors.current.primary
+            : ThriveColors.current.pick(
+                ThriveColors.current.pick(
+                  const Color(0xffcbd3dc),
+                  ThriveColors.current.toggleOff,
+                ),
+                ThriveColors.current.toggleOff,
+              ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
@@ -1249,7 +1285,7 @@ Widget _toggleRow(
   bool value,
   VoidCallback onTap, {
   String? subtitle,
-  Color activeColor = B.green,
+  Color? activeColor,
 }) {
   return GestureDetector(
     onTap: onTap,
@@ -1258,13 +1294,19 @@ Widget _toggleRow(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: value
-            ? (activeColor == B.green ? B.greenSoft : B.soft)
-            : Colors.white,
+            ? ((activeColor ?? ThriveColors.current.green) ==
+                      ThriveColors.current.green
+                  ? ThriveColors.current.greenSoft
+                  : ThriveColors.current.soft)
+            : ThriveColors.current.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: value
-              ? (activeColor == B.green ? B.greenLine : B.primary)
-              : B.line,
+              ? ((activeColor ?? ThriveColors.current.green) ==
+                        ThriveColors.current.green
+                    ? ThriveColors.current.greenLine
+                    : ThriveColors.current.primary)
+              : ThriveColors.current.line,
         ),
       ),
       child: Row(
@@ -1280,23 +1322,26 @@ Widget _toggleRow(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                     color: value
-                        ? (activeColor == B.green ? B.greenText : B.deep)
-                        : B.text,
+                        ? ((activeColor ?? ThriveColors.current.green) ==
+                                  ThriveColors.current.green
+                              ? ThriveColors.current.greenText
+                              : ThriveColors.current.deep)
+                        : ThriveColors.current.text,
                   ),
                 ),
                 if (subtitle != null)
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: ThriveColors.current.muted,
                     ),
                   ),
               ],
             ),
           ),
-          _switch(value, activeColor),
+          _switch(value, (activeColor ?? ThriveColors.current.green)),
         ],
       ),
     ),
@@ -1308,7 +1353,12 @@ Widget _switch(bool on, Color activeColor) {
     width: 42,
     height: 24,
     decoration: BoxDecoration(
-      color: on ? activeColor : const Color(0xffcfd6e0),
+      color: on
+          ? activeColor
+          : ThriveColors.current.pick(
+              const Color(0xffcfd6e0),
+              ThriveColors.current.toggleOff,
+            ),
       borderRadius: BorderRadius.circular(999),
     ),
     child: Stack(
@@ -1359,11 +1409,13 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: B.line),
+          border: Border.all(color: context.tc.line),
         ),
-        child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+        child: Center(
+          child: ic(icon, size: 16, sw: 2.4, color: context.tc.soft2),
+        ),
       ),
     );
 
@@ -1379,10 +1431,10 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                 child: Text(
                   '$_year',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
               ),
@@ -1423,9 +1475,11 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
       onTap: () => onPick(i),
       child: Container(
         decoration: BoxDecoration(
-          color: selected ? B.soft : Colors.white,
+          color: selected ? context.tc.soft : context.tc.surface,
           borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: selected ? B.primary : B.line),
+          border: Border.all(
+            color: selected ? context.tc.primary : context.tc.line,
+          ),
         ),
         child: Stack(
           children: [
@@ -1435,7 +1489,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: selected ? B.deep : B.text,
+                  color: selected ? context.tc.deep : context.tc.text,
                 ),
               ),
             ),
@@ -1443,7 +1497,7 @@ class _MonthPickerSheetState extends State<_MonthPickerSheet> {
               Positioned(
                 top: 6,
                 right: 7,
-                child: ic('lock', size: 11, sw: 2.4, color: B.muted),
+                child: ic('lock', size: 11, sw: 2.4, color: context.tc.muted),
               ),
           ],
         ),
@@ -1465,7 +1519,7 @@ class _CloseConfirmSheet extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: B.ink,
+          color: context.tc.ink,
           borderRadius: BorderRadius.circular(11),
         ),
         child: Center(
@@ -1478,12 +1532,12 @@ class _CloseConfirmSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Closing locks every item, limit and toggle for this month. You can reopen it later from the same button.',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: B.soft2,
+              color: context.tc.soft2,
               height: 1.55,
             ),
           ),
@@ -1496,17 +1550,17 @@ class _CloseConfirmSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: context.tc.surface,
                       borderRadius: BorderRadius.circular(13),
-                      border: Border.all(color: B.line),
+                      border: Border.all(color: context.tc.line),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       'Keep it open',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.text,
+                        color: context.tc.text,
                       ),
                     ),
                   ),
@@ -1522,7 +1576,7 @@ class _CloseConfirmSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: B.ink,
+                      color: context.tc.ink,
                       borderRadius: BorderRadius.circular(13),
                     ),
                     alignment: Alignment.center,
@@ -1585,10 +1639,14 @@ class _AccountPickerSheet extends StatelessWidget {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: a.key == current ? B.soft : Colors.white,
+                    color: a.key == current
+                        ? context.tc.soft
+                        : context.tc.surface,
                     borderRadius: BorderRadius.circular(13),
                     border: Border.all(
-                      color: a.key == current ? B.primary : B.line,
+                      color: a.key == current
+                          ? context.tc.primary
+                          : context.tc.line,
                     ),
                   ),
                   child: Row(
@@ -1621,15 +1679,20 @@ class _AccountPickerSheet extends StatelessWidget {
                       Expanded(
                         child: Text(
                           a.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ),
                       if (a.key == current)
-                        ic('check', size: 18, sw: 2.6, color: B.primary),
+                        ic(
+                          'check',
+                          size: 18,
+                          sw: 2.6,
+                          color: context.tc.primary,
+                        ),
                     ],
                   ),
                 ),
@@ -1692,12 +1755,12 @@ class _CapSheetState extends State<_CapSheet> {
     final pct = hasLimit ? spent / limit : 0.0;
     final over = hasLimit && spent > limit;
     final tone = !hasLimit
-        ? B.placeholder
+        ? context.tc.placeholder
         : over
-        ? B.red
+        ? context.tc.red
         : pct >= .8
-        ? B.amber
-        : B.green;
+        ? context.tc.amber
+        : context.tc.green;
 
     String? reason;
     if (!valid) {
@@ -1726,13 +1789,13 @@ class _CapSheetState extends State<_CapSheet> {
           key: const ValueKey('cap-amount'),
           controller: _ctrl,
           prefix: '€',
-          color: B.ink,
+          color: context.tc.ink,
           hint: 'No limit',
           onChanged: (_) => setState(() {}),
           caption: valid
               ? 'Leave empty for no limit'
               : 'Numbers only — use a comma for cents.',
-          captionColor: valid ? B.muted : B.red,
+          captionColor: valid ? context.tc.muted : context.tc.red,
         ),
         edChipWrap([
           for (final q in _quick)
@@ -1746,7 +1809,7 @@ class _CapSheetState extends State<_CapSheet> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: B.page,
+            color: context.tc.page,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -1757,10 +1820,10 @@ class _CapSheetState extends State<_CapSheet> {
                   Expanded(
                     child: Text(
                       '${eur(spent)} spent so far',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                     ),
                   ),
@@ -1774,7 +1837,7 @@ class _CapSheetState extends State<_CapSheet> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: hasLimit ? tone : B.muted,
+                      color: hasLimit ? tone : context.tc.muted,
                     ),
                   ),
                 ],
@@ -1784,7 +1847,7 @@ class _CapSheetState extends State<_CapSheet> {
                 borderRadius: BorderRadius.circular(5),
                 child: Container(
                   height: 10,
-                  color: B.barTrack,
+                  color: context.tc.barTrack,
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
                     widthFactor: hasLimit ? pct.clamp(0.0, 1.0) : 0,
@@ -1793,13 +1856,13 @@ class _CapSheetState extends State<_CapSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'The Overview bar turns amber near the limit and red when '
                 "it's passed.",
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                   height: 1.4,
                 ),
               ),
@@ -1849,7 +1912,7 @@ class _GlyphPickerState extends State<_GlyphPicker> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: context.tc.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1861,17 +1924,17 @@ class _GlyphPickerState extends State<_GlyphPicker> {
               _selectEmoji(emoji.emoji);
               Navigator.of(sheetCtx).pop();
             },
-            config: const ep.Config(
+            config: ep.Config(
               height: 340,
               emojiViewConfig: ep.EmojiViewConfig(
                 emojiSizeMax: 28,
-                backgroundColor: Colors.white,
+                backgroundColor: context.tc.surface,
               ),
               categoryViewConfig: ep.CategoryViewConfig(
-                backgroundColor: Colors.white,
-                indicatorColor: B.primary,
-                iconColorSelected: B.primary,
-                backspaceColor: B.primary,
+                backgroundColor: context.tc.surface,
+                indicatorColor: context.tc.primary,
+                iconColorSelected: context.tc.primary,
+                backspaceColor: context.tc.primary,
               ),
               bottomActionBarConfig: ep.BottomActionBarConfig(enabled: false),
             ),
@@ -1938,7 +2001,7 @@ class _GlyphPickerState extends State<_GlyphPicker> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: glyphTile(
@@ -1948,7 +2011,12 @@ class _GlyphPickerState extends State<_GlyphPicker> {
                   emoji: _emoji,
                   emojiSize: 30,
                   fallback: Center(
-                    child: ic('plus', size: 20, sw: 2.2, color: B.muted),
+                    child: ic(
+                      'plus',
+                      size: 20,
+                      sw: 2.2,
+                      color: context.tc.muted,
+                    ),
                   ),
                 ),
               ),
@@ -1968,20 +2036,20 @@ class _GlyphPickerState extends State<_GlyphPicker> {
                         vertical: 9,
                       ),
                       decoration: BoxDecoration(
-                        color: B.soft,
+                        color: context.tc.soft,
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ic('edit', size: 15, sw: 2.2, color: B.deep),
+                          ic('edit', size: 15, sw: 2.2, color: context.tc.deep),
                           const SizedBox(width: 7),
-                          const Text(
+                          Text(
                             'Upload picture',
                             style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
-                              color: B.deep,
+                              color: context.tc.deep,
                             ),
                           ),
                         ],
@@ -1992,14 +2060,14 @@ class _GlyphPickerState extends State<_GlyphPicker> {
                     GestureDetector(
                       key: const ValueKey('glyph-clear'),
                       onTap: _clear,
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.only(top: 7, left: 2),
                         child: Text(
                           'Remove',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: B.red,
+                            color: context.tc.red,
                           ),
                         ),
                       ),

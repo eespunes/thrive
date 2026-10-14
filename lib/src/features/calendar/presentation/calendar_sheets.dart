@@ -76,8 +76,8 @@ class _EventViewSheet extends StatelessWidget {
   Widget _metaRow(String icon, String label, {VoidCallback? onTap, Key? key}) {
     final row = Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: B.faint)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: ThriveColors.current.faint)),
       ),
       child: Row(
         children: [
@@ -85,10 +85,17 @@ class _EventViewSheet extends StatelessWidget {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: B.soft,
+              color: ThriveColors.current.soft,
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Center(child: ic(icon, size: 15, sw: 2.1, color: B.primary)),
+            child: Center(
+              child: ic(
+                icon,
+                size: 15,
+                sw: 2.1,
+                color: ThriveColors.current.primary,
+              ),
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -97,17 +104,22 @@ class _EventViewSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: onTap == null ? B.text : B.deep,
+                color: onTap == null
+                    ? ThriveColors.current.text
+                    : ThriveColors.current.deep,
                 decoration: onTap == null
                     ? TextDecoration.none
                     : TextDecoration.underline,
-                decorationColor: B.deep.withValues(alpha: .4),
+                decorationColor: ThriveColors.current.deep.withValues(
+                  alpha: .4,
+                ),
               ),
             ),
           ),
           // An actionable row says so: the chevron is the only thing that
           // distinguishes "a place you can open" from a line of text.
-          if (onTap != null) ic('mappin', size: 14, sw: 2.2, color: B.deep),
+          if (onTap != null)
+            ic('mappin', size: 14, sw: 2.2, color: ThriveColors.current.deep),
         ],
       ),
     );
@@ -180,11 +192,11 @@ class _EventViewSheet extends StatelessWidget {
                       Expanded(
                         child: Text(
                           ev.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 19,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -.3,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ),
@@ -192,10 +204,10 @@ class _EventViewSheet extends StatelessWidget {
                   ),
                   Text(
                     dateLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ],
@@ -207,11 +219,11 @@ class _EventViewSheet extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
-                  child: ic('x', size: 17, sw: 2.2, color: B.soft2),
+                  child: ic('x', size: 17, sw: 2.2, color: context.tc.soft2),
                 ),
               ),
             ),
@@ -294,11 +306,11 @@ class _EventViewSheet extends StatelessWidget {
             padding: const EdgeInsets.only(top: 4, bottom: 7),
             child: Text(
               'ATTENDEES',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -312,7 +324,7 @@ class _EventViewSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
                     decoration: BoxDecoration(
-                      color: B.soft,
+                      color: context.tc.soft,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Row(
@@ -322,10 +334,10 @@ class _EventViewSheet extends StatelessWidget {
                         const SizedBox(width: 6),
                         Text(
                           state._memberById(id)?.name ?? '?',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: B.deep,
+                            color: context.tc.deep,
                           ),
                         ),
                       ],
@@ -342,10 +354,10 @@ class _EventViewSheet extends StatelessWidget {
               imported
                   ? 'Imported from ${creator.first.name}'
                   : 'Created by ${creator.first.name}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -354,20 +366,20 @@ class _EventViewSheet extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
             decoration: BoxDecoration(
-              color: B.faint,
+              color: context.tc.faint,
               borderRadius: BorderRadius.circular(13),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ic('download', size: 15, sw: 2.2, color: B.soft2),
+                ic('download', size: 15, sw: 2.2, color: context.tc.soft2),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Imported events are read-only',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ],
@@ -385,20 +397,20 @@ class _EventViewSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
-                      border: Border.all(color: B.line),
+                      border: Border.all(color: context.tc.line),
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ic('edit', size: 16, sw: 2.2, color: B.soft2),
+                        ic('edit', size: 16, sw: 2.2, color: context.tc.soft2),
                         const SizedBox(width: 7),
-                        const Text(
+                        Text(
                           'Edit',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ],
@@ -430,21 +442,21 @@ class _EventViewSheet extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
-                      color: B.redSoft,
-                      border: Border.all(color: B.redLine),
+                      color: context.tc.redSoft,
+                      border: Border.all(color: context.tc.redLine),
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ic('trash', size: 16, sw: 2.2, color: B.red),
+                        ic('trash', size: 16, sw: 2.2, color: context.tc.red),
                         const SizedBox(width: 7),
-                        const Text(
+                        Text(
                           'Delete',
                           style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: B.red,
+                            color: context.tc.red,
                           ),
                         ),
                       ],
@@ -486,8 +498,14 @@ class _RecurEditScopeSheet extends StatelessWidget {
         padding: const EdgeInsets.all(15),
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: danger ? B.redSoft : Colors.white,
-          border: Border.all(color: danger ? B.redLine : B.line),
+          color: danger
+              ? ThriveColors.current.redSoft
+              : ThriveColors.current.surface,
+          border: Border.all(
+            color: danger
+                ? ThriveColors.current.redLine
+                : ThriveColors.current.line,
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -498,7 +516,9 @@ class _RecurEditScopeSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: danger ? B.red : B.ink,
+                color: danger
+                    ? ThriveColors.current.red
+                    : ThriveColors.current.ink,
               ),
             ),
             const SizedBox(height: 3),
@@ -507,7 +527,9 @@ class _RecurEditScopeSheet extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: danger ? B.red : B.soft2,
+                color: danger
+                    ? ThriveColors.current.red
+                    : ThriveColors.current.soft2,
               ),
             ),
           ],
@@ -585,27 +607,27 @@ class _RecurDeleteSheet extends StatelessWidget {
             padding: const EdgeInsets.all(15),
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Delete this event only',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   'Just ${_prettyDateIso(date)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ],
@@ -623,27 +645,27 @@ class _RecurDeleteSheet extends StatelessWidget {
             padding: const EdgeInsets.all(15),
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Delete this and future events',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
+                Text(
                   'This occurrence and everything after it',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ],
@@ -660,28 +682,28 @@ class _RecurDeleteSheet extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: B.redSoft,
-              border: Border.all(color: B.redLine),
+              color: context.tc.redSoft,
+              border: Border.all(color: context.tc.redLine),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Delete the whole occurrence',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: B.red,
+                    color: context.tc.red,
                   ),
                 ),
                 const SizedBox(height: 3),
-                const Text(
+                Text(
                   'Every occurrence in the series',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    color: B.red,
+                    color: context.tc.red,
                   ),
                 ),
               ],
@@ -728,10 +750,12 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
             borderRadius: BorderRadius.circular(11),
           ),
-          child: Center(child: ic(icon, size: 17, sw: 2.4, color: B.soft2)),
+          child: Center(
+            child: ic(icon, size: 17, sw: 2.4, color: context.tc.soft2),
+          ),
         ),
       );
     }
@@ -750,10 +774,10 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
                 child: Text(
                   '$_year',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                   ),
                 ),
               ),
@@ -799,9 +823,14 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
                       padding: const EdgeInsets.fromLTRB(13, 10, 11, 10),
                       alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
-                        color: on ? const Color(0xffe7f5f3) : Colors.white,
+                        color: on
+                            ? context.tc.pick(
+                                const Color(0xffe7f5f3),
+                                context.tc.soft,
+                              )
+                            : context.tc.surface,
                         border: Border.all(
-                          color: on ? B.primary : B.line,
+                          color: on ? context.tc.primary : context.tc.line,
                           width: on ? 1.5 : 1,
                         ),
                         borderRadius: BorderRadius.circular(14),
@@ -817,7 +846,7 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
-                              color: on ? B.deep : B.text,
+                              color: on ? context.tc.deep : context.tc.text,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -828,10 +857,10 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: on
-                                  ? B.deep
+                                  ? context.tc.deep
                                   : past
-                                  ? B.amberText
-                                  : B.muted,
+                                  ? context.tc.amberText
+                                  : context.tc.muted,
                             ),
                           ),
                         ],
@@ -855,10 +884,14 @@ class _CalMonthPickerSheetState extends State<_CalMonthPickerSheet> {
             constraints: const BoxConstraints(minHeight: 50),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xff12b3a4), B.primary, B.deep],
+                colors: [
+                  Color(0xff12b3a4),
+                  context.tc.primary,
+                  context.tc.deep,
+                ],
                 stops: [0.0, .55, 1.0],
               ),
               borderRadius: BorderRadius.circular(15),
@@ -909,8 +942,8 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
         constraints: const BoxConstraints(minHeight: 40),
         padding: EdgeInsets.fromLTRB(leading != null ? 5 : 11, 8, 13, 8),
         decoration: BoxDecoration(
-          color: on ? color.withValues(alpha: .08) : Colors.white,
-          border: Border.all(color: on ? color : B.line, width: 1.5),
+          color: on ? color.withValues(alpha: .08) : context.tc.surface,
+          border: Border.all(color: on ? color : context.tc.line, width: 1.5),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -923,7 +956,7 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: on ? color : B.muted,
+                color: on ? color : context.tc.muted,
                 decoration: on
                     ? TextDecoration.none
                     : TextDecoration.lineThrough,
@@ -951,11 +984,11 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
             fontWeight: FontWeight.w800,
             letterSpacing: .4,
-            color: B.muted,
+            color: context.tc.muted,
           ),
         ),
         Padding(
@@ -980,14 +1013,14 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
                 'What do you want to see?',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.3,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
             ),
@@ -1001,15 +1034,15 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
+                child: Text(
                   'Show all',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ),
@@ -1020,11 +1053,11 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
-                  child: ic('x', size: 17, sw: 2.2, color: B.soft2),
+                  child: ic('x', size: 17, sw: 2.2, color: context.tc.soft2),
                 ),
               ),
             ),
@@ -1085,7 +1118,7 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
               },
             ),
         ]),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(bottom: 14),
           child: Text(
             'Categories live inside their layer. Events for several people '
@@ -1096,7 +1129,7 @@ class _CalFilterSheetState extends State<_CalFilterSheet> {
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
               height: 1.5,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -1143,11 +1176,11 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                 children: [
                   Text(
                     _daySheetTitleIso(iso),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -.3,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Text(
@@ -1156,10 +1189,10 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                             ? 'Free day'
                             : '${evs.length} event'
                                   '${evs.length > 1 ? 's' : ''}'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ],
@@ -1171,11 +1204,11 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
-                  child: ic('x', size: 17, sw: 2.2, color: B.soft2),
+                  child: ic('x', size: 17, sw: 2.2, color: context.tc.soft2),
                 ),
               ),
             ),
@@ -1183,7 +1216,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
         ),
         const SizedBox(height: 14),
         if (evs.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 22),
             child: Center(
               child: Text(
@@ -1192,7 +1225,7 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ),
@@ -1218,7 +1251,10 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xfff6efdb),
+              color: context.tc.pick(
+                const Color(0xfff6efdb),
+                context.tc.amberSoft,
+              ),
               borderRadius: BorderRadius.circular(11),
             ),
             child: const Text(
@@ -1243,20 +1279,20 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
               constraints: const BoxConstraints(minHeight: 48),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.tc.surface,
                 borderRadius: BorderRadius.circular(14),
               ),
-              foregroundDecoration: const _DottedBoxDecoration(
-                color: B.primary,
+              foregroundDecoration: _DottedBoxDecoration(
+                color: context.tc.primary,
                 radius: 14,
                 width: 1.5,
               ),
-              child: const Text(
+              child: Text(
                 '＋ Add on this day',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: B.deep,
+                  color: context.tc.deep,
                 ),
               ),
             ),

@@ -207,7 +207,7 @@ void main() {
     await openMore(tester);
     await openHubCard(tester, 'account', 'hub-resetpw');
 
-    expect(find.text('FUTURE'), findsNWidgets(2)); // dark mode + language
+    expect(find.text('FUTURE'), findsNWidgets(1)); // language
     expect(find.text('We’ll email you a reset link'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('hub-resetpw')));

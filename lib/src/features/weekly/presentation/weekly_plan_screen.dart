@@ -51,11 +51,13 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
             ),
-            child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+            child: Center(
+              child: ic(icon, size: 16, sw: 2.4, color: context.tc.soft2),
+            ),
           ),
         );
     return Row(
@@ -65,10 +67,10 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
           child: Text(
             range,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
         ),
@@ -105,9 +107,11 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isToday ? B.primary : B.line),
+        border: Border.all(
+          color: isToday ? context.tc.primary : context.tc.line,
+        ),
         boxShadow: cardShadow(),
       ),
       child: Column(
@@ -117,10 +121,10 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
             children: [
               Text(
                 '${_kWeekdaysShort[weekdayIdx]} ${date.day}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
               if (isToday) ...[
@@ -131,16 +135,16 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: B.soft,
+                    color: context.tc.soft,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
+                  child: Text(
                     'TODAY',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .4,
-                      color: B.deep,
+                      color: context.tc.deep,
                     ),
                   ),
                 ),
@@ -182,20 +186,22 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: B.soft,
+              color: context.tc.soft,
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Center(child: ic(icon, size: 15, sw: 2.1, color: B.primary)),
+            child: Center(
+              child: ic(icon, size: 15, sw: 2.1, color: context.tc.primary),
+            ),
           ),
           const SizedBox(width: 10),
           SizedBox(
             width: 66,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
           ),
@@ -206,7 +212,9 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: (value?.isNotEmpty ?? false) ? B.ink : B.muted,
+                color: (value?.isNotEmpty ?? false)
+                    ? context.tc.ink
+                    : context.tc.muted,
               ),
             ),
           ),
@@ -225,12 +233,12 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
         margin: const EdgeInsets.only(top: 3),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: B.faint,
+          color: context.tc.faint,
           borderRadius: BorderRadius.circular(9),
         ),
         child: Row(
           children: [
-            ic('edit', size: 13, sw: 2.1, color: B.soft2),
+            ic('edit', size: 13, sw: 2.1, color: context.tc.soft2),
             const SizedBox(width: 7),
             Expanded(
               child: Text(
@@ -239,7 +247,9 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: (note?.isNotEmpty ?? false) ? B.text : B.muted,
+                  color: (note?.isNotEmpty ?? false)
+                      ? context.tc.text
+                      : context.tc.muted,
                 ),
               ),
             ),

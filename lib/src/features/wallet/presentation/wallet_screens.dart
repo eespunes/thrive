@@ -171,7 +171,7 @@ class _CardVisual extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: B.ink.withValues(alpha: .65),
+            color: context.tc.ink.withValues(alpha: .65),
             blurRadius: 34,
             spreadRadius: -22,
             offset: const Offset(0, 18),
@@ -332,22 +332,22 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(18),
         boxShadow: cardShadow(),
       ),
       child: Column(
         children: [
           if (c.number.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Text(
                 'No card number saved',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             )
@@ -360,23 +360,23 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
               width: c.codeType == 'qr' ? 150 : double.infinity,
               drawText: false,
               color: Colors.black,
-              errorBuilder: (_, _) => const Text(
+              errorBuilder: (_, _) => Text(
                 'This number cannot be rendered as a code',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ),
             const SizedBox(height: 9),
             Text(
               c.number,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 2,
-                color: B.text,
+                color: context.tc.text,
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
             ),
@@ -385,14 +385,14 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ic('sun', size: 12, sw: 2.4, color: B.muted),
+              ic('sun', size: 12, sw: 2.4, color: context.tc.muted),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Hold the screen at the scanner',
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w700,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
             ],
@@ -407,7 +407,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
         decoration: BoxDecoration(
-          color: B.faint,
+          color: context.tc.faint,
           borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
@@ -415,21 +415,21 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
           children: [
             Text(
               label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               value,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ],
@@ -465,7 +465,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 16, bottom: 8),
           child: Text(
             'PAY SOMETHING WITH IT',
@@ -473,7 +473,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: .3,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -489,8 +489,8 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: B.line),
+                color: context.tc.surface,
+                border: Border.all(color: context.tc.line),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: Row(
@@ -514,18 +514,18 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
                         Text(
                           _itemTitle(it),
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                         Text(
                           cat.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ],
@@ -533,10 +533,10 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
                   ),
                   Text(
                     eur(it.amount),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -603,7 +603,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
                     Navigator.of(context).pop();
                     s.confirmDeleteCard(c);
                   },
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.fromLTRB(0, 14, 0, 2),
                     child: Text(
                       'Remove card',
@@ -611,7 +611,7 @@ class _CardFaceSheetState extends State<_CardFaceSheet> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: B.red,
+                        color: context.tc.red,
                       ),
                     ),
                   ),
