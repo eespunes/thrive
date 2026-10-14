@@ -110,8 +110,8 @@ blocks service-account key files.
 
 Set a €1 monthly project budget for notifications. This is an alert threshold,
 not a spending ceiling: Cloud Billing can still charge more than €1. Blaze
-does not offer a guaranteed project-wide hard cap. If €1 is an absolute
-maximum, keep the project on Spark and do not deploy Cloud Functions.
+does not offer a guaranteed project-wide hard cap. The owner has accepted
+that charges may exceed the €1 alert threshold.
 
 ```bash
 gcloud billing budgets create \
