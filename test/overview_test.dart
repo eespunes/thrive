@@ -75,6 +75,31 @@ void main() {
     }
   });
 
+  testWidgets('Finance tabs clear the hero tiles on a phone-sized screen', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    tester.view.physicalSize = const Size(780, 1600);
+    await tester.pumpAndSettle();
+
+    final incomeTile = find
+        .ancestor(
+          of: find.text('EXPECTED INCOME'),
+          matching: find.byType(Container),
+        )
+        .first;
+    final tabs = tester.getRect(find.byKey(const ValueKey('finance-tabs')));
+    expect(
+      tabs.top,
+      greaterThanOrEqualTo(tester.getRect(incomeTile).bottom + 8),
+    );
+    final tabBackground = tester.widget<Container>(
+      find.byKey(const ValueKey('finance-tabs')),
+    );
+    expect((tabBackground.decoration as BoxDecoration).color, B.page);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a capped envelope fills across the full card width', (
     tester,
   ) async {

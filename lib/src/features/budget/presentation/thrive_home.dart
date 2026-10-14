@@ -2734,12 +2734,12 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
-  double _financeHeaderHeight() => screen == 'overview' ? 250 : 110;
+  double _financeHeaderHeight() => screen == 'overview' ? 344 : 110;
 
   Widget _buildFinanceStickyHeader(double height, bool scrolled) {
     final closed = isClosed();
     return Material(
-      color: Colors.white,
+      color: scrolled ? Colors.white : B.page,
       child: Stack(
         children: [
           if (!scrolled)
@@ -2932,8 +2932,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     }
 
     return Container(
+      key: const ValueKey('finance-tabs'),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: B.page,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

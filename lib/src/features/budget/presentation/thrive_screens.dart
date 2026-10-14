@@ -74,13 +74,17 @@ extension _ThriveScreens on _ThriveHomeState {
                     color: B.soft2,
                   ),
                 ),
-                const Spacer(),
-                const Text(
-                  'Tap an envelope for its items',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: B.muted,
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Tap an envelope for its items',
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: B.muted,
+                    ),
                   ),
                 ),
               ],
