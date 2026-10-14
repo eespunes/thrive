@@ -196,6 +196,17 @@ class ThriveDebugController {
   }) => _s.askDelete(name, message, onConfirm, confirmLabel: confirmLabel);
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
+
+  /// Displays the same conflict prompt used after a concurrent cloud save.
+  void showSaveConflictForTest(Map<String, dynamic> record) =>
+      _s._onSaveConflict(
+        _s.familyId,
+        'notes/test-conflict',
+        record,
+        record,
+        const [],
+        null,
+      );
   void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) =>
       _s.flash(msg, tone: tone, body: body);
   ToastTone get toastTone => _s.toastTone;

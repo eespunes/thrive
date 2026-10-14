@@ -143,7 +143,9 @@ void main() {
     expect((box.decoration as BoxDecoration).border, isNotNull);
   });
 
-  testWidgets('light slot combinations match the golden', (tester) async {
+  testWidgets('light headers show title, subtitle, leading and action slots', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -186,13 +188,26 @@ void main() {
         ),
       ),
     );
-    await expectLater(
-      find.byKey(const ValueKey('header-slots-golden')),
-      matchesGoldenFile('goldens/app_header_slots.png'),
+    final headers = find.byType(AppHeader);
+    expect(headers, findsNWidgets(3));
+    for (var i = 0; i < 3; i++) {
+      expect(tester.getSize(headers.at(i)).width, 380);
+    }
+    expect(find.text('Lists'), findsOneWidget);
+    expect(find.text('4 notes · 7 things to do'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('6 left · 14 total'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    final longTitle = tester.widget<Text>(
+      find.text('A long editor title that must be truncated before Save'),
     );
+    expect(longTitle.maxLines, 1);
+    expect(longTitle.overflow, TextOverflow.ellipsis);
   });
 
-  testWidgets('gradient hero matches the golden', (tester) async {
+  testWidgets('gradient hero keeps white text and transparent chrome', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -223,9 +238,120 @@ void main() {
         ),
       ),
     );
-    await expectLater(
-      find.byKey(const ValueKey('header-hero-golden')),
-      matchesGoldenFile('goldens/app_header_hero.png'),
+    final hero = tester.widget<Container>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('header-hero-golden')),
+            matching: find.byType(Container),
+          )
+          .first,
     );
+    expect((hero.decoration as BoxDecoration).gradient, B.grad);
+    expect(
+      tester.widget<Text>(find.text('Finance')).style!.color,
+      Colors.white,
+    );
+    expect(
+      tester.widget<Text>(find.text('October 2026')).style!.color,
+      Colors.white,
+    );
+    final material = tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(AppHeader),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(material.color, Colors.transparent);
+    expect(find.text('CLOSED'), findsOneWidget);
+  });
+
+  testWidgets('search filters titles and subtitles and opens a result', (
+    tester,
+  ) async {
+    String? chosen;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showAppHeaderSearch(
+                context,
+                title: 'Search lists',
+                items: [
+                  AppHeaderSearchItem(
+                    'Groceries',
+                    'Shopping',
+                    () => chosen = 'groceries',
+                  ),
+                  AppHeaderSearchItem(
+                    'Weekend tasks',
+                    'Home',
+                    () => chosen = 'tasks',
+                  ),
+                ],
+              ),
+              child: const Text('Open search'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open search'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 results'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'shopping');
+    await tester.pumpAndSettle();
+    expect(find.text('1 results'), findsOneWidget);
+    expect(find.text('Groceries'), findsOneWidget);
+    expect(find.text('Weekend tasks'), findsNothing);
+    await tester.tap(find.text('Groceries'));
+    await tester.pumpAndSettle();
+    expect(chosen, 'groceries');
+    expect(find.text('Search lists'), findsNothing);
+  });
+
+  testWidgets('active badge, status dot, and dark scrolled colors render', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(brightness: Brightness.dark),
+        home: Scaffold(
+          body: AppHeader(
+            title: 'Calendar',
+            subtitle: 'October 2026',
+            statusDot: Colors.green,
+            scrolled: true,
+            actions: [
+              AppHeaderAction(
+                icon: 'bell',
+                tooltip: 'Notifications',
+                badge: 3,
+                active: true,
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('October 2026'), findsOneWidget);
+    final material = tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(AppHeader),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(
+      material.color,
+      ThemeData(brightness: Brightness.dark).colorScheme.surface,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

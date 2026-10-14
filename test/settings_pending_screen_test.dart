@@ -102,6 +102,62 @@ void main() {
     expect(thriveDebug.events.any((e) => e.id == 'offline-1'), isFalse);
   });
 
+  testWidgets('discard all stops retrying multiple unsaved changes', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final fid = thriveDebug.familyId;
+    for (final id in ['retry-one', 'retry-two']) {
+      final ev = CalendarEvent(
+        id: id,
+        title: id,
+        date: todayIso(),
+        color: Colors.teal,
+      );
+      thriveDebug.mutateState(() => thriveDebug.events.add(ev));
+      thriveDebug.pendingChanges.record(
+        fid,
+        eventRecordKey(ev),
+        record: ev.toJson(),
+        serverRecord: null,
+        now: DateTime.now().millisecondsSinceEpoch,
+      );
+    }
+    thriveDebug.pendingChangesChanged();
+    await tester.pumpAndSettle();
+    await openPending(tester);
+
+    await tester.tap(find.byKey(const ValueKey('pending-discard-all')));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard 2 changes still saving?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('discard-confirm')));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.pendingChanges.isEmpty, isTrue);
+    expect(thriveDebug.toast, '2 changes discarded');
+  });
+
+  testWidgets('applying a staged change asks for sign-in when signed out', (
+    tester,
+  ) async {
+    await pumpApp(tester, prefs: settingsV2Prefs(), landOnDefaultTab: true);
+    final change = PendingChange(
+      familyId: thriveDebug.familyId,
+      key: 'notes/sign-in-needed',
+      op: PendingOp.save,
+      at: DateTime.now().millisecondsSinceEpoch,
+      record: {'id': 'sign-in-needed', 'name': 'Trip notes'},
+    );
+    thriveDebug.stagedChanges.addStaged(change);
+    thriveDebug.pendingChangesChanged();
+    await tester.pumpAndSettle();
+    await openPending(tester);
+
+    await tester.tap(find.text('Save all'));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.toast, 'Sign in to apply changes');
+    expect(thriveDebug.stagedChanges.isEmpty, isFalse);
+  });
+
   testWidgets('lists a set-aside change apart from the data and discards it', (
     tester,
   ) async {

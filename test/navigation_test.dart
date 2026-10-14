@@ -65,6 +65,77 @@ void main() {
     expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
   });
 
+  testWidgets('Lists header search includes to-do and shopping lists', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    thriveDebug.mutateState(() {
+      thriveDebug.taskLists.add(
+        TaskList(
+          id: 'search-tasks',
+          name: 'Weekend chores',
+          color: Colors.teal,
+        ),
+      );
+      thriveDebug.shoppingLists.add(
+        ShoppingList(id: 'search-groceries', name: 'Groceries'),
+      );
+    });
+    await tester.tap(find.byKey(const ValueKey('nav-lists')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Search lists'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 results'), findsOneWidget);
+    expect(find.text('Weekend chores'), findsWidgets);
+    expect(find.text('Groceries'), findsWidgets);
+    await tester.enterText(
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(TextField),
+          )
+          .first,
+      'groceries',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1 results'), findsOneWidget);
+  });
+
+  testWidgets('Calendar header search finds events and opens one', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    thriveDebug.mutateState(
+      () => thriveDebug.events.add(
+        CalendarEvent(
+          id: 'search-calendar',
+          title: 'Dentist visit',
+          date: todayIso(),
+          color: Colors.teal,
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('nav-calendar')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('cal-header-search')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(TextField),
+          )
+          .first,
+      'dentist',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Dentist visit'), findsWidgets);
+    await tester.tap(find.widgetWithText(ListTile, 'Dentist visit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search calendar'), findsNothing);
+  });
+
   testWidgets('bottom navigation and FAB respect the phone system inset', (
     tester,
   ) async {
