@@ -82,8 +82,8 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(15, 14, 15, 12),
         decoration: BoxDecoration(
-          color: bg ?? Colors.white,
-          border: Border.all(color: border ?? B.line),
+          color: bg ?? context.tc.surface,
+          border: Border.all(color: border ?? context.tc.line),
           borderRadius: BorderRadius.circular(18),
         ),
         child: child,
@@ -104,7 +104,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .4,
-                color: color ?? B.muted,
+                color: color ?? context.tc.muted,
               ),
             ),
           ),
@@ -124,20 +124,22 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: B.soft,
+              color: context.tc.soft,
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Center(child: ic(icon, size: 15, sw: 2.1, color: B.primary)),
+            child: Center(
+              child: ic(icon, size: 15, sw: 2.1, color: context.tc.primary),
+            ),
           ),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               title,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ),
@@ -147,7 +149,8 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  Widget _bDivider() => const Divider(color: B.faint, height: 1, thickness: 1);
+  Widget _bDivider() =>
+      Divider(color: context.tc.faint, height: 1, thickness: 1);
 
   Widget _wEmptyLine(String text, String action, VoidCallback onTap) {
     return Padding(
@@ -157,10 +160,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
         children: [
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(width: 6),
@@ -168,10 +171,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
             onTap: onTap,
             child: Text(
               action,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
           ),
@@ -192,11 +195,11 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: B.grad,
+          gradient: context.tc.grad,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: B.primary.withValues(alpha: .45),
+              color: context.tc.primary.withValues(alpha: .45),
               blurRadius: 30,
               spreadRadius: -16,
               offset: const Offset(0, 16),
@@ -293,22 +296,22 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Still to pay',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: B.amberText,
+                          color: context.tc.amberText,
                         ),
                       ),
                     ),
                     Text(
                       eur(c.stillToPay),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: B.amberText,
+                        color: context.tc.amberText,
                       ),
                     ),
                   ],
@@ -319,8 +322,11 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                   child: LinearProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
                     minHeight: 7,
-                    backgroundColor: const Color(0xfffef3c7),
-                    color: B.amber,
+                    backgroundColor: context.tc.pick(
+                      const Color(0xfffef3c7),
+                      context.tc.amberSoft,
+                    ),
+                    color: context.tc.amber,
                   ),
                 ),
                 const SizedBox(height: 11),
@@ -352,19 +358,19 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           child: Text(
                             a.name,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: B.text,
+                              color: context.tc.text,
                             ),
                           ),
                         ),
                         Text(
                           eur(amt),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ],
@@ -378,11 +384,11 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
   /// Due-day label for a bill: "Today" (red) / "In Nd" (amber) / "12 Jul".
   (String, Color) _billDue(ExpenseItem it) {
     final day = int.tryParse(digitsOnly(it.marker));
-    if (day == null) return ('—', B.muted);
+    if (day == null) return ('—', context.tc.muted);
     final today = DateTime.now().day;
-    if (day <= today) return ('Today', B.red);
-    if (day - today <= 3) return ('In ${day - today}d', B.amber);
-    return ('$day ${kMonthsEn[monthIdx].substring(0, 3)}', B.muted);
+    if (day <= today) return ('Today', context.tc.red);
+    if (day - today <= 3) return ('In ${day - today}d', context.tc.amber);
+    return ('$day ${kMonthsEn[monthIdx].substring(0, 3)}', context.tc.muted);
   }
 
   /// Design: "NEXT BILLS" rows — due label · title + account · amount ·
@@ -429,19 +435,19 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           Text(
                             _itemTitle(it),
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
-                              color: B.ink,
+                              color: context.tc.ink,
                             ),
                           ),
                           Text(
                             accByKey(it.account).name,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
-                              color: B.soft2,
+                              color: context.tc.soft2,
                             ),
                           ),
                         ],
@@ -449,10 +455,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                     ),
                     Text(
                       eur(it.amount),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -466,11 +472,13 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                         ),
                         decoration: BoxDecoration(
                           color: locked
-                              ? B.faint
-                              : (i == 0 ? B.primary : Colors.white),
+                              ? context.tc.faint
+                              : (i == 0
+                                    ? context.tc.primary
+                                    : context.tc.surface),
                           border: i == 0 || locked
                               ? null
-                              : Border.all(color: B.line),
+                              : Border.all(color: context.tc.line),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -479,8 +487,8 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                             fontSize: 10.5,
                             fontWeight: FontWeight.w800,
                             color: locked
-                                ? B.muted
-                                : (i == 0 ? Colors.white : B.soft2),
+                                ? context.tc.muted
+                                : (i == 0 ? Colors.white : context.tc.soft2),
                           ),
                         ),
                       ),
@@ -523,12 +531,12 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                         ? b.total / b.cap!
                         : null;
                     final tone = ratio == null
-                        ? B.green
+                        ? context.tc.green
                         : ratio > 1
-                        ? B.red
+                        ? context.tc.red
                         : ratio >= .85
-                        ? B.amber
-                        : B.green;
+                        ? context.tc.amber
+                        : context.tc.green;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -538,10 +546,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                               child: Text(
                                 b.title,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
-                                  color: B.ink,
+                                  color: context.tc.ink,
                                 ),
                               ),
                             ),
@@ -568,8 +576,11 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                                     : 0.0),
                             minHeight: 6,
                             backgroundColor: ratio != null && ratio > 1
-                                ? const Color(0xfffee2e2)
-                                : B.track,
+                                ? context.tc.pick(
+                                    const Color(0xfffee2e2),
+                                    context.tc.redSoft,
+                                  )
+                                : context.tc.track,
                             color: tone,
                           ),
                         ),
@@ -597,12 +608,12 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
             'Discount cards',
             trailing: GestureDetector(
               onTap: openWalletScreen,
-              child: const Text(
+              child: Text(
                 'All cards',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: B.primary,
+                  color: context.tc.primary,
                 ),
               ),
             ),
@@ -667,7 +678,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       width: 104,
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: const Color(0xffcfd8e3),
+                          color: context.tc.pick(
+                            const Color(0xffcfd8e3),
+                            context.tc.toggleOff,
+                          ),
                           width: 2,
                         ),
                         borderRadius: BorderRadius.circular(14),
@@ -675,14 +689,19 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          ic('camera', size: 18, sw: 2.2, color: B.primary),
+                          ic(
+                            'camera',
+                            size: 18,
+                            sw: 2.2,
+                            color: context.tc.primary,
+                          ),
                           const SizedBox(height: 5),
-                          const Text(
+                          Text(
                             'Scan card',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: B.primary,
+                              color: context.tc.primary,
                             ),
                           ),
                         ],
@@ -703,7 +722,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     required String title,
     required Widget value,
     required String sub,
-    Color subColor = B.muted,
+    Color? subColor,
     required VoidCallback onOpen,
   }) {
     return _bCard(
@@ -717,10 +736,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
           children: [
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
             Column(
@@ -734,7 +753,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: subColor,
+                    color: (subColor ?? ThriveColors.current.muted),
                   ),
                 ),
               ],
@@ -745,14 +764,14 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     );
   }
 
-  Text _statValue(String text, {Color color = B.ink}) => Text(
+  Text _statValue(String text, {Color? color}) => Text(
     text,
     overflow: TextOverflow.ellipsis,
     style: TextStyle(
       fontSize: 19,
       fontWeight: FontWeight.w800,
       letterSpacing: -.4,
-      color: color,
+      color: (color ?? ThriveColors.current.ink),
     ),
   );
 
@@ -761,7 +780,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     return _statTile(
       keyName: 'home-w-income-body',
       title: 'Income in',
-      value: _statValue(eur(c.realIncome), color: B.green),
+      value: _statValue(eur(c.realIncome), color: context.tc.green),
       sub: 'of ${eur(c.expIncome)} expected',
       onOpen: () => goTab('finance'),
     );
@@ -774,7 +793,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
       title: 'Savings',
       value: _statValue(eur(c.savings)),
       sub: 'put aside this month',
-      subColor: B.green,
+      subColor: context.tc.green,
       onOpen: () => goTab('finance'),
     );
   }
@@ -788,10 +807,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     final now = DateTime.now();
     final lastDay = DateTime(now.year, now.month + 1, 0).day;
     final (label, bg, fg) = closed
-        ? ('Closed', B.faint, B.soft2)
+        ? ('Closed', context.tc.faint, context.tc.soft2)
         : over
-        ? ('Over budget', B.redSoft, B.red)
-        : ('On track', B.greenSoft, B.greenText);
+        ? ('Over budget', context.tc.redSoft, context.tc.red)
+        : ('On track', context.tc.greenSoft, context.tc.greenText);
     return _statTile(
       keyName: 'home-w-month-body',
       title: 'Month status',
@@ -907,18 +926,18 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           Text(
                             o.ev.title,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              color: B.ink,
+                              color: context.tc.ink,
                             ),
                           ),
                           Text(
                             _upcomingWhen(o),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
-                              color: B.soft2,
+                              color: context.tc.soft2,
                             ),
                           ),
                         ],
@@ -965,10 +984,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
             'This week',
             trailing: Text(
               '${monday.day} – ${sunday.day} ${kMonthsEn[sunday.month - 1].substring(0, 3)}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
           ),
@@ -984,12 +1003,15 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       final count = eventOccurrences(iso, iso).length;
                       final isToday = iso == todayIso();
                       final bg = isToday
-                          ? B.primary
+                          ? context.tc.primary
                           : count == 0
-                          ? B.page
+                          ? context.tc.page
                           : count == 1
-                          ? B.soft
-                          : const Color(0xffc5e8e2);
+                          ? context.tc.soft
+                          : context.tc.pick(
+                              const Color(0xffc5e8e2),
+                              context.tc.line,
+                            );
                       return GestureDetector(
                         onTap: () {
                           update(() => calSel = iso);
@@ -1002,7 +1024,9 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
-                                color: isToday ? B.primary : B.muted,
+                                color: isToday
+                                    ? context.tc.primary
+                                    : context.tc.muted,
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -1022,8 +1046,8 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                                   color: isToday
                                       ? Colors.white
                                       : count > 0
-                                      ? B.deep
-                                      : B.ink,
+                                      ? context.tc.deep
+                                      : context.tc.ink,
                                 ),
                               ),
                             ),
@@ -1036,14 +1060,14 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
               ],
             ],
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 9),
             child: Text(
               'Colour = how full the day is',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -1090,12 +1114,12 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                               .take(2)
                               .toList();
                           if (his.isEmpty) {
-                            return const Text(
+                            return Text(
                               'Free',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
-                                color: B.muted,
+                                color: context.tc.muted,
                               ),
                             );
                           }
@@ -1166,17 +1190,17 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
       value: Text(
         next?.ev.title ?? 'Nothing planned',
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w800,
           letterSpacing: -.3,
-          color: B.ink,
+          color: context.tc.ink,
         ),
       ),
       sub: sub,
       subColor: next != null && next.date == todayIso()
           ? const Color(0xffe11d48)
-          : B.muted,
+          : context.tc.muted,
       onOpen: () => goTab('calendar'),
     );
   }
@@ -1200,10 +1224,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
       value: Text(
         next?.ev.title ?? 'None saved',
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w800,
-          color: B.ink,
+          color: context.tc.ink,
         ),
       ),
       sub: next == null
@@ -1224,12 +1248,12 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
         children: [
           _bLabel(
             'Imported calendars',
-            trailing: const Text(
+            trailing: Text(
               'Manage',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
           ),
@@ -1259,19 +1283,19 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       child: Text(
                         cal.name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: B.ink,
+                          color: context.tc.ink,
                         ),
                       ),
                     ),
                     Text(
                       '${cal.events.where((ev) => ev.date == today).length} today',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
-                        color: B.soft2,
+                        color: context.tc.soft2,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1282,7 +1306,9 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                         cal.visible ? 'eye' : 'eyeoff',
                         size: 16,
                         sw: 2.1,
-                        color: cal.visible ? B.primary : B.muted,
+                        color: cal.visible
+                            ? context.tc.primary
+                            : context.tc.muted,
                       ),
                     ),
                   ],
@@ -1326,15 +1352,15 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: B.soft,
+                      color: context.tc.soft,
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: Text(
                       '${open.length}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        color: B.primary,
+                        color: context.tc.primary,
                       ),
                     ),
                   ),
@@ -1387,15 +1413,15 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: B.orangeSoft,
+                      color: context.tc.orangeSoft,
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: Text(
                       '${openItems.length} left',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        color: B.orangeText,
+                        color: context.tc.orangeText,
                       ),
                     ),
                   ),
@@ -1411,19 +1437,24 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      border: Border.all(color: B.line),
+                      border: Border.all(color: context.tc.line),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        ic('plus', size: 14, sw: 2.5, color: B.primary),
+                        ic(
+                          'plus',
+                          size: 14,
+                          sw: 2.5,
+                          color: context.tc.primary,
+                        ),
                         const SizedBox(width: 9),
-                        const Text(
+                        Text(
                           'Add an item…',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ],
@@ -1447,17 +1478,17 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                                 vertical: 5,
                               ),
                               decoration: BoxDecoration(
-                                color: B.page,
+                                color: context.tc.page,
                                 borderRadius: BorderRadius.circular(7),
                               ),
                               child: Text(
                                 item.qty > 1
                                     ? '${item.name} ×${item.qty}'
                                     : item.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: B.ink,
+                                  color: context.tc.ink,
                                 ),
                               ),
                             ),
@@ -1469,15 +1500,15 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: B.page,
+                              color: context.tc.page,
                               borderRadius: BorderRadius.circular(7),
                             ),
                             child: Text(
                               '+${openItems.length - 3}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: B.soft2,
+                                color: context.tc.soft2,
                               ),
                             ),
                           ),
@@ -1519,7 +1550,9 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: i == 0 ? B.primary : B.muted,
+                            color: i == 0
+                                ? context.tc.primary
+                                : context.tc.muted,
                           ),
                         ),
                       ),
@@ -1532,19 +1565,21 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                             fontWeight: dinner == null
                                 ? FontWeight.w700
                                 : FontWeight.w800,
-                            color: dinner == null ? B.muted : B.ink,
+                            color: dinner == null
+                                ? context.tc.muted
+                                : context.tc.ink,
                           ),
                         ),
                       ),
                       if (dinner == null)
                         GestureDetector(
                           onTap: () => goTab('weekly'),
-                          child: const Text(
+                          child: Text(
                             'Plan',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w800,
-                              color: B.primary,
+                              color: context.tc.primary,
                             ),
                           ),
                         ),
@@ -1591,10 +1626,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                       child: Text(
                         m.name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w800,
-                          color: B.ink,
+                          color: context.tc.ink,
                         ),
                       ),
                     ),
@@ -1604,7 +1639,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                         child: LinearProgressIndicator(
                           value: ((starsMap[m.id] ?? 0) / 5).clamp(0.0, 1.0),
                           minHeight: 6,
-                          backgroundColor: B.track,
+                          backgroundColor: context.tc.track,
                           color: m.color,
                         ),
                       ),
@@ -1612,10 +1647,10 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                     const SizedBox(width: 11),
                     Text(
                       '${starsMap[m.id] ?? 0} ⭐',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
-                        color: B.amber,
+                        color: context.tc.amber,
                       ),
                     ),
                   ],
@@ -1683,21 +1718,21 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: B.page,
+                      color: context.tc.page,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        ic(icon, size: 15, sw: 2.2, color: B.primary),
+                        ic(icon, size: 15, sw: 2.2, color: context.tc.primary),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
                             label,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: B.ink,
+                              color: context.tc.ink,
                             ),
                           ),
                         ),
@@ -1717,13 +1752,13 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     final text = (e.options['text'] ?? '').toString();
     final by = (e.options['by'] ?? '').toString();
     return _bCard(
-      bg: B.amberSoft,
-      border: B.amberLine,
+      bg: context.tc.amberSoft,
+      border: context.tc.amberLine,
       onTap: () => openHomeWidgetOptions(_boardIndexFor(e, index)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _bLabel('Family note', color: B.amberText),
+          _bLabel('Family note', color: context.tc.amberText),
           if (text.isEmpty)
             _wEmptyLine(
               'Nothing pinned.',
@@ -1748,7 +1783,7 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: B.amberText.withValues(alpha: .75),
+                    color: context.tc.amberText.withValues(alpha: .75),
                   ),
                 ),
               ),
@@ -1763,16 +1798,20 @@ extension _ThriveHomeBoardWidgets on _ThriveHomeState {
     final label = (e.options['label'] ?? '').toString();
     return Container(
       padding: const EdgeInsets.only(top: 11),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xffd8dee7))),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: context.tc.pick(const Color(0xffd8dee7), context.tc.line),
+          ),
+        ),
       ),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: .3,
-          color: B.soft2,
+          color: context.tc.soft2,
         ),
       ),
     );

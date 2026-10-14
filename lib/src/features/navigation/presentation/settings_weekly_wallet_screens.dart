@@ -82,8 +82,8 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line),
+              color: context.tc.surface,
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -92,10 +92,10 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
                   width: 40,
                   child: Text(
                     _days[i],
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: B.primary,
+                      color: context.tc.primary,
                     ),
                   ),
                 ),
@@ -108,7 +108,7 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
                       'dinner',
                       v,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(vertical: 11),
@@ -116,13 +116,13 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
                       hintStyle: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                 ),

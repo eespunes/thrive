@@ -177,7 +177,7 @@ extension _ThriveKidSide on _ThriveHomeState {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: off ? B.faint : B.soft,
+                  color: off ? context.tc.faint : context.tc.soft,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Center(
@@ -185,7 +185,7 @@ extension _ThriveKidSide on _ThriveHomeState {
                     icon,
                     size: 15,
                     sw: 2.2,
-                    color: off ? B.muted : B.deep,
+                    color: off ? context.tc.muted : context.tc.deep,
                   ),
                 ),
               ),
@@ -199,16 +199,16 @@ extension _ThriveKidSide on _ThriveHomeState {
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: off ? B.muted : B.ink,
+                        color: off ? context.tc.muted : context.tc.ink,
                         decoration: off ? TextDecoration.lineThrough : null,
                       ),
                     ),
                     Text(
                       sub,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ],
@@ -328,11 +328,11 @@ class _KidGateScreenState extends State<_KidGateScreen> {
     child: Text(
       t,
       textAlign: TextAlign.center,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 21,
         fontWeight: FontWeight.w800,
         letterSpacing: -.5,
-        color: B.ink,
+        color: context.tc.ink,
       ),
     ),
   );
@@ -342,10 +342,10 @@ class _KidGateScreenState extends State<_KidGateScreen> {
     child: Text(
       t,
       textAlign: TextAlign.center,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: B.muted,
+        color: context.tc.muted,
         height: 1.4,
       ),
     ),
@@ -353,7 +353,7 @@ class _KidGateScreenState extends State<_KidGateScreen> {
 
   Widget _frame(List<Widget> children, List<Widget> buttons) {
     return Material(
-      color: B.page,
+      color: context.tc.page,
       child: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -392,26 +392,26 @@ class _KidGateScreenState extends State<_KidGateScreen> {
         padding: const EdgeInsets.symmetric(vertical: 10),
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
+          color: context.tc.surface,
+          border: Border.all(color: context.tc.line),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           children: [
             Text(
               n,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ],
@@ -481,8 +481,8 @@ class _KidGateScreenState extends State<_KidGateScreen> {
         key: ValueKey('kid-firstrun-$i'),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
+          color: context.tc.surface,
+          border: Border.all(color: context.tc.line),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -502,7 +502,7 @@ class _KidGateScreenState extends State<_KidGateScreen> {
 
     if (wide) {
       return Material(
-        color: B.page,
+        color: context.tc.page,
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -557,7 +557,7 @@ class _KidGateScreenState extends State<_KidGateScreen> {
                 height: 6,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
-                  color: i == _page ? B.primary : B.line,
+                  color: i == _page ? context.tc.primary : context.tc.line,
                   borderRadius: BorderRadius.circular(3),
                 ),
               ),
@@ -581,10 +581,10 @@ class _KidGateScreenState extends State<_KidGateScreen> {
               padding: const EdgeInsets.fromLTRB(12, 14, 12, 2),
               child: Text(
                 _page == 0 ? 'Skip' : 'Back',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                 ),
               ),
             ),
@@ -599,10 +599,13 @@ class _KidGateScreenState extends State<_KidGateScreen> {
     switch (g.kind) {
       case KidGateKind.signingIn:
         return _frame([
-          const SizedBox(
+          SizedBox(
             width: 34,
             height: 34,
-            child: CircularProgressIndicator(strokeWidth: 3, color: B.primary),
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: context.tc.primary,
+            ),
           ),
           _title('Signing you in…'),
           _body('Finding your profile in your family.'),

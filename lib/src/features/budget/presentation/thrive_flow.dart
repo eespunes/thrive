@@ -266,12 +266,21 @@ extension _ThriveFlow on _ThriveHomeState {
 
   // -------------------------------------------------------------- summary
   Widget _flowSummary(_FlowModel f) {
+    final foreground = context.tc.onInk;
+    final mutedForeground = foreground.withValues(alpha: .7);
+    final faintForeground = foreground.withValues(alpha: .55);
     final bad = f.low.bal < 0;
     final tight = !bad && f.low.bal < 300;
     const badTone = Color(0xfffda4af);
     const tightTone = Color(0xfffcd34d);
     const okTone = Color(0xff6ee7b7);
-    final tone = bad ? badTone : (tight ? tightTone : okTone);
+    final tone = context.tc.isDark
+        ? (bad
+              ? ThriveColors.light.red
+              : (tight
+                    ? ThriveColors.light.amberText
+                    : ThriveColors.light.greenText))
+        : (bad ? badTone : (tight ? tightTone : okTone));
     final label = bad
         ? 'Goes negative'
         : (tight ? 'Gets tight' : 'Stays positive');
@@ -283,11 +292,11 @@ extension _ThriveFlow on _ThriveHomeState {
         children: [
           Text(
             lab.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .5,
-              color: Color(0x8cffffff),
+              color: faintForeground,
             ),
           ),
           const SizedBox(height: 3),
@@ -308,11 +317,11 @@ extension _ThriveFlow on _ThriveHomeState {
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: B.ink,
+        color: context.tc.ink,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: B.ink.withValues(alpha: .35),
+            color: context.tc.ink.withValues(alpha: .35),
             blurRadius: 34,
             spreadRadius: -22,
             offset: const Offset(0, 18),
@@ -330,34 +339,34 @@ extension _ThriveFlow on _ThriveHomeState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'LOWEST POINT THIS MONTH',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: .6,
-                        color: Color(0x8cffffff),
+                        color: faintForeground,
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text(
                         eur(f.low.bal, cents: false),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 27,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -.6,
-                          color: Colors.white,
+                          color: foreground,
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
                     Text(
                       'on the ${ordinal(f.low.day)} \u00b7 ends at ${eur(f.end, cents: false)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xb3ffffff),
+                        color: mutedForeground,
                       ),
                     ),
                   ],
@@ -370,7 +379,7 @@ extension _ThriveFlow on _ThriveHomeState {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .1),
+                  color: foreground.withValues(alpha: .1),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
@@ -398,11 +407,15 @@ extension _ThriveFlow on _ThriveHomeState {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              stat('Money in', '+${eur(f.inSum, cents: false)}', okTone),
+              stat(
+                'Money in',
+                '+${eur(f.inSum, cents: false)}',
+                context.tc.isDark ? ThriveColors.light.greenText : okTone,
+              ),
               stat(
                 'Money out',
                 '\u2212${eur(f.outSum, cents: false)}',
-                badTone,
+                context.tc.isDark ? ThriveColors.light.red : badTone,
               ),
               GestureDetector(
                 key: const ValueKey('flow-start-btn'),
@@ -413,23 +426,23 @@ extension _ThriveFlow on _ThriveHomeState {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .07),
+                    color: foreground.withValues(alpha: .07),
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .18),
+                      color: foreground.withValues(alpha: .18),
                     ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'START',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .5,
-                          color: Color(0x8cffffff),
+                          color: faintForeground,
                         ),
                       ),
                       Row(
@@ -437,19 +450,14 @@ extension _ThriveFlow on _ThriveHomeState {
                         children: [
                           Text(
                             eur(f.open, cents: false),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                              color: foreground,
                             ),
                           ),
                           const SizedBox(width: 5),
-                          ic(
-                            'edit',
-                            size: 11,
-                            sw: 2.4,
-                            color: const Color(0x99ffffff),
-                          ),
+                          ic('edit', size: 11, sw: 2.4, color: mutedForeground),
                         ],
                       ),
                     ],
@@ -467,7 +475,9 @@ extension _ThriveFlow on _ThriveHomeState {
     return SizedBox(
       height: 64,
       width: double.infinity,
-      child: CustomPaint(painter: _FlowChartPainter(f)),
+      child: CustomPaint(
+        painter: _FlowChartPainter(f, context.tc.onInk, context.tc.isDark),
+      ),
     );
   }
 
@@ -484,8 +494,8 @@ extension _ThriveFlow on _ThriveHomeState {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           decoration: BoxDecoration(
-            color: B.amberSoft,
-            border: Border.all(color: B.amberLine),
+            color: context.tc.amberSoft,
+            border: Border.all(color: context.tc.amberLine),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Row(
@@ -494,11 +504,16 @@ extension _ThriveFlow on _ThriveHomeState {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.tc.surface,
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Center(
-                  child: ic('clock', size: 16, sw: 2.3, color: B.amberText),
+                  child: ic(
+                    'clock',
+                    size: 16,
+                    sw: 2.3,
+                    color: context.tc.amberText,
+                  ),
                 ),
               ),
               const SizedBox(width: 11),
@@ -509,24 +524,24 @@ extension _ThriveFlow on _ThriveHomeState {
                   children: [
                     Text(
                       '${f.overdue.length} payment${f.overdue.length > 1 ? 's' : ''} past their date',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.amberText,
+                        color: context.tc.amberText,
                       ),
                     ),
                     Text(
                       '${eur(sum, cents: false)} not ticked off yet',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: B.amberText,
+                        color: context.tc.amberText,
                       ),
                     ),
                   ],
                 ),
               ),
-              ic('cright', size: 16, sw: 2.4, color: B.amberText),
+              ic('cright', size: 16, sw: 2.4, color: context.tc.amberText),
             ],
           ),
         ),
@@ -546,8 +561,8 @@ extension _ThriveFlow on _ThriveHomeState {
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 9),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: B.faint)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: context.tc.faint)),
         ),
         child: Row(
           children: [
@@ -557,10 +572,10 @@ extension _ThriveFlow on _ThriveHomeState {
                 child: Text(
                   '$day',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
@@ -599,10 +614,10 @@ extension _ThriveFlow on _ThriveHomeState {
                   Text(
                     r.label,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Row(
@@ -612,10 +627,10 @@ extension _ThriveFlow on _ThriveHomeState {
                         child: Text(
                           '${r.group} \u00b7 ${acc.short}',
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ),
@@ -627,20 +642,25 @@ extension _ThriveFlow on _ThriveHomeState {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: B.soft,
+                            color: context.tc.soft,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ic('repeat', size: 9, sw: 2.6, color: B.deep),
+                              ic(
+                                'repeat',
+                                size: 9,
+                                sw: 2.6,
+                                color: context.tc.deep,
+                              ),
                               const SizedBox(width: 3),
                               Text(
                                 'from ${ordinal(r.movedFrom!)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
-                                  color: B.deep,
+                                  color: context.tc.deep,
                                 ),
                               ),
                             ],
@@ -658,7 +678,7 @@ extension _ThriveFlow on _ThriveHomeState {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: isIn ? B.green : B.ink,
+                color: isIn ? context.tc.green : context.tc.ink,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -673,10 +693,15 @@ extension _ThriveFlow on _ThriveHomeState {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: r.done ? B.green : Colors.white,
+                  color: r.done ? context.tc.green : context.tc.surface,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: r.done ? B.green : const Color(0xffd6dde7),
+                    color: r.done
+                        ? context.tc.green
+                        : context.tc.pick(
+                            const Color(0xffd6dde7),
+                            context.tc.line,
+                          ),
                     width: 1.6,
                   ),
                 ),
@@ -702,7 +727,7 @@ extension _ThriveFlow on _ThriveHomeState {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
-        color: B.faint,
+        color: context.tc.faint,
         borderRadius: BorderRadius.circular(13),
       ),
       child: Column(
@@ -711,11 +736,11 @@ extension _ThriveFlow on _ThriveHomeState {
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .4,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
           const SizedBox(height: 3),
@@ -763,11 +788,11 @@ extension _ThriveFlow on _ThriveHomeState {
                 ? (0.08 + (d.outSum / maxFlow).clamp(0.0, 1.0) * 0.24)
                 : 0.0;
             final bgColor = isToday
-                ? B.soft
+                ? context.tc.soft
                 : hasOut
-                ? B.primary.withValues(alpha: outAlpha)
+                ? context.tc.primary.withValues(alpha: outAlpha)
                 : hasIn
-                ? B.greenSoft
+                ? context.tc.greenSoft
                 : Colors.transparent;
             return GestureDetector(
               key: ValueKey('flow-day-${d.day}'),
@@ -780,15 +805,18 @@ extension _ThriveFlow on _ThriveHomeState {
                   borderRadius: BorderRadius.circular(11),
                   border: Border.all(
                     color: isToday
-                        ? B.primary
+                        ? context.tc.primary
                         : (overdue
-                              ? const Color(0xfffcd9a5)
+                              ? context.tc.pick(
+                                  const Color(0xfffcd9a5),
+                                  context.tc.amberLine,
+                                )
                               : Colors.transparent),
                   ),
                   boxShadow: isToday
                       ? [
                           BoxShadow(
-                            color: B.primary.withValues(alpha: .18),
+                            color: context.tc.primary.withValues(alpha: .18),
                             spreadRadius: 2,
                           ),
                         ]
@@ -800,7 +828,9 @@ extension _ThriveFlow on _ThriveHomeState {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: isToday ? B.primary : Colors.transparent,
+                        color: isToday
+                            ? context.tc.primary
+                            : Colors.transparent,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -809,7 +839,7 @@ extension _ThriveFlow on _ThriveHomeState {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: isToday ? Colors.white : B.ink,
+                          color: isToday ? Colors.white : context.tc.ink,
                         ),
                       ),
                     ),
@@ -825,7 +855,9 @@ extension _ThriveFlow on _ThriveHomeState {
                             fontSize: 7.7,
                             fontWeight: FontWeight.w800,
                             height: 1.05,
-                            color: hasIn ? B.greenText : Colors.transparent,
+                            color: hasIn
+                                ? context.tc.greenText
+                                : Colors.transparent,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -837,7 +869,9 @@ extension _ThriveFlow on _ThriveHomeState {
                             fontSize: 7.7,
                             fontWeight: FontWeight.w800,
                             height: 1.05,
-                            color: hasOut ? B.deep : Colors.transparent,
+                            color: hasOut
+                                ? context.tc.deep
+                                : Colors.transparent,
                           ),
                         ),
                       ],
@@ -857,10 +891,10 @@ extension _ThriveFlow on _ThriveHomeState {
         const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w700,
-            color: B.soft2,
+            color: context.tc.soft2,
           ),
         ),
       ],
@@ -870,8 +904,8 @@ extension _ThriveFlow on _ThriveHomeState {
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(18),
         boxShadow: cardShadow(),
       ),
@@ -887,7 +921,7 @@ extension _ThriveFlow on _ThriveHomeState {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
-                      color: i > 4 ? B.muted : B.soft2,
+                      color: i > 4 ? context.tc.muted : context.tc.soft2,
                     ),
                   ),
                 ),
@@ -906,16 +940,16 @@ extension _ThriveFlow on _ThriveHomeState {
           Container(
             margin: const EdgeInsets.only(top: 11),
             padding: const EdgeInsets.only(top: 10),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: B.faint)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: context.tc.faint)),
             ),
             child: Wrap(
               alignment: WrapAlignment.center,
               spacing: 12,
               runSpacing: 6,
               children: [
-                legend(B.green, 'Money in'),
-                legend(B.red, 'Money out'),
+                legend(context.tc.green, 'Money in'),
+                legend(context.tc.red, 'Money out'),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -923,18 +957,26 @@ extension _ThriveFlow on _ThriveHomeState {
                       width: 11,
                       height: 11,
                       decoration: BoxDecoration(
-                        color: const Color(0xfffffaf2),
+                        color: context.tc.pick(
+                          const Color(0xfffffaf2),
+                          context.tc.amberSoft,
+                        ),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xfffcd9a5)),
+                        border: Border.all(
+                          color: context.tc.pick(
+                            const Color(0xfffcd9a5),
+                            context.tc.amberLine,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 5),
-                    const Text(
+                    Text(
                       'Not ticked off',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
-                        color: B.soft2,
+                        color: context.tc.soft2,
                       ),
                     ),
                   ],
@@ -964,14 +1006,14 @@ extension _ThriveFlow on _ThriveHomeState {
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
               'NEXT UP',
@@ -979,7 +1021,7 @@ extension _ThriveFlow on _ThriveHomeState {
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -997,17 +1039,17 @@ extension _ThriveFlow on _ThriveHomeState {
         margin: const EdgeInsets.only(bottom: 11),
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line),
+          color: context.tc.surface,
+          border: Border.all(color: context.tc.line),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'Nothing with a date this month.',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -1032,8 +1074,10 @@ extension _ThriveFlow on _ThriveHomeState {
       key: ValueKey('flow-timeline-day-${d.day}'),
       padding: const EdgeInsets.fromLTRB(14, 11, 14, 4),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: isToday ? B.primary : B.line),
+        color: context.tc.surface,
+        border: Border.all(
+          color: isToday ? context.tc.primary : context.tc.line,
+        ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: cardShadow(),
       ),
@@ -1048,7 +1092,7 @@ extension _ThriveFlow on _ThriveHomeState {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: isToday ? B.primary : B.faint,
+                    color: isToday ? context.tc.primary : context.tc.faint,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
@@ -1061,7 +1105,7 @@ extension _ThriveFlow on _ThriveHomeState {
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
                           height: 1,
-                          color: isToday ? Colors.white : B.ink,
+                          color: isToday ? Colors.white : context.tc.ink,
                         ),
                       ),
                       Text(
@@ -1070,9 +1114,8 @@ extension _ThriveFlow on _ThriveHomeState {
                           fontSize: 8,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .4,
-                          color: (isToday ? Colors.white : B.ink).withValues(
-                            alpha: .72,
-                          ),
+                          color: (isToday ? Colors.white : context.tc.ink)
+                              .withValues(alpha: .72),
                         ),
                       ),
                     ],
@@ -1089,16 +1132,16 @@ extension _ThriveFlow on _ThriveHomeState {
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
-                          color: d.net >= 0 ? B.green : B.ink,
+                          color: d.net >= 0 ? context.tc.green : context.tc.ink,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                       Text(
                         'Balance after \u00b7 ${eur(d.bal, cents: false)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                     ],
@@ -1111,15 +1154,15 @@ extension _ThriveFlow on _ThriveHomeState {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: B.soft,
+                      color: context.tc.soft,
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Today',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: B.deep,
+                        color: context.tc.deep,
                       ),
                     ),
                   ),
@@ -1140,9 +1183,11 @@ extension _ThriveFlow on _ThriveHomeState {
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xffd8dee8)),
+        border: Border.all(
+          color: context.tc.pick(const Color(0xffd8dee8), context.tc.line),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1154,34 +1199,34 @@ extension _ThriveFlow on _ThriveHomeState {
                 Expanded(
                   child: Text(
                     'NO DATE YET \u00b7 ${f.unscheduled.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: .3,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ),
                 Text(
                   eur(f.unSum, cents: false),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: B.ink,
+                    color: context.tc.ink,
                     fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 1),
             child: Text(
               'Not on the calendar and not in the projection. Tap one to give it a day.',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
                 height: 1.5,
               ),
             ),
@@ -1244,18 +1289,22 @@ class _FlowDaySheet extends StatelessWidget {
           ),
           Row(
             children: [
-              state._flowTile('In', '+${eur(d.inSum, cents: false)}', B.green),
+              state._flowTile(
+                'In',
+                '+${eur(d.inSum, cents: false)}',
+                context.tc.green,
+              ),
               const SizedBox(width: 8),
               state._flowTile(
                 'Out',
                 '\u2212${eur(d.outSum, cents: false)}',
-                B.red,
+                context.tc.red,
               ),
               const SizedBox(width: 8),
               state._flowTile(
                 'Balance after',
                 eur(d.bal, cents: false),
-                d.bal < 0 ? B.red : B.ink,
+                d.bal < 0 ? context.tc.red : context.tc.ink,
               ),
             ],
           ),
@@ -1269,7 +1318,7 @@ class _FlowDaySheet extends StatelessWidget {
               ),
             )
           else
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
@@ -1277,7 +1326,7 @@ class _FlowDaySheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ),
@@ -1297,14 +1346,14 @@ class _FlowDaySheet extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: B.primary, width: 1.5),
+                  border: Border.all(color: context.tc.primary, width: 1.5),
                 ),
                 child: Text(
                   '＋ Add on the ${ordinal(d.day)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: B.deep,
+                    color: context.tc.deep,
                   ),
                 ),
               ),
@@ -1347,12 +1396,12 @@ class _OpenBalSheetState extends State<_OpenBalSheet> {
           'Start balance',
           '${kMonthsEn[s.monthIdx]} ${s.year}',
         ),
-        const Text(
+        Text(
           'What sits on your accounts on the 1st? The projection and the lowest point are counted from here.',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: B.soft2,
+            color: context.tc.soft2,
             height: 1.55,
           ),
         ),
@@ -1371,12 +1420,14 @@ class _OpenBalSheetState extends State<_OpenBalSheet> {
 }
 
 // ============================================================= chart
-/// The dark projection card's running-balance line + area, ported from the
+/// The projection card's running-balance line + area, ported from the
 /// design's `flowChart()` SVG (line + soft fill, dashed zero line, a today
 /// marker, and a dot on the lowest point).
 class _FlowChartPainter extends CustomPainter {
-  _FlowChartPainter(this.model);
+  _FlowChartPainter(this.model, this.foreground, this.dark);
   final _FlowModel model;
+  final Color foreground;
+  final bool dark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1393,7 +1444,9 @@ class _FlowChartPainter extends CustomPainter {
     double y(double v) =>
         size.height - 8 - ((v - minV) / span) * (size.height - 16);
 
-    const lineColor = Color(0xff34d399);
+    final lineColor = dark
+        ? ThriveColors.light.greenText
+        : const Color(0xff34d399);
 
     final linePath = Path()..moveTo(x(0), y(vals[0]));
     for (var i = 1; i < n; i++) {
@@ -1408,7 +1461,7 @@ class _FlowChartPainter extends CustomPainter {
     if (minV < 0 && maxV > 0) {
       final zeroY = y(0);
       final dashPaint = Paint()
-        ..color = Colors.white.withValues(alpha: .3)
+        ..color = foreground.withValues(alpha: .3)
         ..strokeWidth = 1;
       var dx = 0.0;
       while (dx < size.width) {
@@ -1441,7 +1494,7 @@ class _FlowChartPainter extends CustomPainter {
         Offset(tx, 2),
         Offset(tx, size.height),
         Paint()
-          ..color = Colors.white.withValues(alpha: .32)
+          ..color = foreground.withValues(alpha: .32)
           ..strokeWidth = 1,
       );
     }
@@ -1453,8 +1506,8 @@ class _FlowChartPainter extends CustomPainter {
       4,
       Paint()
         ..color = model.low.bal < 0
-            ? const Color(0xfffda4af)
-            : const Color(0xff34d399),
+            ? (dark ? ThriveColors.light.red : const Color(0xfffda4af))
+            : lineColor,
     );
     canvas.drawCircle(
       Offset(lowX, lowY),
@@ -1462,10 +1515,11 @@ class _FlowChartPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = B.ink,
+        ..color = ThriveColors.current.ink,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _FlowChartPainter old) => old.model != model;
+  bool shouldRepaint(covariant _FlowChartPainter old) =>
+      old.model != model || old.foreground != foreground || old.dark != dark;
 }

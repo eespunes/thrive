@@ -103,7 +103,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
         width: size,
         height: size,
         alignment: Alignment.center,
-        color: color ?? B.faint,
+        color: color ?? context.tc.faint,
         child: Text(emoji, style: TextStyle(fontSize: size * 0.56)),
       );
     }
@@ -112,7 +112,7 @@ extension _ThriveAccountActions on _ThriveHomeState {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        gradient: color == null ? B.grad : null,
+        gradient: color == null ? context.tc.grad : null,
         color: color,
       ),
       child: Text(
@@ -151,13 +151,19 @@ extension _ThriveAccountActions on _ThriveHomeState {
   /// Member role / status pill styling, mirrors `memberPill`.
   ({Color bg, Color fg, String label}) memberPill(String role, String status) {
     if (status == 'invited') {
-      return (bg: B.amberSoft, fg: B.amberText, label: 'Invited');
+      return (
+        bg: context.tc.amberSoft,
+        fg: context.tc.amberText,
+        label: 'Invited',
+      );
     }
-    if (role == 'owner') return (bg: B.soft, fg: B.deep, label: 'Owner');
+    if (role == 'owner') {
+      return (bg: context.tc.soft, fg: context.tc.deep, label: 'Owner');
+    }
     if (role == 'kid') {
-      return (bg: B.amberSoft, fg: B.amberText, label: 'Kid');
+      return (bg: context.tc.amberSoft, fg: context.tc.amberText, label: 'Kid');
     }
-    return (bg: B.faint, fg: B.soft2, label: 'Member');
+    return (bg: context.tc.faint, fg: context.tc.soft2, label: 'Member');
   }
 
   // -------------------------------------------------------------- auth

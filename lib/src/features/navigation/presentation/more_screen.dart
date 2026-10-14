@@ -9,12 +9,14 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     return Stack(
       children: [
         if (!_headerScrolled)
-          const Positioned(
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: 28,
-            child: DecoratedBox(decoration: BoxDecoration(gradient: B.grad)),
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: context.tc.grad),
+            ),
           ),
         ListView(
           padding: const EdgeInsets.only(bottom: 14),
@@ -51,10 +53,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                         _appVersion.isEmpty
                             ? 'Thrive · English (UK)'
                             : 'Thrive $_appVersion · English (UK)',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                     ),
@@ -264,7 +266,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 ? 'owner'
                 : (m.status == 'invited' ? 'invited' : null),
             pillKind: m.role == 'owner' ? 'owner' : 'invited',
-            bg: m.status == 'invited' ? const Color(0xfffffdf5) : null,
+            bg: m.status == 'invited'
+                ? context.tc.pick(const Color(0xfffffdf5), context.tc.amberSoft)
+                : null,
             trail: avatarNode(
               photo: m.photo,
               emoji: m.emoji,
@@ -319,7 +323,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           builder: (context, _, _) {
             final n = unsavedChangeCount;
             final waiting = n > 0;
-            final ink = waiting ? B.amberText : B.greenText;
+            final ink = waiting ? context.tc.amberText : context.tc.greenText;
             return _hubRow(
               key: 'hub-pending',
               label: 'Unsaved changes',
@@ -329,20 +333,24 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 height: 38,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: waiting ? B.amberSoft : B.soft,
+                  color: waiting ? context.tc.amberSoft : context.tc.soft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: unsavedChangesGlyph(waiting ? B.amberText : B.deep),
+                child: unsavedChangesGlyph(
+                  waiting ? context.tc.amberText : context.tc.deep,
+                ),
               ),
               trail: Container(
                 key: const ValueKey('hub-pending-pill'),
                 height: 26,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: waiting ? B.amberSoft : B.greenSoft,
+                  color: waiting ? context.tc.amberSoft : context.tc.greenSoft,
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: waiting ? B.amberLine : B.greenLine,
+                    color: waiting
+                        ? context.tc.amberLine
+                        : context.tc.greenLine,
                   ),
                 ),
                 child: Row(
@@ -386,12 +394,17 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           tog: deviceCalendarSyncEnabled,
           onTog: toggleDeviceCalendarSync,
         ),
-        _hubRow(
-          key: 'hub-future-dark',
-          label: 'Dark mode',
-          pill: 'future',
-          tog: futureDark,
-          onTog: () => update(() => futureDark = !futureDark),
+        ValueListenableBuilder<ThemeMode>(
+          valueListenable: themeModeNotifier,
+          builder: (context, mode, _) => _hubRow(
+            key: 'hub-appearance',
+            label: 'Appearance',
+            sub: 'This device only',
+            val: themeModeLabel(mode),
+            onTap: () => setThemeMode(
+              ThemeMode.values[(mode.index + 1) % ThemeMode.values.length],
+            ),
+          ),
         ),
         _hubRow(
           key: 'hub-future-language',
@@ -421,7 +434,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                     ? 'You stay in your family. Nothing is deleted.'
                     : 'You stay in your families — nothing is deleted'),
           danger: true,
-          bg: const Color(0xfffef7f7),
+          bg: context.tc.pick(const Color(0xfffef7f7), context.tc.redSoft),
           noChev: true,
           onTap: signOut,
         ),
@@ -431,7 +444,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
             label: 'Delete account',
             sub: _deleteAccountConsequence(),
             danger: true,
-            bg: B.redSoft,
+            bg: context.tc.redSoft,
             noChev: true,
             onTap: openDeleteAccountSheet,
           ),
@@ -476,8 +489,8 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     final identity = u == null ? null : profileAvatarIdentity(u);
     return Container(
       decoration: BoxDecoration(
-        gradient: scrolled ? null : B.grad,
-        color: scrolled ? Colors.white : null,
+        gradient: scrolled ? null : context.tc.grad,
+        color: scrolled ? context.tc.surface : null,
       ),
       padding: const EdgeInsets.only(bottom: 24),
       child: AppHeader(
@@ -532,8 +545,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: current
-              ? (scrolled ? B.soft : Colors.white)
-              : (scrolled ? B.faint : Colors.white.withValues(alpha: .18)),
+              ? (scrolled ? context.tc.soft : Colors.white)
+              : (scrolled
+                    ? context.tc.faint
+                    : Colors.white.withValues(alpha: .18)),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -543,7 +558,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: current ? B.deep : (scrolled ? B.text : Colors.white),
+            color: current
+                ? context.tc.deep
+                : (scrolled ? context.tc.text : Colors.white),
           ),
         ),
       ),
@@ -559,9 +576,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         constraints: const BoxConstraints(minHeight: 32),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: scrolled ? B.faint : Colors.white.withValues(alpha: .12),
+          color: scrolled
+              ? context.tc.faint
+              : Colors.white.withValues(alpha: .12),
           border: Border.all(
-            color: scrolled ? B.line : Colors.white.withValues(alpha: .5),
+            color: scrolled
+                ? context.tc.line
+                : Colors.white.withValues(alpha: .5),
           ),
           borderRadius: BorderRadius.circular(999),
         ),
@@ -570,7 +591,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: scrolled ? B.text : Colors.white,
+            color: scrolled ? context.tc.text : Colors.white,
           ),
         ),
       ),
@@ -592,8 +613,8 @@ extension _ThriveMoreScreen on _ThriveHomeState {
     final open = hubOpenCard == id;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line),
         borderRadius: BorderRadius.circular(18),
         boxShadow: cardShadow(),
       ),
@@ -617,11 +638,16 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: B.soft,
+                      color: context.tc.soft,
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: Center(
-                      child: ic(icon, size: 16, sw: 2.2, color: B.primary),
+                      child: ic(
+                        icon,
+                        size: 16,
+                        sw: 2.2,
+                        color: context.tc.primary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 11),
@@ -632,19 +658,19 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                         Text(
                           summary,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ],
@@ -652,7 +678,12 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   ),
                   Transform.rotate(
                     angle: open ? math.pi : 0,
-                    child: ic('down', size: 15, sw: 2.2, color: B.muted),
+                    child: ic(
+                      'down',
+                      size: 15,
+                      sw: 2.2,
+                      color: context.tc.muted,
+                    ),
                   ),
                 ],
               ),
@@ -673,10 +704,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                       padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                       child: Text(
                         hint,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w700,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                     ),
@@ -724,7 +755,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: bg ?? B.page,
+            color: bg ?? context.tc.page,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -741,17 +772,20 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: danger ? B.red : B.ink,
+                        color: danger ? context.tc.red : context.tc.ink,
                       ),
                     ),
                     if (sub != null && sub.isNotEmpty)
                       Text(
                         sub,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xff8a96a8),
+                          color: context.tc.pick(
+                            const Color(0xff8a96a8),
+                            context.tc.placeholder,
+                          ),
                         ),
                       ),
                   ],
@@ -766,10 +800,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   ),
                   decoration: BoxDecoration(
                     color: pillKind == 'owner'
-                        ? B.soft
+                        ? context.tc.soft
                         : (pillKind == 'invited'
-                              ? B.amberSoft
-                              : const Color(0xfff5f3ff)),
+                              ? context.tc.amberSoft
+                              : context.tc.pick(
+                                  const Color(0xfff5f3ff),
+                                  const Color(0xff241a3d),
+                                )),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -779,10 +816,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                       fontWeight: FontWeight.w800,
                       letterSpacing: .3,
                       color: pillKind == 'owner'
-                          ? B.deep
+                          ? context.tc.deep
                           : (pillKind == 'invited'
-                                ? B.amberText
-                                : const Color(0xff7c3aed)),
+                                ? context.tc.amberText
+                                : context.tc.pick(
+                                    const Color(0xff7c3aed),
+                                    const Color(0xffc4b5fd),
+                                  )),
                     ),
                   ),
                 ),
@@ -797,8 +837,13 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                   ),
                   decoration: BoxDecoration(
                     color: warnVal
-                        ? B.amberSoft
-                        : (goodVal ? B.greenSoft : const Color(0xffe8ecf2)),
+                        ? context.tc.amberSoft
+                        : (goodVal
+                              ? context.tc.greenSoft
+                              : context.tc.pick(
+                                  const Color(0xffe8ecf2),
+                                  context.tc.line,
+                                )),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -807,15 +852,23 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                       color: warnVal
-                          ? B.amberText
-                          : (goodVal ? B.greenText : B.soft2),
+                          ? context.tc.amberText
+                          : (goodVal ? context.tc.greenText : context.tc.soft2),
                     ),
                   ),
                 ),
               ],
               if (onTap != null && !noChev && tog == null) ...[
                 const SizedBox(width: 4),
-                ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+                ic(
+                  'cright',
+                  size: 14,
+                  sw: 2.2,
+                  color: context.tc.pick(
+                    const Color(0xffc2cad6),
+                    context.tc.toggleOff,
+                  ),
+                ),
               ],
             ],
           ),
@@ -847,13 +900,18 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           padding: const EdgeInsets.all(2.5),
           alignment: on ? Alignment.centerRight : Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: on ? B.primary : const Color(0xffcfd6df),
+            color: on
+                ? context.tc.primary
+                : context.tc.pick(
+                    const Color(0xffcfd6df),
+                    context.tc.toggleOff,
+                  ),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Container(
             width: 20,
             height: 20,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
             ),
@@ -915,8 +973,8 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         constraints: const BoxConstraints(minHeight: 50),
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xfff8fafc),
-          border: Border.all(color: B.line),
+          color: context.tc.pick(const Color(0xfff8fafc), context.tc.rowOpen),
+          border: Border.all(color: context.tc.line),
           borderRadius: BorderRadius.circular(13),
         ),
         child: Row(
@@ -928,24 +986,35 @@ extension _ThriveMoreScreen on _ThriveHomeState {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Text(
                     sub,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff8a96a8),
+                      color: context.tc.pick(
+                        const Color(0xff8a96a8),
+                        context.tc.placeholder,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+            ic(
+              'cright',
+              size: 14,
+              sw: 2.2,
+              color: context.tc.pick(
+                const Color(0xffc2cad6),
+                context.tc.toggleOff,
+              ),
+            ),
           ],
         ),
       ),
@@ -977,7 +1046,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
               padding: const EdgeInsets.symmetric(vertical: 13),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: B.primary,
+                color: context.tc.primary,
                 borderRadius: BorderRadius.circular(13),
               ),
               child: const Text(

@@ -125,7 +125,7 @@ class _LayerStudioState extends State<_LayerStudio> {
     _label = l?.label ?? '';
     _emoji = l?.emoji;
     _picture = l?.picture;
-    _color = l?.color ?? B.primary;
+    _color = l?.color ?? ThriveColors.light.primary;
   }
 
   void _save() {

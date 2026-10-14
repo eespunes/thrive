@@ -91,8 +91,14 @@ class _ImportedCalendarsScreen extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: neutral ? Colors.white : (active ? B.soft : Colors.white),
-          border: Border.all(color: active ? B.primary : B.line),
+          color: neutral
+              ? ThriveColors.current.surface
+              : (active ? ThriveColors.current.soft : Colors.white),
+          border: Border.all(
+            color: active
+                ? ThriveColors.current.primary
+                : ThriveColors.current.line,
+          ),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -100,7 +106,11 @@ class _ImportedCalendarsScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: neutral ? B.text : (active ? B.deep : B.muted),
+            color: neutral
+                ? ThriveColors.current.text
+                : (active
+                      ? ThriveColors.current.deep
+                      : ThriveColors.current.muted),
           ),
         ),
       ),
@@ -410,7 +420,9 @@ class _ImportStudioState extends State<_ImportStudio> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: failing ? B.amberSoft : B.greenSoft,
+                      color: failing
+                          ? context.tc.amberSoft
+                          : context.tc.greenSoft,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -421,7 +433,9 @@ class _ImportStudioState extends State<_ImportStudio> {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
-                        color: failing ? B.amberText : B.greenText,
+                        color: failing
+                            ? context.tc.amberText
+                            : context.tc.greenText,
                       ),
                     ),
                   ),
@@ -440,16 +454,16 @@ class _ImportStudioState extends State<_ImportStudio> {
                         vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: B.line),
+                        color: context.tc.surface,
+                        border: Border.all(color: context.tc.line),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
+                      child: Text(
                         '↻ Sync now',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: B.text,
+                          color: context.tc.text,
                         ),
                       ),
                     ),
@@ -457,7 +471,7 @@ class _ImportStudioState extends State<_ImportStudio> {
                 ],
               ),
             ),
-            const Divider(color: B.faint, height: 16),
+            Divider(color: context.tc.faint, height: 16),
             studioToggleRow(
               key: const ValueKey('imp-autosync'),
               label: 'Keep it updated automatically',
@@ -487,7 +501,7 @@ class _ImportStudioState extends State<_ImportStudio> {
               onChanged: () => setState(() => _desc = !_desc),
               boxed: false,
             ),
-            const Divider(color: B.faint, height: 16),
+            Divider(color: context.tc.faint, height: 16),
             studioSectionLabel('Default reminder'),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,

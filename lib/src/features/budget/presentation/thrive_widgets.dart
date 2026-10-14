@@ -173,7 +173,7 @@ class _ColorPickerPanelState extends State<_ColorPickerPanel> {
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: B.faint,
+            color: context.tc.faint,
             borderRadius: BorderRadius.circular(11),
           ),
           child: Row(
@@ -202,9 +202,9 @@ class _ColorPickerPanelState extends State<_ColorPickerPanel> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.tc.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
           ),
           child: _tab == 0
               ? _GradientColorPicker(
@@ -242,7 +242,7 @@ class _ColorPickerTabBtn extends StatelessWidget {
         duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
-          color: active ? Colors.white : Colors.transparent,
+          color: active ? context.tc.surface : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
           boxShadow: active
               ? [
@@ -257,14 +257,19 @@ class _ColorPickerTabBtn extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ic(icon, size: 13, sw: 2.2, color: active ? B.deep : B.soft2),
+            ic(
+              icon,
+              size: 13,
+              sw: 2.2,
+              color: active ? context.tc.deep : context.tc.soft2,
+            ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: active ? B.deep : B.soft2,
+                color: active ? context.tc.deep : context.tc.soft2,
               ),
             ),
           ],
@@ -327,7 +332,7 @@ class _ChannelSlider extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
-                      border: Border.all(color: B.line, width: 2),
+                      border: Border.all(color: context.tc.line, width: 2),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: .18),
@@ -531,7 +536,7 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
             const Spacer(),
@@ -549,12 +554,12 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
                 onChanged: (v) {
                   if (v.length == 6) _applyHex(v);
                 },
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   isDense: true,
                   counterText: '',
                   contentPadding: EdgeInsets.symmetric(
@@ -563,7 +568,7 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(10)),
-                    borderSide: BorderSide(color: B.line),
+                    borderSide: BorderSide(color: context.tc.line),
                   ),
                 ),
               ),
@@ -579,16 +584,16 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const Spacer(),
             Text(
               '${(_opacity * 100).round()}%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ],
@@ -621,11 +626,11 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
           width: 46,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: .3,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -649,10 +654,10 @@ class _RgbHexColorPickerState extends State<_RgbHexColorPicker> {
             keyboardType: TextInputType.number,
             maxLength: 3,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: B.ink,
+              color: context.tc.ink,
             ),
             decoration: const InputDecoration(
               counterText: '',
@@ -749,7 +754,7 @@ class _SwipeRowState extends State<_SwipeRow>
                   key: showDeleteAction ? deleteKey : null,
                   onTap: widget.onDelete,
                   child: Container(
-                    color: B.red,
+                    color: context.tc.red,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -832,7 +837,7 @@ class _InOutChartPainter extends CustomPainter {
       Offset(pad * sx, base * sy),
       Offset((vbW - pad) * sx, base * sy),
       Paint()
-        ..color = B.line
+        ..color = ThriveColors.current.line
         ..strokeWidth = 1,
     );
 
@@ -874,16 +879,24 @@ class _InOutChartPainter extends CustomPainter {
       );
     }
 
-    drawArea(inPts, B.green);
-    drawArea(outPts, B.red);
-    drawLine(outPts, B.red, 2.4 * sx);
-    drawLine(inPts, B.green, 2.6 * sx);
+    drawArea(inPts, ThriveColors.current.green);
+    drawArea(outPts, ThriveColors.current.red);
+    drawLine(outPts, ThriveColors.current.red, 2.4 * sx);
+    drawLine(inPts, ThriveColors.current.green, 2.6 * sx);
 
     final dotR = points.length > 14 ? 1.6 : (points.length > 6 ? 2.2 : 3.0);
     for (int i = 0; i < points.length; i++) {
       final r = (points[i].hi ? dotR + 1.4 : dotR) * sx;
-      canvas.drawCircle(outPts[i], r, Paint()..color = B.red);
-      canvas.drawCircle(inPts[i], r, Paint()..color = B.green);
+      canvas.drawCircle(
+        outPts[i],
+        r,
+        Paint()..color = ThriveColors.current.red,
+      );
+      canvas.drawCircle(
+        inPts[i],
+        r,
+        Paint()..color = ThriveColors.current.green,
+      );
     }
 
     if (points.length <= 14) {
@@ -898,7 +911,9 @@ class _InOutChartPainter extends CustomPainter {
             style: TextStyle(
               fontSize: 8.5 * sx,
               fontWeight: FontWeight.w700,
-              color: points[i].hi ? B.ink : B.muted,
+              color: points[i].hi
+                  ? ThriveColors.current.ink
+                  : ThriveColors.current.muted,
             ),
           ),
           textDirection: TextDirection.ltr,

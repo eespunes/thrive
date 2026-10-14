@@ -50,7 +50,13 @@ class BadgeStudioScaffold extends StatefulWidget {
   final VoidCallback? onBack;
   final List<Widget> children;
 
-  static const Color _pageBg = Color(0xfff8fafc);
+  static Color get _pageBg => ThriveColors.current.pick(
+    ThriveColors.current.pick(
+      const Color(0xfff8fafc),
+      ThriveColors.current.rowOpen,
+    ),
+    ThriveColors.current.rowOpen,
+  );
 
   @override
   State<BadgeStudioScaffold> createState() => _BadgeStudioScaffoldState();
@@ -144,8 +150,8 @@ class _BadgeStudioScaffoldState extends State<BadgeStudioScaffold> {
                           onPressed: widget.onDelete,
                           child: Text(
                             widget.deleteLabel!,
-                            style: const TextStyle(
-                              color: B.red,
+                            style: TextStyle(
+                              color: context.tc.red,
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
                             ),
@@ -327,12 +333,12 @@ class _BadgeStageState extends State<BadgeStage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'tap the badge for a picture · ',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                     GestureDetector(
@@ -342,12 +348,12 @@ class _BadgeStageState extends State<BadgeStage> {
                         _emojiOpen = !_emojiOpen;
                         _emoji.clear();
                       }),
-                      child: const Text(
+                      child: Text(
                         'type an emoji',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: B.primary,
+                          color: context.tc.primary,
                         ),
                       ),
                     ),
@@ -365,15 +371,15 @@ class _BadgeStageState extends State<BadgeStage> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: B.primary),
+                      color: context.tc.surface,
+                      border: Border.all(color: context.tc.primary),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: TextField(
                       key: const ValueKey('badge-stage-emoji-input'),
                       controller: _emoji,
                       onSubmitted: (_) => _applyEmoji(),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(
@@ -384,7 +390,7 @@ class _BadgeStageState extends State<BadgeStage> {
                         hintStyle: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                       style: const TextStyle(
@@ -404,7 +410,7 @@ class _BadgeStageState extends State<BadgeStage> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: B.primary,
+                      color: context.tc.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -469,8 +475,8 @@ Future<void> showCountingConfirmSheet(
         16,
         20 + MediaQuery.of(ctx).padding.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: context.tc.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       child: Column(
@@ -483,28 +489,31 @@ Future<void> showCountingConfirmSheet(
               height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: const Color(0xffe2e8f0),
+                color: context.tc.pick(
+                  const Color(0xffe2e8f0),
+                  context.tc.line,
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               letterSpacing: -.3,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
             child: Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -519,7 +528,7 @@ Future<void> showCountingConfirmSheet(
               padding: const EdgeInsets.symmetric(vertical: 13),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: danger ? B.red : B.primary,
+                color: danger ? context.tc.red : context.tc.primary,
                 borderRadius: BorderRadius.circular(13),
               ),
               child: Text(
@@ -536,7 +545,7 @@ Future<void> showCountingConfirmSheet(
             key: const ValueKey('counting-confirm-cancel'),
             behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.of(ctx).pop(),
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.fromLTRB(12, 14, 12, 2),
               child: Text(
                 'Cancel',
@@ -544,7 +553,7 @@ Future<void> showCountingConfirmSheet(
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                 ),
               ),
             ),
@@ -697,10 +706,10 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                         padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
                         child: Text(
                           widget.intro!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ),
@@ -714,7 +723,7 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  border: Border.all(color: B.line),
+                                  border: Border.all(color: context.tc.line),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: TextField(
@@ -729,16 +738,16 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                                       vertical: 11,
                                     ),
                                     hintText: widget.addPlaceholder,
-                                    hintStyle: const TextStyle(
+                                    hintStyle: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
-                                      color: B.muted,
+                                      color: context.tc.muted,
                                     ),
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
-                                    color: B.ink,
+                                    color: context.tc.ink,
                                   ),
                                 ),
                               ),
@@ -755,7 +764,7 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: B.primary,
+                                  color: context.tc.primary,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -776,10 +785,10 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                         padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
                         child: Text(
                           widget.footnote!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ),
@@ -850,7 +859,7 @@ class HoldDragList extends StatelessWidget {
       proxyDecorator: (child, index, animation) => Transform.scale(
         scale: 1.02,
         child: Material(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(12),
           elevation: 12,
           shadowColor: const Color(0x73101828),

@@ -406,7 +406,7 @@ String _fmt(Object n) {
 /// Builds an icon widget identical to the design's `ic(name,size,sw,color)`.
 Widget ic(String name, {double size = 18, double sw = 2, Color? color}) {
   final spec = _kIcons[name] ?? const [];
-  final stroke = (color ?? B.ink);
+  final stroke = (color ?? ThriveColors.current.ink);
   final hex =
       '#${stroke.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
   final buffer = StringBuffer()

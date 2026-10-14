@@ -88,7 +88,9 @@ extension _ThriveHomeScreen on _ThriveHomeState {
   Widget _miniTaskRow(TaskList list, ListTask t, {required bool border}) {
     return Container(
       decoration: BoxDecoration(
-        border: border ? const Border(top: BorderSide(color: B.faint)) : null,
+        border: border
+            ? Border(top: BorderSide(color: context.tc.faint))
+            : null,
       ),
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
@@ -99,10 +101,15 @@ extension _ThriveHomeScreen on _ThriveHomeState {
               width: 21,
               height: 21,
               decoration: BoxDecoration(
-                color: t.done ? B.primary : Colors.white,
+                color: t.done ? context.tc.primary : context.tc.surface,
                 borderRadius: BorderRadius.circular(7),
                 border: Border.all(
-                  color: t.done ? B.primary : const Color(0xffcdd5df),
+                  color: t.done
+                      ? context.tc.primary
+                      : context.tc.pick(
+                          const Color(0xffcdd5df),
+                          context.tc.toggleOff,
+                        ),
                   width: 2,
                 ),
               ),
@@ -128,19 +135,19 @@ extension _ThriveHomeScreen on _ThriveHomeState {
                   Text(
                     t.title,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
                   Text(
                     list.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ],

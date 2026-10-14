@@ -32,7 +32,7 @@ Widget _famAvatarFallback(double size) => Container(
   width: size,
   height: size,
   alignment: Alignment.center,
-  decoration: const BoxDecoration(gradient: B.grad),
+  decoration: BoxDecoration(gradient: ThriveColors.current.grad),
   child: ic('users', size: size * 0.42, sw: 2.2, color: Colors.white),
 );
 
@@ -65,7 +65,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
   Timer? _usernameDebounce;
   int _usernameCheckSeq = 0;
   String? _usernameNote;
-  Color _usernameNoteColor = B.muted;
+  Color _usernameNoteColor = ThriveColors.current.muted;
 
   _ThriveHomeState get s => widget.state;
 
@@ -103,7 +103,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           _usernameNote = null;
         } else {
           _usernameNote = 'Suggested · available';
-          _usernameNoteColor = B.green;
+          _usernameNoteColor = context.tc.green;
         }
       });
     });
@@ -120,13 +120,13 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     if (!validFamilyUsername(slug)) {
       setState(() {
         _usernameNote = '3–24 letters, numbers, - or _';
-        _usernameNoteColor = B.red;
+        _usernameNoteColor = context.tc.red;
       });
       return;
     }
     setState(() {
       _usernameNote = 'Checking availability…';
-      _usernameNoteColor = B.muted;
+      _usernameNoteColor = context.tc.muted;
     });
     final seq = ++_usernameCheckSeq;
     _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
@@ -134,7 +134,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
       if (!mounted || seq != _usernameCheckSeq) return;
       setState(() {
         _usernameNote = available ? 'Available' : 'That username is taken';
-        _usernameNoteColor = available ? B.green : B.red;
+        _usernameNoteColor = available ? context.tc.green : context.tc.red;
       });
     });
   }
@@ -178,14 +178,14 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: B.page,
+      color: context.tc.page,
       child: SafeArea(
         child: Column(
           children: [
             Container(
               decoration: _scrolled
-                  ? const BoxDecoration(color: Colors.white)
-                  : const BoxDecoration(gradient: B.grad),
+                  ? BoxDecoration(color: context.tc.surface)
+                  : BoxDecoration(gradient: context.tc.grad),
               child: AppHeader(
                 hero: !_scrolled,
                 scrolled: _scrolled,
@@ -203,8 +203,12 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                           height: 5,
                           decoration: BoxDecoration(
                             color: step < 2
-                                ? (_scrolled ? B.primary : Colors.white)
-                                : (_scrolled ? B.line : Colors.white38),
+                                ? (_scrolled
+                                      ? context.tc.primary
+                                      : Colors.white)
+                                : (_scrolled
+                                      ? context.tc.line
+                                      : Colors.white38),
                             borderRadius: BorderRadius.circular(99),
                           ),
                         ),
@@ -237,8 +241,8 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                       // hero
                       Container(
                         padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
-                        decoration: const BoxDecoration(
-                          gradient: B.grad,
+                        decoration: BoxDecoration(
+                          gradient: context.tc.grad,
                           borderRadius: BorderRadius.vertical(
                             bottom: Radius.circular(28),
                           ),
@@ -301,7 +305,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 11),
             decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.transparent,
+              color: active ? context.tc.surface : Colors.transparent,
               borderRadius: BorderRadius.circular(11),
               boxShadow: active
                   ? [
@@ -319,7 +323,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: active ? B.deep : B.soft2,
+                color: active ? context.tc.deep : context.tc.soft2,
               ),
             ),
           ),
@@ -330,7 +334,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xffeaedf2),
+        color: context.tc.pick(const Color(0xffeaedf2), context.tc.line),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -369,22 +373,22 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: B.soft,
+                        color: context.tc.soft,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          ic('edit', size: 14, sw: 2.2, color: B.deep),
+                          ic('edit', size: 14, sw: 2.2, color: context.tc.deep),
                           const SizedBox(width: 6),
                           Text(
                             _picture != null
                                 ? 'Change photo'
                                 : 'Add photo (optional)',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              color: B.deep,
+                              color: context.tc.deep,
                             ),
                           ),
                         ],
@@ -401,11 +405,16 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: context.tc.surface,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: B.line),
+                          border: Border.all(color: context.tc.line),
                         ),
-                        child: ic('trash', size: 13, sw: 2.2, color: B.soft2),
+                        child: ic(
+                          'trash',
+                          size: 13,
+                          sw: 2.2,
+                          color: context.tc.soft2,
+                        ),
                       ),
                     ),
                   ],
@@ -454,7 +463,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           onSubmitted: _submit,
         ),
         _primaryBtn(_busy ? 'Creating…' : 'Create family', _submit),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 13),
           child: Text(
             'Members join with this username & password. You can change them '
@@ -464,7 +473,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               height: 1.5,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -480,7 +489,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
           padding: const EdgeInsets.all(14),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: B.soft,
+            color: context.tc.soft,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -489,7 +498,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: B.primary,
+                  color: context.tc.primary,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Center(
@@ -497,14 +506,14 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                 ),
               ),
               const SizedBox(width: 11),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Ask the family owner for the username & password they chose.',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     height: 1.5,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ),
@@ -540,7 +549,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
     bool obscure = false,
     ValueChanged<String>? onChanged,
     String? note,
-    Color noteColor = B.muted,
+    Color? noteColor,
     FocusNode? focusNode,
     TextInputAction action = TextInputAction.done,
     VoidCallback? onSubmitted,
@@ -555,11 +564,11 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
               label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .3,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
           ),
@@ -578,27 +587,27 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
               s.dismissError();
               onChanged?.call(v);
             },
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: B.ink,
+              color: context.tc.ink,
             ),
             decoration: InputDecoration(
               hintText: hint,
               isDense: true,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.tc.surface,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 13,
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.line),
+                borderSide: BorderSide(color: context.tc.line),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(13),
-                borderSide: const BorderSide(color: B.primary),
+                borderSide: BorderSide(color: context.tc.primary),
               ),
             ),
           ),
@@ -610,7 +619,7 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: noteColor,
+                  color: noteColor ?? ThriveColors.current.muted,
                 ),
               ),
             ),

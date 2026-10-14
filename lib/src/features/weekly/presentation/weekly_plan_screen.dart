@@ -20,9 +20,6 @@ const List<String> _kWeekdaysLong = [
   'Sunday',
 ];
 
-/// The meal plan's accent: dinner labels, planned-day dots, favourites.
-const Color _kMealAccent = Color(0xffc2410c);
-
 /// [d] moved by [n] calendar days (DST-safe: built from y/m/d, not hours).
 DateTime _addDays(DateTime d, int n) => DateTime(d.year, d.month, d.day + n);
 
@@ -89,11 +86,13 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(11),
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
             ),
-            child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.text)),
+            child: Center(
+              child: ic(icon, size: 16, sw: 2.4, color: context.tc.text),
+            ),
           ),
         );
     return Row(
@@ -108,13 +107,13 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: B.soft,
+                color: context.tc.soft,
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: const Text(
+              child: Text(
                 'This week',
                 style: TextStyle(
-                  color: B.deep,
+                  color: context.tc.deep,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
                 ),
@@ -132,7 +131,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     final iso = _iso(date);
     final active = iso == sel;
     final planned = weeklyPlan[iso]?.dinner?.isNotEmpty ?? false;
-    final fg = active ? Colors.white : B.ink;
+    final fg = active ? context.tc.surface : context.tc.ink;
     return GestureDetector(
       key: ValueKey('meal-day-$iso'),
       behavior: HitTestBehavior.opaque,
@@ -140,12 +139,12 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       child: Container(
         padding: const EdgeInsets.fromLTRB(0, 8, 0, 9),
         decoration: BoxDecoration(
-          color: active ? B.ink : Colors.white,
+          color: active ? context.tc.ink : context.tc.surface,
           borderRadius: BorderRadius.circular(14),
           border: active
               ? null
               : Border.all(
-                  color: iso == today ? B.primary : B.line,
+                  color: iso == today ? context.tc.primary : context.tc.line,
                   width: iso == today ? 1.5 : 1,
                 ),
         ),
@@ -179,11 +178,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               height: 5,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: !planned
-                    ? Colors.transparent
-                    : active
-                    ? const Color(0xfffdba74)
-                    : _kMealAccent,
+                color: planned ? context.tc.orangeText : Colors.transparent,
               ),
             ),
           ],
@@ -238,7 +233,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
             decoration: BoxDecoration(
-              color: const Color(0xffeef1f5),
+              color: context.tc.faint,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
@@ -246,7 +241,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: note != null ? B.text : B.placeholder,
+                color: note != null ? context.tc.text : context.tc.placeholder,
               ),
             ),
           ),
@@ -263,20 +258,20 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: B.line),
+          border: Border.all(color: context.tc.line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .4,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const SizedBox(height: 3),
@@ -287,7 +282,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: value != null ? B.ink : B.placeholder,
+                color: value != null ? context.tc.ink : context.tc.placeholder,
               ),
             ),
           ],
@@ -303,9 +298,9 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       key: const ValueKey('meal-dinner-card'),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: B.line),
+        border: Border.all(color: context.tc.line),
         boxShadow: const [
           BoxShadow(
             color: Color(0x73101828),
@@ -323,11 +318,11 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               Expanded(
                 child: Text(
                   'DINNER · ${_weekdayLong(iso).toUpperCase()}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .5,
-                    color: _kMealAccent,
+                    color: context.tc.orangeText,
                   ),
                 ),
               ),
@@ -338,20 +333,20 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                   height: 34,
                   padding: const EdgeInsets.symmetric(horizontal: 11),
                   decoration: BoxDecoration(
-                    color: B.faint,
+                    color: context.tc.faint,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ic('edit', size: 14, sw: 2, color: B.text),
+                      ic('edit', size: 14, sw: 2, color: context.tc.text),
                       const SizedBox(width: 6),
-                      const Text(
+                      Text(
                         'Edit',
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w800,
-                          color: B.text,
+                          color: context.tc.text,
                         ),
                       ),
                     ],
@@ -373,17 +368,19 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       behavior: HitTestBehavior.opaque,
       onTap: () => openDayEditor(iso),
       child: CustomPaint(
-        foregroundPainter: const _DashedRRectPainter(
-          color: Color(0xfffed7aa),
+        foregroundPainter: _DashedRRectPainter(
+          color: context.tc.isDark
+              ? context.tc.orangeText
+              : const Color(0xfffed7aa),
           radius: 16,
         ),
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: B.orangeSoft,
+            color: context.tc.orangeSoft,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -392,7 +389,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -.4,
-                  color: _kMealAccent,
+                  color: context.tc.orangeText,
                 ),
               ),
               SizedBox(height: 4),
@@ -401,7 +398,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xff9a3412),
+                  color: context.tc.orangeText,
                 ),
               ),
             ],
@@ -423,29 +420,29 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       Text(
         dinner,
         key: const ValueKey('meal-dinner-name'),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 27,
           fontWeight: FontWeight.w800,
           letterSpacing: -.7,
           height: 1.1,
-          color: B.ink,
+          color: context.tc.ink,
         ),
       ),
       const SizedBox(height: 4),
       Text(
         meta,
         key: const ValueKey('meal-dinner-meta'),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: B.soft2,
+          color: context.tc.soft2,
         ),
       ),
       if (ings.isNotEmpty) ...[
         const SizedBox(height: 14),
         Container(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xfff0f2f6))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: context.tc.line)),
           ),
           child: Column(
             children: [
@@ -462,7 +459,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
           child: Container(
             constraints: const BoxConstraints(minHeight: 48),
             decoration: BoxDecoration(
-              color: missing > 0 ? B.primary : B.soft,
+              color: missing > 0 ? context.tc.primary : context.tc.soft,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -472,7 +469,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                   'cart',
                   size: 16,
                   sw: 2,
-                  color: missing > 0 ? Colors.white : B.deep,
+                  color: missing > 0 ? context.tc.surface : context.tc.deep,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -482,7 +479,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: missing > 0 ? Colors.white : B.deep,
+                    color: missing > 0 ? context.tc.surface : context.tc.deep,
                   ),
                 ),
               ],
@@ -500,8 +497,8 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
       onTap: () => toggleIngredientOnGroceries(ing),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 9),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xfff0f2f6))),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: context.tc.line)),
         ),
         child: Row(
           children: [
@@ -509,11 +506,11 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: onList ? B.primary : Colors.white,
+                color: onList ? context.tc.primary : context.tc.surface,
                 borderRadius: BorderRadius.circular(7),
                 border: onList
                     ? null
-                    : Border.all(color: const Color(0xffcfd6e0), width: 1.5),
+                    : Border.all(color: context.tc.line, width: 1.5),
               ),
               child: onList
                   ? Center(
@@ -521,7 +518,7 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                         'check',
                         size: 12,
                         sw: 2.8,
-                        color: Colors.white,
+                        color: context.tc.surface,
                       ),
                     )
                   : null,
@@ -533,17 +530,17 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
-                  color: onList ? B.soft2 : B.ink,
+                  color: onList ? context.tc.soft2 : context.tc.ink,
                 ),
               ),
             ),
             if (onList)
-              const Text(
+              Text(
                 'On list',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: B.deep,
+                  color: context.tc.deep,
                 ),
               ),
           ],

@@ -20,19 +20,21 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
               width: 62,
               height: 62,
               decoration: BoxDecoration(
-                color: B.soft,
+                color: context.tc.soft,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Center(child: ic(icon, size: 28, sw: 2, color: B.primary)),
+              child: Center(
+                child: ic(icon, size: 28, sw: 2, color: context.tc.primary),
+              ),
             ),
             const SizedBox(height: 15),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
             const SizedBox(height: 5),
@@ -41,10 +43,10 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
               child: Text(
                 sub,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                   height: 1.5,
                 ),
               ),
@@ -59,7 +61,7 @@ extension _ThrivePlaceholderScreens on _ThriveHomeState {
                     vertical: 11,
                   ),
                   decoration: BoxDecoration(
-                    color: B.primary,
+                    color: context.tc.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

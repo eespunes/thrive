@@ -497,11 +497,11 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
 
   Widget _caption(String text) => Text(
     text,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w800,
       letterSpacing: .4,
-      color: B.muted,
+      color: context.tc.muted,
     ),
   );
 
@@ -522,16 +522,16 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: B.line, width: 1.5),
+          color: context.tc.surface,
+          border: Border.all(color: context.tc.line, width: 1.5),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w800,
-            color: B.ink,
+            color: context.tc.ink,
           ),
         ),
       ),
@@ -550,8 +550,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         constraints: const BoxConstraints(minHeight: 34),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: on ? B.primary : Colors.white,
-          border: Border.all(color: on ? B.primary : B.line),
+          color: on ? context.tc.primary : context.tc.surface,
+          border: Border.all(color: on ? context.tc.primary : context.tc.line),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Center(
@@ -562,7 +562,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
-              color: on ? Colors.white : B.soft2,
+              color: on ? Colors.white : context.tc.soft2,
             ),
           ),
         ),
@@ -576,16 +576,16 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     required String hint,
     int maxLines = 1,
   }) {
-    const style = TextStyle(
+    final style = TextStyle(
       fontSize: 13.5,
       fontWeight: FontWeight.w700,
-      color: B.ink,
+      color: context.tc.ink,
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: B.line, width: 1.5),
+        color: context.tc.surface,
+        border: Border.all(color: context.tc.line, width: 1.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextField(
@@ -598,7 +598,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         style: style,
         decoration: InputDecoration.collapsed(
           hintText: hint,
-          hintStyle: style.copyWith(color: B.placeholder),
+          hintStyle: style.copyWith(color: context.tc.placeholder),
         ),
       ),
     );
@@ -608,18 +608,21 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
 
   Widget _titleRow() {
     final valid = _title.text.trim().isNotEmpty;
-    const style = TextStyle(
+    final style = TextStyle(
       fontSize: 21,
       fontWeight: FontWeight.w800,
       letterSpacing: -.4,
-      color: B.ink,
+      color: context.tc.ink,
     );
     return AnimatedContainer(
       duration: const Duration(milliseconds: 120),
       padding: const EdgeInsets.fromLTRB(2, 6, 2, 10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: valid ? _effColor : B.line, width: 2),
+          bottom: BorderSide(
+            color: valid ? _effColor : context.tc.line,
+            width: 2,
+          ),
         ),
       ),
       child: Row(
@@ -636,7 +639,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               style: style,
               decoration: InputDecoration.collapsed(
                 hintText: _todo ? 'What needs doing?' : 'What’s happening?',
-                hintStyle: style.copyWith(color: B.placeholder),
+                hintStyle: style.copyWith(color: context.tc.placeholder),
               ),
             ),
           ),
@@ -655,9 +658,11 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     Color? tone,
     required VoidCallback onTap,
   }) {
-    final bg = on ? (tone ?? B.faint) : Colors.white;
-    final bd = on ? (tone ?? B.toggleOff) : B.line;
-    final fg = on ? (tone != null ? contrastOn(tone) : B.ink) : B.text;
+    final bg = on ? (tone ?? context.tc.faint) : Colors.white;
+    final bd = on ? (tone ?? context.tc.toggleOff) : context.tc.line;
+    final fg = on
+        ? (tone != null ? contrastOn(tone) : context.tc.ink)
+        : context.tc.text;
     return GestureDetector(
       key: key,
       behavior: HitTestBehavior.opaque,
@@ -698,7 +703,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
       _catChip(
         key: const ValueKey('event-cat-none'),
         label: 'None',
-        dot: B.toggleOff,
+        dot: context.tc.toggleOff,
         on: _category == null,
         onTap: () => setState(() => _category = null),
       ),
@@ -769,8 +774,11 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? B.soft : Colors.white,
-          border: Border.all(color: on ? B.primary : B.line, width: 1.5),
+          color: on ? context.tc.soft : context.tc.surface,
+          border: Border.all(
+            color: on ? context.tc.primary : context.tc.line,
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -780,7 +788,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w800,
-            color: on ? B.deep : B.text,
+            color: on ? context.tc.deep : context.tc.text,
           ),
         ),
       ),
@@ -796,8 +804,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         constraints: const BoxConstraints(minHeight: 52),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: B.page,
-          border: Border.all(color: B.line, width: 1.5),
+          color: context.tc.page,
+          border: Border.all(color: context.tc.line, width: 1.5),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -805,19 +813,19 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           children: [
             Text(
               caption,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const SizedBox(height: 1),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ],
@@ -881,13 +889,13 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                   () => _pickTime(true),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   '→',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: B.placeholder,
+                    color: context.tc.placeholder,
                   ),
                 ),
               ),
@@ -924,7 +932,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: B.line, width: 1.5),
+            border: Border.all(color: context.tc.line, width: 1.5),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -983,18 +991,18 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               if (_multiDay && !repeats)
                 Container(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: B.line)),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: context.tc.line)),
                   ),
                   child: Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Last day',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ),
@@ -1023,12 +1031,12 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   Widget _people() {
     final members = s.curFamily()?.members ?? const <FamilyMember>[];
     if (members.isEmpty) {
-      return const Text(
+      return Text(
         'No family members yet',
         style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w600,
-          color: B.muted,
+          color: context.tc.muted,
         ),
       );
     }
@@ -1063,8 +1071,10 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         decoration: BoxDecoration(
-          color: open ? B.rowOpen : Colors.white,
-          border: first ? null : const Border(top: BorderSide(color: B.line)),
+          color: open ? context.tc.rowOpen : context.tc.surface,
+          border: first
+              ? null
+              : Border(top: BorderSide(color: context.tc.line)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1083,10 +1093,15 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                       height: 32,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: B.soft,
+                        color: context.tc.soft,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: ic(icon, size: 16, sw: 2.1, color: B.deep),
+                      child: ic(
+                        icon,
+                        size: 16,
+                        sw: 2.1,
+                        color: context.tc.deep,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1096,10 +1111,10 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                         children: [
                           Text(
                             label,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: B.ink,
+                              color: context.tc.ink,
                             ),
                           ),
                           Text(
@@ -1110,7 +1125,9 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
-                              color: set ? B.soft2 : B.placeholder,
+                              color: set
+                                  ? context.tc.soft2
+                                  : context.tc.placeholder,
                             ),
                           ),
                         ],
@@ -1123,7 +1140,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                         'cdown',
                         size: 18,
                         sw: 2.4,
-                        color: B.placeholder,
+                        color: context.tc.placeholder,
                       ),
                     ),
                   ],
@@ -1152,7 +1169,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         constraints: const BoxConstraints(minHeight: 42),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: on ? B.soft : Colors.transparent,
+          color: on ? context.tc.soft : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1164,20 +1181,23 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: on ? B.primary : B.toggleOff,
+                  color: on ? context.tc.primary : context.tc.toggleOff,
                   width: 2,
                 ),
               ),
-              child: _dot(on ? B.primary : Colors.transparent, size: 8),
+              child: _dot(
+                on ? context.tc.primary : Colors.transparent,
+                size: 8,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
             ),
@@ -1199,8 +1219,10 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           height: 34,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: on ? B.primary : Colors.white,
-            border: Border.all(color: on ? B.primary : B.line),
+            color: on ? context.tc.primary : context.tc.surface,
+            border: Border.all(
+              color: on ? context.tc.primary : context.tc.line,
+            ),
             shape: BoxShape.circle,
           ),
           child: Text(
@@ -1208,7 +1230,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: on ? Colors.white : B.soft2,
+              color: on ? Colors.white : context.tc.soft2,
             ),
           ),
         ),
@@ -1321,8 +1343,8 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line),
+              color: context.tc.surface,
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -1380,13 +1402,13 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Stops repeating',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: B.text,
+                    color: context.tc.text,
                   ),
                 ),
               ),
@@ -1395,14 +1417,14 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                   key: const ValueKey('event-repeat-never'),
                   behavior: HitTestBehavior.opaque,
                   onTap: () => setState(() => _repeatEndDate = ''),
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     child: Text(
                       'Never stop',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.primary,
+                        color: context.tc.primary,
                       ),
                     ),
                   ),
@@ -1454,8 +1476,11 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           constraints: const BoxConstraints(minHeight: 42),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: on ? B.soft : Colors.white,
-            border: Border.all(color: on ? B.primary : B.line, width: 1.5),
+            color: on ? context.tc.soft : context.tc.surface,
+            border: Border.all(
+              color: on ? context.tc.primary : context.tc.line,
+              width: 1.5,
+            ),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
@@ -1463,7 +1488,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: on ? B.deep : B.text,
+              color: on ? context.tc.deep : context.tc.text,
             ),
           ),
         ),
@@ -1493,10 +1518,10 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           Text(
             ring,
             key: const ValueKey('ticket-ring-line'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
         ],
@@ -1525,7 +1550,12 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
                 label: 'Check it on Google Maps',
                 small: true,
                 selected: true,
-                leading: ic('mappin', size: 13, sw: 2.2, color: B.deep),
+                leading: ic(
+                  'mappin',
+                  size: 13,
+                  sw: 2.2,
+                  color: context.tc.deep,
+                ),
                 onTap: () async {
                   final ok = await openPlaceInMaps(_location.text);
                   if (!ok) s.flash('Could not open Maps on this device');
@@ -1548,8 +1578,11 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
         constraints: const BoxConstraints(minHeight: 36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: on ? layer.color.withValues(alpha: .12) : Colors.white,
-          border: Border.all(color: on ? layer.color : B.line, width: 1.5),
+          color: on ? layer.color.withValues(alpha: .12) : context.tc.surface,
+          border: Border.all(
+            color: on ? layer.color : context.tc.line,
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -1564,7 +1597,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: on ? layer.color : B.soft2,
+                color: on ? layer.color : context.tc.soft2,
               ),
             ),
           ],
@@ -1596,10 +1629,10 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
           Text(
             'Uses the ${cat.name} colour. '
             'Pick “None” as category to choose your own.',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           )
         else
@@ -1616,7 +1649,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     final repeats = _recur != 'none';
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: B.line, width: 1.5),
+        border: Border.all(color: context.tc.line, width: 1.5),
         borderRadius: BorderRadius.circular(16),
       ),
       child: ClipRRect(
@@ -1862,23 +1895,23 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
           LengthLimitingTextInputFormatter(2),
         ],
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.w800,
-          color: B.ink,
+          color: context.tc.ink,
         ),
         decoration: InputDecoration(
           isDense: true,
           filled: true,
-          fillColor: B.page,
+          fillColor: context.tc.page,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: B.line),
+            borderSide: BorderSide(color: context.tc.line),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: B.primary, width: 2),
+            borderSide: BorderSide(color: context.tc.primary, width: 2),
           ),
         ),
       ),
@@ -1888,7 +1921,7 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: context.tc.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
@@ -1898,10 +1931,10 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
           children: [
             Text(
               widget.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
             const SizedBox(height: 14),
@@ -1919,14 +1952,14 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
                     if (v.length == 2) _minuteFocus.requestFocus();
                   },
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     ':',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ),
@@ -1945,12 +1978,12 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
                 TextButton(
                   key: const ValueKey('time-input-cancel'),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ),
@@ -1958,12 +1991,12 @@ class _TimeInputDialogState extends State<_TimeInputDialog> {
                 TextButton(
                   key: const ValueKey('time-input-ok'),
                   onPressed: _confirm,
-                  child: const Text(
+                  child: Text(
                     'OK',
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
-                      color: B.primary,
+                      color: context.tc.primary,
                     ),
                   ),
                 ),

@@ -81,20 +81,24 @@ class AppHeader extends StatelessWidget {
         ? Colors.transparent
         : (scrolled
               ? (dark ? Theme.of(context).colorScheme.surface : Colors.white)
-              : B.page);
+              : context.tc.page);
     final ink = hero
         ? Colors.white
-        : (dark ? Theme.of(context).colorScheme.onSurface : B.ink);
+        : (dark ? Theme.of(context).colorScheme.onSurface : context.tc.ink);
     final subInk = hero
         ? const Color(0xe6ffffff)
-        : (dark ? Theme.of(context).colorScheme.onSurfaceVariant : B.muted);
+        : (dark
+              ? Theme.of(context).colorScheme.onSurfaceVariant
+              : context.tc.muted);
     final buttonInk = hero
         ? Colors.white
-        : (dark ? Theme.of(context).colorScheme.onSurface : B.text);
+        : (dark ? Theme.of(context).colorScheme.onSurface : context.tc.text);
     final buttonBg = hero
         ? Colors.white.withValues(alpha: .18)
         : (dark ? Theme.of(context).colorScheme.surface : Colors.white);
-    final buttonLine = hero ? Colors.white.withValues(alpha: .28) : B.line;
+    final buttonLine = hero
+        ? Colors.white.withValues(alpha: .28)
+        : context.tc.line;
     final visibleActions = actions.take(statusChip == null ? 2 : 1).toList();
 
     Widget iconButton(
@@ -120,9 +124,11 @@ class AppHeader extends StatelessWidget {
               color: filled
                   ? Colors.white
                   : active
-                  ? B.soft
+                  ? context.tc.soft
                   : buttonBg,
-              border: Border.all(color: active ? B.primary : buttonLine),
+              border: Border.all(
+                color: active ? context.tc.primary : buttonLine,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Stack(
@@ -134,9 +140,9 @@ class AppHeader extends StatelessWidget {
                   size: 18,
                   sw: 2.2,
                   color: filled
-                      ? B.ink
+                      ? context.tc.ink
                       : active
-                      ? B.deep
+                      ? context.tc.deep
                       : buttonInk,
                 ),
                 if (badge != null && badge > 0)
@@ -149,8 +155,8 @@ class AppHeader extends StatelessWidget {
                         minWidth: 16,
                         minHeight: 16,
                       ),
-                      decoration: const BoxDecoration(
-                        color: B.red,
+                      decoration: BoxDecoration(
+                        color: context.tc.red,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -178,8 +184,8 @@ class AppHeader extends StatelessWidget {
       color: background,
       child: Container(
         decoration: scrolled && !hero
-            ? const BoxDecoration(
-                border: Border(bottom: BorderSide(color: B.line)),
+            ? BoxDecoration(
+                border: Border(bottom: BorderSide(color: context.tc.line)),
               )
             : null,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -270,7 +276,7 @@ class AppHeader extends StatelessWidget {
                                               ? subInk
                                               : (hero
                                                     ? Colors.white
-                                                    : B.primary),
+                                                    : context.tc.primary),
                                         ),
                                       ),
                                     ),
@@ -280,7 +286,9 @@ class AppHeader extends StatelessWidget {
                                         'cdown',
                                         size: 11,
                                         sw: 2.6,
-                                        color: hero ? Colors.white : B.primary,
+                                        color: hero
+                                            ? Colors.white
+                                            : context.tc.primary,
                                       ),
                                     ],
                                   ],
@@ -298,7 +306,7 @@ class AppHeader extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: hero
                                       ? Colors.white.withValues(alpha: .22)
-                                      : B.amberSoft,
+                                      : context.tc.amberSoft,
                                   borderRadius: BorderRadius.circular(99),
                                 ),
                                 child: Text(
@@ -307,7 +315,9 @@ class AppHeader extends StatelessWidget {
                                     fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: .5,
-                                    color: hero ? Colors.white : B.amberText,
+                                    color: hero
+                                        ? Colors.white
+                                        : context.tc.amberText,
                                   ),
                                 ),
                               ),
@@ -346,7 +356,7 @@ class AppHeader extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: hero ? Colors.white : B.primary,
+                        color: hero ? Colors.white : context.tc.primary,
                       ),
                     ),
                   ),

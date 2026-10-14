@@ -45,9 +45,13 @@ Widget _listChip(
       constraints: const BoxConstraints(minHeight: 40),
       padding: EdgeInsets.fromLTRB(leading != null ? 5 : 13, 5, 13, 5),
       decoration: BoxDecoration(
-        color: active ? B.soft : Colors.white,
+        color: active
+            ? ThriveColors.current.soft
+            : ThriveColors.current.surface,
         border: Border.all(
-          color: active ? B.primary : B.line,
+          color: active
+              ? ThriveColors.current.primary
+              : ThriveColors.current.line,
           width: active ? 1.5 : 1,
         ),
         borderRadius: BorderRadius.circular(999),
@@ -61,7 +65,9 @@ Widget _listChip(
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: active ? B.deep : B.soft2,
+              color: active
+                  ? ThriveColors.current.deep
+                  : ThriveColors.current.soft2,
             ),
           ),
         ],
@@ -143,7 +149,7 @@ class _NoteSheetState extends State<_NoteSheet> {
 
     Widget kindTile(String k, String icon, String label) {
       final active = _kind == k;
-      final tint = k == 'shopping' ? B.amber : B.primary;
+      final tint = k == 'shopping' ? context.tc.amber : context.tc.primary;
       return Expanded(
         child: GestureDetector(
           key: ValueKey('note-kind-$k'),
@@ -152,9 +158,9 @@ class _NoteSheetState extends State<_NoteSheet> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
             decoration: BoxDecoration(
-              color: active ? B.soft : Colors.white,
+              color: active ? context.tc.soft : context.tc.surface,
               border: Border.all(
-                color: active ? B.primary : B.line,
+                color: active ? context.tc.primary : context.tc.line,
                 width: 1.5,
               ),
               borderRadius: BorderRadius.circular(14),
@@ -166,7 +172,7 @@ class _NoteSheetState extends State<_NoteSheet> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: active ? tint : B.faint,
+                    color: active ? tint : context.tc.faint,
                     borderRadius: BorderRadius.circular(11),
                   ),
                   child: Center(
@@ -174,7 +180,7 @@ class _NoteSheetState extends State<_NoteSheet> {
                       icon,
                       size: 19,
                       sw: 2.1,
-                      color: active ? Colors.white : B.soft2,
+                      color: active ? Colors.white : context.tc.soft2,
                     ),
                   ),
                 ),
@@ -184,7 +190,7 @@ class _NoteSheetState extends State<_NoteSheet> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: active ? B.deep : B.soft2,
+                    color: active ? context.tc.deep : context.tc.soft2,
                   ),
                 ),
               ],
@@ -257,12 +263,12 @@ class _NoteSheetState extends State<_NoteSheet> {
                       controller: _name,
                       autofocus: !editing,
                       onChanged: (_) => setState(() {}),
-                      cursorColor: B.primary,
-                      style: const TextStyle(
+                      cursorColor: context.tc.primary,
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -.3,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                       decoration: InputDecoration(
                         isCollapsed: true,
@@ -270,16 +276,16 @@ class _NoteSheetState extends State<_NoteSheet> {
                         hintText: shopping
                             ? 'e.g. Groceries'
                             : 'e.g. Weekend chores',
-                        hintStyle: const TextStyle(color: B.placeholder),
+                        hintStyle: TextStyle(color: context.tc.placeholder),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       '$kindName · shared with the family',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ],
@@ -432,7 +438,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                   s.crossOffTask(widget.listId, widget.task!.id);
                 }
               },
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.fromLTRB(0, 13, 0, 2),
                 child: Text(
                   'Cross it off the note',
@@ -440,7 +446,7 @@ class _LineEditSheetState extends State<_LineEditSheet> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: B.red,
+                    color: context.tc.red,
                   ),
                 ),
               ),
@@ -502,9 +508,13 @@ class _AssignSheet extends StatelessWidget {
                     vertical: 9,
                   ),
                   decoration: BoxDecoration(
-                    color: t?.assignee == m.id ? B.soft : Colors.white,
+                    color: t?.assignee == m.id
+                        ? context.tc.soft
+                        : context.tc.surface,
                     border: Border.all(
-                      color: t?.assignee == m.id ? B.primary : B.line,
+                      color: t?.assignee == m.id
+                          ? context.tc.primary
+                          : context.tc.line,
                       width: t?.assignee == m.id ? 1.5 : 1,
                     ),
                     borderRadius: BorderRadius.circular(14),
@@ -525,19 +535,19 @@ class _AssignSheet extends StatelessWidget {
                         child: Text(
                           m.name,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                           ),
                         ),
                       ),
                       Text(
                         '${loadOf(m.id)} open',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: B.soft2,
+                          color: context.tc.soft2,
                         ),
                       ),
                     ],
@@ -553,11 +563,16 @@ class _AssignSheet extends StatelessWidget {
               alignment: Alignment.center,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: t?.assignee == null ? B.soft : Colors.white,
+                color: t?.assignee == null
+                    ? context.tc.soft
+                    : context.tc.surface,
                 border: Border.all(
                   color: t?.assignee == null
-                      ? B.primary
-                      : const Color(0xffcfd8e3),
+                      ? context.tc.primary
+                      : context.tc.pick(
+                          const Color(0xffcfd8e3),
+                          context.tc.toggleOff,
+                        ),
                   width: 1.5,
                 ),
                 borderRadius: BorderRadius.circular(14),
@@ -567,7 +582,9 @@ class _AssignSheet extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w800,
-                  color: t?.assignee == null ? B.deep : B.soft2,
+                  color: t?.assignee == null
+                      ? context.tc.deep
+                      : context.tc.soft2,
                 ),
               ),
             ),

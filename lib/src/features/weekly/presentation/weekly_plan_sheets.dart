@@ -132,29 +132,32 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
     );
   }
 
-  static const _label = TextStyle(
+  TextStyle get _label => TextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w800,
     letterSpacing: .4,
-    color: B.muted,
+    color: context.tc.muted,
   );
-  static const _hint = TextStyle(
+  TextStyle get _hint => TextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w700,
-    color: B.placeholder,
+    color: context.tc.placeholder,
   );
-  static const _field = TextStyle(
+  TextStyle get _field => TextStyle(
     fontSize: 13.5,
     fontWeight: FontWeight.w700,
-    color: B.ink,
+    color: context.tc.ink,
   );
 
-  Widget _head(String label, [String? hint, Color color = B.muted]) => Row(
+  Widget _head(String label, [String? hint, Color? color]) => Row(
     crossAxisAlignment: CrossAxisAlignment.baseline,
     textBaseline: TextBaseline.alphabetic,
     children: [
       Expanded(
-        child: Text(label, style: _label.copyWith(color: color)),
+        child: Text(
+          label,
+          style: _label.copyWith(color: color ?? context.tc.muted),
+        ),
       ),
       if (hint != null) Text(hint, style: _hint),
     ],
@@ -163,12 +166,12 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
   InputDecoration _plain(String hint, {TextStyle? style}) =>
       InputDecoration.collapsed(
         hintText: hint,
-        hintStyle: (style ?? _field).copyWith(color: B.placeholder),
+        hintStyle: (style ?? _field).copyWith(color: context.tc.placeholder),
       );
 
   BoxDecoration get _box => BoxDecoration(
-    color: const Color(0xfffafbfc),
-    border: Border.all(color: B.line),
+    color: context.tc.faint,
+    border: Border.all(color: context.tc.line),
     borderRadius: BorderRadius.circular(12),
   );
 
@@ -229,11 +232,11 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
   Widget _dinnerSection() {
     final name = _dinner.text.trim();
     final fav = s.isFavouriteMeal(name);
-    const big = TextStyle(
+    final big = TextStyle(
       fontSize: 22,
       fontWeight: FontWeight.w800,
       letterSpacing: -.4,
-      color: B.ink,
+      color: context.tc.ink,
     );
     final heart = Opacity(
       opacity: name.isEmpty ? .45 : 1,
@@ -245,21 +248,26 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
           height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 11),
           decoration: BoxDecoration(
-            color: fav ? B.orangeSoft : Colors.white,
-            border: Border.all(color: fav ? const Color(0xfffed7aa) : B.line),
+            color: fav ? context.tc.orangeSoft : context.tc.surface,
+            border: Border.all(
+              color: fav ? const Color(0xfffed7aa) : context.tc.line,
+            ),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _heartIcon(filled: fav, color: fav ? _kMealAccent : B.text),
+              _heartIcon(
+                filled: fav,
+                color: fav ? context.tc.orangeText : context.tc.text,
+              ),
               const SizedBox(width: 6),
               Text(
                 fav ? 'Favourite' : 'Save',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: fav ? _kMealAccent : B.text,
+                  color: fav ? context.tc.orangeText : context.tc.text,
                 ),
               ),
             ],
@@ -270,13 +278,13 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _head('DINNER', null, _kMealAccent),
+        _head('DINNER', null, context.tc.orangeText),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: name.isEmpty ? B.line : B.primary,
+                color: name.isEmpty ? context.tc.line : context.tc.primary,
                 width: 2,
               ),
             ),
@@ -308,14 +316,14 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
         const SizedBox(height: 10),
         Row(
           children: [
-            ic('clock', size: 14, sw: 2, color: B.soft2),
+            ic('clock', size: 14, sw: 2, color: context.tc.soft2),
             const SizedBox(width: 6),
-            const Text(
+            Text(
               'Time to make',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
             const Spacer(),
@@ -341,7 +349,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                       decoration: _plain('—'),
                     ),
                   ),
-                  const Text('min', style: _hint),
+                  Text('min', style: _hint),
                 ],
               ),
             ),
@@ -370,7 +378,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
           decoration: _box,
           child: Row(
             children: [
-              ic('search', size: 15, sw: 2, color: B.muted),
+              ic('search', size: 15, sw: 2, color: context.tc.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -388,12 +396,17 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                   child: Container(
                     width: 24,
                     height: 24,
-                    decoration: const BoxDecoration(
-                      color: B.line,
+                    decoration: BoxDecoration(
+                      color: context.tc.line,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
-                      child: ic('x', size: 10, sw: 2.8, color: B.soft2),
+                      child: ic(
+                        'x',
+                        size: 10,
+                        sw: 2.8,
+                        color: context.tc.soft2,
+                      ),
                     ),
                   ),
                 ),
@@ -406,7 +419,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
             key: const ValueKey('day-fav-results'),
             constraints: const BoxConstraints(maxHeight: 166),
             decoration: BoxDecoration(
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(14),
             ),
             clipBehavior: Clip.antiAlias,
@@ -418,10 +431,10 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                     ),
                     child: Text(
                       'No favourites match “$q”',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: B.soft2,
+                        color: context.tc.soft2,
                       ),
                     ),
                   )
@@ -460,10 +473,10 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
         constraints: const BoxConstraints(minHeight: 55),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? B.orangeSoft : Colors.white,
+          color: selected ? context.tc.orangeSoft : context.tc.surface,
           border: i == 0
               ? null
-              : const Border(top: BorderSide(color: Color(0xfff0f2f6))),
+              : Border(top: BorderSide(color: context.tc.line)),
         ),
         child: Row(
           children: [
@@ -476,7 +489,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
-                      color: selected ? _kMealAccent : B.ink,
+                      color: selected ? context.tc.orangeText : context.tc.ink,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -484,10 +497,10 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                     meta,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   ),
                 ],
@@ -499,7 +512,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: selected ? _kMealAccent : B.deep,
+                color: selected ? context.tc.orangeText : context.tc.deep,
               ),
             ),
           ],
@@ -530,7 +543,7 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                   key: ValueKey('day-ing-$g'),
                   padding: const EdgeInsets.fromLTRB(11, 4, 4, 4),
                   decoration: BoxDecoration(
-                    color: B.faint,
+                    color: context.tc.faint,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -546,7 +559,12 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                           width: 22,
                           height: 22,
                           child: Center(
-                            child: ic('x', size: 10, sw: 2.6, color: B.muted),
+                            child: ic(
+                              'x',
+                              size: 10,
+                              sw: 2.6,
+                              color: context.tc.muted,
+                            ),
                           ),
                         ),
                       ),
@@ -584,11 +602,11 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: B.soft,
+                  color: context.tc.soft,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                  child: ic('plus', size: 16, sw: 2.4, color: B.deep),
+                  child: ic('plus', size: 16, sw: 2.4, color: context.tc.deep),
                 ),
               ),
             ),
@@ -609,10 +627,10 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
             width: 82,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
           ),
@@ -635,13 +653,13 @@ class _DayEditorSheetState extends State<_DayEditorSheet> {
         const SizedBox(height: 9),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             children: [
               row('Breakfast', _breakfast, 'day-breakfast'),
-              const Divider(height: 1, thickness: 1, color: Color(0xfff0f2f6)),
+              Divider(height: 1, thickness: 1, color: context.tc.line),
               row('Lunch', _lunch, 'day-lunch'),
             ],
           ),

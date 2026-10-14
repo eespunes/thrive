@@ -232,16 +232,29 @@ String pendingChangeWhen(int at, [DateTime? now]) {
 
 /// The four kinds of item the review screen distinguishes (icon + colour).
 enum _ChangeType {
-  note('note item', 'Notes', Color(0xff475569), Color(0xffeef1f5)),
-  event('event', 'Events', Color(0xff1684B4), Color(0xffe0f0f8)),
-  budget('budget entry', 'Budget', B.deep, B.soft),
-  meal('meal plan', 'Meal plans', B.orangeText, B.orangeSoft);
+  note('note item', 'Notes'),
+  event('event', 'Events'),
+  budget('budget entry', 'Budget'),
+  meal('meal plan', 'Meal plans');
 
-  const _ChangeType(this.single, this.group, this.ink, this.bg);
+  const _ChangeType(this.single, this.group);
   final String single;
   final String group;
-  final Color ink;
-  final Color bg;
+  Color get ink => switch (this) {
+    note => const Color(0xff475569),
+    event => const Color(0xff1684B4),
+    budget => ThriveColors.current.deep,
+    meal => ThriveColors.current.orangeText,
+  };
+  Color get bg => switch (this) {
+    note => ThriveColors.current.track,
+    event => ThriveColors.current.pick(
+      const Color(0xffe0f0f8),
+      ThriveColors.current.infoSoft,
+    ),
+    budget => ThriveColors.current.soft,
+    meal => ThriveColors.current.orangeSoft,
+  };
 
   static _ChangeType of(PendingChange c) => switch (recordKind(c.key)) {
     RecordKind.note || RecordKind.line => note,
@@ -264,14 +277,14 @@ enum _ChangeType {
 
 /// "Added" green, "Edited" blue, "Deleted" red.
 Color _verbInk(String verb) => switch (verb) {
-  'Added' => B.greenText,
-  'Deleted' => B.red,
+  'Added' => ThriveColors.current.greenText,
+  'Deleted' => ThriveColors.current.red,
   _ => const Color(0xff1684B4),
 };
 
 Color _verbTone(String verb) => switch (verb) {
-  'Added' => B.green,
-  'Deleted' => B.red,
+  'Added' => ThriveColors.current.green,
+  'Deleted' => ThriveColors.current.red,
   _ => const Color(0xff1684B4),
 };
 
@@ -396,21 +409,17 @@ Widget _verbLine(PendingChange c, {String? tail, double fontSize = 12.5}) {
       fontSize: fontSize,
       fontWeight: FontWeight.w600,
       height: 1.35,
-      color: B.soft2,
+      color: ThriveColors.current.soft2,
     ),
   );
 }
 
 /// A small spinning ring; still under tests and with reduced motion.
 class _PendingSpinner extends StatefulWidget {
-  const _PendingSpinner({
-    this.size = 14,
-    this.track = const Color(0xffdbe3ea),
-    this.tone = B.primary,
-  });
+  const _PendingSpinner({this.size = 14, this.track, this.tone});
   final double size;
-  final Color track;
-  final Color tone;
+  final Color? track;
+  final Color? tone;
 
   @override
   State<_PendingSpinner> createState() => _PendingSpinnerState();
@@ -449,13 +458,22 @@ class _PendingSpinnerState extends State<_PendingSpinner>
     child: SizedBox(
       width: widget.size,
       height: widget.size,
-      child: CustomPaint(painter: _RingPainter(widget.track, widget.tone)),
+      child: CustomPaint(
+        painter: _RingPainter(
+          widget.track ??
+              ThriveColors.current.pick(
+                context.tc.pick(const Color(0xffdbe3ea), context.tc.line),
+                ThriveColors.current.line,
+              ),
+          widget.tone ?? ThriveColors.current.primary,
+        ),
+      ),
     ),
   );
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter(this.track, [this.tone = B.primary]);
+  _RingPainter(this.track, this.tone);
   final Color track;
   final Color tone;
 
@@ -541,10 +559,10 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w800,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
         ),
@@ -597,30 +615,30 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
     margin: const EdgeInsets.fromLTRB(14, 8, 14, 0),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     decoration: BoxDecoration(
-      color: B.amberSoft,
+      color: context.tc.amberSoft,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: B.amberLine),
+      border: Border.all(color: context.tc.amberLine),
     ),
     child: Row(
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: const BoxDecoration(
-            color: B.amber,
+          decoration: BoxDecoration(
+            color: context.tc.amber,
             shape: BoxShape.circle,
             boxShadow: [BoxShadow(color: Color(0x2ed97706), spreadRadius: 4)],
           ),
         ),
         const SizedBox(width: 10),
-        const Expanded(
+        Expanded(
           child: Text(
             'You’re offline — changes are kept on this phone',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               height: 1.35,
-              color: B.amberText,
+              color: context.tc.amberText,
             ),
           ),
         ),
@@ -638,15 +656,15 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           height: 64,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: B.greenSoft,
+            color: context.tc.greenSoft,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Container(
             width: 30,
             height: 30,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: B.green,
+            decoration: BoxDecoration(
+              color: context.tc.green,
               shape: BoxShape.circle,
             ),
             child: _svg16(
@@ -658,17 +676,17 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'All changes saved',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
             letterSpacing: -.3,
-            color: B.ink,
+            color: context.tc.ink,
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           'Everything you changed has reached Thrive. If something can’t be '
           'saved, it shows up here.',
           textAlign: TextAlign.center,
@@ -676,7 +694,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
             fontSize: 13.5,
             fontWeight: FontWeight.w500,
             height: 1.5,
-            color: B.soft2,
+            color: context.tc.soft2,
           ),
         ),
       ],
@@ -693,11 +711,14 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         Row(
           children: [
             const SizedBox(width: 2),
-            const _PendingSpinner(size: 12, track: Color(0xffb7e3db)),
+            _PendingSpinner(
+              size: 12,
+              track: context.tc.pick(const Color(0xffb7e3db), context.tc.line),
+            ),
             const SizedBox(width: 8),
-            _sectionLabel('SAVING', B.deep),
+            _sectionLabel('SAVING', context.tc.deep),
             const SizedBox(width: 8),
-            _countBadge(saving.length, B.deep, B.soft),
+            _countBadge(saving.length, context.tc.deep, context.tc.soft),
             const Spacer(),
             GestureDetector(
               key: const ValueKey('pending-retry'),
@@ -707,9 +728,9 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                 height: 32,
                 padding: const EdgeInsets.symmetric(horizontal: 11),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.tc.surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: B.line),
+                  border: Border.all(color: context.tc.line),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -717,16 +738,16 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                     _svg16(
                       '<path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.8h-2.8"/>',
                       size: 13,
-                      color: B.deep,
+                      color: context.tc.deep,
                       sw: 2.2,
                     ),
                     const SizedBox(width: 6),
-                    const Text(
+                    Text(
                       'Save now',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.deep,
+                        color: context.tc.deep,
                       ),
                     ),
                   ],
@@ -747,7 +768,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           ],
         ),
         const SizedBox(height: 10),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 2),
           child: Text(
             'Retrying automatically — nothing to do. Tap a change to '
@@ -756,7 +777,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
               height: 1.45,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
         ),
@@ -764,7 +785,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.tc.surface,
             borderRadius: BorderRadius.circular(18),
             boxShadow: const [
               BoxShadow(
@@ -799,7 +820,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                     decoration: BoxDecoration(
                       border: i == 0
                           ? null
-                          : const Border(top: BorderSide(color: B.faint)),
+                          : Border(top: BorderSide(color: context.tc.faint)),
                     ),
                     child: Row(
                       children: [
@@ -838,10 +859,10 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
     pendingChangeLabel(c),
     maxLines: 1,
     overflow: TextOverflow.ellipsis,
-    style: const TextStyle(
+    style: TextStyle(
       fontSize: 14.5,
       fontWeight: FontWeight.w800,
-      color: B.ink,
+      color: context.tc.ink,
     ),
   );
 
@@ -852,7 +873,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
       key: ValueKey('staged-${c.id}'),
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.tc.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
@@ -884,7 +905,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     height: 1.3,
-                    color: canApply ? B.muted : B.amberText,
+                    color: canApply ? context.tc.muted : context.tc.amberText,
                   ),
                 ),
               ],
@@ -906,7 +927,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                 height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: B.faint,
+                  color: context.tc.faint,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: SvgPicture.string(
@@ -930,15 +951,15 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 13),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: B.soft,
+                  color: context.tc.soft,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
+                child: Text(
                   'Apply',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: B.deep,
+                    color: context.tc.deep,
                   ),
                 ),
               ),
@@ -958,9 +979,16 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
         height: 30,
         padding: const EdgeInsets.symmetric(horizontal: 11),
         decoration: BoxDecoration(
-          color: on ? B.ink : Colors.white,
+          color: on ? context.tc.ink : context.tc.surface,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: on ? B.ink : const Color(0xfff2dfae)),
+          border: Border.all(
+            color: on
+                ? context.tc.ink
+                : context.tc.pick(
+                    const Color(0xfff2dfae),
+                    context.tc.amberLine,
+                  ),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -970,7 +998,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: on ? Colors.white : B.text,
+                color: on ? context.tc.onInk : context.tc.text,
               ),
             ),
             const SizedBox(width: 6),
@@ -979,7 +1007,9 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: (on ? Colors.white : B.text).withValues(alpha: .7),
+                color: (on ? context.tc.onInk : context.tc.text).withValues(
+                  alpha: .7,
+                ),
               ),
             ),
           ],
@@ -1022,8 +1052,8 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
             Container(
               width: 9,
               height: 9,
-              decoration: const BoxDecoration(
-                color: B.amber,
+              decoration: BoxDecoration(
+                color: context.tc.amber,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(color: Color(0x2ed97706), spreadRadius: 4),
@@ -1031,9 +1061,13 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               ),
             ),
             const SizedBox(width: 9),
-            _sectionLabel('SET ASIDE', B.amberText),
+            _sectionLabel('SET ASIDE', context.tc.amberText),
             const SizedBox(width: 8),
-            _countBadge(staged.length, B.amberText, const Color(0xfffef3c7)),
+            _countBadge(
+              staged.length,
+              context.tc.amberText,
+              context.tc.pick(const Color(0xfffef3c7), context.tc.amberSoft),
+            ),
             const Spacer(),
             _textButton(
               const ValueKey('staged-discard-all'),
@@ -1055,7 +1089,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: B.primary,
+                    color: context.tc.primary,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
@@ -1077,7 +1111,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
           child: Container(
             padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
             decoration: BoxDecoration(
-              color: B.amberSoft,
+              color: context.tc.amberSoft,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -1094,7 +1128,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                           '<rect x="3" y="7" width="10" height="7" rx="2"/>'
                           '<path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/>',
                           size: 15,
-                          color: B.amberText,
+                          color: context.tc.amberText,
                           sw: 1.9,
                         ),
                       ),
@@ -1154,20 +1188,20 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                             const SizedBox(width: 8),
                             Text(
                               t.group.toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: .6,
-                                color: B.text,
+                                color: context.tc.text,
                               ),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               '${visible.where((c) => _ChangeType.of(c) == t).length}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: B.muted,
+                                color: context.tc.muted,
                               ),
                             ),
                           ],
@@ -1188,7 +1222,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
     );
   }
 
-  Widget _footnote() => const Padding(
+  Widget _footnote() => Padding(
     padding: EdgeInsets.symmetric(horizontal: 4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1204,7 +1238,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               height: 1.5,
-              color: B.soft2,
+              color: context.tc.soft2,
             ),
           ),
         ),
@@ -1215,7 +1249,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: B.page,
+      backgroundColor: context.tc.page,
       body: SafeArea(
         child: ValueListenableBuilder<int>(
           valueListenable: s.pendingChangesTick,
@@ -1288,15 +1322,18 @@ class _InfoDot extends StatelessWidget {
     alignment: Alignment.center,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      border: Border.all(color: const Color(0xff94a3b8), width: 1.6),
+      border: Border.all(
+        color: context.tc.pick(const Color(0xff94a3b8), context.tc.placeholder),
+        width: 1.6,
+      ),
     ),
-    child: const Text(
+    child: Text(
       'i',
       style: TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.w800,
         height: 1,
-        color: B.muted,
+        color: context.tc.muted,
       ),
     ),
   );
@@ -1340,7 +1377,7 @@ class _DiscardSheet extends StatelessWidget {
           key: const ValueKey('discard-sheet'),
           padding: const EdgeInsets.fromLTRB(24, 26, 24, 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.tc.surface,
             borderRadius: BorderRadius.circular(30),
             boxShadow: const [
               BoxShadow(
@@ -1362,13 +1399,13 @@ class _DiscardSheet extends StatelessWidget {
                     height: 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: B.redSoft,
+                      color: context.tc.redSoft,
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: _svg16(
                       '<path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5"/>',
                       size: 18,
-                      color: B.red,
+                      color: context.tc.red,
                       sw: 1.9,
                     ),
                   ),
@@ -1376,11 +1413,11 @@ class _DiscardSheet extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -.3,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                     ),
                   ),
@@ -1389,11 +1426,11 @@ class _DiscardSheet extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 body,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w500,
                   height: 1.55,
-                  color: B.soft2,
+                  color: context.tc.soft2,
                 ),
               ),
               const SizedBox(height: 16),
@@ -1404,7 +1441,7 @@ class _DiscardSheet extends StatelessWidget {
                     vertical: 11,
                   ),
                   decoration: BoxDecoration(
-                    color: B.page,
+                    color: context.tc.page,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
@@ -1419,10 +1456,10 @@ class _DiscardSheet extends StatelessWidget {
                               pendingChangeLabel(it),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
-                                color: B.ink,
+                                color: context.tc.ink,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1445,7 +1482,7 @@ class _DiscardSheet extends StatelessWidget {
                         height: 28,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
-                          color: B.page,
+                          color: context.tc.page,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
@@ -1462,10 +1499,10 @@ class _DiscardSheet extends StatelessWidget {
                             const SizedBox(width: 6),
                             Text(
                               '$n ${n == 1 ? t.single : t.group.toLowerCase()}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
-                                color: B.text,
+                                color: context.tc.text,
                               ),
                             ),
                           ],
@@ -1482,7 +1519,7 @@ class _DiscardSheet extends StatelessWidget {
                   height: 52,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: B.red,
+                    color: context.tc.red,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -1505,10 +1542,10 @@ class _DiscardSheet extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     secondary,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w700,
-                      color: B.text,
+                      color: context.tc.text,
                     ),
                   ),
                 ),
@@ -1546,9 +1583,11 @@ class _UnsavedChangesDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 13),
         decoration: BoxDecoration(
-          color: filled ? B.primary : Colors.white,
+          color: filled
+              ? ThriveColors.current.primary
+              : ThriveColors.current.surface,
           borderRadius: BorderRadius.circular(13),
-          border: filled ? null : Border.all(color: B.line),
+          border: filled ? null : Border.all(color: ThriveColors.current.line),
         ),
         child: Text(
           label,
@@ -1556,7 +1595,7 @@ class _UnsavedChangesDialog extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            color: filled ? Colors.white : B.text,
+            color: filled ? Colors.white : ThriveColors.current.text,
           ),
         ),
       ),
@@ -1573,7 +1612,7 @@ class _UnsavedChangesDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 312),
         padding: const EdgeInsets.fromLTRB(22, 24, 22, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(
@@ -1583,16 +1622,16 @@ class _UnsavedChangesDialog extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: B.amberSoft,
+                color: context.tc.amberSoft,
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: const Center(
+              child: Center(
                 child: Text(
                   '↻',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: B.amber,
+                    color: context.tc.amber,
                   ),
                 ),
               ),
@@ -1603,15 +1642,15 @@ class _UnsavedChangesDialog extends StatelessWidget {
                   ? '1 change wasn’t saved'
                   : '$count changes weren’t saved',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17.5,
                 fontWeight: FontWeight.w800,
-                color: B.ink,
+                color: context.tc.ink,
                 letterSpacing: -.2,
               ),
             ),
             const SizedBox(height: 7),
-            const Text(
+            Text(
               'Thrive closed before they reached your family’s data, so they '
               'were set aside. Review them to apply the ones you still want '
               'or discard the rest.',
@@ -1619,7 +1658,7 @@ class _UnsavedChangesDialog extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: B.soft2,
+                color: context.tc.soft2,
                 height: 1.55,
               ),
             ),

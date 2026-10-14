@@ -177,8 +177,12 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
           margin: const EdgeInsets.only(bottom: 7),
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
           decoration: BoxDecoration(
-            color: danger ? const Color(0xfffef7f7) : const Color(0xfff8fafc),
-            border: Border.all(color: danger ? B.redLine : B.line),
+            color: danger
+                ? context.tc.pick(const Color(0xfffef7f7), context.tc.redSoft)
+                : context.tc.pick(const Color(0xfff8fafc), context.tc.rowOpen),
+            border: Border.all(
+              color: danger ? context.tc.redLine : context.tc.line,
+            ),
             borderRadius: BorderRadius.circular(13),
           ),
           child: Row(
@@ -193,15 +197,18 @@ extension _ThriveFamilyScreens on _ThriveHomeState {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: danger ? B.red : B.ink,
+                        color: danger ? context.tc.red : context.tc.ink,
                       ),
                     ),
                     Text(
                       sub,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xff8a96a8),
+                        color: context.tc.pick(
+                          const Color(0xff8a96a8),
+                          context.tc.placeholder,
+                        ),
                       ),
                     ),
                   ],
@@ -223,8 +230,8 @@ Widget _famCard({required List<Widget> children, Color? borderColor}) =>
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: borderColor ?? B.line),
+        color: ThriveColors.current.surface,
+        border: Border.all(color: borderColor ?? ThriveColors.current.line),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -249,9 +256,15 @@ Widget _smallPillButton(
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       decoration: BoxDecoration(
-        color: disabled ? B.page : (primary ? B.soft : Colors.white),
+        color: disabled
+            ? ThriveColors.current.page
+            : (primary ? ThriveColors.current.soft : Colors.white),
         border: Border.all(
-          color: disabled ? B.line : (primary ? B.primary : B.line),
+          color: disabled
+              ? ThriveColors.current.line
+              : (primary
+                    ? ThriveColors.current.primary
+                    : ThriveColors.current.line),
         ),
         borderRadius: BorderRadius.circular(12),
       ),
@@ -261,8 +274,13 @@ Widget _smallPillButton(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           color: disabled
-              ? const Color(0xffa8b3c2)
-              : (primary ? B.deep : B.text),
+              ? ThriveColors.current.pick(
+                  const Color(0xffa8b3c2),
+                  ThriveColors.current.placeholder,
+                )
+              : (primary
+                    ? ThriveColors.current.deep
+                    : ThriveColors.current.text),
         ),
       ),
     ),
@@ -332,8 +350,8 @@ class _ExplicitSaveFieldState extends State<_ExplicitSaveField> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: B.page,
-              border: Border.all(color: B.line),
+              color: context.tc.page,
+              border: Border.all(color: context.tc.line),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
@@ -352,16 +370,16 @@ class _ExplicitSaveFieldState extends State<_ExplicitSaveField> {
                   vertical: 11,
                 ),
                 hintText: widget.hint,
-                hintStyle: const TextStyle(
+                hintStyle: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
-                  color: B.muted,
+                  color: context.tc.muted,
                 ),
               ),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ),
@@ -377,7 +395,7 @@ class _ExplicitSaveFieldState extends State<_ExplicitSaveField> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: B.primary,
+                color: context.tc.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
@@ -450,7 +468,7 @@ class _ProfileScreen extends StatelessWidget {
                               key: const ValueKey('profile-photo-remove'),
                               behavior: HitTestBehavior.opaque,
                               onTap: () => s.saveProfilePhoto(null),
-                              child: const Padding(
+                              child: Padding(
                                 padding: EdgeInsets.only(top: 6),
                                 child: Text(
                                   'Remove photo',
@@ -458,7 +476,7 @@ class _ProfileScreen extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: B.red,
+                                    color: context.tc.red,
                                   ),
                                 ),
                               ),
@@ -484,8 +502,8 @@ class _ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.only(top: 10),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: B.faint)),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: context.tc.faint)),
                   ),
                   child: Row(
                     children: [
@@ -493,10 +511,10 @@ class _ProfileScreen extends StatelessWidget {
                         child: Text(
                           u.email,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
-                            color: B.soft2,
+                            color: context.tc.soft2,
                           ),
                         ),
                       ),
@@ -507,15 +525,15 @@ class _ProfileScreen extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: B.faint,
+                          color: context.tc.faint,
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           u.provider == 'google' ? 'Google' : 'Email',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: B.soft2,
+                            color: context.tc.soft2,
                           ),
                         ),
                       ),
@@ -525,8 +543,8 @@ class _ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.only(top: 10),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: B.faint)),
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: context.tc.faint)),
                   ),
                   child: EdColourFold(
                     selected: identity.color ?? Colors.transparent,
@@ -690,18 +708,18 @@ class _FamilyScreen extends StatelessWidget {
                   Text(
                     f.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: context.tc.ink,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'Only the owner can rename the family.',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ],
@@ -709,18 +727,18 @@ class _FamilyScreen extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(top: 10),
                     padding: const EdgeInsets.only(top: 10),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: B.faint)),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: context.tc.faint)),
                     ),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             '@${f.username}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w800,
-                              color: B.primary,
+                              color: context.tc.primary,
                             ),
                           ),
                         ),
@@ -739,7 +757,7 @@ class _FamilyScreen extends StatelessWidget {
                 studioSectionLabel('Members · ${f.members.length}'),
                 for (final m in f.members) _memberRow(s, m),
                 if (!s.amOwner())
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(2, 4, 2, 8),
                     child: Text(
                       'Only owners can manage members — tap a row to see '
@@ -747,7 +765,7 @@ class _FamilyScreen extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w700,
-                        color: B.muted,
+                        color: context.tc.muted,
                       ),
                     ),
                   ),
@@ -784,7 +802,7 @@ class _FamilyScreen extends StatelessWidget {
             ),
             // ------------------------------------------------ danger zone
             _famCard(
-              borderColor: B.redLine,
+              borderColor: context.tc.redLine,
               children: [
                 GestureDetector(
                   key: const ValueKey('family-leave'),
@@ -795,20 +813,20 @@ class _FamilyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Leave this family',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: B.red,
+                            color: context.tc.red,
                           ),
                         ),
                         Text(
                           _leaveSub(s, f),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,
-                            color: B.muted,
+                            color: context.tc.muted,
                           ),
                         ),
                       ],
@@ -819,8 +837,15 @@ class _FamilyScreen extends StatelessWidget {
                   Container(
                     margin: const EdgeInsets.only(top: 10),
                     padding: const EdgeInsets.only(top: 10),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xfffee2e2))),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: context.tc.pick(
+                            const Color(0xfffee2e2),
+                            context.tc.redSoft,
+                          ),
+                        ),
+                      ),
                     ),
                     child: GestureDetector(
                       key: const ValueKey('family-delete'),
@@ -829,21 +854,21 @@ class _FamilyScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Delete family',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: B.red,
+                              color: context.tc.red,
                             ),
                           ),
                           Text(
                             'Deletes everything for all ${f.members.length} '
                             'members — can’t be undone',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w600,
-                              color: B.muted,
+                              color: context.tc.muted,
                             ),
                           ),
                         ],
@@ -887,15 +912,15 @@ class _FamilyScreen extends StatelessWidget {
         ? 'INVITED'
         : (loginless ? 'NO LOGIN' : null);
     final pillBg = m.role == 'owner'
-        ? B.soft
+        ? ThriveColors.current.soft
         : invited
-        ? B.amberSoft
-        : B.faint;
+        ? ThriveColors.current.amberSoft
+        : ThriveColors.current.faint;
     final pillFg = m.role == 'owner'
-        ? B.deep
+        ? ThriveColors.current.deep
         : invited
-        ? B.amberText
-        : B.soft2;
+        ? ThriveColors.current.amberText
+        : ThriveColors.current.soft2;
     return GestureDetector(
       key: ValueKey('fam-member-${m.id}'),
       behavior: HitTestBehavior.opaque,
@@ -905,7 +930,12 @@ class _FamilyScreen extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: invited ? const Color(0xfffffdf5) : B.page,
+          color: invited
+              ? ThriveColors.current.pick(
+                  const Color(0xfffffdf5),
+                  ThriveColors.current.amberSoft,
+                )
+              : ThriveColors.current.page,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -929,19 +959,25 @@ class _FamilyScreen extends StatelessWidget {
                   Text(
                     self ? '${m.name} (you)' : m.name,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
-                      color: B.ink,
+                      color: ThriveColors.current.ink,
                     ),
                   ),
                   Text(
                     sub,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff8a96a8),
+                      color: ThriveColors.current.pick(
+                        ThriveColors.current.pick(
+                          const Color(0xff8a96a8),
+                          ThriveColors.current.placeholder,
+                        ),
+                        ThriveColors.current.placeholder,
+                      ),
                     ),
                   ),
                 ],
@@ -967,7 +1003,18 @@ class _FamilyScreen extends StatelessWidget {
               ),
             ],
             const SizedBox(width: 4),
-            ic('cright', size: 14, sw: 2.2, color: const Color(0xffc2cad6)),
+            ic(
+              'cright',
+              size: 14,
+              sw: 2.2,
+              color: ThriveColors.current.pick(
+                ThriveColors.current.pick(
+                  const Color(0xffc2cad6),
+                  ThriveColors.current.toggleOff,
+                ),
+                ThriveColors.current.toggleOff,
+              ),
+            ),
           ],
         ),
       ),
@@ -1028,9 +1075,13 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: m.id == _successor ? B.soft : Colors.white,
+                color: m.id == _successor
+                    ? context.tc.soft
+                    : context.tc.surface,
                 border: Border.all(
-                  color: m.id == _successor ? B.primary : B.line,
+                  color: m.id == _successor
+                      ? context.tc.primary
+                      : context.tc.line,
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(13),
@@ -1050,10 +1101,10 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
                   Expanded(
                     child: Text(
                       m.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: B.ink,
+                        color: context.tc.ink,
                       ),
                     ),
                   ),
@@ -1063,8 +1114,11 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: m.id == _successor
-                          ? B.primary
-                          : const Color(0xffcbd5e1),
+                          ? context.tc.primary
+                          : context.tc.pick(
+                              const Color(0xffcbd5e1),
+                              context.tc.toggleOff,
+                            ),
                     ),
                   ),
                 ],
@@ -1084,7 +1138,7 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
             padding: const EdgeInsets.symmetric(vertical: 13),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: B.red,
+              color: context.tc.red,
               borderRadius: BorderRadius.circular(13),
             ),
             child: Text(
@@ -1100,7 +1154,7 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.of(context).pop(),
-          child: const Padding(
+          child: Padding(
             padding: EdgeInsets.fromLTRB(12, 14, 12, 4),
             child: Text(
               'Cancel',
@@ -1108,7 +1162,7 @@ class _OwnerLeaveSheetState extends State<_OwnerLeaveSheet> {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,
-                color: B.soft2,
+                color: context.tc.soft2,
               ),
             ),
           ),
@@ -1188,7 +1242,7 @@ class _InviteSheetState extends State<_InviteSheet> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
-              color: B.page,
+              color: context.tc.page,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
@@ -1199,10 +1253,10 @@ class _InviteSheetState extends State<_InviteSheet> {
                     Expanded(
                       child: Text(
                         '@${f.username}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
-                          color: B.primary,
+                          color: context.tc.primary,
                         ),
                       ),
                     ),
@@ -1214,12 +1268,12 @@ class _InviteSheetState extends State<_InviteSheet> {
                 ),
                 const SizedBox(height: 9),
                 if (!_loaded)
-                  const Text(
+                  Text(
                     'Loading…',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: B.soft2,
+                      color: context.tc.soft2,
                     ),
                   )
                 else
@@ -1257,7 +1311,7 @@ class _InviteSheetState extends State<_InviteSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 15),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: B.primary,
+                    color: context.tc.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
@@ -1272,7 +1326,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               ),
             ],
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(2, 6, 2, 12),
             child: Text(
               'Honest note: this only adds them as "invited" — Thrive '
@@ -1280,7 +1334,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                color: B.amberText,
+                color: context.tc.amberText,
               ),
             ),
           ),
@@ -1314,23 +1368,23 @@ class _InviteSheetState extends State<_InviteSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 15),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: B.soft,
-                    border: Border.all(color: B.primary),
+                    color: context.tc.soft,
+                    border: Border.all(color: context.tc.primary),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Add',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: B.deep,
+                      color: context.tc.deep,
                     ),
                   ),
                 ),
               ),
             ],
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(2, 6, 2, 14),
             child: Text(
               'They appear everywhere but never sign in — anyone can '
@@ -1338,7 +1392,7 @@ class _InviteSheetState extends State<_InviteSheet> {
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           ),
@@ -1359,11 +1413,11 @@ class _InviteSheetState extends State<_InviteSheet> {
           Expanded(
             child: Text(
               _reveal ? pw : '•' * pw.length,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1,
-                color: B.ink,
+                color: context.tc.ink,
               ),
             ),
           ),
@@ -1386,7 +1440,7 @@ class _InviteSheetState extends State<_InviteSheet> {
         key: const ValueKey('iv-pw-hidden'),
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         decoration: BoxDecoration(
-          color: const Color(0xffeef1f6),
+          color: context.tc.pick(const Color(0xffeef1f6), context.tc.line),
           borderRadius: BorderRadius.circular(11),
         ),
         child: Wrap(
@@ -1413,7 +1467,7 @@ class _InviteSheetState extends State<_InviteSheet> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: B.primary,
+                  color: context.tc.primary,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: const Text(
@@ -1435,7 +1489,7 @@ class _InviteSheetState extends State<_InviteSheet> {
       key: const ValueKey('iv-pw-none'),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
-        color: B.amberSoft,
+        color: context.tc.amberSoft,
         borderRadius: BorderRadius.circular(11),
       ),
       child: Wrap(
@@ -1443,12 +1497,12 @@ class _InviteSheetState extends State<_InviteSheet> {
         spacing: 6,
         runSpacing: 4,
         children: [
-          const Text(
+          Text(
             'No password — anyone with the username can join.',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: B.amberText,
+              color: context.tc.amberText,
             ),
           ),
           GestureDetector(
@@ -1458,7 +1512,7 @@ class _InviteSheetState extends State<_InviteSheet> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: B.amberText,
+                color: context.tc.amberText,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: const Text(
@@ -1538,7 +1592,9 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
             padding: const EdgeInsets.symmetric(vertical: 13),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _ok ? B.primary : const Color(0xffe2e8f0),
+              color: _ok
+                  ? context.tc.primary
+                  : context.tc.pick(const Color(0xffe2e8f0), context.tc.line),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Text(
@@ -1546,7 +1602,7 @@ class _ResetFamilyPasswordSheetState extends State<_ResetFamilyPasswordSheet> {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: _ok ? Colors.white : B.muted,
+                color: _ok ? Colors.white : context.tc.muted,
               ),
             ),
           ),
@@ -1592,8 +1648,8 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
         ),
         Container(
           decoration: BoxDecoration(
-            color: B.redSoft,
-            border: Border.all(color: B.redLine),
+            color: context.tc.redSoft,
+            border: Border.all(color: context.tc.redLine),
             borderRadius: BorderRadius.circular(12),
           ),
           margin: const EdgeInsets.only(bottom: 10),
@@ -1601,7 +1657,7 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
             key: const ValueKey('da-input'),
             controller: _typed,
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
@@ -1612,13 +1668,13 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
               hintStyle: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
         ),
@@ -1635,7 +1691,12 @@ class _DeleteAccountSheetState extends State<_DeleteAccountSheet> {
             padding: const EdgeInsets.symmetric(vertical: 13),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _ok ? B.red : const Color(0xfffee2e2),
+              color: _ok
+                  ? context.tc.red
+                  : context.tc.pick(
+                      const Color(0xfffee2e2),
+                      context.tc.redSoft,
+                    ),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Text(

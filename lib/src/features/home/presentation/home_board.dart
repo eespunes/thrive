@@ -128,13 +128,13 @@ extension _ThriveHomeBoard on _ThriveHomeState {
   Widget _homeBoardHeader() {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
             'Drag to reorder · only you see this',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -144,7 +144,7 @@ extension _ThriveHomeBoard on _ThriveHomeState {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
             decoration: BoxDecoration(
-              color: B.primary,
+              color: context.tc.primary,
               borderRadius: BorderRadius.circular(11),
             ),
             child: Row(
@@ -229,23 +229,23 @@ extension _ThriveHomeBoard on _ThriveHomeState {
       padding: const EdgeInsets.only(top: 40, bottom: 10),
       child: Column(
         children: [
-          ic('grid', size: 30, sw: 1.8, color: B.muted),
+          ic('grid', size: 30, sw: 1.8, color: context.tc.muted),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Your board is empty',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: B.ink,
+              color: context.tc.ink,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Add a widget to make Home yours.',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ],
@@ -289,7 +289,10 @@ extension _ThriveHomeBoard on _ThriveHomeState {
                 child: IgnorePointer(
                   child: CustomPaint(
                     painter: _DashedRectPainter(
-                      color: const Color(0xffcbd5e1),
+                      color: context.tc.pick(
+                        const Color(0xffcbd5e1),
+                        context.tc.toggleOff,
+                      ),
                       radius: 18,
                       inset: 5,
                     ),
@@ -310,17 +313,17 @@ extension _ThriveHomeBoard on _ThriveHomeState {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: B.line),
+                        color: context.tc.surface,
+                        border: Border.all(color: context.tc.line),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         'SIZE ${entry.size.toUpperCase()}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .3,
-                          color: B.muted,
+                          color: context.tc.muted,
                         ),
                       ),
                     ),
@@ -336,8 +339,8 @@ extension _ThriveHomeBoard on _ThriveHomeState {
                   child: Container(
                     width: 26,
                     height: 26,
-                    decoration: const BoxDecoration(
-                      color: B.red,
+                    decoration: BoxDecoration(
+                      color: context.tc.red,
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
@@ -375,10 +378,10 @@ extension _ThriveHomeBoard on _ThriveHomeState {
         'Hidden: ${hidden.take(3).join(' \u00b7 ')}'
         '${hidden.length > 3 ? ' \u00b7 +${hidden.length - 3}' : ''}',
         textAlign: TextAlign.center,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
-          color: B.muted,
+          color: context.tc.muted,
         ),
       ),
     );
@@ -393,20 +396,20 @@ extension _ThriveHomeBoard on _ThriveHomeState {
         margin: const EdgeInsets.only(top: 14),
         padding: const EdgeInsets.symmetric(vertical: 13),
         decoration: BoxDecoration(
-          border: Border.all(color: B.primary.withValues(alpha: .5)),
+          border: Border.all(color: context.tc.primary.withValues(alpha: .5)),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ic('plus', size: 15, sw: 2.5, color: B.primary),
+            ic('plus', size: 15, sw: 2.5, color: context.tc.primary),
             const SizedBox(width: 7),
-            const Text(
+            Text(
               'Add a widget',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: B.primary,
+                color: context.tc.primary,
               ),
             ),
           ],
