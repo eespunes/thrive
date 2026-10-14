@@ -51,6 +51,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1900));
       expect(find.text('Offline · saved on phone'), findsOneWidget);
 
+      await tester.tap(find.byKey(const ValueKey('sync-pill-tap')));
+      await tester.pumpAndSettle();
+      expect(find.text('Unsaved changes'), findsOneWidget);
+
       thriveDebug.netOffline.value = false;
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('sync-pill')), findsNothing);
@@ -185,7 +189,7 @@ void main() {
   group('#284 join page', () {
     testWidgets('wrong password shows the inline error box', (tester) async {
       await pumpApp(tester, prefs: joinableFamilyPrefs());
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-join-family')));
       await tester.pumpAndSettle();

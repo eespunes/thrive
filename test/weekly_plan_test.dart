@@ -60,7 +60,7 @@ void main() {
 
     expect(
       tester.widget<Text>(_key('week-range')).style!.color,
-      ThriveColors.dark.ink,
+      ThriveColors.dark.primary,
     );
     expect(
       tester.widget<Text>(find.text('Plan dinner')).style!.color,
@@ -84,7 +84,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToWeekly(tester);
 
-    expect(find.textContaining('MEALS · WEEK'), findsOneWidget);
+    expect(find.text('This week'), findsOneWidget);
     expect(find.byWidgetPredicate(_isDayCell), findsNWidgets(7));
     expect(_key('meal-day-$_today'), findsOneWidget);
     expect(find.text('DINNER · ${_todayName.toUpperCase()}'), findsOneWidget);

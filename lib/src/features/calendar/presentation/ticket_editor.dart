@@ -139,6 +139,7 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
   late bool _todo;
   late bool _birthday;
   late bool _done;
+  late final Map<String, dynamic> _initialDraft;
 
   /// The open Options row (repeat/reminder/place/notes/colour), if any.
   String? _expanded;
@@ -179,6 +180,38 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     _todo = e?.todo ?? false;
     _birthday = e?.birthday ?? false;
     _done = e?.isDoneOn(widget.date) ?? false;
+    _initialDraft = _draft().toJson();
+  }
+
+  bool get _dirty => !jsonEquals(_initialDraft, _draft().toJson());
+
+  void _requestClose() {
+    if (!_dirty) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _confirmDiscard();
+  }
+
+  Future<void> _confirmDiscard() async {
+    final nav = Navigator.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x610f172a),
+      isScrollControlled: true,
+      builder: (sheetContext) => _DiscardSheet(
+        title: 'Discard changes?',
+        body: 'Your event edits have not been saved.',
+        primary: 'Discard changes',
+        secondary: 'Keep editing',
+        onConfirm: () {
+          Navigator.of(sheetContext).pop();
+          nav.pop();
+        },
+        onCancel: () => Navigator.of(sheetContext).pop(),
+      ),
+    );
   }
 
   @override
@@ -1709,64 +1742,74 @@ class _TicketEditorSheetState extends State<_TicketEditorSheet> {
     final valid = _title.text.trim().isNotEmpty;
     final noun = _todo ? 'to-do' : 'event';
     final cat = s.catById(_category);
-    return EditorSheet(
-      title: _editing ? 'Edit $noun' : 'New $noun',
-      pinned: EdSegmented<String>(
-        keyPrefix: 'event-kind',
-        options: const [('event', 'Event'), ('todo', 'To-do')],
-        value: _todo ? 'todo' : 'event',
-        onChanged: (v) => setState(() => _todo = v == 'todo'),
-      ),
-      summary: _summary,
-      confirmLabel: _editing ? 'Save changes' : 'Add $noun',
-      blockedReason: valid ? null : 'Give it a name first',
-      onConfirm: _submit,
-      deleteLabel: _editing ? 'Delete $noun' : null,
-      onDelete: _editing ? _delete : null,
-      confirmKey: const ValueKey('sheet-confirm'),
-      deleteKey: const ValueKey('ticket-delete'),
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _titleRow(),
-            // A to-do carries a done state; it sits right under its name.
-            if (_todo) ...[
-              const SizedBox(height: 12),
-              edToggleRow(
-                key: const ValueKey('event-done'),
-                label: 'Already done',
-                sub: 'Ticks it off the moment you save',
-                value: _done,
-                onTap: () => setState(() => _done = !_done),
-              ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _requestClose();
+      },
+      child: EditorSheet(
+        title: _editing ? 'Edit $noun' : 'New $noun',
+        subtitle: _summary,
+        headerConfirmLabel: 'Save',
+        showFooter: false,
+        onCancel: _requestClose,
+        pinned: EdSegmented<String>(
+          keyPrefix: 'event-kind',
+          options: const [('event', 'Event'), ('todo', 'To-do')],
+          value: _todo ? 'todo' : 'event',
+          onChanged: (v) => setState(() => _todo = v == 'todo'),
+        ),
+        summary: _summary,
+        confirmLabel: _editing ? 'Save changes' : 'Add $noun',
+        blockedReason: valid ? null : 'Give it a name first',
+        onConfirm: _submit,
+        deleteLabel: _editing ? 'Delete $noun' : null,
+        onDelete: _editing ? _delete : null,
+        confirmKey: const ValueKey('sheet-confirm'),
+        deleteKey: const ValueKey('ticket-delete'),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _titleRow(),
+              // A to-do carries a done state; it sits right under its name.
+              if (_todo) ...[
+                const SizedBox(height: 12),
+                edToggleRow(
+                  key: const ValueKey('event-done'),
+                  label: 'Already done',
+                  sub: 'Ticks it off the moment you save',
+                  value: _done,
+                  onTap: () => setState(() => _done = !_done),
+                ),
+              ],
             ],
-          ],
-        ),
-        KeyedSubtree(
-          key: const ValueKey('event-card-category'),
-          child: EdSection(
-            label: 'Category',
-            hint: cat != null ? 'Sets colour & people' : 'Optional',
-            child: _categoryChips(),
           ),
-        ),
-        KeyedSubtree(
-          key: const ValueKey('event-card-when'),
-          child: EdSection(label: 'When', gap: 10, child: _when()),
-        ),
-        KeyedSubtree(
-          key: const ValueKey('event-card-people'),
-          child: EdSection(
-            label: "Who's involved",
-            hint: _attendees.isEmpty
-                ? 'Tap to add'
-                : '${_attendees.length} selected',
-            child: _people(),
+          KeyedSubtree(
+            key: const ValueKey('event-card-category'),
+            child: EdSection(
+              label: 'Category',
+              hint: cat != null ? 'Sets colour & people' : 'Optional',
+              child: _categoryChips(),
+            ),
           ),
-        ),
-        EdSection(label: 'Options', child: _options()),
-      ],
+          KeyedSubtree(
+            key: const ValueKey('event-card-when'),
+            child: EdSection(label: 'When', gap: 10, child: _when()),
+          ),
+          KeyedSubtree(
+            key: const ValueKey('event-card-people'),
+            child: EdSection(
+              label: "Who's involved",
+              hint: _attendees.isEmpty
+                  ? 'Tap to add'
+                  : '${_attendees.length} selected',
+              child: _people(),
+            ),
+          ),
+          EdSection(label: 'Options', child: _options()),
+        ],
+      ),
     );
   }
 }

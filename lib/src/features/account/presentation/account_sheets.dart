@@ -38,10 +38,12 @@ class _FamilyFormPage extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            studioBackHeader(
+            AppHeader(
               title: title,
               subtitle: subtitle,
-              onBack: () => Navigator.of(context).maybePop(),
+              leading: AppHeaderLeading.back,
+              leadingKey: const ValueKey('studio-back'),
+              onLeadingPressed: () => Navigator.of(context).maybePop(),
             ),
             Expanded(
               child: ListView(

@@ -11,9 +11,46 @@ Widget harness(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
   group('BadgeStudioScaffold', () {
-    testWidgets('save is grey and inert until valid, tinted when valid', (
-      tester,
-    ) async {
+    testWidgets('dirty editor asks before discarding', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => pushBadgeStudio<void>(
+                  context,
+                  (_) => BadgeStudioScaffold(
+                    title: 'Edit badge',
+                    accent: B.primary,
+                    saveLabel: 'Save badge',
+                    saveEnabled: true,
+                    onSave: () {},
+                    isDirty: true,
+                    children: const [Text('Changed badge')],
+                  ),
+                ),
+                child: const Text('Open editor'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.text('Changed badge'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('studio-back')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open editor'), findsOneWidget);
+    });
+
+    testWidgets('header Save is disabled until valid', (tester) async {
       var saved = 0;
       var enabled = false;
       late StateSetter setOuter;
@@ -38,35 +75,26 @@ void main() {
       expect(find.text('Edit block'), findsOneWidget);
       expect(find.text('A column of the monthly budget.'), findsOneWidget);
 
-      // Disabled: grey, tap does nothing.
       await tester.tap(find.byKey(const ValueKey('studio-save')));
       await tester.pump();
       expect(saved, 0);
-      var box = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byKey(const ValueKey('studio-save')),
-          matching: find.byType(AnimatedContainer),
-        ),
-      );
       expect(
-        (box.decoration as BoxDecoration?)?.color,
-        const Color(0xffe2e8f0),
+        tester
+            .widget<TextButton>(find.byKey(const ValueKey('studio-save')))
+            .onPressed,
+        isNull,
       );
 
-      // Valid: tinted in the badge colour and tappable.
       setOuter(() => enabled = true);
       await tester.pump(const Duration(milliseconds: 200));
-      box = tester.widget<AnimatedContainer>(
-        find.descendant(
-          of: find.byKey(const ValueKey('studio-save')),
-          matching: find.byType(AnimatedContainer),
-        ),
-      );
       expect(
-        (box.decoration as BoxDecoration?)?.color,
-        const Color(0xffd97706),
+        tester
+            .widget<TextButton>(find.byKey(const ValueKey('studio-save')))
+            .onPressed,
+        isNotNull,
       );
       await tester.tap(find.byKey(const ValueKey('studio-save')));
+      await tester.pumpAndSettle();
       expect(saved, 1);
     });
 

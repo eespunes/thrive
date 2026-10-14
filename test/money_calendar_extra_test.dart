@@ -35,8 +35,7 @@ void main() {
       'toggle paid/received', (tester) async {
     await pumpApp(tester);
     await goToTab(tester, 'flow');
-    await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-    await tester.pumpAndSettle();
+    await openFinanceTimeline(tester);
 
     // DEDUCTIBLE sits on the 27th — a Saturday in June 2026. Open it from
     // the timeline row and give it a "Friday before" weekend shift.
@@ -90,17 +89,15 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('a year without data renders the empty timeline card', (
+  testWidgets('a year without data renders the empty Finance list', (
     tester,
   ) async {
     await pumpApp(tester);
     await goToTab(tester, 'flow');
     thriveDebug.setYear(2027);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('flow-timeline-day-1')), findsNothing);
-    expect(find.textContaining('No'), findsWidgets);
+    await goToTab(tester, 'list');
+    expect(find.text('No items in this month yet.'), findsOneWidget);
   });
 
   testWidgets('viewing the real current month draws the today marker', (
@@ -116,8 +113,5 @@ void main() {
     // The calendar grid renders every day of the current month (today ring
     // included) and the balance chart paints its today line.
     expect(find.byKey(ValueKey('flow-day-${now.day}')), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-    await tester.pumpAndSettle();
   });
 }

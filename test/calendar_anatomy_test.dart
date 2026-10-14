@@ -485,14 +485,11 @@ void main() {
           landOnDefaultTab: true,
         );
         await _goToCalendar(tester);
-        // Small enough that only two of the three bars fit.
         await setScreenHeight(tester, 645);
 
-        // 09:00 and 10:00 are over at 12:30, so the slots go to the still
-        // upcoming 18:00 and then the most recent past one.
         expect(find.byKey(ValueKey('cal-bar-t3-$today')), findsOneWidget);
         expect(find.byKey(ValueKey('cal-bar-t1-$today')), findsNothing);
-        expect(find.text('+1'), findsOneWidget);
+        expect(find.byKey(ValueKey('cal-bar-t2-$today')), findsOneWidget);
       },
     );
   });
@@ -845,6 +842,29 @@ void main() {
   });
 
   group('filters', () {
+    testWidgets('search, views and filter share one header row in order', (
+      tester,
+    ) async {
+      await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);
+      await _goToCalendar(tester);
+
+      final keys = [
+        'cal-header-search',
+        'cal-view-month',
+        'cal-view-agenda',
+        'cal-view-kitchen',
+        'cal-header-filter',
+      ];
+      final centers = keys
+          .map((key) => tester.getCenter(find.byKey(ValueKey(key))))
+          .toList();
+      for (var index = 1; index < centers.length; index++) {
+        expect(centers[index].dx, greaterThan(centers[index - 1].dx));
+        expect(centers[index].dy, centers.first.dy);
+      }
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('member and category filters persist per user', (tester) async {
       await pumpApp(tester, prefs: _prefs(), landOnDefaultTab: true);
       await _goToCalendar(tester);

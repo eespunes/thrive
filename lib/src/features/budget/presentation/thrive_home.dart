@@ -196,6 +196,17 @@ class ThriveDebugController {
   }) => _s.askDelete(name, message, onConfirm, confirmLabel: confirmLabel);
   void setApplyingCloudSnapshot(bool value) =>
       _s._applyingCloudSnapshot = value;
+
+  /// Displays the same conflict prompt used after a concurrent cloud save.
+  void showSaveConflictForTest(Map<String, dynamic> record) =>
+      _s._onSaveConflict(
+        _s.familyId,
+        'notes/test-conflict',
+        record,
+        record,
+        const [],
+        null,
+      );
   void flash(String msg, {ToastTone tone = ToastTone.success, String? body}) =>
       _s.flash(msg, tone: tone, body: body);
   ToastTone get toastTone => _s.toastTone;
@@ -456,6 +467,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   /// Whether the Home tab is currently in board-edit mode (issue #236).
   bool homeEditMode = false;
+  bool _headerScrolled = false;
+  double? _financeHeroHeight;
+  double? _financeTabsHeight;
 
   /// Hide amounts on the Android home-screen widgets (issue #257).
   bool _widgetHideAmounts = false;
@@ -2005,6 +2019,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
   void go(String s) {
     update(() {
       screen = s;
+      if (s == 'calendar') flowView = 'calendar';
       swipedId = null;
     });
     _schedulePersist();
@@ -2301,12 +2316,31 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           children: [
             Column(
               children: [
-                _buildHeader(),
+                ValueListenableBuilder<bool>(
+                  valueListenable: netOffline,
+                  builder: (context, _, _) => _buildHeader(),
+                ),
                 Expanded(
                   child: ready
                       ? Stack(
                           children: [
-                            Positioned.fill(child: _buildBody()),
+                            Positioned.fill(
+                              child: NotificationListener<ScrollNotification>(
+                                onNotification: (notification) {
+                                  if (notification.depth != 0 ||
+                                      tab == 'finance') {
+                                    return false;
+                                  }
+                                  final scrolled =
+                                      notification.metrics.pixels > 0;
+                                  if (_headerScrolled != scrolled) {
+                                    setState(() => _headerScrolled = scrolled);
+                                  }
+                                  return false;
+                                },
+                                child: _buildBody(),
+                              ),
+                            ),
                             if (shellReady)
                               Positioned(
                                 top: 4,
@@ -2519,7 +2553,8 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
           pinned: true,
           delegate: _FinanceHeaderDelegate(
             height: height,
-            child: _buildFinanceStickyHeader(height),
+            builder: (visibleHeight, scrolled) =>
+                _buildFinanceStickyHeader(visibleHeight, scrolled),
           ),
         ),
         SliverToBoxAdapter(
@@ -2547,149 +2582,117 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 
   // ------------------------------------------------------------- header
   Widget _buildHeader() {
-    // The More hub owns its own gradient hero (avatar · name · family pills),
-    // per `Settings v2.dc.html`: the hero sits at the very top of the screen,
-    // so the shared tab header is suppressed here to avoid a double header.
-    if (tab == 'more' || tab == 'finance') return const SizedBox.shrink();
-    String title = 'Thrive';
-    String subtitle = 'Loading…';
-    if (ready) {
-      final meta = _tabMeta(tab);
-      title = meta.$1;
-      subtitle = meta.$2;
-    }
-    final subHeader = ready ? _tabSubHeader(tab) : null;
-    final dateInHeader = tab == 'calendar';
+    if (tab == 'more') return _hubHero(scrolled: _headerScrolled);
+    if (tab == 'finance') return const SizedBox.shrink();
+    final meta = ready ? _tabMeta(tab) : ('Thrive', 'Loading…');
     final isCalendar = ready && tab == 'calendar';
     final calendarMonthIsPast =
         isCalendar &&
         _calMonthIsPast(calView == 'agenda' ? agendaDay : calAnchor);
-
-    return Container(
-      color: context.tc.page,
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                key: const ValueKey('profile-avatar'),
-                onTap: user != null ? openProfileScreen : null,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(11),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xff0F8A76).withValues(alpha: .6),
-                        blurRadius: 14,
-                        spreadRadius: -3,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _headerAvatar(),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  key: tab == 'calendar'
-                      ? const ValueKey('cal-month-title')
-                      : tab == 'finance'
-                      ? const ValueKey('month-chip')
-                      : null,
-                  behavior: HitTestBehavior.opaque,
-                  onTap: tab == 'calendar'
-                      ? openCalPeriodPicker
-                      : tab == 'finance'
-                      ? openMonthPicker
-                      : null,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -.3,
-                          color: context.tc.ink,
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              subtitle,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isCalendar
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
-                                color: isCalendar
-                                    ? context.tc.primary
-                                    : context.tc.muted,
-                              ),
-                            ),
-                          ),
-                          if (dateInHeader) ...[
-                            const SizedBox(width: 3),
-                            ic(
-                              'cdown',
-                              size: isCalendar ? 10 : 12,
-                              sw: 2.4,
-                              color: isCalendar
-                                  ? context.tc.primary
-                                  : context.tc.muted,
-                            ),
-                          ],
-                          // A past month is view-only — say so quietly
-                          // right next to the month label (design §2a).
-                          if (isCalendar && calendarMonthIsPast) ...[
-                            const SizedBox(width: 7),
-                            Container(
-                              key: const ValueKey('cal-past-pill'),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: context.tc.pick(
-                                  const Color(0xfff6efdb),
-                                  context.tc.amberSoft,
-                                ),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: const Text(
-                                'PAST',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: .5,
-                                  color: Color(0xff8a7734),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (tab == 'calendar') _calHeaderActions(),
-            ],
+    final isWeekly = ready && tab == 'weekly';
+    final weekStart = isWeekly ? _weekStart() : null;
+    final weekEnd = weekStart == null ? null : _addDays(weekStart, 6);
+    final subtitle = isWeekly
+        ? weekStart!.month == weekEnd!.month
+              ? '${weekStart.day} – ${weekEnd.day} ${kMonthsEn[weekEnd.month - 1]}'
+              : '${weekStart.day} ${kMonthsShort[weekStart.month - 1]} – '
+                    '${weekEnd.day} ${kMonthsShort[weekEnd.month - 1]}'
+        : meta.$2;
+    return AppHeader(
+      scrolled: _headerScrolled,
+      title: meta.$1,
+      subtitleKey: isCalendar
+          ? const ValueKey('cal-month-title')
+          : isWeekly
+          ? const ValueKey('week-range')
+          : null,
+      subtitle: subtitle,
+      subtitleOnPressed: isCalendar
+          ? openCalPeriodPicker
+          : isWeekly
+          ? openWeekPicker
+          : null,
+      statusPill: calendarMonthIsPast ? 'PAST' : null,
+      statusPillKey: calendarMonthIsPast
+          ? const ValueKey('cal-past-pill')
+          : null,
+      statusChip: netOffline.value ? _offlineHeaderChip() : null,
+      trailing: isCalendar ? _calHeaderActions() : null,
+      actions: [
+        if (tab == 'home' && !homeEditMode)
+          AppHeaderAction(
+            icon: 'bell',
+            tooltip: 'Notifications',
+            onPressed: () => flash('No new notifications'),
           ),
-          if (subHeader != null) ...[const SizedBox(height: 13), subHeader],
-        ],
+        if (tab == 'lists')
+          AppHeaderAction(
+            icon: 'search',
+            tooltip: 'Search lists',
+            onPressed: _openListsHeaderSearch,
+          ),
+      ],
+      textAction: tab == 'home' && homeEditMode ? 'Done' : null,
+      onTextActionPressed: tab == 'home' && homeEditMode
+          ? () => setHomeEditMode(false)
+          : null,
+      toolbar: ready && !isCalendar ? _tabSubHeader(tab) : null,
+    );
+  }
+
+  Widget _offlineHeaderChip() => GestureDetector(
+    onTap: openPendingChangesScreen,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: context.tc.amberSoft,
+        border: Border.all(color: context.tc.amberLine),
+        borderRadius: BorderRadius.circular(99),
       ),
+      child: Text(
+        'Not saved',
+        style: TextStyle(
+          color: context.tc.amberText,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ),
+  );
+
+  void _openCalendarHeaderSearch() {
+    showAppHeaderSearch(
+      context,
+      title: 'Search calendar',
+      items: [
+        for (final event in events)
+          AppHeaderSearchItem(
+            event.title,
+            event.date,
+            () => openEventView(event.id, event.date),
+          ),
+      ],
+    );
+  }
+
+  void _openListsHeaderSearch() {
+    showAppHeaderSearch(
+      context,
+      title: 'Search lists',
+      items: [
+        for (final list in taskLists)
+          AppHeaderSearchItem(
+            list.name,
+            '${list.tasks.length} things to do',
+            () => openTaskListDetail(list.id),
+          ),
+        for (final list in shoppingLists)
+          AppHeaderSearchItem(
+            list.name,
+            '${list.items.length} items',
+            () => openShopListDetail(list.id),
+          ),
+      ],
     );
   }
 
@@ -2754,172 +2757,83 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     );
   }
 
-  double _financeHeaderHeight() => screen == 'overview' ? 320 : 184;
+  double _financeHeaderHeight() => screen == 'overview'
+      ? 60 + (_financeHeroHeight ?? 228) + 12 + (_financeTabsHeight ?? 62)
+      : 110;
 
-  ({String title, String subtitle}) _financeHeadMeta() {
-    final monthYear = '${kMonthsEn[monthIdx]} $year';
-    final familyName = curFamily()?.name.trim();
-    return switch (screen) {
-      'calendar' => (
-        title: 'Money calendar',
-        subtitle: '$monthYear · day by day',
-      ),
-      'list' => (title: 'All items', subtitle: '$monthYear · by date'),
-      'stats' => (
-        title: 'Statistics',
-        subtitle: switch (statsMode) {
-          'year' => 'Full year $year',
-          'all' => 'All time',
-          _ => 'Month view',
-        },
-      ),
-      _ => (
-        title: 'Overview',
-        subtitle: familyName?.isNotEmpty == true ? familyName! : 'Your family',
-      ),
-    };
-  }
-
-  Widget _buildFinanceStickyHeader(double height) {
-    final meta = _financeHeadMeta();
+  Widget _buildFinanceStickyHeader(double height, bool scrolled) {
     final closed = isClosed();
-    const tabBarHeight = 54.0;
-    final cutHeight = math.max(0.0, height - (tabBarHeight / 2));
     return Material(
-      color: Colors.transparent,
+      color: scrolled ? context.tc.surface : context.tc.page,
       child: Stack(
         children: [
-          Positioned.fill(child: Container(color: context.tc.page)),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: cutHeight,
-            child: DecoratedBox(
-              decoration: BoxDecoration(gradient: context.tc.grad),
+          if (!scrolled)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 22,
+              child: DecoratedBox(
+                key: ValueKey('finance-hero-gradient'),
+                decoration: BoxDecoration(gradient: context.tc.grad),
+              ),
+            ),
+          Align(
+            alignment: Alignment.topCenter,
+            child: AppHeader(
+              hero: !scrolled,
+              scrolled: scrolled,
+              title: 'Finance',
+              titleKey: const ValueKey('finance-header-title'),
+              subtitle: '${kMonthsEn[monthIdx]} $year',
+              subtitleKey: const ValueKey('month-chip'),
+              subtitleOnPressed: openMonthPicker,
+              statusPill: closed ? 'CLOSED' : null,
+              statusChip: netOffline.value ? _offlineHeaderChip() : null,
+              actions: [
+                AppHeaderAction(
+                  icon: closed ? 'lock' : 'unlock',
+                  tooltip: closed ? 'Reopen month' : 'Close month',
+                  key: const ValueKey('lock-btn'),
+                  filled: closed,
+                  onPressed: () => closed ? reopenMonth() : openCloseConfirm(),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GestureDetector(
-                      key: const ValueKey('profile-avatar'),
-                      onTap: user != null ? openProfileScreen : null,
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        margin: const EdgeInsets.only(right: 10, top: 2),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(11),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: .18),
-                              blurRadius: 14,
-                              spreadRadius: -3,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: _headerAvatar(),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              meta.title,
-                              key: const ValueKey('finance-header-title'),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -.4,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              meta.subtitle,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xd9ffffff),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      key: const ValueKey('month-chip'),
-                      onTap: openMonthPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: .2),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${kMonthsEn[monthIdx]} $year',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            ic('cdown', size: 11, sw: 2.6, color: Colors.white),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      key: const ValueKey('lock-btn'),
-                      onTap: () => closed ? reopenMonth() : openCloseConfirm(),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: closed
-                              ? context.tc.surface
-                              : Colors.white.withValues(alpha: .2),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Center(
-                          child: ic(
-                            closed ? 'lock' : 'unlock',
-                            size: 15,
-                            sw: 2.3,
-                            color: closed ? context.tc.ink : Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (screen == 'overview') ...[
-                  const SizedBox(height: 18),
-                  _buildFinanceHero(),
-                ] else
-                  const SizedBox(height: 14),
-                const Spacer(),
-                _buildFinanceTabs(),
-              ],
+          if (screen == 'overview' && !scrolled)
+            Positioned(
+              top: 60,
+              left: 18,
+              right: 18,
+              child: Builder(
+                builder: (heroContext) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted || !heroContext.mounted) return;
+                    final height = heroContext.size?.height;
+                    if (height != null && height != _financeHeroHeight) {
+                      setState(() => _financeHeroHeight = height);
+                    }
+                  });
+                  return _buildFinanceHero();
+                },
+              ),
+            ),
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 0,
+            child: Builder(
+              builder: (tabsContext) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || !tabsContext.mounted) return;
+                  final height = tabsContext.size?.height;
+                  if (height != null && height != _financeTabsHeight) {
+                    setState(() => _financeTabsHeight = height);
+                  }
+                });
+                return _buildFinanceTabs();
+              },
             ),
           ),
         ],
@@ -2936,6 +2850,9 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
       bool clickable = false,
     }) {
       final child = Container(
+        key: ValueKey(
+          'finance-hero-tile-${label.toLowerCase().replaceAll(' ', '-')}',
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: .16),
@@ -3065,6 +2982,7 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
     }
 
     return Container(
+      key: const ValueKey('finance-tabs'),
       decoration: BoxDecoration(
         color: context.tc.surface,
         borderRadius: BorderRadius.circular(16),
@@ -3094,13 +3012,13 @@ class _ThriveHomeState extends State<ThriveHome> with WidgetsBindingObserver {
 }
 
 class _FinanceHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _FinanceHeaderDelegate({required this.height, required this.child});
+  const _FinanceHeaderDelegate({required this.height, required this.builder});
 
   final double height;
-  final Widget child;
+  final Widget Function(double visibleHeight, bool scrolled) builder;
 
   @override
-  double get minExtent => height;
+  double get minExtent => 110;
 
   @override
   double get maxExtent => height;
@@ -3110,11 +3028,11 @@ class _FinanceHeaderDelegate extends SliverPersistentHeaderDelegate {
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => child;
+  ) => builder(height - shrinkOffset, shrinkOffset > 20 || overlapsContent);
 
   @override
   bool shouldRebuild(covariant _FinanceHeaderDelegate oldDelegate) =>
-      height != oldDelegate.height || child != oldDelegate.child;
+      height != oldDelegate.height || builder != oldDelegate.builder;
 }
 
 // ====================================================== compute records

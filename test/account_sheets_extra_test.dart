@@ -120,7 +120,7 @@ void main() {
         .firstWhere((f) => f.name == 'Beach house')
         .id;
     // Currently on Beach house; the profile row switches back to fam_main.
-    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await openProfileFromMore(tester);
     await tester.pumpAndSettle();
     expect(find.byKey(ValueKey('profile-family-$beachId')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('profile-family-fam_main')));
@@ -133,7 +133,7 @@ void main() {
     'create-family sheet: username validation notes and keyboard submit',
     (tester) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -175,7 +175,7 @@ void main() {
 
   testWidgets('join-family sheet submits from the keyboard', (tester) async {
     await pumpApp(tester, prefs: joinableFamilyPrefs());
-    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await openProfileFromMore(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('profile-join-family')));
     await tester.pumpAndSettle();
@@ -205,7 +205,7 @@ void main() {
     tester,
   ) async {
     await pumpApp(tester);
-    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await openProfileFromMore(tester);
     await tester.pumpAndSettle();
     // No Save button until the field is dirty.
     expect(find.byKey(const ValueKey('profile-name-save')), findsNothing);
@@ -245,7 +245,7 @@ void main() {
           }),
         },
       );
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       // Non-Google provider pill.
       expect(

@@ -53,7 +53,9 @@ void main() {
     await pumpApp(tester);
     // Make a change that persists, then reboot to hit the _restore path.
     // Income is an income-direction block now (issue #137).
-    await tester.tap(find.byKey(const ValueKey('overview-add-income')));
+    await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('entry-kind-income')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('entry-amount')), '50');
     await tester.enterText(

@@ -11,15 +11,11 @@ import 'helpers.dart';
 /// Details accordion, scope sheets, kind + block chips, error/edge states.
 
 Future<void> _openAddTo(WidgetTester tester, String block) async {
-  const keys = {
-    'Income': 'overview-add-income',
-    'Home': 'overview-add-home',
-    'Savings': 'overview-add-savings',
-  };
-  await tester.tap(
-    find.byKey(ValueKey(keys[block] ?? 'overview-add-${block.toLowerCase()}')),
-  );
+  await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
   await tester.pumpAndSettle();
+  if (block == 'Income') await _tapKey(tester, 'entry-kind-income');
+  if (block == 'Savings') await _tapKey(tester, 'entry-kind-savings');
+  await _tapKey(tester, 'entry-move-block-${block.toLowerCase()}');
 }
 
 Future<void> _openExistingEntryById(
@@ -479,7 +475,7 @@ void main() {
       warnIfMissed: false,
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('CLOSED'), findsOneWidget);
+    expect(find.textContaining('CLOSED'), findsWidgets);
     expect(find.textContaining('this entry is a snapshot'), findsOneWidget);
   });
 }

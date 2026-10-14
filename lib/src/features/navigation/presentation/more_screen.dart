@@ -6,51 +6,65 @@ part of 'package:family_money_management_app/main.dart';
 /// live summary and whose rows carry their current value on the right.
 extension _ThriveMoreScreen on _ThriveHomeState {
   Widget _buildMore() {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 14),
+    return Stack(
       children: [
-        _hubHero(),
-        // Cards tuck into the hero's gradient, per the design's -14px pull.
-        Transform.translate(
-          offset: const Offset(0, -14),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Sections that aren't on this person's bar live here, one
-                // tap away (#365) — nothing becomes unreachable by unpicking
-                // it. The card disappears when the bar holds everything.
-                if (navMoreSections.isNotEmpty) ...[
-                  _hubSectionsCard(),
-                  const SizedBox(height: 10),
-                ],
-                _hubPlanningCard(),
-                const SizedBox(height: 10),
-                // Kid profiles never see money or discount cards.
-                if (!isChildUser) ...[
-                  _hubMoneyCard(),
-                  const SizedBox(height: 10),
-                ],
-                _hubFamilyCard(),
-                const SizedBox(height: 10),
-                _hubAccountCard(),
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(
-                    _appVersion.isEmpty
-                        ? 'Thrive · English (UK)'
-                        : 'Thrive $_appVersion · English (UK)',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                      color: context.tc.muted,
-                    ),
-                  ),
-                ),
-              ],
+        if (!_headerScrolled)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 28,
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: context.tc.grad),
             ),
           ),
+        ListView(
+          padding: const EdgeInsets.only(bottom: 14),
+          children: [
+            const SizedBox(height: 14),
+            // Cards tuck into the hero's gradient, per the design's -14px pull.
+            Transform.translate(
+              offset: const Offset(0, -14),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Sections that aren't on this person's bar live here, one
+                    // tap away (#365) — nothing becomes unreachable by unpicking
+                    // it. The card disappears when the bar holds everything.
+                    if (navMoreSections.isNotEmpty) ...[
+                      _hubSectionsCard(),
+                      const SizedBox(height: 10),
+                    ],
+                    _hubPlanningCard(),
+                    const SizedBox(height: 10),
+                    // Kid profiles never see money or discount cards.
+                    if (!isChildUser) ...[
+                      _hubMoneyCard(),
+                      const SizedBox(height: 10),
+                    ],
+                    _hubFamilyCard(),
+                    const SizedBox(height: 10),
+                    _hubAccountCard(),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Text(
+                        _appVersion.isEmpty
+                            ? 'Thrive · English (UK)'
+                            : 'Thrive $_appVersion · English (UK)',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: context.tc.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -470,115 +484,55 @@ extension _ThriveMoreScreen on _ThriveHomeState {
 
   /// Gradient hero: avatar + name/email + provider pill (tap → profile) and
   /// the family switcher pills. Mirrors the design's hub hero.
-  Widget _hubHero() {
+  Widget _hubHero({bool scrolled = false}) {
     final u = user;
     final identity = u == null ? null : profileAvatarIdentity(u);
     return Container(
-      decoration: BoxDecoration(gradient: context.tc.grad),
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            key: const ValueKey('more-profile'),
-            onTap: openProfileScreen,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.white.withValues(alpha: .22),
-                    border: Border.all(
-                      color: identity?.color ?? Colors.white,
-                      width: 2,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: avatarNode(
-                    photo: identity?.photo,
-                    initials: identity?.initials ?? '?',
-                    color: identity?.color,
-                    size: 44,
-                    radius: 14,
-                    fs: 15,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        u?.name ?? 'You',
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -.3,
-                          color: Colors.white,
-                        ),
-                      ),
-                      if ((u?.email ?? '').isNotEmpty)
-                        Text(
-                          u!.email,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: .85),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    _hubProviderLabel(),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                ic(
-                  'cright',
-                  size: 16,
-                  sw: 2.2,
-                  color: Colors.white.withValues(alpha: .7),
-                ),
-              ],
-            ),
+      decoration: BoxDecoration(
+        gradient: scrolled ? null : context.tc.grad,
+        color: scrolled ? context.tc.surface : null,
+      ),
+      padding: const EdgeInsets.only(bottom: 24),
+      child: AppHeader(
+        hero: !scrolled,
+        scrolled: scrolled,
+        leading: AppHeaderLeading.photo,
+        leadingKey: const ValueKey('more-profile'),
+        onLeadingPressed: openProfileScreen,
+        leadingWidget: KeyedSubtree(
+          key: const ValueKey('profile-avatar'),
+          child: avatarNode(
+            photo: identity?.photo,
+            initials: identity?.initials ?? '?',
+            color: identity?.color,
+            size: 40,
+            radius: 12,
+            fs: 15,
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [
-                for (final fam in families) _hubFamilyPill(fam),
-                _hubCreateOrJoinPill(),
-              ],
-            ),
+        ),
+        title: u?.name ?? 'You',
+        subtitle: '${_hubProviderLabel()} · ${u?.email ?? ''}',
+        statusChip: netOffline.value ? _offlineHeaderChip() : null,
+        actions: [
+          AppHeaderAction(
+            icon: 'bell',
+            tooltip: 'Notifications',
+            onPressed: () => flash('No new notifications'),
           ),
         ],
+        toolbar: Wrap(
+          spacing: 7,
+          runSpacing: 7,
+          children: [
+            for (final fam in families) _hubFamilyPill(fam, scrolled: scrolled),
+            _hubCreateOrJoinPill(scrolled: scrolled),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _hubFamilyPill(Family fam) {
+  Widget _hubFamilyPill(Family fam, {bool scrolled = false}) {
     final current = fam.id == familyId;
     final n = fam.members.length;
     return GestureDetector(
@@ -591,8 +545,10 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: current
-              ? context.tc.surface
-              : Colors.white.withValues(alpha: .18),
+              ? (scrolled ? context.tc.soft : Colors.white)
+              : (scrolled
+                    ? context.tc.faint
+                    : Colors.white.withValues(alpha: .18)),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
@@ -602,7 +558,9 @@ extension _ThriveMoreScreen on _ThriveHomeState {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: current ? context.tc.deep : Colors.white,
+            color: current
+                ? context.tc.deep
+                : (scrolled ? context.tc.text : Colors.white),
           ),
         ),
       ),
@@ -610,7 +568,7 @@ extension _ThriveMoreScreen on _ThriveHomeState {
   }
 
   /// "＋ Create or join a family" entry alongside the switcher pills.
-  Widget _hubCreateOrJoinPill() {
+  Widget _hubCreateOrJoinPill({bool scrolled = false}) {
     return GestureDetector(
       key: const ValueKey('hub-fam-add'),
       onTap: openCreateOrJoinSheet,
@@ -618,16 +576,22 @@ extension _ThriveMoreScreen on _ThriveHomeState {
         constraints: const BoxConstraints(minHeight: 32),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .12),
-          border: Border.all(color: Colors.white.withValues(alpha: .5)),
+          color: scrolled
+              ? context.tc.faint
+              : Colors.white.withValues(alpha: .12),
+          border: Border.all(
+            color: scrolled
+                ? context.tc.line
+                : Colors.white.withValues(alpha: .5),
+          ),
           borderRadius: BorderRadius.circular(999),
         ),
-        child: const Text(
+        child: Text(
           '＋ Create or join a family',
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: scrolled ? context.tc.text : Colors.white,
           ),
         ),
       ),

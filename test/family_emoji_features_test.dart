@@ -19,7 +19,7 @@ Future<void> _openFamilyPage(WidgetTester tester) async {
 }
 
 Future<void> _openJoinSheet(WidgetTester tester) async {
-  await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+  await openProfileFromMore(tester);
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const ValueKey('profile-join-family')));
   await tester.pumpAndSettle();

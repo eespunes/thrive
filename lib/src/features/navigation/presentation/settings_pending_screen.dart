@@ -544,6 +544,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
   /// grouped by type.
   static const int _longList = 8;
   String _filter = 'All';
+  bool _scrolled = false;
 
   _ThriveHomeState get s => widget.state;
 
@@ -589,69 +590,25 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
     ),
   );
 
-  Widget _header(int total, String? famSuffix) => Padding(
-    padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-    child: Row(
-      children: [
-        GestureDetector(
-          key: const ValueKey('pending-back'),
-          onTap: () => Navigator.of(context).maybePop(),
-          child: Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: context.tc.surface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x14101828),
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: _svg16(
-              '<path d="M10 3.5L5.5 8 10 12.5"/>',
-              color: context.tc.ink,
-              sw: 2.2,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Unsaved changes',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                  color: context.tc.ink,
-                ),
-              ),
-              Text(
-                total == 0
-                    ? 'Everything is saved'
-                    : '$total not saved in Thrive'
-                          '${famSuffix == null ? '' : ' · $famSuffix'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: total == 0
-                      ? context.tc.greenText
-                      : context.tc.amberText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
+  Widget _header(int total, String? famSuffix) => AppHeader(
+    scrolled: _scrolled,
+    title: 'Unsaved changes',
+    subtitle: total == 0
+        ? 'Everything is saved'
+        : '$total not saved in Thrive${famSuffix == null ? '' : ' · $famSuffix'}',
+    leading: AppHeaderLeading.back,
+    leadingKey: const ValueKey('pending-back'),
+    onLeadingPressed: () => Navigator.of(context).maybePop(),
+    textAction: total > 0 ? 'Save all' : null,
+    onTextActionPressed: total > 0
+        ? () async {
+            await s.retryPendingChanges();
+            final applicable = s.visibleStagedChanges
+                .map((change) => change.id)
+                .toList();
+            if (applicable.isNotEmpty) await s.applyStaged(applicable);
+          }
+        : null,
   );
 
   Widget _offlineBanner() => Container(
@@ -1320,20 +1277,29 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
                 ),
                 _header(total, famSuffix),
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 48),
-                    children: [
-                      if (total == 0) _empty(),
-                      if (saving.isNotEmpty) ...[
-                        _savingSection(saving, famOf),
-                        const SizedBox(height: 22),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      final scrolled = notification.metrics.pixels > 0;
+                      if (_scrolled != scrolled) {
+                        setState(() => _scrolled = scrolled);
+                      }
+                      return false;
+                    },
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 48),
+                      children: [
+                        if (total == 0) _empty(),
+                        if (saving.isNotEmpty) ...[
+                          _savingSection(saving, famOf),
+                          const SizedBox(height: 22),
+                        ],
+                        if (staged.isNotEmpty) ...[
+                          _asideSection(staged, famOf),
+                          const SizedBox(height: 22),
+                        ],
+                        if (total > 0) _footnote(),
                       ],
-                      if (staged.isNotEmpty) ...[
-                        _asideSection(staged, famOf),
-                        const SizedBox(height: 22),
-                      ],
-                      if (total > 0) _footnote(),
-                    ],
+                    ),
                   ),
                 ),
               ],

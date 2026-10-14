@@ -41,8 +41,6 @@ extension _ThriveScreens on _ThriveHomeState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (c.closed) _closedBanner(),
-        _buildIncomeQuickAdd(c),
-        const SizedBox(height: 12),
         if (envelopes.isEmpty)
           Container(
             width: double.infinity,
@@ -76,13 +74,17 @@ extension _ThriveScreens on _ThriveHomeState {
                     color: context.tc.soft2,
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  'Tap an envelope for its items',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: context.tc.muted,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tap an envelope for its items',
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: context.tc.muted,
+                    ),
                   ),
                 ),
               ],
@@ -103,44 +105,6 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildIncomeQuickAdd(_Compute c) {
-    final canEdit = !c.closed;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: GestureDetector(
-        key: const ValueKey('overview-add-income'),
-        onTap: canEdit ? () => openEntryTicket(cat: kIncomeBlockKey) : null,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 120),
-          opacity: canEdit ? 1 : .5,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: context.tc.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: context.tc.line),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ic('plus', size: 14, sw: 2.6, color: context.tc.primary),
-                const SizedBox(width: 7),
-                Text(
-                  'Add to Income',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: context.tc.deep,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -270,15 +234,6 @@ extension _ThriveScreens on _ThriveHomeState {
                             height: 1.15,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      _overviewCardAction(
-                        key: ValueKey('overview-add-${block.key}'),
-                        tooltip: 'Add to ${block.title}',
-                        icon: 'plus',
-                        color: context.tc.primary,
-                        enabled: canEdit,
-                        onTap: () => openEntryTicket(cat: block.key),
                       ),
                     ],
                   ),

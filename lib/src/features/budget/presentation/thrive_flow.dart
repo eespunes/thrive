@@ -243,65 +243,6 @@ extension _ThriveFlow on _ThriveHomeState {
     );
   }
 
-  // ------------------------------------------------------------- sub-header
-  Widget _buildFlowSubHeader() {
-    Widget vseg(String icon, String val) {
-      final active = flowView == val;
-      return GestureDetector(
-        key: ValueKey('flow-view-$val'),
-        onTap: () => update(() => flowView = val),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          width: 34,
-          height: 30,
-          decoration: BoxDecoration(
-            color: active ? context.tc.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .12),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: ic(
-              icon,
-              size: 17,
-              sw: 2.2,
-              color: active
-                  ? context.tc.primary
-                  : context.tc.pick(
-                      const Color(0xff8995a6),
-                      context.tc.segIdle,
-                    ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: context.tc.pick(const Color(0xffe8ecf2), context.tc.line),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.all(4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [vseg('cal', 'calendar'), vseg('list', 'timeline')],
-          ),
-        ),
-      ],
-    );
-  }
-
   // ------------------------------------------------------------- screen
   Widget _buildFlow() {
     final f = flowModel();
@@ -312,8 +253,6 @@ extension _ThriveFlow on _ThriveHomeState {
       onTap: () => update(() => swipedId = null),
       child: Column(
         children: [
-          _buildFlowSubHeader(),
-          const SizedBox(height: 12),
           if (locked) _closedBanner(),
           _flowSummary(f),
           ?_flowAlert(f, locked),

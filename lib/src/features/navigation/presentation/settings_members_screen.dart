@@ -101,6 +101,7 @@ class _MemberColoursScreen extends StatelessWidget {
           return SettingsSubScreen(
             sync: s.syncStatus,
             offline: s.netOffline,
+            onOfflineTap: s.openPendingChangesScreen,
             title: 'Family members',
             subtitle: f == null
                 ? 'Each person’s identity colour'
@@ -405,6 +406,13 @@ class _MemberStudioState extends State<_MemberStudio> {
           accent: _color,
           saveLabel: 'Save member',
           saveEnabled: _name.trim().isNotEmpty,
+          isDirty:
+              m == null ||
+              _name != m.name ||
+              _email.text != m.email ||
+              _photo != m.photo ||
+              _emoji != m.emoji ||
+              _color != m.color,
           onSave: _save,
           children: [
             BadgeStage(

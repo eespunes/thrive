@@ -160,13 +160,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
 
   static const int _calendarPageCenter = 10000;
 
-  /// The calendar header's right-hand controls (design §2a): three inline
-  /// view buttons — month / agenda / kitchen — and the funnel filter
-  /// button. There is no second toolbar and no view-picker sheet: the three
-  /// buttons ARE the switcher.
   Widget _calHeaderActions() {
-    final filtersOn = calFiltersActive();
-
     Widget squareBtn({
       required Key key,
       required Widget child,
@@ -246,7 +240,12 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _deviceCalendarSavingIndicator(),
+        squareBtn(
+          key: const ValueKey('cal-header-search'),
+          active: false,
+          onTap: _openCalendarHeaderSearch,
+          child: ic('search', size: 16, sw: 2.2, color: context.tc.soft2),
+        ),
         for (final (value, _, icon) in kCalViews) viewBtn(value, icon),
         // The kitchen wall is a full-screen route, not a `calView` — the
         // chef button is greyed while the wall is switched off, and tapping
@@ -268,8 +267,8 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
         squareBtn(
           key: const ValueKey('cal-header-filter'),
           active: false,
-          ringTeal: filtersOn,
-          dot: filtersOn,
+          ringTeal: calFiltersActive(),
+          dot: calFiltersActive(),
           onTap: openCalFilterSheet,
           // `funnel` is three shrinking lines despite its name; `filter` is
           // the actual funnel outline, which is what a filter button should
@@ -278,22 +277,23 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
             'filter',
             size: 15,
             sw: 2.2,
-            color: filtersOn ? context.tc.deep : context.tc.soft2,
+            color: calFiltersActive() ? context.tc.deep : context.tc.soft2,
           ),
         ),
+        _deviceCalendarSavingIndicator(),
       ],
     );
   }
 
   Widget _deviceCalendarSavingIndicator() {
-    return SizedBox(
-      width: 30,
-      height: 38,
-      child: ValueListenableBuilder<bool>(
-        valueListenable: DeviceCalendarSync.instance.saving,
-        builder: (context, saving, _) {
-          if (!saving) return const SizedBox.shrink();
-          return Semantics(
+    return ValueListenableBuilder<bool>(
+      valueListenable: DeviceCalendarSync.instance.saving,
+      builder: (context, saving, _) {
+        if (!saving) return const SizedBox.shrink();
+        return SizedBox(
+          width: 30,
+          height: 38,
+          child: Semantics(
             label: 'Saving calendar',
             child: Container(
               key: const ValueKey('device-calendar-saving'),
@@ -316,9 +316,9 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
                 ),
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

@@ -231,6 +231,11 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['path', 'M4 12h16'],
     ['path', 'M4 18h16'],
   ],
+  'dots': [
+    ['circle', 5, 12, 1.3],
+    ['circle', 12, 12, 1.3],
+    ['circle', 19, 12, 1.3],
+  ],
   'moon': [
     ['path', 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z'],
   ],

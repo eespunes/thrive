@@ -45,6 +45,9 @@ void main() {
       landOnDefaultTab: true,
     );
 
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('profile-avatar')),
@@ -54,7 +57,7 @@ void main() {
     );
 
     // The profile page (#274) shows the same photo in its identity card.
-    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await openProfileFromMore(tester);
     await tester.pumpAndSettle();
     expect(find.text('Profile'), findsOneWidget);
     expect(find.byKey(const ValueKey('profile-photo-btn')), findsOneWidget);
@@ -108,25 +111,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('accounts-row-eva')));
     await tester.pumpAndSettle();
     expect(find.text('Edit account'), findsOneWidget);
-    // Clearing the required short label greys the save button out.
+    // Clearing the required short label disables Save.
     await tester.enterText(find.byKey(const ValueKey('acc-short')), '');
     await tester.pump();
-    var box = tester.widget<AnimatedContainer>(
-      find.descendant(
-        of: find.byKey(const ValueKey('studio-save')),
-        matching: find.byType(AnimatedContainer),
-      ),
+    var save = tester.widget<TextButton>(
+      find.byKey(const ValueKey('studio-save')),
     );
-    expect((box.decoration as BoxDecoration?)?.color, B.faint);
+    expect(save.onPressed, isNull);
     await tester.enterText(find.byKey(const ValueKey('acc-short')), 'EV');
     await tester.pump(const Duration(milliseconds: 200));
-    box = tester.widget<AnimatedContainer>(
-      find.descendant(
-        of: find.byKey(const ValueKey('studio-save')),
-        matching: find.byType(AnimatedContainer),
-      ),
-    );
-    expect((box.decoration as BoxDecoration?)?.color, isNot(B.faint));
+    save = tester.widget<TextButton>(find.byKey(const ValueKey('studio-save')));
+    expect(save.onPressed, isNotNull);
   });
 
   testWidgets('add a block with this-month-only + end dates via the studio', (
@@ -195,7 +190,7 @@ void main() {
   ) async {
     await pumpApp(tester, prefs: joinableFamilyPrefs());
     // Join the demo family, which already has other members.
-    await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+    await openProfileFromMore(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('profile-join-family')));
     await tester.pumpAndSettle();
