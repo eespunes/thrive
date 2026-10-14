@@ -31,7 +31,10 @@ class _FamilyFormPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff8fafc),
+      backgroundColor: context.tc.pick(
+        const Color(0xfff8fafc),
+        context.tc.rowOpen,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -47,8 +50,8 @@ class _FamilyFormPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: B.line),
+                      color: context.tc.surface,
+                      border: Border.all(color: context.tc.line),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Column(
@@ -80,7 +83,15 @@ Widget _familyFormButton(
       padding: const EdgeInsets.symmetric(vertical: 13),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: enabled ? B.primary : const Color(0xffe2e8f0),
+        color: enabled
+            ? ThriveColors.current.primary
+            : ThriveColors.current.pick(
+                ThriveColors.current.pick(
+                  const Color(0xffe2e8f0),
+                  ThriveColors.current.line,
+                ),
+                ThriveColors.current.line,
+              ),
         borderRadius: BorderRadius.circular(13),
       ),
       child: Text(
@@ -88,7 +99,7 @@ Widget _familyFormButton(
         style: TextStyle(
           fontSize: 13.5,
           fontWeight: FontWeight.w800,
-          color: enabled ? Colors.white : B.muted,
+          color: enabled ? Colors.white : ThriveColors.current.muted,
         ),
       ),
     ),
@@ -123,7 +134,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
   Timer? _usernameDebounce;
   int _usernameCheckSeq = 0;
   String? _usernameNote;
-  Color _usernameNoteColor = B.muted;
+  Color _usernameNoteColor = ThriveColors.current.muted;
   String? _takenSuggestion;
 
   _ThriveHomeState get s => widget.state;
@@ -163,7 +174,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
           _usernameNote = null;
         } else {
           _usernameNote = 'Suggested · available';
-          _usernameNoteColor = B.green;
+          _usernameNoteColor = context.tc.green;
         }
       });
     });
@@ -184,14 +195,14 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
     if (!validFamilyUsername(slug)) {
       setState(() {
         _usernameNote = '3–24 letters, numbers, - or _';
-        _usernameNoteColor = B.red;
+        _usernameNoteColor = context.tc.red;
         _takenSuggestion = null;
       });
       return;
     }
     setState(() {
       _usernameNote = 'Checking availability…';
-      _usernameNoteColor = B.muted;
+      _usernameNoteColor = context.tc.muted;
       _takenSuggestion = null;
     });
     final seq = ++_usernameCheckSeq;
@@ -208,7 +219,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
         _usernameNote = available
             ? '@$slug is available ✓'
             : '“@$slug” is taken';
-        _usernameNoteColor = available ? B.green : B.red;
+        _usernameNoteColor = available ? context.tc.green : context.tc.red;
         _takenSuggestion = (!available && (alt?.isNotEmpty ?? false))
             ? alt
             : null;
@@ -280,20 +291,20 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: B.soft,
+                    color: context.tc.soft,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ic('edit', size: 14, sw: 2.2, color: B.deep),
+                      ic('edit', size: 14, sw: 2.2, color: context.tc.deep),
                       const SizedBox(width: 6),
                       Text(
                         _picture != null ? 'Change' : 'Add photo',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: B.deep,
+                          color: context.tc.deep,
                         ),
                       ),
                     ],
@@ -359,7 +370,7 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
                       setState(() {
                         _username.text = alt;
                         _usernameNote = '@$alt is available ✓';
-                        _usernameNoteColor = B.green;
+                        _usernameNoteColor = context.tc.green;
                         _takenSuggestion = null;
                       });
                     },
@@ -369,15 +380,15 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: B.soft,
+                        color: context.tc.soft,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
                         'use @$_takenSuggestion',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: B.deep,
+                          color: context.tc.deep,
                         ),
                       ),
                     ),
@@ -399,14 +410,14 @@ class _CreateFamilyScreenState extends State<_CreateFamilyScreen> {
           },
           onChanged: (_) => setState(s.dismissError),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(bottom: 11, left: 2),
           child: Text(
             'Add a username & password so relatives can join this family.',
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w700,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),
@@ -478,7 +489,7 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
           padding: const EdgeInsets.all(14),
           margin: const EdgeInsets.only(bottom: 13),
           decoration: BoxDecoration(
-            color: B.soft,
+            color: context.tc.soft,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -487,7 +498,7 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: B.primary,
+                  color: context.tc.primary,
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Center(
@@ -495,14 +506,14 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
                 ),
               ),
               const SizedBox(width: 11),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Ask the owner for the family username & password.',
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     height: 1.5,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
               ),
@@ -536,15 +547,15 @@ class _JoinFamilyScreenState extends State<_JoinFamilyScreen> {
             margin: const EdgeInsets.only(top: 5, bottom: 5),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: B.redSoft,
+              color: context.tc.redSoft,
               borderRadius: BorderRadius.circular(11),
             ),
             child: Text(
               _error!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
-                color: B.red,
+                color: context.tc.red,
               ),
             ),
           ),

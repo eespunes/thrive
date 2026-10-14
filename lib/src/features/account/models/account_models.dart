@@ -347,6 +347,7 @@ class Workspace {
     List<EventCategory>? eventCategories,
     List<ImportedCalendar>? importedCalendars,
     Map<String, DayPlan>? weeklyPlan,
+    List<SavedMeal>? savedMeals,
     List<CalendarLayerDef>? calendarLayers,
     Map<String, int>? starsMap,
     this.kitchenEnabled = true,
@@ -359,6 +360,7 @@ class Workspace {
        eventCategories = eventCategories ?? <EventCategory>[],
        importedCalendars = importedCalendars ?? <ImportedCalendar>[],
        weeklyPlan = weeklyPlan ?? <String, DayPlan>{},
+       savedMeals = savedMeals ?? <SavedMeal>[],
        // A brand-new workspace starts with NO layers — the user builds their
        // own set via "+ Add layer" (issue #203-#211). We only ever default
        // to the empty list here; callers that legitimately need the 3
@@ -393,6 +395,10 @@ class Workspace {
   /// Weekly meal plan + notes, keyed by ISO `YYYY-MM-DD` date. Sparse — only
   /// days with content need an entry.
   Map<String, DayPlan> weeklyPlan;
+
+  /// The family's saved-meal library (favourites): dish + ingredients, in
+  /// the order they were saved.
+  List<SavedMeal> savedMeals;
 
   /// Kitchen-dashboard star reward count per member id (0-5). Missing
   /// memberId means 0. Reset only by the "claim reward" action.
@@ -431,6 +437,8 @@ class Workspace {
     'weeklyPlan': {
       for (final entry in weeklyPlan.entries) entry.key: entry.value.toJson(),
     },
+    if (savedMeals.isNotEmpty)
+      'savedMeals': savedMeals.map((m) => m.toJson()).toList(),
     'calendarLayers': calendarLayers.map((l) => l.toJson()).toList(),
     if (starsMap.isNotEmpty) 'starsMap': starsMap,
     'kitchenEnabled': kitchenEnabled,
@@ -500,6 +508,10 @@ class Workspace {
           Map<String, dynamic>.from(entry.value as Map),
         ),
     };
+    final savedMeals = <SavedMeal>[
+      for (final m in (j['savedMeals'] as List? ?? const []))
+        SavedMeal.fromJson(Map<String, dynamic>.from(m as Map)),
+    ];
     // Only a completely MISSING `calendarLayers` key (a workspace saved by an
     // app version before layers existed at all) is backfilled with the 3
     // legacy built-in defaults, so those pre-existing families see zero
@@ -546,6 +558,7 @@ class Workspace {
       eventCategories: eventCategories,
       importedCalendars: importedCalendars,
       weeklyPlan: weeklyPlan,
+      savedMeals: savedMeals,
       calendarLayers: calendarLayers,
       starsMap: starsMap,
       kitchenEnabled: j['kitchenEnabled'] != false,

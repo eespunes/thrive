@@ -4,7 +4,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // These don't depend on each other, so run them concurrently instead of
   // paying sequential awaits before the first frame.
-  await Future.wait([_lockPortraitOrientation(), _initFirebase()]);
+  await Future.wait([
+    _lockPortraitOrientation(),
+    _initFirebase(),
+    loadThemeMode(),
+  ]);
   _initPush();
   runApp(const ThriveApp());
   // NotificationService.init parses the full timezone database — real CPU
@@ -122,38 +126,49 @@ class ThriveApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Thrive',
-      locale: const Locale('en', 'GB'),
-      supportedLocales: const [Locale('en', 'GB')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: B.page,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: B.primary,
-          brightness: Brightness.light,
-        ),
-        fontFamily: 'PlusJakartaSans',
-        textTheme: const TextTheme(bodyMedium: TextStyle(color: B.ink)),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeModeNotifier,
+      builder: (context, mode, _) => MaterialApp(
+        themeMode: mode,
+        debugShowCheckedModeBanner: false,
+        title: 'Thrive',
+        locale: const Locale('en', 'GB'),
+        supportedLocales: const [Locale('en', 'GB')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        theme: buildThriveTheme(Brightness.light),
+        darkTheme: buildThriveTheme(Brightness.dark),
+        // The popup is layered above the Navigator so it floats over every route,
+        // including modal bottom sheets. It is non-blocking: only the card itself
+        // captures pointer events, so the UI beneath stays fully interactive.
+        builder: (context, child) {
+          ThriveColors.current = context.tc;
+          // The layout uses many fixed-height containers around hardcoded font
+          // sizes; unbounded OS text scaling clips them. Clamp until the layout
+          // is audited for full dynamic-type support.
+          final dark = context.tc.isDark;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+              statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: context.tc.page,
+              systemNavigationBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+            ),
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.3,
+              child: Stack(
+                textDirection: TextDirection.ltr,
+                children: [?child, const _GlobalErrorPopup()],
+              ),
+            ),
+          );
+        },
+        home: const ThriveHome(),
       ),
-      // The popup is layered above the Navigator so it floats over every route,
-      // including modal bottom sheets. It is non-blocking: only the card itself
-      // captures pointer events, so the UI beneath stays fully interactive.
-      builder: (context, child) {
-        // The layout uses many fixed-height containers around hardcoded font
-        // sizes; unbounded OS text scaling clips them. Clamp until the layout
-        // is audited for full dynamic-type support.
-        return MediaQuery.withClampedTextScaling(
-          maxScaleFactor: 1.3,
-          child: Stack(
-            textDirection: TextDirection.ltr,
-            children: [?child, const _GlobalErrorPopup()],
-          ),
-        );
-      },
-      home: const ThriveHome(),
     );
   }
 }
@@ -182,9 +197,9 @@ class _GlobalErrorPopup extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
                     decoration: BoxDecoration(
-                      color: B.redSoft,
+                      color: context.tc.redSoft,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: B.redLine),
+                      border: Border.all(color: context.tc.redLine),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: .14),
@@ -199,17 +214,22 @@ class _GlobalErrorPopup extends StatelessWidget {
                       children: [
                         Padding(
                           padding: const EdgeInsets.only(top: 1),
-                          child: ic('x', size: 16, sw: 2.6, color: B.red),
+                          child: ic(
+                            'x',
+                            size: 16,
+                            sw: 2.6,
+                            color: context.tc.red,
+                          ),
                         ),
                         const SizedBox(width: 9),
                         Expanded(
                           child: Text(
                             message,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               height: 1.35,
-                              color: B.red,
+                              color: context.tc.red,
                             ),
                           ),
                         ),
@@ -218,9 +238,13 @@ class _GlobalErrorPopup extends StatelessWidget {
                           key: const ValueKey('app-error-dismiss'),
                           behavior: HitTestBehavior.opaque,
                           onTap: dismissAppError,
-                          child: const Padding(
+                          child: Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close, size: 18, color: B.red),
+                            child: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: context.tc.red,
+                            ),
                           ),
                         ),
                       ],

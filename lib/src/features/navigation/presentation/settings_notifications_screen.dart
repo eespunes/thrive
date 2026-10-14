@@ -8,7 +8,7 @@ extension _ThriveNotificationsScreen on _ThriveHomeState {
   void openNotificationsScreen() {
     unawaited(refreshNotifDevice());
     pushSettingsPage<void>(
-      (_) => _NotificationsScreen(state: this, dark: futureDark),
+      (_) => _NotificationsScreen(state: this, dark: context.tc.isDark),
     );
   }
 

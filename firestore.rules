@@ -240,7 +240,7 @@ service cloud.firestore {
       //   settings/kitchen, finance/main/{accounts,blocks,recurring,months/
       //   {ym}/{entries,recurring}}, calendar/main/{layers,categories,imports,
       //   recurring,months/{ym}/events}, meals/{y}/months/{MM}/days/{DD},
-      //   notes/{id}/lines/{lineId}, cards/{id}.
+      //   notes/{id}/lines/{lineId}, cards/{id}, savedMeals/{id}.
       // Each doc carries its `familyId` so the app can load a whole collection
       // id with one collection-group query (rule below). A write must stamp
       // this family's id — which also locks out outdated app versions that
@@ -273,7 +273,7 @@ service cloud.firestore {
       // Kid accounts only reach their own world: the kitchen settings (for
       // stars), calendar layers and categories, their own events, their own
       // lists and the meal plan (read-only). Nothing of money, discount
-      // cards or calendar imports.
+      // cards, calendar imports or the saved-meal library (favourites).
       match /settings/{id} {
         allow read: if isKidMember();
       }
@@ -330,7 +330,7 @@ service cloud.firestore {
         && col in ['settings', 'finance', 'accounts', 'blocks', 'recurring',
                    'months', 'entries', 'calendar', 'layers', 'categories',
                    'imports', 'events', 'meals', 'days', 'notes', 'lines',
-                   'cards']
+                   'cards', 'savedMeals']
         && request.auth.uid in fam().memberUids
         && (!(request.auth.uid in fam().get('kidUids', {}))
             || col in ['settings', 'calendar', 'layers', 'categories',

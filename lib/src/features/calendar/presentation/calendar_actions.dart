@@ -122,31 +122,31 @@ const List<String> kCatIconsList = [
   'star',
 ];
 
-const List<Color> kCatColors = [
+List<Color> kCatColors = [
   Color(0xff7c3aed),
   Color(0xff9333ea),
   Color(0xff1684B4),
   Color(0xff2563eb),
   Color(0xff0891b2),
-  B.green,
+  ThriveColors.current.green,
   Color(0xff16a34a),
   Color(0xff65a30d),
   Color(0xffe11d48),
   Color(0xffdb2777),
-  B.amber,
+  ThriveColors.current.amber,
   Color(0xffea580c),
   Color(0xffca8a04),
-  B.primary,
+  ThriveColors.current.primary,
   Color(0xff0d9488),
   Color(0xff0f766e),
   Color(0xff4f46e5),
   Color(0xffbe123c),
-  B.amberText,
+  ThriveColors.current.amberText,
   Color(0xff475569),
-  B.text,
+  ThriveColors.current.text,
 ];
 
-const List<Color> kEventColors = kCatColors;
+List<Color> kEventColors = kCatColors;
 
 /// (label, colour) for each import provider. `google`/`apple` account sync
 /// isn't implemented (#161) — ICS/web-link is the only real import path.

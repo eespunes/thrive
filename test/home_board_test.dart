@@ -292,6 +292,56 @@ void main() {
     expect(find.text('New event'), findsNWidgets(2));
   });
 
+  testWidgets('every quick action id routes without throwing', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    for (final id in [
+      'add_expense',
+      'add_event',
+      'add_task',
+      'add_shop',
+      'open_wallet',
+      'open_weekly',
+      'open_stats',
+      'open_flow',
+      'unknown',
+    ]) {
+      thriveDebug.runHomeQuickAction(id);
+      await tester.pumpAndSettle();
+      final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+      while (nav.canPop()) {
+        nav.pop();
+        await tester.pumpAndSettle();
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('next up counts down to a timed event later today', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    thriveDebug.mutateState(() {
+      thriveDebug.events.add(
+        CalendarEvent(
+          id: 'late',
+          title: 'Late show',
+          date: todayIso(),
+          start: '23:59',
+          end: '23:59',
+          color: const Color(0xff1684B4),
+          reminder: 'none',
+        ),
+      );
+      thriveDebug.homeBoard = [BoardEntry(widgetId: 'next_up')];
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Late show'), findsOneWidget);
+    expect(
+      find.textContaining(RegExp(r'^(in \d+ h \d+ m|in \d+ m|now)$')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('family note + divider store their text via options', (
     tester,
   ) async {

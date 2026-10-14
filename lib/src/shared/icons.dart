@@ -55,6 +55,10 @@ const Map<String, List<List<Object>>> _kIcons = {
     ['circle', 19, 21, 1.6],
     ['path', 'M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h9a2 2 0 0 0 2-1.6L21 7H5'],
   ],
+  'search': [
+    ['circle', 11, 11, 7],
+    ['path', 'm20 20-3.5-3.5'],
+  ],
   'heart': [
     [
       'path',
@@ -397,7 +401,7 @@ String _fmt(Object n) {
 /// Builds an icon widget identical to the design's `ic(name,size,sw,color)`.
 Widget ic(String name, {double size = 18, double sw = 2, Color? color}) {
   final spec = _kIcons[name] ?? const [];
-  final stroke = (color ?? B.ink);
+  final stroke = (color ?? ThriveColors.current.ink);
   final hex =
       '#${stroke.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
   final buffer = StringBuffer()

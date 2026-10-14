@@ -28,6 +28,7 @@ part of 'package:family_money_management_app/main.dart';
 /// - `meals/{2026}/months/{10}/days/{12}`       weekly-plan day
 /// - `notes/{listId}` (+ `lines/{lineId}`)      task / shopping list and lines
 /// - `cards/{cardId}`                           discount card (photo never synced)
+/// - `savedMeals/{mealId}`                      saved-meal library (favourites)
 ///
 /// Collection names are fixed wherever the app needs every document at once,
 /// so each one loads with a single collection-group query; every document
@@ -62,6 +63,7 @@ const String kDaysCol = 'days';
 const String kNotesCol = 'notes';
 const String kLinesCol = 'lines';
 const String kCardsCol = 'cards';
+const String kSavedMealsCol = 'savedMeals';
 
 /// Every collection id holding workspace records. Each is loaded (and
 /// listened to) as one collection-group query filtered on [kFamilyIdField];
@@ -85,6 +87,7 @@ const List<String> kRecordCollections = [
   kNotesCol,
   kLinesCol,
   kCardsCol,
+  kSavedMealsCol,
 ];
 
 /// The record collections a top-level tab shows, reloaded from the server
@@ -110,7 +113,16 @@ List<String> tabCollections(String tab) => switch (tab) {
     kEventsCol,
   ],
   'lists' => const [kSettingsCol, kNotesCol, kLinesCol],
-  'weekly' => const [kSettingsCol, kMealsCol, kMonthsCol, kDaysCol],
+  'weekly' => const [
+    kSettingsCol,
+    kMealsCol,
+    kMonthsCol,
+    kDaysCol,
+    kSavedMealsCol,
+    // The day view ticks dinner ingredients onto Groceries.
+    kNotesCol,
+    kLinesCol,
+  ],
   _ => kRecordCollections,
 };
 
@@ -128,6 +140,7 @@ const Set<String> kContainerCollections = {
   kImportsCol,
   kMealsCol,
   kCardsCol,
+  kSavedMealsCol,
 };
 
 const String kKitchenKey = 'settings/kitchen';
@@ -187,6 +200,7 @@ enum RecordKind {
   note,
   line,
   card,
+  savedMeal,
   unknown,
 }
 
@@ -202,6 +216,7 @@ RecordKind recordKind(String key) {
         (kMealsCol, _) => RecordKind.mealsYear,
         (kNotesCol, _) => RecordKind.note,
         (kCardsCol, _) => RecordKind.card,
+        (kSavedMealsCol, _) => RecordKind.savedMeal,
         _ => RecordKind.unknown,
       };
     case 4:
@@ -513,6 +528,9 @@ Records workspaceRecords(Workspace ws) {
       '_order': i,
     });
   }
+  for (final (i, m) in ws.savedMeals.indexed) {
+    put('$kSavedMealsCol/${safeDocId(m.id)}', {...m.toJson(), '_order': i});
+  }
   return out;
 }
 
@@ -620,6 +638,8 @@ Map<String, dynamic>? _normalizeRecord(String key, Map raw) {
         ...DiscountCard.fromJson(j).toJson(includePhoto: false),
         '_order': order,
       };
+    case RecordKind.savedMeal:
+      return {...SavedMeal.fromJson(j).toJson(), '_order': order};
     case RecordKind.unknown:
       return null;
   }
@@ -659,6 +679,7 @@ Workspace workspaceFromRecords(Records records) {
   final shopLists = <(String, Map<String, dynamic>)>[];
   final lines = <String, List<Map<String, dynamic>>>{};
   final cards = <Map<String, dynamic>>[];
+  final savedMeals = <Map<String, dynamic>>[];
   final imports = <Map<String, dynamic>>[];
   final weekly = <String, dynamic>{};
   final events = <String, Map<String, dynamic>>{};
@@ -683,6 +704,8 @@ Workspace workspaceFromRecords(Records records) {
         imports.add(r);
       case RecordKind.card:
         cards.add(r);
+      case RecordKind.savedMeal:
+        savedMeals.add(r);
       case RecordKind.financeMonth:
         final ym = parseMonthDocId(p[3]);
         if (ym == null) continue;
@@ -762,6 +785,7 @@ Workspace workspaceFromRecords(Records records) {
   j['taskLists'] = lists(taskLists, 'tasks');
   j['shoppingLists'] = lists(shopLists, 'items');
   j['cards'] = sorted(cards);
+  j['savedMeals'] = sorted(savedMeals);
   j['importedCalendars'] = sorted(imports);
   j['weeklyPlan'] = weekly;
   // Id order: stable no matter which month/recurring doc holds an event.

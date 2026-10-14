@@ -87,6 +87,8 @@ Map<String, Map<String, dynamic>> workspaceSections(
     'weeklyPlan': {
       for (final e in ws.weeklyPlan.entries) e.key: e.value.toJson(),
     },
+    if (ws.savedMeals.isNotEmpty)
+      'savedMeals': ws.savedMeals.map((m) => m.toJson()).toList(),
   },
   // One doc per budget month (`budget_<year>_<month>`) instead of one
   // `budget_<year>` doc holding every month, so editing different months no
@@ -123,6 +125,7 @@ Workspace? workspaceFromSections(Map<String, Map<String, dynamic>> sections) {
   }
   j['events'] = eventsById.values.toList();
   j['weeklyPlan'] = sections['weekly']?['weeklyPlan'] ?? {};
+  j['savedMeals'] = sections['weekly']?['savedMeals'] ?? const [];
 
   // Cards, lists and budget were split from single-array docs (`cards`,
   // `lists`, `budget_<year>`) into per-item docs (`card_<id>`,

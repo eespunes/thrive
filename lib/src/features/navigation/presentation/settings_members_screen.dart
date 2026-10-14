@@ -339,10 +339,10 @@ class _MemberStudioState extends State<_MemberStudio> {
               ? 'Kid since ${kidShortDate(m.kidSetAt)}, set by '
                     '${m.kidSetBy ?? 'an admin'}. Only admins see this setting.'
               : 'Only admins see this setting.',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
-            color: B.muted,
+            color: context.tc.muted,
           ),
         ),
       ],
@@ -372,10 +372,10 @@ class _MemberStudioState extends State<_MemberStudio> {
                 : 'This is $first’s own account. Only $first can change the '
                       'email or password.',
             key: const ValueKey('member-signin-note'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
-              color: B.muted,
+              color: context.tc.muted,
             ),
           ),
         ),

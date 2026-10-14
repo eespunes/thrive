@@ -912,7 +912,7 @@ extension _ThriveFamilyCloud on _ThriveHomeState {
       kCardsCol ||
       kImportsCol => 'budget',
       kNotesCol || kLinesCol => 'lists',
-      kMealsCol || kDaysCol => 'meal plan',
+      kMealsCol || kDaysCol || kSavedMealsCol => 'meal plan',
       _ => 'family’s data',
     };
     _showStatusSheetOnce(

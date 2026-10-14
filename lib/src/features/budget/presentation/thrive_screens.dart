@@ -48,17 +48,17 @@ extension _ThriveScreens on _ThriveHomeState {
             width: double.infinity,
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
             ),
-            child: const Text(
+            child: Text(
               'No envelopes yet. Add categories or entries to see this month at a glance.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           )
@@ -69,20 +69,20 @@ extension _ThriveScreens on _ThriveHomeState {
               children: [
                 Text(
                   '${envelopes.length} envelopes'.toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: .5,
-                    color: B.soft2,
+                    color: context.tc.soft2,
                   ),
                 ),
                 const Spacer(),
-                const Text(
+                Text(
                   'Tap an envelope for its items',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
-                    color: B.muted,
+                    color: context.tc.muted,
                   ),
                 ),
               ],
@@ -119,21 +119,21 @@ extension _ThriveScreens on _ThriveHomeState {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ic('plus', size: 14, sw: 2.6, color: B.primary),
+                ic('plus', size: 14, sw: 2.6, color: context.tc.primary),
                 const SizedBox(width: 7),
-                const Text(
+                Text(
                   'Add to Income',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: B.deep,
+                    color: context.tc.deep,
                   ),
                 ),
               ],
@@ -149,7 +149,7 @@ extension _ThriveScreens on _ThriveHomeState {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
-        color: B.ink,
+        color: context.tc.ink,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -158,15 +158,15 @@ extension _ThriveScreens on _ThriveHomeState {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .14),
+              color: context.tc.onInk.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
-              child: ic('lock', size: 16, sw: 2.2, color: Colors.white),
+              child: ic('lock', size: 16, sw: 2.2, color: context.tc.onInk),
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -176,7 +176,7 @@ extension _ThriveScreens on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: context.tc.onInk,
                   ),
                 ),
                 Text(
@@ -184,7 +184,7 @@ extension _ThriveScreens on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xccffffff),
+                    color: context.tc.onInk.withValues(alpha: .8),
                   ),
                 ),
               ],
@@ -196,15 +196,15 @@ extension _ThriveScreens on _ThriveHomeState {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.tc.surface,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text(
+              child: Text(
                 'Reopen',
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
             ),
@@ -226,9 +226,11 @@ extension _ThriveScreens on _ThriveHomeState {
       onTap: () => openEnvelopeSheet(block.key),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.tc.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: block.overCap ? B.red : B.line),
+          border: Border.all(
+            color: block.overCap ? context.tc.red : context.tc.line,
+          ),
           boxShadow: cardShadow(),
         ),
         clipBehavior: Clip.antiAlias,
@@ -261,10 +263,10 @@ extension _ThriveScreens on _ThriveHomeState {
                           block.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: B.ink,
+                            color: context.tc.ink,
                             height: 1.15,
                           ),
                         ),
@@ -274,7 +276,7 @@ extension _ThriveScreens on _ThriveHomeState {
                         key: ValueKey('overview-add-${block.key}'),
                         tooltip: 'Add to ${block.title}',
                         icon: 'plus',
-                        color: B.primary,
+                        color: context.tc.primary,
                         enabled: canEdit,
                         onTap: () => openEntryTicket(cat: block.key),
                       ),
@@ -287,7 +289,7 @@ extension _ThriveScreens on _ThriveHomeState {
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -.5,
-                      color: block.overCap ? B.red : B.ink,
+                      color: block.overCap ? context.tc.red : context.tc.ink,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -310,7 +312,9 @@ extension _ThriveScreens on _ThriveHomeState {
                               ? 'Set limit'
                               : 'Limit ${eur(block.cap!, cents: false)}',
                           icon: block.cap == null ? 'plus' : 'edit',
-                          color: block.overCap ? B.red : B.soft2,
+                          color: block.overCap
+                              ? context.tc.red
+                              : context.tc.soft2,
                           enabled: canEdit,
                           onTap: () => openCapSheet(block.key, block.cap),
                         ),
@@ -348,9 +352,9 @@ extension _ThriveScreens on _ThriveHomeState {
             vertical: 5,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .92),
+            color: context.tc.surface.withValues(alpha: .92),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -381,23 +385,31 @@ extension _ThriveScreens on _ThriveHomeState {
 
   (String, Color) _envelopeDelta(_BlockCompute block) {
     if (block.overCap) {
-      return ('over by ${eur(block.total - block.cap!, cents: false)}', B.red);
+      return (
+        'over by ${eur(block.total - block.cap!, cents: false)}',
+        context.tc.red,
+      );
     }
-    if (block.settled) return ('all paid', B.greenText);
-    if (block.cap == null || block.cap == 0) return ('No limit set', B.muted);
+    if (block.settled) return ('all paid', context.tc.greenText);
+    if (block.cap == null || block.cap == 0) {
+      return ('No limit set', context.tc.muted);
+    }
     final left = math.max(0, block.cap! - block.total);
     final nearCap = block.total / block.cap! >= .85;
-    return ('${eur(left, cents: false)} left', nearCap ? B.amberText : B.muted);
+    return (
+      '${eur(left, cents: false)} left',
+      nearCap ? context.tc.amberText : context.tc.muted,
+    );
   }
 
   Color _envelopeStateColor(_BlockCompute block) {
-    if (block.overCap) return B.red;
+    if (block.overCap) return context.tc.red;
     if (block.cap != null &&
         block.cap! > 0 &&
         block.total / block.cap! >= .85) {
-      return B.amber;
+      return context.tc.amber;
     }
-    return B.primary;
+    return context.tc.primary;
   }
 
   Color _envelopeFillColor(_BlockCompute block) {
@@ -428,24 +440,24 @@ extension _ThriveScreens on _ThriveHomeState {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.tc.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
           ),
           child: Row(
             children: [
-              _summaryTile('Items', '${rows.length}', B.ink),
+              _summaryTile('Items', '${rows.length}', context.tc.ink),
               const SizedBox(width: 8),
               _summaryTile(
                 'Paid total',
                 eur(paidTotal, cents: false),
-                B.greenText,
+                context.tc.greenText,
               ),
               const SizedBox(width: 8),
               _summaryTile(
                 'Open total',
                 eur(openTotal, cents: false),
-                B.amberText,
+                context.tc.amberText,
               ),
             ],
           ),
@@ -455,17 +467,17 @@ extension _ThriveScreens on _ThriveHomeState {
             width: double.infinity,
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.tc.surface,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: B.line),
+              border: Border.all(color: context.tc.line),
             ),
-            child: const Text(
+            child: Text(
               'No items in this month yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
           )
@@ -493,15 +505,15 @@ extension _ThriveScreens on _ThriveHomeState {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: B.ink,
+                  color: context.tc.ink,
                 ),
               ),
               const SizedBox(width: 8),
-              const Expanded(
-                child: Divider(height: 1, thickness: 1, color: B.line),
+              Expanded(
+                child: Divider(height: 1, thickness: 1, color: context.tc.line),
               ),
             ],
           ),
@@ -511,9 +523,9 @@ extension _ThriveScreens on _ThriveHomeState {
         Container(
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.tc.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: B.line),
+            border: Border.all(color: context.tc.line),
           ),
           child: Column(
             children: [
@@ -558,7 +570,7 @@ extension _ThriveScreens on _ThriveHomeState {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           border: topBorder
-              ? const Border(top: BorderSide(color: B.faint))
+              ? Border(top: BorderSide(color: context.tc.faint))
               : null,
         ),
         child: Row(
@@ -572,20 +584,20 @@ extension _ThriveScreens on _ThriveHomeState {
                   Text(
                     row.label,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
-                      color: B.text,
+                      color: context.tc.text,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     row.subtitle,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
-                      color: B.muted,
+                      color: context.tc.muted,
                     ),
                   ),
                 ],
@@ -597,7 +609,7 @@ extension _ThriveScreens on _ThriveHomeState {
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
-                color: row.isIncome ? B.greenText : B.ink,
+                color: row.isIncome ? context.tc.greenText : context.tc.ink,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -687,7 +699,7 @@ extension _ThriveScreens on _ThriveHomeState {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: B.faint,
+          color: context.tc.faint,
           borderRadius: BorderRadius.circular(13),
         ),
         child: Column(
@@ -695,11 +707,11 @@ extension _ThriveScreens on _ThriveHomeState {
           children: [
             Text(
               label.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: .4,
-                color: B.muted,
+                color: context.tc.muted,
               ),
             ),
             const SizedBox(height: 3),
@@ -747,15 +759,19 @@ extension _ThriveScreens on _ThriveHomeState {
     final pill = Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: on ? B.greenSoft : Colors.white,
+        color: on ? context.tc.greenSoft : context.tc.surface,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: on ? B.greenLine : const Color(0xffe5e7eb)),
+        border: Border.all(
+          color: on
+              ? context.tc.greenLine
+              : context.tc.pick(const Color(0xffe5e7eb), context.tc.line),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (on) ...[
-            ic('check', size: 12, sw: 2.8, color: B.greenText),
+            ic('check', size: 12, sw: 2.8, color: context.tc.greenText),
             const SizedBox(width: 4),
           ],
           Text(
@@ -763,7 +779,7 @@ extension _ThriveScreens on _ThriveHomeState {
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: on ? B.greenText : B.muted,
+              color: on ? context.tc.greenText : context.tc.muted,
             ),
           ),
         ],
@@ -773,19 +789,14 @@ extension _ThriveScreens on _ThriveHomeState {
     return GestureDetector(onTap: onTap, child: pill);
   }
 
-  Widget _bar(
-    double frac,
-    Color color, {
-    double height = 6,
-    Color track = B.track,
-  }) {
+  Widget _bar(double frac, Color color, {double height = 6, Color? track}) {
     final f = frac.isNaN ? 0.0 : frac.clamp(0.0, 1.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: Container(
         width: double.infinity,
         height: height,
-        color: track,
+        color: track ?? ThriveColors.current.track,
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           alignment: Alignment.centerLeft,

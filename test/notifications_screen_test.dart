@@ -55,6 +55,7 @@ void main() {
   });
 
   tearDown(() {
+    themeModeNotifier.value = ThemeMode.system;
     messenger.setMockMethodCallHandler(_native, null);
     messenger.setMockMethodCallHandler(_plugin, null);
     PushService.messaging = null;
@@ -186,8 +187,8 @@ void main() {
   });
 
   testWidgets('dark (2g) uses the Family Vault palette', (tester) async {
+    themeModeNotifier.value = ThemeMode.dark;
     await pumpApp(tester, landOnDefaultTab: true);
-    thriveDebug.futureDark = true;
     openNotifs();
     await tester.pumpAndSettle();
     final scaffold = tester.widget<Scaffold>(
