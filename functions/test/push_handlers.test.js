@@ -468,3 +468,24 @@ test('first device registration backfills events created before this phone opene
   assert.ok(tokens(messaging).includes('tok-bram'));
   assert.equal(db.store.has(base), true);
 });
+
+test('deleted event and disabled start scope suppress queued cloud work', async () => {
+  const source = `families/${FID}/calendar/main/months/2026-10/events/ev1`;
+  const { db, h, clock, messaging } = setup({ extra: {
+    [source]: { ...ev, reminder: 'none' },
+    'users/u-anna': { notifPrefs: { cal: { events: { start: false } } } },
+    'users/u-bram': { notifPrefs: { cal: { on: false } } },
+    'users/u-liv': { notifPrefs: { cal: { events: { start: false } } } },
+  } });
+  await h.refreshReminders();
+  clock.t = Date.parse('2026-10-14T12:30:30Z');
+  await h.runDueReminders();
+  assert.equal(messaging.sent.length, 0);
+  db.store.set(source, { ...ev, reminder: '1h' });
+  clock.t = NOON;
+  await h.refreshReminders();
+  db.store.delete(source);
+  clock.t = Date.parse('2026-10-14T11:30:30Z');
+  await h.runDueReminders();
+  assert.equal(messaging.sent.length, 0);
+});
