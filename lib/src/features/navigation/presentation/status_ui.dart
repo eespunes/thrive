@@ -24,10 +24,7 @@ enum StatusChipKind {
     saving || syncing => const Color(0xffb7e3db),
     loading => const Color(0xffbfdcea),
     _ => ThriveColors.current.pick(
-      ThriveColors.current.pick(
-        const Color(0xffe2e8f0),
-        ThriveColors.current.line,
-      ),
+      const Color(0xffe2e8f0),
       ThriveColors.current.line,
     ),
   };

@@ -101,6 +101,49 @@ void main() {
     expect(ThriveColors.light.lerp(null, .5), ThriveColors.light);
   });
 
+  test('copyWith changes requested colors and preserves the rest', () {
+    const light = ThriveColors.light;
+    const newPage = Color(0xff111111);
+    const newSurface = Color(0xff222222);
+    const newInk = Color(0xff333333);
+    final changed = light.copyWith(
+      page: newPage,
+      surface: newSurface,
+      ink: newInk,
+    );
+
+    expect(changed.page, newPage);
+    expect(changed.surface, newSurface);
+    expect(changed.ink, newInk);
+    expect(changed.text, light.text);
+    expect(changed.grad, light.grad);
+    expect(light.copyWith().page, light.page);
+    expect(light.copyWith().surface, light.surface);
+    expect(light.copyWith().ink, light.ink);
+  });
+
+  test('dark switches use readable knobs and themed tracks', () {
+    final theme = buildThriveTheme(Brightness.dark).switchTheme;
+    final thumb = theme.thumbColor!;
+    final track = theme.trackColor!;
+    expect(thumb.resolve({WidgetState.selected}), Colors.white);
+    expect(thumb.resolve({}), Colors.white);
+    expect(track.resolve({WidgetState.selected}), ThriveColors.dark.primary);
+    expect(track.resolve({}), ThriveColors.dark.track);
+  });
+
+  test('saved and offline chip tracks follow the active palette', () {
+    addTearDown(() => ThriveColors.current = ThriveColors.light);
+    ThriveColors.current = ThriveColors.light;
+    for (final kind in [StatusChipKind.saved, StatusChipKind.offline]) {
+      expect(kind.lightTrack(), const Color(0xffe2e8f0));
+    }
+    ThriveColors.current = ThriveColors.dark;
+    for (final kind in [StatusChipKind.saved, StatusChipKind.offline]) {
+      expect(kind.lightTrack(), ThriveColors.dark.line);
+    }
+  });
+
   testWidgets('themeMode swaps ThemeData and the extension values', (
     tester,
   ) async {
@@ -152,6 +195,26 @@ void main() {
     expect(find.text('Dark'), findsOneWidget);
     final ctx = tester.element(find.byKey(const ValueKey('hub-appearance')));
     expect(Theme.of(ctx).brightness, Brightness.dark);
+  });
+
+  testWidgets('main sections render after switching to dark mode', (
+    tester,
+  ) async {
+    themeModeNotifier.value = ThemeMode.dark;
+    await pumpApp(tester, landOnDefaultTab: true);
+    expect(ThriveColors.current.page, ThriveColors.dark.page);
+
+    for (final tab in ['home', 'calendar', 'lists', 'finance', 'more']) {
+      final nav = find.byKey(ValueKey('nav-$tab'));
+      if (nav.evaluate().isEmpty) continue;
+      await tester.tap(nav);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    for (final tab in ['overview', 'calendar', 'list', 'stats']) {
+      await goToTab(tester, tab);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   for (final mode in [Brightness.light, Brightness.dark]) {
