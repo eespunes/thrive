@@ -46,6 +46,7 @@ class _CalendarLayersScreen extends StatelessWidget {
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
+          onOfflineTap: s.openPendingChangesScreen,
           title: 'Calendar layers',
           subtitle: 'Appointments, to-dos & content',
           intro:
@@ -139,7 +140,7 @@ class _LayerStudioState extends State<_LayerStudio> {
       color: _color,
     );
     s.flash('Layer saved');
-    Navigator.of(context).maybePop();
+    Navigator.of(context).pop();
   }
 
   void _delete() {
@@ -168,9 +169,18 @@ class _LayerStudioState extends State<_LayerStudio> {
   @override
   Widget build(BuildContext context) {
     final canDelete = s.calendarLayers.length > 1;
+    final layer = s.layerDefFor(widget.layerId);
     return EditorSheet(
       title: 'Edit layer',
-      summary: 'Filter and colour group in the calendar',
+      headerConfirmLabel: 'Save',
+      showFooter: false,
+      isDirty:
+          layer != null &&
+          (_label != layer.label ||
+              _emoji != layer.emoji ||
+              _picture != layer.picture ||
+              _color != layer.color),
+      subtitle: 'Filter and colour group in the calendar',
       confirmLabel: 'Save layer',
       blockedReason: _label.trim().isEmpty ? 'Give it a name first' : null,
       onConfirm: _save,

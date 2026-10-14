@@ -86,6 +86,33 @@ void main() {
     expect(find.text('Meetings'), findsOneWidget);
   });
 
+  testWidgets('layer edits ask before discard', (tester) async {
+    await openLayers(tester);
+    await tester.tap(find.byKey(const ValueKey('layers-row-appt')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('badge-stage-name')),
+      'Unfinished layer',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard changes?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unfinished layer'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard changes'));
+    await tester.pumpAndSettle();
+    expect(
+      thriveDebug.calendarLayers
+          .firstWhere((layer) => layer.id == 'appt')
+          .label,
+      isNot('Unfinished layer'),
+    );
+  });
+
   testWidgets('delete counts the events and moves them to another layer', (
     tester,
   ) async {

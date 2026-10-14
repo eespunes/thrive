@@ -148,27 +148,6 @@ extension _ThriveAccountActions on _ThriveHomeState {
     );
   }
 
-  /// The signed-in user as an avatar identity.
-  Widget _headerAvatar() {
-    final u = user;
-    if (u == null) {
-      return Container(
-        decoration: const BoxDecoration(gradient: B.grad),
-        alignment: Alignment.center,
-        child: logoMark(size: 18),
-      );
-    }
-    final identity = profileAvatarIdentity(u);
-    return avatarNode(
-      photo: identity.photo,
-      initials: identity.initials,
-      color: identity.color,
-      size: 34,
-      radius: 11,
-      fs: 13,
-    );
-  }
-
   /// Member role / status pill styling, mirrors `memberPill`.
   ({Color bg, Color fg, String label}) memberPill(String role, String status) {
     if (status == 'invited') {

@@ -149,6 +149,20 @@ Future<void> goToTab(WidgetTester tester, String tab) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> openFinanceTimeline(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('flow-overdue-banner')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openProfileFromMore(WidgetTester tester) async {
+  if (find.byKey(const ValueKey('profile-avatar')).evaluate().isEmpty) {
+    await tester.tap(find.byKey(const ValueKey('nav-more')));
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+  await tester.pumpAndSettle();
+}
+
 /// Expands a Settings-hub card (#272) so its rows become tappable. No-op if
 /// the card is already open (one card at a time; probed via its row keys).
 Future<void> openHubCard(

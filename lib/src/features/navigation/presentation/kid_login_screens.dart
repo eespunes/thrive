@@ -245,10 +245,13 @@ class _KidSetupPage extends StatelessWidget {
             constraints: const BoxConstraints(maxWidth: 640),
             child: Column(
               children: [
-                studioBackHeader(
+                AppHeader(
                   title: title,
                   subtitle: subtitle,
-                  onBack: onBack ?? () => Navigator.of(context).maybePop(),
+                  leading: AppHeaderLeading.back,
+                  leadingKey: const ValueKey('studio-back'),
+                  onLeadingPressed:
+                      onBack ?? () => Navigator.of(context).maybePop(),
                 ),
                 Expanded(
                   child: ListView(

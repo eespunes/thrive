@@ -80,6 +80,25 @@ void main() {
     expect(thriveDebug.events.length, before + 1);
   });
 
+  testWidgets('close asks before discarding an edited event', (tester) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await openEditor(tester);
+    final before = thriveDebug.events.length;
+    await tester.enterText(find.byType(TextField).first, 'Unfinished event');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text('Discard changes?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unfinished event'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard changes'));
+    await tester.pumpAndSettle();
+    expect(thriveDebug.events.length, before);
+  });
+
   testWidgets('to-do kind reveals the done toggle and saves it ticked', (
     tester,
   ) async {

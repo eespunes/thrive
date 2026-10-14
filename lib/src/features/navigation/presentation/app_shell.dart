@@ -157,11 +157,13 @@ extension _ThriveAppShell on _ThriveHomeState {
     );
   }
 
-  /// Quick-Add FAB. Only shown on `calendar`/`lists`: calendar opens the
-  /// event editor directly, and lists opens the right sheet for whatever's
-  /// currently in view.
+  /// Quick-Add FAB for calendar, lists and editable Finance views.
   Widget? _buildFab({double bottomSystemInset = 0}) {
-    if (!const {'calendar', 'lists'}.contains(tab)) return null;
+    final financeAdd =
+        tab == 'finance' &&
+        const {'overview', 'calendar', 'list'}.contains(screen) &&
+        !isClosed();
+    if (!financeAdd && !const {'calendar', 'lists'}.contains(tab)) return null;
     return Positioned(
       right: 18,
       bottom: 92 + bottomSystemInset,
@@ -192,6 +194,10 @@ extension _ThriveAppShell on _ThriveHomeState {
   }
 
   void _onFabTap() {
+    if (tab == 'finance') {
+      openEntryTicket();
+      return;
+    }
     if (tab == 'calendar') {
       openEvent(null);
       return;

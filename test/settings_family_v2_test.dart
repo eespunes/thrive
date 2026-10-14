@@ -470,7 +470,7 @@ void main() {
       await pumpApp(tester, prefs: settingsV2Prefs());
       await thriveDebug.createFamily('Beach house');
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       final beachId = thriveDebug.families
           .firstWhere((f) => f.name == 'Beach house')

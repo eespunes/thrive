@@ -48,6 +48,7 @@ class _OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<_OnboardingScreen> {
   bool _create = true;
   bool _busy = false;
+  bool _scrolled = false;
   String? _picture;
   final _name = TextEditingController();
   final _username = TextEditingController();
@@ -176,131 +177,116 @@ class _OnboardingScreenState extends State<_OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final u = s.user;
     return Material(
       color: B.page,
       child: SafeArea(
-        child: SingleChildScrollView(
-          // Mirror the login screen: let the form scroll clear of the on-screen
-          // keyboard instead of being overlapped by it (issue #129).
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // hero
-              Container(
-                padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
-                decoration: const BoxDecoration(
-                  gradient: B.grad,
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(28),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          children: [
+            Container(
+              decoration: _scrolled
+                  ? const BoxDecoration(color: Colors.white)
+                  : const BoxDecoration(gradient: B.grad),
+              child: AppHeader(
+                hero: !_scrolled,
+                scrolled: _scrolled,
+                title: _create ? 'Create your family' : 'Join a family',
+                subtitle: 'Step 2 of 4',
+                leading: AppHeaderLeading.back,
+                leadingKey: const ValueKey('onboard-signout'),
+                onLeadingPressed: s.signOut,
+                toolbar: Row(
                   children: [
-                    Row(
-                      children: [
-                        s.avatarNode(
-                          photo: u?.photo,
-                          initials: u?.initials ?? '?',
-                          color: u?.color,
-                          size: 38,
-                          radius: 12,
-                          fs: 14,
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Signed in as',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                              Text(
-                                u?.name ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                    for (var step = 0; step < 4; step++) ...[
+                      if (step > 0) const SizedBox(width: 5),
+                      Expanded(
+                        child: Container(
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: step < 2
+                                ? (_scrolled ? B.primary : Colors.white)
+                                : (_scrolled ? B.line : Colors.white38),
+                            borderRadius: BorderRadius.circular(99),
                           ),
                         ),
-                        GestureDetector(
-                          key: const ValueKey('onboard-signout'),
-                          onTap: s.signOut,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: .12),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: .35),
-                              ),
-                            ),
-                            child: const Text(
-                              'Sign out',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final scrolled = notification.metrics.pixels > 0;
+                  if (_scrolled != scrolled) {
+                    setState(() => _scrolled = scrolled);
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  // Mirror the login screen: let the form scroll clear of the on-screen
+                  // keyboard instead of being overlapped by it (issue #129).
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // hero
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
+                        decoration: const BoxDecoration(
+                          gradient: B.grad,
+                          borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(28),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
+                            const Text(
+                              'One last step',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 23,
                                 fontWeight: FontWeight.w800,
+                                letterSpacing: -.4,
                                 color: Colors.white,
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Create a family workspace, or join one a relative '
+                              'already set up.',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'One last step',
-                      style: TextStyle(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -.4,
-                        color: Colors.white,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Create a family workspace, or join one a relative '
-                      'already set up.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.5,
-                        color: Colors.white,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _tabs(),
+                            const SizedBox(height: 20),
+                            if (_create) _createForm() else _joinForm(),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _tabs(),
-                    const SizedBox(height: 20),
-                    if (_create) _createForm() else _joinForm(),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

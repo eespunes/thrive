@@ -48,6 +48,7 @@ class _KitchenWallScreen extends StatelessWidget {
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
+          onOfflineTap: s.openPendingChangesScreen,
           title: 'Kitchen wall',
           subtitle: 'The shared tablet screen',
           intro:

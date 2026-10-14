@@ -32,12 +32,6 @@ String _weekdayLong(String dateIso) {
   return d == null ? dateIso : _kWeekdaysLong[d.weekday - 1];
 }
 
-/// ISO-8601 week number of [d].
-int _isoWeekNumber(DateTime d) {
-  final thursday = DateTime.utc(d.year, d.month, d.day + 4 - d.weekday);
-  return thursday.difference(DateTime.utc(thursday.year)).inDays ~/ 7 + 1;
-}
-
 /// The weekly meal plan, 2a redesign (#496, epic #500): a Mon–Sun day strip
 /// in the sub-header and, for the picked day, a dinner-first card with its
 /// ingredient checklist (#497) plus breakfast / lunch / note tiles. Every
@@ -66,78 +60,70 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
 
   /// Pinned under the tab title: "MEALS · WEEK 42 / October 12–18" with
   /// prev/next, then the seven-day strip.
+  Future<void> openWeekPicker() async {
+    final chosen = await showDatePicker(
+      context: context,
+      initialDate: _weekStart(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (chosen == null || !mounted) return;
+    final now = debugNowOverride?.call() ?? DateTime.now();
+    final thisMonday = _addDays(
+      DateTime(now.year, now.month, now.day),
+      1 - now.weekday,
+    );
+    final chosenMonday = _addDays(
+      DateTime(chosen.year, chosen.month, chosen.day),
+      1 - chosen.weekday,
+    );
+    update(() => weekOffset = chosenMonday.difference(thisMonday).inDays ~/ 7);
+  }
+
   Widget _weekSubHeader() {
-    final start = _weekStart();
-    final end = _addDays(start, 6);
-    final range = start.month == end.month
-        ? '${kMonthsEn[start.month - 1]} ${start.day}–${end.day}'
-        : '${kMonthsShort[start.month - 1]} ${start.day} – '
-              '${kMonthsShort[end.month - 1]} ${end.day}';
     Widget stepBtn(String icon, VoidCallback onTap, String key) =>
         GestureDetector(
           key: ValueKey(key),
           onTap: onTap,
           child: Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(11),
               border: Border.all(color: B.line),
             ),
-            child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.soft2)),
+            child: Center(child: ic(icon, size: 16, sw: 2.4, color: B.text)),
           ),
         );
-    final today = todayIso();
-    final sel = mealSelectedDay();
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'MEALS · WEEK ${_isoWeekNumber(start)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .4,
-                      color: B.muted,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    range,
-                    key: const ValueKey('week-range'),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -.5,
-                      color: B.ink,
-                    ),
-                  ),
-                ],
+        stepBtn('cleft', () => shiftWeek(-1), 'week-prev'),
+        const SizedBox(width: 8),
+        Expanded(
+          child: GestureDetector(
+            key: const ValueKey('week-this-week'),
+            onTap: () => update(() => weekOffset = 0),
+            child: Container(
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: B.soft,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Text(
+                'This week',
+                style: TextStyle(
+                  color: B.deep,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
-            stepBtn('cleft', () => shiftWeek(-1), 'week-prev'),
-            const SizedBox(width: 6),
-            stepBtn('cright', () => shiftWeek(1), 'week-next'),
-          ],
+          ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            for (int i = 0; i < 7; i++) ...[
-              if (i > 0) const SizedBox(width: 5),
-              Expanded(child: _dayStripCell(_addDays(start, i), i, sel, today)),
-            ],
-          ],
-        ),
+        const SizedBox(width: 8),
+        stepBtn('cright', () => shiftWeek(1), 'week-next'),
       ],
     );
   }
@@ -216,6 +202,22 @@ extension _ThriveWeeklyPlanScreen on _ThriveHomeState {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
       children: [
+        Row(
+          children: [
+            for (var index = 0; index < 7; index++) ...[
+              if (index > 0) const SizedBox(width: 5),
+              Expanded(
+                child: _dayStripCell(
+                  _addDays(_weekStart(), index),
+                  index,
+                  iso,
+                  todayIso(),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
         _dinnerCard(iso, day),
         const SizedBox(height: 12),
         Row(

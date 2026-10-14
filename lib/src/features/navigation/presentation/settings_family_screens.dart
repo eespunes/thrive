@@ -414,6 +414,7 @@ class _ProfileScreen extends StatelessWidget {
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
+          onOfflineTap: s.openPendingChangesScreen,
           title: 'Profile',
           subtitle: 'One identity, mirrored everywhere',
           onToast: s.flash,
@@ -665,6 +666,7 @@ class _FamilyScreen extends StatelessWidget {
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
+          onOfflineTap: s.openPendingChangesScreen,
           title: f.name,
           subtitle:
               '${f.members.length} member${f.members.length == 1 ? '' : 's'}',

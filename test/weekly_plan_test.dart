@@ -58,7 +58,7 @@ void main() {
     await pumpApp(tester, landOnDefaultTab: true);
     await goToWeekly(tester);
 
-    expect(find.textContaining('MEALS · WEEK'), findsOneWidget);
+    expect(find.text('This week'), findsOneWidget);
     expect(find.byWidgetPredicate(_isDayCell), findsNWidgets(7));
     expect(_key('meal-day-$_today'), findsOneWidget);
     expect(find.text('DINNER · ${_todayName.toUpperCase()}'), findsOneWidget);

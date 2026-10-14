@@ -115,6 +115,7 @@ class _ImportedCalendarsScreen extends StatelessWidget {
       builder: (context, _, _) => SettingsSubScreen(
         sync: s.syncStatus,
         offline: s.netOffline,
+        onOfflineTap: s.openPendingChangesScreen,
         title: 'Imported calendars',
         subtitle: 'Read-only ICS feeds',
         intro:
@@ -316,6 +317,18 @@ class _ImportStudioState extends State<_ImportStudio> {
       accent: _color,
       saveLabel: 'Save subscription',
       saveEnabled: !_saving && _url.text.trim().length > 4,
+      isDirty:
+          cal == null ||
+          _name != cal.name ||
+          _url.text != cal.url ||
+          _color != cal.color ||
+          _autoSync != cal.autoSync ||
+          _visible != cal.visible ||
+          _loc != cal.includeLocation ||
+          _desc != cal.includeDescription ||
+          _holidays != cal.holidays ||
+          _reminder != cal.reminder ||
+          _category != cal.category,
       onSave: () => unawaited(_save()),
       deleteLabel: 'Remove this calendar — its events disappear',
       onDelete: _delete,

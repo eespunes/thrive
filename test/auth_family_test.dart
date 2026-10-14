@@ -126,7 +126,7 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       expect(find.text('Profile'), findsOneWidget);
       expect(find.text('Janssen family'), findsWidgets);
@@ -148,7 +148,7 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       final free = kMemberColors.last;
       final freeHex = (free.toARGB32() & 0xFFFFFF)
@@ -220,7 +220,7 @@ void main() {
 
     testWidgets('creates a separate family workspace', (tester) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();

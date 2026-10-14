@@ -231,7 +231,7 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -258,7 +258,7 @@ void main() {
 
     testWidgets('new family sheet rejects a short password', (tester) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -282,7 +282,7 @@ void main() {
 
     testWidgets('join family sheet joins the demo family', (tester) async {
       await pumpApp(tester, prefs: joinableFamilyPrefs());
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-join-family')));
       await tester.pumpAndSettle();
@@ -302,7 +302,7 @@ void main() {
       tester,
     ) async {
       await pumpApp(tester);
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -325,7 +325,7 @@ void main() {
     testWidgets('new family sheet flags a taken username', (tester) async {
       await pumpApp(tester);
       // Create a family that claims the "beach-house" handle.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -348,7 +348,7 @@ void main() {
       // profile page first).
       await tester.tap(find.byKey(const ValueKey('studio-back')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();
@@ -376,7 +376,7 @@ void main() {
     testWidgets('family credentials card copies the username', (tester) async {
       await pumpApp(tester);
       // Create a credentialed family first so the cred card renders.
-      await tester.tap(find.byKey(const ValueKey('profile-avatar')));
+      await openProfileFromMore(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('profile-new-family')));
       await tester.pumpAndSettle();

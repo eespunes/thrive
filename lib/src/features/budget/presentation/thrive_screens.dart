@@ -41,8 +41,6 @@ extension _ThriveScreens on _ThriveHomeState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (c.closed) _closedBanner(),
-        _buildIncomeQuickAdd(c),
-        const SizedBox(height: 12),
         if (envelopes.isEmpty)
           Container(
             width: double.infinity,
@@ -103,44 +101,6 @@ extension _ThriveScreens on _ThriveHomeState {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildIncomeQuickAdd(_Compute c) {
-    final canEdit = !c.closed;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: GestureDetector(
-        key: const ValueKey('overview-add-income'),
-        onTap: canEdit ? () => openEntryTicket(cat: kIncomeBlockKey) : null,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 120),
-          opacity: canEdit ? 1 : .5,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: B.line),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ic('plus', size: 14, sw: 2.6, color: B.primary),
-                const SizedBox(width: 7),
-                const Text(
-                  'Add to Income',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: B.deep,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -268,15 +228,6 @@ extension _ThriveScreens on _ThriveHomeState {
                             height: 1.15,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      _overviewCardAction(
-                        key: ValueKey('overview-add-${block.key}'),
-                        tooltip: 'Add to ${block.title}',
-                        icon: 'plus',
-                        color: B.primary,
-                        enabled: canEdit,
-                        onTap: () => openEntryTicket(cat: block.key),
                       ),
                     ],
                   ),

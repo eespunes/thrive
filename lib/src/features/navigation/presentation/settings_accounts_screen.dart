@@ -66,6 +66,7 @@ class _AccountsScreen extends StatelessWidget {
       builder: (context, _, _) => SettingsSubScreen(
         sync: s.syncStatus,
         offline: s.netOffline,
+        onOfflineTap: s.openPendingChangesScreen,
         title: 'Accounts',
         subtitle: 'Who pays from where',
         intro:
@@ -171,7 +172,7 @@ class _AccountStudioState extends State<_AccountStudio> {
       emoji: _emoji,
       picture: _picture,
     );
-    Navigator.of(context).maybePop();
+    Navigator.of(context).pop();
   }
 
   void _delete() {
@@ -217,9 +218,19 @@ class _AccountStudioState extends State<_AccountStudio> {
   Widget build(BuildContext context) {
     final canDelete = s.accounts.length > 1;
     final named = _name.trim().isNotEmpty;
+    final account = _acc;
     return EditorSheet(
       title: 'Edit account',
-      summary: 'Used across budgets and the money calendar',
+      headerConfirmLabel: 'Save',
+      showFooter: false,
+      isDirty:
+          account != null &&
+          (_name != account.name ||
+              _short.text != account.short ||
+              _emoji != account.emoji ||
+              _picture != account.picture ||
+              _color != account.color),
+      subtitle: 'Used across budgets and the money calendar',
       confirmLabel: 'Save account',
       blockedReason: !named
           ? 'Give it a name first'

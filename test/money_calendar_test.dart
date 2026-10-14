@@ -83,7 +83,7 @@ void main() {
     testWidgets('third finance segment opens the flow screen', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
-      expect(find.text('Money calendar'), findsWidgets);
+      expect(find.text('Finance'), findsOneWidget);
       expect(find.text('LOWEST POINT THIS MONTH'), findsOneWidget);
       expect(find.textContaining('on the'), findsWidgets);
       expect(find.text('Money in'), findsOneWidget);
@@ -91,20 +91,18 @@ void main() {
       expect(find.byKey(const ValueKey('flow-start-btn')), findsOneWidget);
     });
 
-    testWidgets('toggling between calendar and timeline views', (tester) async {
+    testWidgets('calendar has no duplicate view switcher', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
-      expect(find.byKey(const ValueKey('flow-view-calendar')), findsOneWidget);
-      expect(find.byKey(const ValueKey('flow-view-timeline')), findsOneWidget);
+      expect(find.byKey(const ValueKey('flow-view-calendar')), findsNothing);
+      expect(find.byKey(const ValueKey('flow-view-timeline')), findsNothing);
       // Calendar grid renders a cell for day 1.
       expect(find.byKey(const ValueKey('flow-day-1')), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-      await tester.pumpAndSettle();
+      await openFinanceTimeline(tester);
       expect(find.byKey(const ValueKey('flow-day-1')), findsNothing);
 
-      await tester.tap(find.byKey(const ValueKey('flow-view-calendar')));
-      await tester.pumpAndSettle();
+      await goToTab(tester, 'flow');
       expect(find.byKey(const ValueKey('flow-day-1')), findsOneWidget);
     });
 
@@ -136,8 +134,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
-      await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-      await tester.pumpAndSettle();
+      await openFinanceTimeline(tester);
       await tester.tap(find.text('RENT').first);
       await tester.pumpAndSettle();
       // Editing opens with Details folded: unfold the day row.
@@ -160,8 +157,7 @@ void main() {
     testWidgets('shift field appears in the income edit sheet', (tester) async {
       await pumpApp(tester);
       await goToTab(tester, 'flow');
-      await tester.tap(find.byKey(const ValueKey('flow-view-timeline')));
-      await tester.pumpAndSettle();
+      await openFinanceTimeline(tester);
       final income = firstIncomeLabel(tester);
       await tester.tap(find.text(income).first);
       await tester.pumpAndSettle();

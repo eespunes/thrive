@@ -38,6 +38,7 @@ class _CategoriesScreen extends StatelessWidget {
       builder: (context, _, _) => SettingsSubScreen(
         sync: s.syncStatus,
         offline: s.netOffline,
+        onOfflineTap: s.openPendingChangesScreen,
         title: 'Categories',
         subtitle: 'Colours & icons across the calendar',
         intro: 'Colours & icons used across the calendar. Tap one to edit it.',
@@ -145,7 +146,7 @@ class _CategoryStudioState extends State<_CategoryStudio> {
       members: _members,
       layerId: _layerId,
     );
-    Navigator.of(context).maybePop();
+    Navigator.of(context).pop();
   }
 
   void _delete() {
@@ -179,7 +180,17 @@ class _CategoryStudioState extends State<_CategoryStudio> {
     final n = _members.length;
     return EditorSheet(
       title: editing ? 'Edit category' : 'New category',
-      summary:
+      headerConfirmLabel: 'Save',
+      showFooter: false,
+      isDirty: _cat == null
+          ? _name.trim().isNotEmpty || _emoji != null || _picture != null
+          : _name != _cat!.name ||
+                _emoji != _cat!.emoji ||
+                _picture != _cat!.picture ||
+                _color != _cat!.color ||
+                _layerId != _cat!.layerId ||
+                !foundation.listEquals(_members, _cat!.members),
+      subtitle:
           '$layer · ${n == 0 ? 'nobody assigned' : '$n ${n == 1 ? 'person' : 'people'}'}',
       confirmLabel: editing ? 'Save category' : 'Add category',
       blockedReason: _name.trim().isEmpty ? 'Give it a name first' : null,

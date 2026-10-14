@@ -22,7 +22,7 @@ Future<T?> pushBadgeStudio<T>(BuildContext context, WidgetBuilder builder) {
 /// form body, and the sticky footer — save pinned to the true bottom (the
 /// content fades under it), tinted in the badge colour and disabled grey
 /// until valid; delete as a red text link UNDER save, never beside it.
-class BadgeStudioScaffold extends StatelessWidget {
+class BadgeStudioScaffold extends StatefulWidget {
   const BadgeStudioScaffold({
     super.key,
     required this.title,
@@ -31,6 +31,7 @@ class BadgeStudioScaffold extends StatelessWidget {
     required this.saveLabel,
     required this.saveEnabled,
     required this.onSave,
+    this.isDirty = false,
     this.deleteLabel,
     this.onDelete,
     this.onBack,
@@ -39,196 +40,128 @@ class BadgeStudioScaffold extends StatelessWidget {
 
   final String title;
   final String? subtitle;
-
-  /// The item's colour — it tints its own editor (stage + save button).
   final Color accent;
   final String saveLabel;
   final bool saveEnabled;
-  final VoidCallback onSave;
-
-  /// Descriptive red link under save, e.g. "Delete layer — its events move
-  /// to another layer". Hidden when null (e.g. min-1 guard or a new item).
+  final FutureOr<void> Function() onSave;
+  final bool isDirty;
   final String? deleteLabel;
   final VoidCallback? onDelete;
-
-  /// Defaults to popping the route.
   final VoidCallback? onBack;
   final List<Widget> children;
 
   static const Color _pageBg = Color(0xfff8fafc);
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _pageBg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            studioBackHeader(
-              title: title,
-              subtitle: subtitle,
-              onBack: onBack ?? () => Navigator.of(context).maybePop(),
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        0,
-                        16,
-                        // Room for the sticky footer so the last field can
-                        // scroll clear of it.
-                        deleteLabel != null ? 132 : 96,
-                      ),
-                      children: children,
-                    ),
-                  ),
-                  Positioned(left: 0, right: 0, bottom: 0, child: _footer()),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  State<BadgeStudioScaffold> createState() => _BadgeStudioScaffoldState();
+}
+
+class _BadgeStudioScaffoldState extends State<BadgeStudioScaffold> {
+  bool _discardApproved = false;
+  bool _scrolled = false;
+
+  Future<void> _save() async {
+    setState(() => _discardApproved = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await widget.onSave();
+    if (mounted) setState(() => _discardApproved = false);
   }
 
-  Widget _footer() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-      // Content fades under the footer, per the design's
-      // `linear-gradient(#f8fafc00,#f8fafc 30%)`.
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x00f8fafc), _pageBg],
-          stops: [0, .3],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            key: const ValueKey('studio-save'),
-            behavior: HitTestBehavior.opaque,
-            onTap: saveEnabled ? onSave : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: saveEnabled ? accent : const Color(0xffe2e8f0),
-                borderRadius: BorderRadius.circular(13),
-                boxShadow: saveEnabled
-                    ? [
-                        BoxShadow(
-                          color: accent,
-                          blurRadius: 26,
-                          spreadRadius: -14,
-                          offset: const Offset(0, 12),
-                        ),
-                      ]
-                    : const [],
-              ),
-              child: Text(
-                saveLabel,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: saveEnabled ? contrastOn(accent) : B.muted,
-                ),
-              ),
-            ),
+  Future<void> _close() async {
+    if (!widget.isDirty || _discardApproved) {
+      if (widget.onBack != null) {
+        widget.onBack!();
+      } else {
+        Navigator.of(context).maybePop();
+      }
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Discard changes?'),
+        content: const Text('Your edits have not been saved.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep editing'),
           ),
-          if (deleteLabel != null)
-            GestureDetector(
-              key: const ValueKey('studio-delete'),
-              behavior: HitTestBehavior.opaque,
-              onTap: onDelete,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(11, 13, 11, 2),
-                child: Text(
-                  deleteLabel!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: B.red,
-                  ),
-                ),
-              ),
-            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Discard'),
+          ),
         ],
       ),
     );
+    if (discard != true || !mounted) return;
+    setState(() => _discardApproved = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _close();
+    });
   }
-}
 
-/// The studio's standard sub-screen header: ‹ back button + title/subtitle.
-Widget studioBackHeader({
-  required String title,
-  String? subtitle,
-  required VoidCallback onBack,
-  Widget? trailing,
-}) {
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-    child: Row(
-      children: [
-        GestureDetector(
-          key: const ValueKey('studio-back'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onBack,
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: B.line),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(child: ic('cleft', size: 16, sw: 2.4, color: B.text)),
-          ),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !widget.isDirty || _discardApproved,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close();
+      },
+      child: Scaffold(
+        backgroundColor: BadgeStudioScaffold._pageBg,
+        body: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -.4,
-                  color: B.ink,
-                ),
+              AppHeader(
+                scrolled: _scrolled,
+                title: widget.title,
+                subtitle: widget.subtitle,
+                leading: AppHeaderLeading.close,
+                leadingKey: const ValueKey('studio-back'),
+                onLeadingPressed: _close,
+                textAction: 'Save',
+                textActionKey: const ValueKey('studio-save'),
+                onTextActionPressed: widget.saveEnabled ? _save : null,
               ),
-              if (subtitle != null && subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: B.muted,
+              Expanded(
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    final scrolled = notification.metrics.pixels > 0;
+                    if (_scrolled != scrolled) {
+                      setState(() => _scrolled = scrolled);
+                    }
+                    return false;
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    children: [
+                      ...widget.children,
+                      if (widget.deleteLabel != null) ...[
+                        const SizedBox(height: 24),
+                        TextButton(
+                          key: const ValueKey('studio-delete'),
+                          onPressed: widget.onDelete,
+                          child: Text(
+                            widget.deleteLabel!,
+                            style: const TextStyle(
+                              color: B.red,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
+              ),
             ],
           ),
         ),
-        if (trailing != null) ...[const SizedBox(width: 8), trailing],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 // ------------------------------------------------------------ badge stage
@@ -644,6 +577,9 @@ class SettingsSubScreen extends StatefulWidget {
     this.onToast,
     this.sync,
     this.offline,
+    this.onOfflineTap,
+    this.actions = const [],
+    this.toolbar,
   });
 
   final String title;
@@ -655,6 +591,9 @@ class SettingsSubScreen extends StatefulWidget {
 
   /// While it reports true, the header chip reads "Offline · saved on phone".
   final foundation.ValueListenable<bool>? offline;
+  final VoidCallback? onOfflineTap;
+  final List<AppHeaderAction> actions;
+  final Widget? toolbar;
 
   /// The one-liner under the header explaining the screen.
   final String? intro;
@@ -675,6 +614,7 @@ class SettingsSubScreen extends StatefulWidget {
 
 class _SettingsSubScreenState extends State<SettingsSubScreen> {
   final TextEditingController _add = TextEditingController();
+  bool _scrolled = false;
 
   @override
   void dispose() {
@@ -699,13 +639,19 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            studioBackHeader(
+            AppHeader(
               title: widget.title,
               subtitle: widget.subtitle,
-              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+              leading: AppHeaderLeading.back,
+              leadingKey: const ValueKey('studio-back'),
+              scrolled: _scrolled,
+              actions: widget.actions,
+              toolbar: widget.toolbar,
+              onLeadingPressed:
+                  widget.onBack ?? () => Navigator.of(context).maybePop(),
               // The latest save's progress, or — while saves don't get
               // through — "Offline · saved on phone".
-              trailing: widget.sync == null && widget.offline == null
+              statusChip: widget.sync == null && widget.offline == null
                   ? null
                   : ListenableBuilder(
                       listenable: Listenable.merge([
@@ -720,109 +666,125 @@ class _SettingsSubScreenState extends State<SettingsSubScreen> {
                                 : null);
                         return ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 190),
-                          child: statusChipSwitcher(
-                            status == null ? null : settingsSyncPill(status),
+                          child: GestureDetector(
+                            key: const ValueKey('sync-pill-tap'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: status == SettingsSyncStatus.queued
+                                ? widget.onOfflineTap
+                                : null,
+                            child: statusChipSwitcher(
+                              status == null ? null : settingsSyncPill(status),
+                            ),
                           ),
                         );
                       },
                     ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-                children: [
-                  if (widget.intro != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
-                      child: Text(
-                        widget.intro!,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: B.muted,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  final scrolled = notification.metrics.pixels > 0;
+                  if (_scrolled != scrolled) {
+                    setState(() => _scrolled = scrolled);
+                  }
+                  return false;
+                },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                  children: [
+                    if (widget.intro != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 0, 2, 10),
+                        child: Text(
+                          widget.intro!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: B.muted,
+                          ),
                         ),
                       ),
-                    ),
-                  ...widget.children,
-                  if (widget.addPlaceholder != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: B.line),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: TextField(
-                                key: const ValueKey('list-add-input'),
-                                controller: _add,
-                                onSubmitted: (_) => _submit(),
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 13,
-                                    vertical: 11,
-                                  ),
-                                  hintText: widget.addPlaceholder,
-                                  hintStyle: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: B.muted,
-                                  ),
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: B.ink,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            key: const ValueKey('list-add-button'),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: _submit,
-                            child: Container(
-                              height: 42,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: B.primary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                widget.addLabel,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+                    ...widget.children,
+                    if (widget.addPlaceholder != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
                                   color: Colors.white,
+                                  border: Border.all(color: B.line),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: TextField(
+                                  key: const ValueKey('list-add-input'),
+                                  controller: _add,
+                                  onSubmitted: (_) => _submit(),
+                                  decoration: InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 13,
+                                      vertical: 11,
+                                    ),
+                                    hintText: widget.addPlaceholder,
+                                    hintStyle: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: B.muted,
+                                    ),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: B.ink,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (widget.footnote != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
-                      child: Text(
-                        widget.footnote!,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: B.muted,
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              key: const ValueKey('list-add-button'),
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _submit,
+                              child: Container(
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: B.primary,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  widget.addLabel,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                ],
+                    if (widget.footnote != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
+                        child: Text(
+                          widget.footnote!,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: B.muted,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

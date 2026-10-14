@@ -114,6 +114,7 @@ class EditorSheet extends StatelessWidget {
     this.onCancel,
     this.showFooter = true,
     this.headerConfirmLabel,
+    this.isDirty = false,
     this.confirmKey = const ValueKey('editor-confirm'),
     this.deleteKey = const ValueKey('editor-delete'),
     this.cancelKey = const ValueKey('editor-cancel'),
@@ -149,6 +150,7 @@ class EditorSheet extends StatelessWidget {
   /// Save`) under this label instead of the footer button — pair it with
   /// `showFooter: false`.
   final String? headerConfirmLabel;
+  final bool isDirty;
   final Key confirmKey;
   final Key deleteKey;
   final Key cancelKey;
@@ -164,53 +166,92 @@ class EditorSheet extends StatelessWidget {
       if (body.isNotEmpty) body.add(const SizedBox(height: 18));
       body.add(_deleteButton());
     }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxH = constraints.maxHeight.isFinite
-            ? constraints.maxHeight * .94
-            : MediaQuery.of(context).size.height * .94;
-        return Container(
-          constraints: BoxConstraints(maxHeight: maxH),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _header(context),
-              if (pinned != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                  child: pinned,
-                ),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    10,
-                    16,
-                    showFooter
-                        ? 20
-                        : 20 + MediaQuery.of(context).padding.bottom,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: body,
-                  ),
-                ),
-              ),
-              if (showFooter) _footer(context),
-            ],
-          ),
-        );
+    return PopScope(
+      canPop: !isDirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (isDirty && !didPop) _confirmDiscard(context);
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxH = constraints.maxHeight.isFinite
+              ? constraints.maxHeight * .94
+              : MediaQuery.of(context).size.height * .94;
+          return Container(
+            constraints: BoxConstraints(maxHeight: maxH),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(context),
+                if (pinned != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                    child: pinned,
+                  ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      10,
+                      16,
+                      showFooter
+                          ? 20
+                          : 20 + MediaQuery.of(context).padding.bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: body,
+                    ),
+                  ),
+                ),
+                if (showFooter) _footer(context),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDiscard(BuildContext context) async {
+    final nav = Navigator.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x610f172a),
+      isScrollControlled: true,
+      builder: (sheetContext) => _DiscardSheet(
+        title: 'Discard changes?',
+        body: 'Your edits have not been saved.',
+        primary: 'Discard changes',
+        secondary: 'Keep editing',
+        onConfirm: () {
+          Navigator.of(sheetContext).pop();
+          nav.pop();
+        },
+        onCancel: () => Navigator.of(sheetContext).pop(),
+      ),
     );
   }
 
   Widget _header(BuildContext context) {
+    if (headerConfirmLabel != null) {
+      return AppHeader(
+        title: title,
+        subtitle: subtitle,
+        leading: AppHeaderLeading.close,
+        leadingKey: cancelKey,
+        onLeadingPressed: onCancel ?? () => Navigator.of(context).maybePop(),
+        textAction: headerConfirmLabel,
+        textActionKey: confirmKey,
+        onTextActionPressed: blockedReason == null ? onConfirm : null,
+      );
+    }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
       child: Column(

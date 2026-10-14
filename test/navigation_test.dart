@@ -14,6 +14,24 @@ void main() {
     expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
   });
 
+  testWidgets('offline chip keeps the calendar controls available', (
+    tester,
+  ) async {
+    await pumpApp(tester, landOnDefaultTab: true);
+    await tester.tap(find.byKey(const ValueKey('nav-calendar')));
+    await tester.pumpAndSettle();
+    thriveDebug.netOffline.value = true;
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not saved'), findsOneWidget);
+    expect(find.byKey(const ValueKey('cal-header-filter')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Not saved'));
+    await tester.pumpAndSettle();
+    expect(find.text('Unsaved changes'), findsOneWidget);
+    thriveDebug.netOffline.value = false;
+  });
+
   testWidgets('tapping each bottom nav tab switches the shown screen', (
     tester,
   ) async {
@@ -34,7 +52,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-finance')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('finance-header-title')), findsOneWidget);
-    expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('nav-more')));
     await tester.pumpAndSettle();

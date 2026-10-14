@@ -124,6 +124,7 @@ class _BudgetBlocksScreen extends StatelessWidget {
       builder: (context, _, _) => SettingsSubScreen(
         sync: s.syncStatus,
         offline: s.netOffline,
+        onOfflineTap: s.openPendingChangesScreen,
         title: 'Budget blocks',
         subtitle: 'The columns of the monthly budget',
         intro:
@@ -255,7 +256,7 @@ class _BlockStudioState extends State<_BlockStudio> {
       isIncome: _isIncome,
       isSavings: !_isIncome && _isSavings,
     );
-    Navigator.of(context).maybePop();
+    Navigator.of(context).pop();
   }
 
   void _delete() {
@@ -304,9 +305,28 @@ class _BlockStudioState extends State<_BlockStudio> {
   @override
   Widget build(BuildContext context) {
     final canDelete = s.cats.length > 1;
+    final block = _cat;
+    final savedCap = s.cur()?.caps[widget.blockKey];
+    final savedCapText = savedCap == null || savedCap <= 0
+        ? ''
+        : savedCap.toStringAsFixed(0);
     return EditorSheet(
       title: 'Edit block',
-      summary: _summary,
+      headerConfirmLabel: 'Save',
+      showFooter: false,
+      isDirty:
+          block != null &&
+          (_title != block.title ||
+              _emoji != block.emoji ||
+              _picture != block.picture ||
+              _tone != block.tone ||
+              _isIncome != block.isIncome ||
+              _temporary != block.temporary ||
+              _hasUntil != block.hasUntil ||
+              _isSavings != block.isSavings ||
+              _icon != block.icon ||
+              _cap.text != savedCapText),
+      subtitle: _summary,
       confirmLabel: 'Save block',
       blockedReason: _title.trim().isEmpty
           ? 'Give it a name first'

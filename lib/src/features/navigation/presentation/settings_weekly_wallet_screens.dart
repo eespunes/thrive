@@ -71,6 +71,7 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
     return SettingsSubScreen(
       sync: s.syncStatus,
       offline: s.netOffline,
+      onOfflineTap: s.openPendingChangesScreen,
       title: 'Weekly plan',
       subtitle: 'Meals for the week',
       intro: 'Dinner plan · $range — type straight in, it saves as you go.',
@@ -133,13 +134,20 @@ class _WeeklyPlanSubScreenState extends State<_WeeklyPlanSubScreen> {
   }
 }
 
-class _WalletSubScreen extends StatelessWidget {
+class _WalletSubScreen extends StatefulWidget {
   const _WalletSubScreen({required this.state});
   final _ThriveHomeState state;
 
   @override
+  State<_WalletSubScreen> createState() => _WalletSubScreenState();
+}
+
+class _WalletSubScreenState extends State<_WalletSubScreen> {
+  String _query = '';
+
+  @override
   Widget build(BuildContext context) {
-    final s = state;
+    final s = widget.state;
     return ValueListenableBuilder<int>(
       valueListenable: s._rev,
       builder: (context, _, _) {
@@ -147,8 +155,26 @@ class _WalletSubScreen extends StatelessWidget {
         return SettingsSubScreen(
           sync: s.syncStatus,
           offline: s.netOffline,
+          onOfflineTap: s.openPendingChangesScreen,
           title: 'Discount cards',
-          subtitle: 'The family wallet',
+          subtitle: '${s.cards.length} cards',
+          actions: [
+            AppHeaderAction(
+              icon: 'plus',
+              tooltip: 'Add card',
+              key: const ValueKey('wallet-sub-add'),
+              onPressed: s.openCardScan,
+            ),
+          ],
+          toolbar: TextField(
+            key: const ValueKey('wallet-sub-search'),
+            onChanged: (value) => setState(() => _query = value),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Search cards',
+              border: OutlineInputBorder(),
+            ),
+          ),
           intro:
               'Everyone in $famName can use these at the till. '
               'Tap a card to show it.',
@@ -157,7 +183,10 @@ class _WalletSubScreen extends StatelessWidget {
               : 'Brightness goes up automatically at the till.',
           onToast: s.flash,
           children: [
-            for (final c in s.cards)
+            for (final c in s.cards.where(
+              (card) =>
+                  card.name.toLowerCase().contains(_query.trim().toLowerCase()),
+            ))
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: SettingsListRow(
@@ -174,31 +203,6 @@ class _WalletSubScreen extends StatelessWidget {
                   onTap: () => s.openCardFace(c.id),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: GestureDetector(
-                key: const ValueKey('wallet-sub-add'),
-                behavior: HitTestBehavior.opaque,
-                onTap: s.openCardScan,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: B.primary),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    '＋ Add a card',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: B.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ],
         );
       },

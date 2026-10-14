@@ -20,6 +20,59 @@ void main() {
     expect(find.text('PLANNED SPEND'), findsOneWidget);
     expect(find.text('STILL OPEN'), findsOneWidget);
     expect(find.byKey(const ValueKey('envelope-home')), findsOneWidget);
+    expect(find.text('Add to Income'), findsNothing);
+    expect(find.byKey(const ValueKey('overview-add-home')), findsNothing);
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsOneWidget);
+  });
+
+  testWidgets('one Finance add button opens the entry editor on each view', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    for (final view in ['overview', 'calendar', 'list']) {
+      if (view != 'overview') await goToTab(tester, view);
+      await tester.tap(find.byKey(const ValueKey('quickadd-fab')));
+      await tester.pumpAndSettle();
+      expect(find.text('New expense'), findsOneWidget);
+      Navigator.of(tester.element(find.text('New expense'))).pop();
+      await tester.pumpAndSettle();
+    }
+    await goToTab(tester, 'stats');
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
+  });
+
+  testWidgets('finance content sits close below the month on every view', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    double gapTo(Finder content) =>
+        tester.getTopLeft(content).dy -
+        tester.getBottomLeft(find.byKey(const ValueKey('month-chip'))).dy;
+
+    final overviewGap = gapTo(find.text('SAFE TO SPEND'));
+    expect(overviewGap, inInclusiveRange(0, 30));
+
+    void expectTabsOnBoundary() {
+      final gradientBottom = tester
+          .getRect(find.byKey(const ValueKey('finance-hero-gradient')))
+          .bottom;
+      final tabs = tester.getRect(find.byKey(const ValueKey('tab-overview')));
+      expect(tabs.top, lessThan(gradientBottom));
+      expect(tabs.bottom, greaterThan(gradientBottom));
+    }
+
+    expectTabsOnBoundary();
+
+    for (final view in ['calendar', 'list', 'stats']) {
+      await goToTab(tester, view);
+      expect(
+        gapTo(find.byKey(const ValueKey('tab-overview'))),
+        inInclusiveRange(0, 30),
+      );
+      expectTabsOnBoundary();
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('a capped envelope fills across the full card width', (
@@ -43,16 +96,16 @@ void main() {
     expect(find.text('June 2026'), findsWidgets);
 
     await goToTab(tester, 'list');
-    expect(find.text('All items'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tab-list')), findsOneWidget);
     expect(find.text('June 2026'), findsWidgets);
 
     await goToTab(tester, 'stats');
-    expect(find.text('Statistics'), findsOneWidget);
-    expect(find.text('Month view'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tab-stats')), findsOneWidget);
+    expect(find.text('June 2026'), findsWidgets);
 
     await goToTab(tester, 'calendar');
-    expect(find.text('Money calendar'), findsOneWidget);
-    expect(find.text('June 2026 · day by day'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tab-calendar')), findsOneWidget);
+    expect(find.text('June 2026'), findsWidgets);
   });
 
   testWidgets('envelope sheet toggles an open item in place', (tester) async {
@@ -145,7 +198,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('stats-year')));
     await tester.pumpAndSettle();
-    expect(find.text('Full year 2026'), findsOneWidget);
+    expect(find.byKey(const ValueKey('stats-year')), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('stats-all')));
     await tester.pumpAndSettle();
@@ -158,6 +211,7 @@ void main() {
     final first = thriveDebug.unpaidItemsThisMonth().first;
     thriveDebug.closeMonth();
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('quickadd-fab')), findsNothing);
 
     await tester.tap(find.byKey(ValueKey('envelope-${first.$1.key}')));
     await tester.pumpAndSettle();
