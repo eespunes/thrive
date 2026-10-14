@@ -22,6 +22,7 @@ const OWNER = 'owner-uid';
 const MEMBER = 'member-uid';
 const OTHER = 'other-uid';
 const JOINER = 'joiner-uid';
+const STRANGER = 'stranger-uid';
 const FAM = 'fam1';
 
 const baseFamily = {
@@ -42,8 +43,10 @@ const baseFamily = {
 let env;
 
 function db(uid) {
-  return (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext())
-    .firestore();
+  return (uid
+    ? env.authenticatedContext(uid)
+    : env.unauthenticatedContext()
+  ).firestore();
 }
 const famRef = (d, id = FAM) => doc(d, 'families', id);
 
@@ -389,13 +392,33 @@ describe('family_handles', () => {
       familyId: FAM,
     }));
   });
-  it('any signed-in user can get a known handle; unauthenticated cannot', async () => {
+  it('any signed-in user can get a known handle', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
         { familyId: FAM });
     });
     await assertSucceeds(getDoc(doc(db(OTHER), 'family_handles', 'thefam')));
+    await assertSucceeds(getDoc(doc(db(STRANGER), 'family_handles', 'thefam')));
     await assertFails(getDoc(doc(db(null), 'family_handles', 'thefam')));
+  });
+  it('create only carries familyId, ownerUid and joinSalt', async () => {
+    await assertFails(setDoc(doc(db(OWNER), 'family_handles', 'thefam'), {
+      familyId: FAM, joinSalt: 'salt', joinHash: 'leak',
+    }));
+  });
+  it('owner may keep the handle on their family; nobody can retarget it', async () => {
+    await seed({ ...baseFamily, ownerUid: OTHER, memberUids: [OTHER],
+      username: 'thefam' }, 'fam2');
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'family_handles', 'thefam'),
+        { familyId: FAM });
+    });
+    const h = (d) => doc(d, 'family_handles', 'thefam');
+    await assertSucceeds(updateDoc(h(db(OWNER)), { joinSalt: 'new' }));
+    // Pointing the handle at someone else's family is a phishing vector.
+    await assertFails(updateDoc(h(db(OWNER)), { familyId: 'fam2' }));
+    await assertFails(updateDoc(h(db(MEMBER)), { joinSalt: 'evil' }));
+    await assertFails(updateDoc(h(db(OTHER)), { familyId: 'fam2' }));
   });
   it('nobody can list (enumerate) the handles collection', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -415,6 +438,110 @@ describe('family_handles', () => {
     });
     await assertFails(deleteDoc(doc(db(MEMBER), 'family_handles', 'thefam')));
     await assertSucceeds(deleteDoc(doc(db(OWNER), 'family_handles', 'thefam')));
+  });
+});
+
+describe('sign-in without a family allowlist', () => {
+  it('a signed-in account can write its own user doc and create a family', async () => {
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'users', STRANGER),
+      { familyIds: [] }));
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'users', STRANGER,
+      'unsavedChanges', 'c1'), { op: 'save' }));
+    await assertSucceeds(setDoc(doc(db(STRANGER), 'families', 'famx'), {
+      ...baseFamily, ownerUid: STRANGER, memberUids: [STRANGER],
+      username: 'famx',
+    }));
+  });
+  it('an account can join a family with the correct password proof', async () => {
+    await assertSucceeds(updateDoc(famRef(db(STRANGER)), {
+      joinProof: 'hash-abc',
+      memberUids: [OWNER, MEMBER, STRANGER],
+    }));
+  });
+  it('the retired allowlist collection is inaccessible', async () => {
+    await assertFails(getDoc(doc(db(OWNER), 'allowlist', 'a@example.com')));
+    await assertFails(setDoc(doc(db(OWNER), 'allowlist', 'a@example.com'), {}));
+  });
+});
+
+describe('users/{uid}', () => {
+  const user = (d, uid = MEMBER) => doc(d, 'users', uid);
+  it('owner-only read and write', async () => {
+    await assertSucceeds(setDoc(user(db(MEMBER)), { familyIds: [FAM] }));
+    await assertSucceeds(updateDoc(user(db(MEMBER)), { familyIds: [] }));
+    await assertSucceeds(getDoc(user(db(MEMBER))));
+    await assertFails(getDoc(user(db(OWNER))));
+    await assertFails(setDoc(user(db(OWNER)), { familyIds: ['evil'] }));
+    await assertFails(getDoc(user(db(null))));
+    await assertFails(getDocs(collection(db(MEMBER), 'users')));
+    await assertFails(deleteDoc(user(db(OWNER))));
+    await assertSucceeds(deleteDoc(user(db(MEMBER))));
+  });
+  it('unsavedChanges are owner-only', async () => {
+    const c = (d, uid = MEMBER) =>
+      doc(d, 'users', uid, 'unsavedChanges', 'c1');
+    await assertSucceeds(setDoc(c(db(MEMBER)), { op: 'x' }));
+    await assertSucceeds(getDoc(c(db(MEMBER))));
+    await assertSucceeds(getDocs(collection(db(MEMBER), 'users', MEMBER,
+      'unsavedChanges')));
+    await assertFails(getDoc(c(db(OWNER))));
+    await assertFails(setDoc(c(db(OWNER)), { op: 'evil' }));
+    await assertFails(deleteDoc(c(db(OWNER))));
+    await assertSucceeds(deleteDoc(c(db(MEMBER))));
+  });
+  it('other subcollections of a user doc are closed', async () => {
+    await assertFails(setDoc(doc(db(MEMBER), 'users', MEMBER, 'other', 'x'),
+      { a: 1 }));
+  });
+});
+
+describe('user_workspaces (legacy, read/delete-only)', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'user_workspaces', MEMBER),
+        { state: {} });
+    });
+  });
+  it('owner can read and delete it, but not write new data', async () => {
+    const ref = (d) => doc(d, 'user_workspaces', MEMBER);
+    await assertSucceeds(getDoc(ref(db(MEMBER))));
+    await assertFails(setDoc(ref(db(MEMBER)), { state: { big: 1 } }));
+    await assertFails(setDoc(doc(db(OWNER), 'user_workspaces', OWNER),
+      { state: {} }));
+    await assertFails(getDoc(ref(db(OWNER))));
+    await assertFails(deleteDoc(ref(db(OWNER))));
+    await assertSucceeds(deleteDoc(ref(db(MEMBER))));
+  });
+});
+
+describe('least privilege on family records', () => {
+  it('members cannot invent new top-level sections', async () => {
+    await assertFails(setDoc(recRef(db(MEMBER), 'dump/a'), { familyId: FAM }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'fcmTokens/t1'),
+      { familyId: FAM }));
+    await assertFails(setDoc(recRef(db(MEMBER), 'alexa/link'),
+      { familyId: FAM }));
+  });
+  it('family create checks the shape', async () => {
+    await assertFails(setDoc(doc(db(OTHER), 'families', 'famy'), {
+      ownerUid: OTHER, memberUids: [OTHER],
+    }));
+    await assertFails(setDoc(doc(db(OTHER), 'families', 'famy'), {
+      ...baseFamily, ownerUid: OTHER, memberUids: [OTHER], username: 'famy',
+      joinHash: 42,
+    }));
+  });
+});
+
+describe('default deny', () => {
+  it('unknown top-level collections are closed to everyone', async () => {
+    for (const path of ['config/app', 'fcmTokens/t1', 'alexaLinks/l1',
+      'pairingCodes/123456', 'anything/else']) {
+      const [c, id] = path.split('/');
+      await assertFails(setDoc(doc(db(OWNER), c, id), { a: 1 }));
+      await assertFails(getDoc(doc(db(OWNER), c, id)));
+      await assertFails(getDoc(doc(db(null), c, id)));
+    }
   });
 });
 

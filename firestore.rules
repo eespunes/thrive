@@ -1,9 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default deny: any path not matched below is unreachable from clients.
 
     // Per-user document: profile, the families they belong to and view state.
-    // Strictly owner-only.
+    // Owner-only.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
 
@@ -146,11 +147,17 @@ service cloud.firestore {
       // Members can read the shared workspace.
       allow read: if isMember();
 
-      // Create: the creator must be the owner and a member of their new family.
+      // Create: the creator must be the owner and a member of the new family.
+      // The shape is checked so a family can't be created without the fields
+      // every client relies on.
       allow create: if isSignedIn()
         && request.resource.data.ownerUid == uid()
         && request.resource.data.memberUids is list
-        && uid() in request.resource.data.memberUids;
+        && uid() in request.resource.data.memberUids
+        && request.resource.data.username is string
+        && request.resource.data.members is list
+        && (!('joinHash' in request.resource.data)
+            || request.resource.data.joinHash is string);
 
       // Update:
       //  - The OWNER may change anything except the username handle, and
@@ -244,10 +251,15 @@ service cloud.firestore {
       // Each doc carries its `familyId` so the app can load a whole collection
       // id with one collection-group query (rule below). A write must stamp
       // this family's id — which also locks out outdated app versions that
-      // still write the old flat layout.
+      // still write the old flat layout. Only the known top-level sections may
+      // be created or changed (a new section needs a rules change here and in
+      // the collection-group list below); anything else, such as leftover
+      // legacy docs, can only be read or deleted by members.
       match /{sub}/{document=**} {
         allow read, delete: if isFullMember();
-        allow create, update: if isFullMember() && versionOk() && familyIdOk();
+        allow create, update: if isFullMember() && versionOk() && familyIdOk()
+          && sub in ['settings', 'finance', 'calendar', 'meals', 'notes',
+                     'cards'];
       }
 
       // Kid accounts only reach their own world: the kitchen settings (for
@@ -343,6 +355,7 @@ service cloud.firestore {
       allow get: if request.auth != null;
 
       allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['familyId', 'ownerUid', 'joinSalt'])
         && request.resource.data.familyId is string
         && get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerUid
              == request.auth.uid
@@ -368,9 +381,10 @@ service cloud.firestore {
              == request.auth.uid;
     }
 
-    // Deprecated single-user blob, kept for migration/back-compat only.
+    // Deprecated single-user blob. The app only reads it to migrate old data,
+    // so it is read/delete-only; nobody may write new data into it.
     match /user_workspaces/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
     }
   }
 }

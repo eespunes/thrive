@@ -166,6 +166,23 @@ class _FakeFirebaseAuthPlatform extends FirebaseAuthPlatform {
   }
 }
 
+// FirebaseAuth.instance caches the first platform delegate it sees for the
+// app, so every test drives the same fake, reset to a clean state.
+_FakeFirebaseAuthPlatform? _authFake;
+_FakeFirebaseAuthPlatform _sharedAuth() {
+  final auth = _authFake ??= _FakeFirebaseAuthPlatform(app: Firebase.app());
+  auth
+    ..onCreateUser = null
+    ..onSignInEmail = null
+    ..onSignInCredential = null
+    ..signOutCalls = 0
+    ..createUserCalls = 0
+    ..signInEmailCalls = 0
+    ..signInCredentialCalls = 0
+    ..currentUser = null;
+  return auth;
+}
+
 class _FakeGoogleSignInPlatform extends GoogleSignInPlatform {
   _FakeGoogleSignInPlatform({
     this.authResult,
@@ -252,7 +269,7 @@ void main() {
     tester,
   ) async {
     await Firebase.initializeApp();
-    final auth = _FakeFirebaseAuthPlatform(app: Firebase.app());
+    final auth = _sharedAuth();
     auth.onCreateUser = (email, password) {
       final user = _FakeUser(
         auth: auth,
