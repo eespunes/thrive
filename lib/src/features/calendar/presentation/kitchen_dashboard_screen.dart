@@ -449,8 +449,8 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                     color: context.tc.ink.withValues(alpha: .8),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Center(
-                    child: Icon(Icons.close, color: Colors.white, size: 18),
+                  child: Center(
+                    child: Icon(Icons.close, color: context.tc.onInk, size: 18),
                   ),
                 ),
               ),
@@ -516,10 +516,10 @@ class _KitchenDashboardScreenState extends State<_KitchenDashboardScreen> {
                     ),
                     child: Text(
                       _toast,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: context.tc.onInk,
                       ),
                     ),
                   ),

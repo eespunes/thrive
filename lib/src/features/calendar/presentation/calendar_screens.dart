@@ -238,7 +238,7 @@ extension _ThriveCalendarScreens on _ThriveHomeState {
           icon,
           size: 16,
           sw: 2.2,
-          color: active ? Colors.white : context.tc.soft2,
+          color: active ? context.tc.onInk : context.tc.soft2,
         ),
       );
     }

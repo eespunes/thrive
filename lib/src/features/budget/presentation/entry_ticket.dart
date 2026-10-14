@@ -1159,12 +1159,12 @@ class _EntryTicketSheetState extends State<_EntryTicketSheet> {
                       color: context.tc.ink,
                       borderRadius: BorderRadius.circular(9),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Unlink',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: context.tc.onInk,
                       ),
                     ),
                   ),

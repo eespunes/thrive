@@ -1523,7 +1523,7 @@ class _CloseConfirmSheet extends StatelessWidget {
           borderRadius: BorderRadius.circular(11),
         ),
         child: Center(
-          child: ic('lock', size: 16, sw: 2.2, color: Colors.white),
+          child: ic('lock', size: 16, sw: 2.2, color: context.tc.onInk),
         ),
       ),
       title: 'Close $monthYear?',
@@ -1580,12 +1580,12 @@ class _CloseConfirmSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(13),
                     ),
                     alignment: Alignment.center,
-                    child: const Text(
+                    child: Text(
                       'Close month',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: context.tc.onInk,
                       ),
                     ),
                   ),

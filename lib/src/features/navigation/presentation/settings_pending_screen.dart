@@ -1032,7 +1032,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: on ? Colors.white : context.tc.text,
+                color: on ? context.tc.onInk : context.tc.text,
               ),
             ),
             const SizedBox(width: 6),
@@ -1041,7 +1041,7 @@ class _PendingChangesScreenState extends State<_PendingChangesScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: (on ? Colors.white : context.tc.text).withValues(
+                color: (on ? context.tc.onInk : context.tc.text).withValues(
                   alpha: .7,
                 ),
               ),

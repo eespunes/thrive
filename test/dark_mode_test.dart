@@ -95,6 +95,14 @@ void main() {
     }
   });
 
+  test('ink-filled controls use a readable foreground in both themes', () {
+    expect(ThriveColors.light.onInk, Colors.white);
+    expect(ThriveColors.dark.onInk, B.ink);
+    for (final c in [ThriveColors.light, ThriveColors.dark]) {
+      expect(_contrast(c.onInk, c.ink), greaterThanOrEqualTo(4.5));
+    }
+  });
+
   test('lerp blends and non-extensions are ignored', () {
     final mid = ThriveColors.light.lerp(ThriveColors.dark, 1);
     expect(mid.ink, ThriveColors.dark.ink);
@@ -215,6 +223,26 @@ void main() {
       await goToTab(tester, tab);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('money calendar summary uses dark text on its pale card', (
+    tester,
+  ) async {
+    themeModeNotifier.value = ThemeMode.dark;
+    await pumpApp(tester);
+    await goToTab(tester, 'flow');
+
+    final heading = tester.widget<Text>(find.text('LOWEST POINT THIS MONTH'));
+    expect(heading.style?.color, isNot(Colors.white));
+    expect(
+      _contrast(heading.style!.color!, ThriveColors.dark.ink),
+      greaterThanOrEqualTo(4.5),
+    );
+    final start = tester.widget<Text>(find.text('START'));
+    expect(
+      _contrast(start.style!.color!, ThriveColors.dark.ink),
+      greaterThanOrEqualTo(4.5),
+    );
   });
 
   for (final mode in [Brightness.light, Brightness.dark]) {

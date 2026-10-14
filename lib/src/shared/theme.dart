@@ -297,6 +297,9 @@ extension ThriveColorsExtra on ThriveColors {
   /// Keeps an exact legacy [light] colour in light mode.
   Color pick(Color light, Color dark) => isDark ? dark : light;
   bool get isDark => page.computeLuminance() < .5;
+
+  /// Foreground for controls and cards filled with [ink].
+  Color get onInk => isDark ? B.ink : Colors.white;
   Color get placeholder => isDark ? const Color(0xff64748b) : B.placeholder;
   Color get handle => isDark ? const Color(0xff334155) : B.handle;
   Color get toggleOff => isDark ? const Color(0xff3b4a5e) : B.toggleOff;

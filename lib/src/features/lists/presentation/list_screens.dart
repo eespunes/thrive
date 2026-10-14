@@ -221,7 +221,7 @@ extension _ThriveListScreens on _ThriveHomeState {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: on ? Colors.white : context.tc.soft2,
+              color: on ? context.tc.onInk : context.tc.soft2,
             ),
           ),
         ),

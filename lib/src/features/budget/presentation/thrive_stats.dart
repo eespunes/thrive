@@ -605,18 +605,15 @@ extension _ThriveStats on _ThriveHomeState {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: context.tc.pick(
-                const Color(0xffcbd5e1),
-                context.tc.toggleOff,
-              ),
+              color: context.tc.onInk.withValues(alpha: .8),
             ),
           ),
           Text(
             eur(m.net, cents: false),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: context.tc.onInk,
             ),
           ),
         ],

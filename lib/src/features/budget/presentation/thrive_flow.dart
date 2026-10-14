@@ -327,12 +327,21 @@ extension _ThriveFlow on _ThriveHomeState {
 
   // -------------------------------------------------------------- summary
   Widget _flowSummary(_FlowModel f) {
+    final foreground = context.tc.onInk;
+    final mutedForeground = foreground.withValues(alpha: .7);
+    final faintForeground = foreground.withValues(alpha: .55);
     final bad = f.low.bal < 0;
     final tight = !bad && f.low.bal < 300;
     const badTone = Color(0xfffda4af);
     const tightTone = Color(0xfffcd34d);
     const okTone = Color(0xff6ee7b7);
-    final tone = bad ? badTone : (tight ? tightTone : okTone);
+    final tone = context.tc.isDark
+        ? (bad
+              ? ThriveColors.light.red
+              : (tight
+                    ? ThriveColors.light.amberText
+                    : ThriveColors.light.greenText))
+        : (bad ? badTone : (tight ? tightTone : okTone));
     final label = bad
         ? 'Goes negative'
         : (tight ? 'Gets tight' : 'Stays positive');
@@ -344,11 +353,11 @@ extension _ThriveFlow on _ThriveHomeState {
         children: [
           Text(
             lab.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .5,
-              color: Color(0x8cffffff),
+              color: faintForeground,
             ),
           ),
           const SizedBox(height: 3),
@@ -391,34 +400,34 @@ extension _ThriveFlow on _ThriveHomeState {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'LOWEST POINT THIS MONTH',
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: .6,
-                        color: Color(0x8cffffff),
+                        color: faintForeground,
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text(
                         eur(f.low.bal, cents: false),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 27,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -.6,
-                          color: Colors.white,
+                          color: foreground,
                           fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
                     Text(
                       'on the ${ordinal(f.low.day)} \u00b7 ends at ${eur(f.end, cents: false)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xb3ffffff),
+                        color: mutedForeground,
                       ),
                     ),
                   ],
@@ -431,7 +440,7 @@ extension _ThriveFlow on _ThriveHomeState {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .1),
+                  color: foreground.withValues(alpha: .1),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
@@ -459,11 +468,15 @@ extension _ThriveFlow on _ThriveHomeState {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              stat('Money in', '+${eur(f.inSum, cents: false)}', okTone),
+              stat(
+                'Money in',
+                '+${eur(f.inSum, cents: false)}',
+                context.tc.isDark ? ThriveColors.light.greenText : okTone,
+              ),
               stat(
                 'Money out',
                 '\u2212${eur(f.outSum, cents: false)}',
-                badTone,
+                context.tc.isDark ? ThriveColors.light.red : badTone,
               ),
               GestureDetector(
                 key: const ValueKey('flow-start-btn'),
@@ -474,23 +487,23 @@ extension _ThriveFlow on _ThriveHomeState {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .07),
+                    color: foreground.withValues(alpha: .07),
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .18),
+                      color: foreground.withValues(alpha: .18),
                     ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'START',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: .5,
-                          color: Color(0x8cffffff),
+                          color: faintForeground,
                         ),
                       ),
                       Row(
@@ -498,19 +511,14 @@ extension _ThriveFlow on _ThriveHomeState {
                         children: [
                           Text(
                             eur(f.open, cents: false),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                              color: foreground,
                             ),
                           ),
                           const SizedBox(width: 5),
-                          ic(
-                            'edit',
-                            size: 11,
-                            sw: 2.4,
-                            color: const Color(0x99ffffff),
-                          ),
+                          ic('edit', size: 11, sw: 2.4, color: mutedForeground),
                         ],
                       ),
                     ],
@@ -528,7 +536,9 @@ extension _ThriveFlow on _ThriveHomeState {
     return SizedBox(
       height: 64,
       width: double.infinity,
-      child: CustomPaint(painter: _FlowChartPainter(f)),
+      child: CustomPaint(
+        painter: _FlowChartPainter(f, context.tc.onInk, context.tc.isDark),
+      ),
     );
   }
 
@@ -1471,12 +1481,14 @@ class _OpenBalSheetState extends State<_OpenBalSheet> {
 }
 
 // ============================================================= chart
-/// The dark projection card's running-balance line + area, ported from the
+/// The projection card's running-balance line + area, ported from the
 /// design's `flowChart()` SVG (line + soft fill, dashed zero line, a today
 /// marker, and a dot on the lowest point).
 class _FlowChartPainter extends CustomPainter {
-  _FlowChartPainter(this.model);
+  _FlowChartPainter(this.model, this.foreground, this.dark);
   final _FlowModel model;
+  final Color foreground;
+  final bool dark;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1493,7 +1505,9 @@ class _FlowChartPainter extends CustomPainter {
     double y(double v) =>
         size.height - 8 - ((v - minV) / span) * (size.height - 16);
 
-    const lineColor = Color(0xff34d399);
+    final lineColor = dark
+        ? ThriveColors.light.greenText
+        : const Color(0xff34d399);
 
     final linePath = Path()..moveTo(x(0), y(vals[0]));
     for (var i = 1; i < n; i++) {
@@ -1508,7 +1522,7 @@ class _FlowChartPainter extends CustomPainter {
     if (minV < 0 && maxV > 0) {
       final zeroY = y(0);
       final dashPaint = Paint()
-        ..color = Colors.white.withValues(alpha: .3)
+        ..color = foreground.withValues(alpha: .3)
         ..strokeWidth = 1;
       var dx = 0.0;
       while (dx < size.width) {
@@ -1541,7 +1555,7 @@ class _FlowChartPainter extends CustomPainter {
         Offset(tx, 2),
         Offset(tx, size.height),
         Paint()
-          ..color = Colors.white.withValues(alpha: .32)
+          ..color = foreground.withValues(alpha: .32)
           ..strokeWidth = 1,
       );
     }
@@ -1553,8 +1567,8 @@ class _FlowChartPainter extends CustomPainter {
       4,
       Paint()
         ..color = model.low.bal < 0
-            ? const Color(0xfffda4af)
-            : const Color(0xff34d399),
+            ? (dark ? ThriveColors.light.red : const Color(0xfffda4af))
+            : lineColor,
     );
     canvas.drawCircle(
       Offset(lowX, lowY),
@@ -1567,5 +1581,6 @@ class _FlowChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FlowChartPainter old) => old.model != model;
+  bool shouldRepaint(covariant _FlowChartPainter old) =>
+      old.model != model || old.foreground != foreground || old.dark != dark;
 }

@@ -158,15 +158,15 @@ extension _ThriveScreens on _ThriveHomeState {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .14),
+              color: context.tc.onInk.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Center(
-              child: ic('lock', size: 16, sw: 2.2, color: Colors.white),
+              child: ic('lock', size: 16, sw: 2.2, color: context.tc.onInk),
             ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -176,7 +176,7 @@ extension _ThriveScreens on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: context.tc.onInk,
                   ),
                 ),
                 Text(
@@ -184,7 +184,7 @@ extension _ThriveScreens on _ThriveHomeState {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xccffffff),
+                    color: context.tc.onInk.withValues(alpha: .8),
                   ),
                 ),
               ],
